@@ -16224,6 +16224,28 @@ a.module-nav-item.acc-active {
       <div class="opp-verdict" id="oppVerdict">
         <div class="vd-main">⏳ 正在抓取全球市場數據...</div>
       </div>
+
+      <!-- Token 提醒條 -->
+      <div id="oppTokenReminder" style="
+        margin-top:10px; padding:9px 14px;
+        background:#fefce8; border:1px solid #fde047; border-radius:10px;
+        display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+        font-size:0.78rem; color:#713f12;">
+        <span>🔑 <b>FinMind Token 未設定</b>——籌碼、OBI、融資等進階資料每日限 30 次，設定後升至 600 次</span>
+        <button onclick="openTokenModal()" style="
+          padding:4px 12px; border-radius:8px; border:1.5px solid #ca8a04;
+          background:#fef08a; color:#713f12; font-weight:700; font-size:0.75rem;
+          cursor:pointer; white-space:nowrap; flex-shrink:0;">
+          🔑 前往設定 Token
+        </button>
+        <a href="https://finmindtrade.com/" target="_blank" style="
+          font-size:0.72rem; color:#92400e; text-decoration:underline; white-space:nowrap;">
+          免費申請 FinMind 帳號 →
+        </a>
+        <button onclick="document.getElementById('oppTokenReminder').style.display='none'" style="
+          margin-left:auto; background:none; border:none; color:#a16207;
+          font-size:1rem; cursor:pointer; flex-shrink:0;" title="關閉提醒">✕</button>
+      </div>
     </div>
 
     <!-- 2. 💼 籌碼總覽 -->
@@ -65688,13 +65710,26 @@ const OPP_STOCKS = [
 
 /* ── 抓取單一 Yahoo 報價（複用既有 proxy 架構）── */
 async function _oppFetchOne(stock) {
-  try {
-    // 嘗試先用既有 fetchUSPrice（已含 proxy 邏輯）
-    if (typeof fetchUSPrice === 'function' && _usProxyStatus !== 'blocked') {
-      const d = await fetchUSPrice(stock.ticker);
-      return { ...stock, price: d.price, chg: d.chg, sim: false };
-    }
-  } catch(_) {}
+  // 直接嘗試 proxy（不依賴 _usProxyStatus 全域狀態，壓力表獨立嘗試）
+  const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stock.ticker}?range=5d&interval=1d&includePrePost=false`;
+  for (const mkProxy of US_PROXIES) {
+    try {
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 6000);
+      const r    = await fetch(mkProxy(yUrl), { signal: ctrl.signal }).finally(() => clearTimeout(tid));
+      if (!r.ok) continue;
+      const text = await r.text();
+      const raw  = (() => { try { const j=JSON.parse(text); return j?.contents ? JSON.parse(j.contents) : j; } catch(e){return null;} })();
+      const meta   = raw?.chart?.result?.[0]?.meta;
+      const quotes = raw?.chart?.result?.[0]?.indicators?.quote?.[0];
+      if (!meta) continue;
+      const closes = (quotes?.close || []).filter(Boolean);
+      const last   = meta.regularMarketPrice ?? closes.at(-1) ?? 0;
+      const prev   = closes.length >= 2 ? closes.at(-2) : last;
+      const chg    = prev > 0 ? (last - prev) / prev * 100 : 0;
+      if (last > 0) return { ...stock, price: last, chg: +chg.toFixed(2), sim: false };
+    } catch(_) { /* 靜默 fallback */ }
+  }
   // 備援：定錨模擬（同 _usSimPrice 邏輯）
   const today    = new Date();
   const dateSeed = today.getFullYear()*10000 + (today.getMonth()+1)*100 + today.getDate();
@@ -65841,6 +65876,18 @@ function _updateOpGuide() {
   setInterval(_updateOpGuide, 1000);
   // 壓力表：頁面載入後自動抓一次
   setTimeout(fetchOpeningPressure, 1200);
+  // Token 提醒：有 token 就隱藏
+  function _checkTokenReminder() {
+    const reminder = document.getElementById('oppTokenReminder');
+    if (!reminder) return;
+    const tok = window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '')
+                || localStorage.getItem('finmind_token') || '';
+    reminder.style.display = tok.trim() ? 'none' : '';
+  }
+  _checkTokenReminder();
+  // token 可能稍後設定，定期再檢查
+  setTimeout(_checkTokenReminder, 3000);
+  setTimeout(_checkTokenReminder, 8000);
 })();
 </script>
 
