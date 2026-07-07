@@ -52005,32 +52005,60 @@ async function _fetchAndRenderStockUsNews(dim) {
     })).filter(n => n.title.length > 3);
 
     // ── 備援：FinMind 無資料時改走 Yahoo Finance 新聞 ──
+    // 台股代號 → Yahoo Finance US 搜尋關鍵字對應表
+    const TW_TO_YF = {
+      '2330':'TSM',    '2317':'Foxconn', '2382':'Quanta',  '2454':'MediaTek',
+      '2303':'UMC',    '3711':'ASX',     '2308':'Delta Electronics Taiwan',
+      '2357':'Asus',   '2412':'Chunghwa Telecom', '2002':'China Steel',
+      '2881':'Fubon',  '2882':'Cathay',  '2886':'Mega Financial',
+      '6505':'Formosa Petrochemical', '1301':'Formosa Plastics',
+      '2409':'AUO',    '3008':'Largan',  '2376':'GigaByte',
+      '2377':'MSI',    '6770':'PSMC',    '4938':'Pegatron',
+    };
     if (allItems.length === 0) {
       let yahooItems = [];
-      try {
-        const yUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${sid}.TW&newsCount=30&quotesCount=0&lang=zh-TW`;
+      // 嘗試三種搜尋詞：US ticker / 英文名 / {stockId}.TW
+      const yfQuery = TW_TO_YF[sid] || `${sid}.TW`;
+      // 嘗試順序：v2/finance/news（symbols）→ v1/finance/search（q=keyword）
+      const yUrls = [
+        // 如果有 US ticker，先用 symbols 精確搜
+        TW_TO_YF[sid]
+          ? `https://query2.finance.yahoo.com/v2/finance/news?symbols=${encodeURIComponent(TW_TO_YF[sid])}&count=30`
+          : null,
+        // keyword 搜尋（英文名 or {stockId}.TW）
+        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(yfQuery)}&newsCount=30&quotesCount=0`,
+        // 最後保險：直接搜 {stockId}.TW
+        `https://query1.finance.yahoo.com/v1/finance/search?q=${sid}.TW&newsCount=30&quotesCount=0`,
+      ].filter(Boolean);
+
+      outer:
+      for (const yUrl of yUrls) {
         for (const mkProxy of US_PROXIES) {
           try {
             const pr  = await fetch(mkProxy(yUrl), { signal: AbortSignal.timeout(7000) });
             if (!pr.ok) continue;
             const pj  = await pr.json();
             const raw = pj?.contents ? JSON.parse(pj.contents) : pj;
-            const arr = Array.isArray(raw?.news) ? raw.news : [];
+            // v2/finance/news 回傳: raw.items.result[]
+            // v1/finance/search 回傳: raw.news[]
+            const arr = Array.isArray(raw?.items?.result) ? raw.items.result
+                      : Array.isArray(raw?.news)          ? raw.news
+                      : [];
             if (arr.length > 0) {
               yahooItems = arr.map(n => ({
-                title:   n.title || '',
+                title:   n.title || n.headline || '',
                 date:    n.providerPublishTime
                            ? new Date(n.providerPublishTime * 1000).toISOString().slice(0,19)
-                           : '',
-                url:     n.link || '',
+                           : (n.pubTime ? new Date(n.pubTime * 1000).toISOString().slice(0,19) : ''),
+                url:     n.link || n.clickThroughUrl?.url || '',
                 summary: n.summary || '',
-                source:  n.publisher || 'Yahoo Finance',
+                source:  n.publisher || n.provider || 'Yahoo Finance',
               })).filter(n => n.title.length > 3);
-              break; // 成功拿到就跳出
+              break outer;
             }
-          } catch(_) { /* 靜默 fallback 到下一個 proxy */ }
+          } catch(_) {}
         }
-      } catch(_) {}
+      }
 
       if (yahooItems.length > 0) {
         yahooItems.sort((a, b) => _parseSunDate(b.date) - _parseSunDate(a.date));
@@ -52039,7 +52067,7 @@ async function _fetchAndRenderStockUsNews(dim) {
         _renderSunList(yahooItems, listEl, dim, false);
         return;
       }
-      // Yahoo 也沒資料 → 顯示原始空白訊息
+      // 全都沒資料
       _sunCache[dim] = [];
       _renderSunList([], listEl, dim, false);
       return;
