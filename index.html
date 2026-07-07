@@ -14957,6 +14957,146 @@ a.module-nav-item.acc-active {
   border-color: var(--accent) !important;
 }
 
+/* ══════════════════════════════════════════════════
+   操作指導欄 + 今日開盤壓力表
+   ══════════════════════════════════════════════════ */
+/* 操作指導欄 */
+#opGuideBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin: 8px 0 4px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  font-size: 0.82rem;
+  position: sticky;
+  top: 48px;
+  z-index: 30;
+}
+.ogb-clock {
+  font-size: 1.1rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.ogb-alert {
+  flex: 1;
+  font-weight: 700;
+  font-size: 0.83rem;
+  color: var(--fg);
+  min-width: 200px;
+}
+.ogb-alert.danger  { color: #dc2626; }
+.ogb-alert.warn    { color: #d97706; }
+.ogb-alert.good    { color: #16a34a; }
+.ogb-alert.info    { color: var(--fg2); }
+.ogb-steps {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ogb-step {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.73rem;
+  color: var(--fg2);
+  white-space: nowrap;
+}
+.ogb-step.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+/* 今日開盤壓力表 */
+.opp-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.opp-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.opp-title {
+  font-weight: 900;
+  font-size: 1rem;
+  color: var(--fg);
+  flex: 1;
+}
+.opp-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--surface2);
+  color: var(--fg2);
+  border: 1px solid var(--border);
+}
+.opp-badge.bull { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.opp-badge.bear { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.opp-badge.neut { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+[data-theme="dark"] .opp-badge.bull { background: #14532d; color: #86efac; }
+[data-theme="dark"] .opp-badge.bear { background: #450a0a; color: #fca5a5; }
+[data-theme="dark"] .opp-badge.neut { background: #422006; color: #fde047; }
+.opp-updated { font-size: 0.68rem; color: var(--fg3); }
+.opp-refresh-btn {
+  padding: 4px 10px; border-radius: 8px; font-size: 0.72rem; font-weight: 700;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--fg2);
+  cursor: pointer; transition: all 0.15s;
+}
+.opp-refresh-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* 指數格 */
+.opp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.opp-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  text-align: center;
+}
+.opp-item.bull { border-color: #86efac; background: #f0fdf4; }
+.opp-item.bear { border-color: #fca5a5; background: #fff1f2; }
+[data-theme="dark"] .opp-item.bull { background: #052e16; border-color: #166534; }
+[data-theme="dark"] .opp-item.bear { background: #2d0000; border-color: #7f1d1d; }
+.opp-item-name { font-size: 0.68rem; color: var(--fg3); margin-bottom: 2px; }
+.opp-item-price { font-size: 0.9rem; font-weight: 800; color: var(--fg); }
+.opp-item-chg { font-size: 0.8rem; font-weight: 700; }
+.opp-item-chg.up   { color: #16a34a; }
+.opp-item-chg.down { color: #dc2626; }
+.opp-item-sim { font-size: 0.6rem; color: var(--fg3); }
+
+/* 壓力結論 */
+.opp-verdict {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  line-height: 1.7;
+}
+.opp-verdict .vd-main { font-size: 1rem; margin-bottom: 4px; }
+.opp-verdict .vd-sub  { font-size: 0.75rem; font-weight: 400; color: var(--fg2); }
+
   </style>
 </head>
 <body>
@@ -16056,6 +16196,33 @@ a.module-nav-item.acc-active {
       <div class="sm-bar-body" id="smBarBody">
         <div class="sm-matrix-grid" id="smMatrixGrid"><!-- JS --></div>
         <div class="sm-tally" id="smTally"><!-- JS --></div>
+      </div>
+    </div>
+
+    <!-- 0a. 操作指導欄（常駐，時間感知） -->
+    <div id="opGuideBar">
+      <span class="ogb-clock" id="ogbClock">--:--</span>
+      <span class="ogb-alert info" id="ogbAlert">📊 載入中...</span>
+      <div class="ogb-steps">
+        <span class="ogb-step" id="ogbStep1">① 先看開盤壓力表</span>
+        <span class="ogb-step" id="ogbStep2">② 查籌碼</span>
+        <span class="ogb-step" id="ogbStep3">③ 對照大戶意圖</span>
+      </div>
+    </div>
+
+    <!-- 0b. 今日開盤壓力表 -->
+    <div class="opp-card" id="opPressureCard">
+      <div class="opp-header">
+        <span class="opp-title">🌏 今日開盤壓力表</span>
+        <span class="opp-badge neut" id="oppBadge">計算中...</span>
+        <span class="opp-updated" id="oppUpdated"></span>
+        <button class="opp-refresh-btn" onclick="fetchOpeningPressure()">🔄 更新</button>
+      </div>
+      <div class="opp-grid" id="oppGrid">
+        <div class="opp-item"><div class="opp-item-name">載入中</div><div class="opp-item-price">—</div></div>
+      </div>
+      <div class="opp-verdict" id="oppVerdict">
+        <div class="vd-main">⏳ 正在抓取全球市場數據...</div>
       </div>
     </div>
 
@@ -65469,10 +65636,181 @@ function _renderCmpReturnBadges(stocks) {
   <div class="src-conditions" id="srcConditions"></div>
 </div>
 
+<!-- ══ 操作指導欄 + 今日開盤壓力表 ══ -->
+<script>
+/* ── 全球指數清單（Yahoo Finance 代號 + 2026-07-03 定錨價）── */
+const OPP_STOCKS = [
+  { ticker:'SPY',  name:'S&P 500',  base:565.0, weight:2, label:'美大盤' },
+  { ticker:'QQQ',  name:'那斯達克', base:493.0, weight:2, label:'科技股' },
+  { ticker:'SOXX', name:'費城半導', base:208.0, weight:3, label:'費半' },
+  { ticker:'TSM',  name:'台積電ADR',base:258.4, weight:3, label:'台積ADR' },
+  { ticker:'EWJ',  name:'日股ETF',  base:73.0,  weight:1, label:'日本' },
+  { ticker:'EWY',  name:'韓股ETF',  base:72.0,  weight:1, label:'韓國' },
+];
+
+/* ── 抓取單一 Yahoo 報價（複用既有 proxy 架構）── */
+async function _oppFetchOne(stock) {
+  try {
+    // 嘗試先用既有 fetchUSPrice（已含 proxy 邏輯）
+    if (typeof fetchUSPrice === 'function' && _usProxyStatus !== 'blocked') {
+      const d = await fetchUSPrice(stock.ticker);
+      return { ...stock, price: d.price, chg: d.chg, sim: false };
+    }
+  } catch(_) {}
+  // 備援：定錨模擬（同 _usSimPrice 邏輯）
+  const today    = new Date();
+  const dateSeed = today.getFullYear()*10000 + (today.getMonth()+1)*100 + today.getDate();
+  const tickSeed = stock.ticker.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+  const seed     = (dateSeed * 1000 + tickSeed) % 233280;
+  const pseudo   = ((seed*9301+49297) % 233280) / 233280;
+  const noise    = (pseudo - 0.5) * 0.028;
+  return { ...stock, price: +(stock.base*(1+noise)).toFixed(2), chg: +(noise*100).toFixed(2), sim: true };
+}
+
+/* ── 主渲染 ── */
+async function fetchOpeningPressure() {
+  const gridEl   = document.getElementById('oppGrid');
+  const badgeEl  = document.getElementById('oppBadge');
+  const verdictEl= document.getElementById('oppVerdict');
+  const updEl    = document.getElementById('oppUpdated');
+  if (!gridEl) return;
+
+  badgeEl.textContent = '抓取中...';
+  badgeEl.className   = 'opp-badge neut';
+  gridEl.innerHTML    = OPP_STOCKS.map(()=>
+    `<div class="opp-item"><div class="opp-item-name">⏳</div><div class="opp-item-price">—</div></div>`
+  ).join('');
+
+  // 並行抓取
+  const results = await Promise.all(OPP_STOCKS.map(s => _oppFetchOne(s)));
+  const anyLive = results.some(r => !r.sim);
+
+  // 計算壓力分數
+  let score = 0;
+  results.forEach(r => {
+    const pts = r.chg > 1 ? r.weight : r.chg < -1 ? -r.weight : 0;
+    score += pts;
+  });
+  const maxScore = OPP_STOCKS.reduce((s,r)=>s+r.weight,0); // 12
+
+  // 渲染格子
+  gridEl.innerHTML = results.map(r => {
+    const up   = r.chg >= 0;
+    const cls  = Math.abs(r.chg) > 1 ? (up ? 'bull' : 'bear') : '';
+    const sign = up ? '+' : '';
+    return `<div class="opp-item ${cls}">
+      <div class="opp-item-name">${r.label}</div>
+      <div class="opp-item-price">${r.price.toFixed(r.price>=100?0:2)}</div>
+      <div class="opp-item-chg ${up?'up':'down'}">${sign}${r.chg.toFixed(2)}%</div>
+      ${r.sim ? '<div class="opp-item-sim">模擬</div>' : ''}
+    </div>`;
+  }).join('');
+
+  // TSM ADR 特別分析
+  const tsm = results.find(r=>r.ticker==='TSM');
+  const spy = results.find(r=>r.ticker==='SPY');
+  const soxx= results.find(r=>r.ticker==='SOXX');
+
+  // 結論
+  let vdMain, vdSub, badgeCls, badgeTxt;
+  if (score >= 7) {
+    vdMain  = '📗 美股強勢收盤，今日台股開盤偏多';
+    vdSub   = '建議：13:00-13:20 低接窗口前可等觀察，若開盤不追高，耐心等回檔';
+    badgeCls= 'bull'; badgeTxt = '偏多開盤';
+  } else if (score >= 3) {
+    vdMain  = '📘 美股小幅收紅，台股開盤溫和偏多';
+    vdSub   = '建議：9:00-9:15 防手賤，等主力表態後再進場';
+    badgeCls= 'bull'; badgeTxt = '溫和偏多';
+  } else if (score >= -2) {
+    vdMain  = '📒 美股中性盤整，台股方向不明確';
+    vdSub   = '建議：觀望為主，等 9:15 後量能確認方向，忌開盤搶進';
+    badgeCls= 'neut'; badgeTxt = '中性觀望';
+  } else if (score >= -6) {
+    vdMain  = '📙 美股偏弱，台股開盤面臨壓力';
+    vdSub   = '建議：開盤前15分鐘（9:00-9:15）適合出清，不適合加碼，等午後再評估';
+    badgeCls= 'bear'; badgeTxt = '偏空開盤';
+  } else {
+    vdMain  = '📕 美股明顯下跌，台股開盤恐跳空偏空';
+    vdSub   = '建議：⚠️ 9:00-9:15 高波動，急殺可能是陷阱，等急殺完成再看支撐，切勿恐慌殺出';
+    badgeCls= 'bear'; badgeTxt = '明顯偏空';
+  }
+
+  // TSM ADR 附加提示
+  let tsmNote = '';
+  if (tsm) {
+    if (soxx && tsm.chg < soxx.chg - 1.5)
+      tsmNote = `⚠️ 台積電ADR(${tsm.chg>0?'+':''}${tsm.chg.toFixed(1)}%) 弱於費半(${soxx.chg>0?'+':''}${soxx.chg.toFixed(1)}%)，台積電今日相對弱勢。`;
+    else if (soxx && tsm.chg > soxx.chg + 1.5)
+      tsmNote = `✅ 台積電ADR(+${tsm.chg.toFixed(1)}%) 強於費半，外資加碼意願明確。`;
+  }
+
+  verdictEl.innerHTML =
+    `<div class="vd-main">${vdMain}</div>` +
+    `<div class="vd-sub">${vdSub}${tsmNote ? '<br>'+tsmNote : ''}</div>`;
+  badgeEl.textContent = badgeTxt;
+  badgeEl.className   = `opp-badge ${badgeCls}`;
+  updEl.textContent   = `更新：${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}${anyLive?'（即時）':'（模擬）'}`;
+}
+
+/* ── 操作指導欄（時間感知）── */
+function _updateOpGuide() {
+  const clockEl = document.getElementById('ogbClock');
+  const alertEl = document.getElementById('ogbAlert');
+  const step1   = document.getElementById('ogbStep1');
+  const step2   = document.getElementById('ogbStep2');
+  const step3   = document.getElementById('ogbStep3');
+  if (!clockEl) return;
+
+  const now  = new Date();
+  const hhmm = now.getHours() * 100 + now.getMinutes();
+  clockEl.textContent = now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  let msg, cls, activeStep = 0;
+
+  if      (hhmm < 830) {
+    msg = '🌙 非盤時間 — 先跑開盤壓力表，準備明天策略'; cls='info'; activeStep=1;
+  } else if (hhmm < 900) {
+    msg = '⚡ 盤前15分！先看開盤壓力表確認今天方向，切勿亂動！'; cls='warn'; activeStep=1;
+  } else if (hhmm < 915) {
+    msg = '🚨 防手賤！9:00-9:15 高波動，適合出清減碼，不適合搶進！'; cls='danger'; activeStep=2;
+  } else if (hhmm < 1030) {
+    msg = '👀 觀盤期（9:15-10:30）— 看主力站哪邊，確認後再進場，不急'; cls='warn'; activeStep=2;
+  } else if (hhmm < 1130) {
+    msg = '📊 可評估佈局（10:30-11:30）— 法人動態逐漸明朗，可小量試單'; cls='info'; activeStep=2;
+  } else if (hhmm < 1200) {
+    msg = '😴 午盤整理（11:30-12:00）— 量縮正常，安心吃飯，不追高'; cls='info'; activeStep=3;
+  } else if (hhmm < 1300) {
+    msg = '📈 下午盤（12:00-13:00）— 有護盤？還是偷偷往下壓？注意觀察'; cls='info'; activeStep=3;
+  } else if (hhmm < 1320) {
+    msg = '✅ 低接黃金窗口！（13:00-13:20）主力護盤、散戶出清，撿便宜的最佳時機'; cls='good'; activeStep=3;
+  } else if (hhmm < 1330) {
+    msg = '⚠️ 最後衝刺（13:20-13:30）— 不追不殺，等結算'; cls='warn'; activeStep=3;
+  } else {
+    msg = '📋 盤後分析 — 整理今日籌碼，明天方向先看開盤壓力表'; cls='info'; activeStep=1;
+  }
+
+  alertEl.textContent = msg;
+  alertEl.className   = `ogb-alert ${cls}`;
+  if (step1) step1.className = `ogb-step${activeStep===1?' active':''}`;
+  if (step2) step2.className = `ogb-step${activeStep===2?' active':''}`;
+  if (step3) step3.className = `ogb-step${activeStep===3?' active':''}`;
+}
+
+/* ── 初始化 ── */
+(function initOpTools() {
+  // 時鐘：每秒更新
+  _updateOpGuide();
+  setInterval(_updateOpGuide, 1000);
+  // 壓力表：頁面載入後自動抓一次
+  setTimeout(fetchOpeningPressure, 1200);
+})();
+</script>
+
 <!-- ══ 模組手風琴系統 v1.0 ══ -->
 <script>
 (function initModuleAccordion() {
   const MODS = [
+    { id:'opPressureCard',label:'開盤壓力表',emoji:'🌏', why:'每天第一件事！美股昨晚怎麼收，台積電ADR怎麼動，決定今天開盤的基本盤。' },
     { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。' },
     { id:'aiCard',        label:'AI建言',    emoji:'🤖', why:'AI綜合所有指標給出白話結論，不知道從哪看起？先看這裡。' },
     { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。' },
