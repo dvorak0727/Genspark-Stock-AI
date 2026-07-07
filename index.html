@@ -16141,6 +16141,26 @@ a.module-nav-item.acc-active {
               <div class="stock-us-news-list" id="stockUsNewsList"><div class="stock-us-news-loading">⏳ 連線中…</div></div>
             </div>
           </div>
+          <!-- 台股新聞 dropdown -->
+          <div style="position:relative;" id="stockTwNewsWrap">
+            <button class="stock-us-news-btn" id="stockTwNewsBtn" onclick="toggleStockTwNews()"
+              style="border-color:#dc2626;color:#dc2626;">
+              📰 台股新聞
+            </button>
+            <div class="stock-us-news-panel" id="stockTwNewsPanel" style="display:none;">
+              <div class="stock-us-news-panel-header">
+                <div class="stock-us-news-panel-title" id="stockTwNewsPanelTitle">📰 台股相關新聞</div>
+                <button class="stock-us-news-panel-close" onclick="toggleStockTwNews()">✕</button>
+              </div>
+              <div class="stock-us-news-dim-tabs" id="stockTwNewsDimTabs">
+                <button class="stock-us-news-dim-tab active" data-dim="today" onclick="switchStockTwDim('today',this)">🌅 今日</button>
+                <button class="stock-us-news-dim-tab" data-dim="7d" onclick="switchStockTwDim('7d',this)">📆 近7天</button>
+                <button class="stock-us-news-dim-tab" data-dim="30d" onclick="switchStockTwDim('30d',this)">🗓️ 近30天</button>
+              </div>
+              <div class="stock-us-news-list" id="stockTwNewsList"><div class="stock-us-news-loading">⏳ 連線中…</div></div>
+            </div>
+          </div>
+
           <button class="save-to-watchlist-btn" id="saveWatchlistBtn" onclick="saveCurrentToWatchlist()">
             ⭐ 加入追蹤清單
           </button>
@@ -65916,6 +65936,134 @@ function _updateOpGuide() {
   // token 可能稍後設定，定期再檢查
   setTimeout(_checkTokenReminder, 3000);
   setTimeout(_checkTokenReminder, 8000);
+})();
+</script>
+
+<!-- ══ 台股新聞 ══ -->
+<script>
+(function() {
+  let _stnCache = {}, _stnCurrentStockId = '', _stnCurrentDim = 'today';
+
+  window.toggleStockTwNews = function() {
+    const panel = document.getElementById('stockTwNewsPanel');
+    if (!panel) return;
+    const isOpen = panel.style.display !== 'none';
+    // 關閉美股新聞（若開著）
+    const usPanel = document.getElementById('stockUsNewsPanel');
+    if (usPanel) usPanel.style.display = 'none';
+    panel.style.display = isOpen ? 'none' : '';
+    if (!isOpen) {
+      const sid = window._currentStockId || window._currentAnalysisId || '';
+      if (sid !== _stnCurrentStockId) { _stnCache = {}; _stnCurrentStockId = sid; }
+      const titleEl = document.getElementById('stockTwNewsPanelTitle');
+      if (titleEl) titleEl.textContent = `📰 ${window._currentStockName || sid} 台股相關新聞`;
+      _fetchStn(_stnCurrentDim);
+    }
+  };
+
+  window.switchStockTwDim = function(dim, btn) {
+    _stnCurrentDim = dim;
+    document.querySelectorAll('#stockTwNewsDimTabs .stock-us-news-dim-tab')
+      .forEach(b => b.classList.toggle('active', b === btn));
+    _fetchStn(dim);
+  };
+
+  async function _fetchStn(dim) {
+    const listEl = document.getElementById('stockTwNewsList');
+    if (!listEl) return;
+    if (_stnCache[dim]) { _renderStn(_stnCache[dim], listEl, dim); return; }
+
+    listEl.innerHTML = '<div class="stock-us-news-loading">⏳ 載入中…</div>';
+    const sid = _stnCurrentStockId;
+    if (!sid) { listEl.innerHTML = '<div class="stock-us-news-empty">⚠️ 請先查詢個股</div>'; return; }
+
+    const stockName = window._currentStockName || (typeof STOCK_DB !== 'undefined' && STOCK_DB[sid]?.name) || sid;
+    let items = [];
+
+    // ① FinMind TaiwanStockNews
+    try {
+      const days = dim === 'today' ? 2 : dim === '7d' ? 9 : 32;
+      const end = new Date(), start = new Date(); start.setDate(start.getDate() - days);
+      const fmt = d => d.toISOString().slice(0,10);
+      const tok = window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '') || '';
+      const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockNews&data_id=${sid}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
+      const js  = await (await fetch(url, { signal: AbortSignal.timeout(10000) })).json();
+      const raw = (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
+      items = raw.map(n => ({
+        title:   n.title || n.description || '',
+        date:    n.date_time || n.date || '',
+        url:     n.link || '',
+        summary: n.description || '',
+        source:  n.source || 'FinMind',
+      })).filter(n => n.title.length > 3);
+    } catch(_) {}
+
+    // ② Yahoo Finance 中文搜尋（備援）
+    if (items.length === 0 && typeof US_PROXIES !== 'undefined') {
+      for (const q of [`${sid}.TW`, stockName]) {
+        if (items.length > 0) break;
+        for (const mkProxy of US_PROXIES) {
+          try {
+            const yUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&newsCount=30&quotesCount=0&lang=zh-TW`;
+            const pr  = await fetch(mkProxy(yUrl), { signal: AbortSignal.timeout(6000) });
+            if (!pr.ok) continue;
+            const pj  = await pr.json();
+            const raw = pj?.contents ? JSON.parse(pj.contents) : pj;
+            const arr = Array.isArray(raw?.news) ? raw.news : [];
+            if (arr.length > 0) {
+              items = arr.map(n => ({
+                title:   n.title || '',
+                date:    n.providerPublishTime ? new Date(n.providerPublishTime*1000).toISOString().slice(0,19) : '',
+                url:     n.link || '',
+                summary: n.summary || '',
+                source:  n.publisher || 'Yahoo Finance',
+              })).filter(n => n.title.length > 3);
+              break;
+            }
+          } catch(_) {}
+        }
+      }
+    }
+
+    items.sort((a,b) => (typeof _parseSunDate==='function' ? _parseSunDate(b.date)-_parseSunDate(a.date) : 0));
+    _stnCache[dim] = items;
+    _renderStn(items, listEl, dim);
+  }
+
+  function _renderStn(items, listEl, dim) {
+    if (!items.length) {
+      listEl.innerHTML = '<div class="stock-us-news-empty">📭 目前無相關台股新聞<br><span style="font-size:0.68rem;color:var(--fg3)">試試近7天或近30天</span></div>';
+      return;
+    }
+    const now = Date.now();
+    const cutMs = (dim==='today'?24:dim==='7d'?168:720)*3600000 + 8*3600000;
+    let show = items.filter(n => {
+      if (!n.date) return true;
+      const dt = typeof _parseSunDate==='function' ? _parseSunDate(n.date) : 0;
+      return !dt || (now-dt) <= cutMs;
+    }).slice(0,40);
+    if (!show.length) show = items.slice(0,5);
+    // 複用美股新聞的 item 渲染（若存在）
+    if (typeof _sunNewsItemHtml === 'function') {
+      listEl.innerHTML = show.map(n => _sunNewsItemHtml(n)).join('');
+    } else {
+      listEl.innerHTML = show.map(n =>
+        `<div class="stock-us-news-item">
+          <a href="${n.url||'#'}" target="_blank" rel="noopener" class="sun-title">${n.title}</a>
+          <div class="sun-meta">${n.source} · ${n.date?n.date.slice(0,10):''}</div>
+        </div>`
+      ).join('');
+    }
+  }
+
+  // 點外部關閉 panel
+  document.addEventListener('click', e => {
+    const wrap = document.getElementById('stockTwNewsWrap');
+    if (wrap && !wrap.contains(e.target)) {
+      const p = document.getElementById('stockTwNewsPanel');
+      if (p) p.style.display = 'none';
+    }
+  });
 })();
 </script>
 
