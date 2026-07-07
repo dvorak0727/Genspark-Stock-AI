@@ -49070,9 +49070,14 @@ function renderWashDetect(closes, opens, highs, lows, vols, dates,
 
   // ── P3. 進場時機借點計算 ──
   // 三個進場區：①第一層（輕度回檔接）②甜蜜點（最佳低接）③萬中取一底部
-  const entry1 = washT3;                           // 輕度回檔 -3%
-  const entry2 = bestZone;                         // 布林+MA20中點（最佳）
-  const entry3 = Math.max(sl8, supBoll * 0.995);   // 深度底部 / 布林下軌附近
+  // ★ 修正：當技術均線（VWAP30/MA20/布林）高於現價時（股票近期急跌），
+  //   以現價為基準計算相對折扣，確保掛單永遠低於 lc（不能高接）
+  const entry1Raw = washT3;
+  const entry2Raw = bestZone;
+  const entry3Raw = Math.max(sl8, supBoll * 0.995);
+  const entry1 = Math.min(entry1Raw, lc * 0.985);          // 不高於現價 -1.5%
+  const entry2 = Math.min(entry2Raw, lc * 0.955);          // 不高於現價 -4.5%
+  const entry3 = Math.min(entry3Raw, lc * 0.925);          // 不高於現價 -7.5%
 
   const entryHTML = [
     {
