@@ -51976,13 +51976,52 @@ async function _fetchAndRenderStockUsNews(dim) {
     // ── 第一層：所有新聞（正規化欄位）──
     const allItems = allRaw.map(n => ({
       title:   n.title        || n.description || n.content || '',
-      // v6.25 修正：日期保持原始字串（含 YYYY-MM-DD HH:mm:ss 或純 YYYY-MM-DD）
-      // 比較時需加 8h offset 修正台灣時區問題
       date:    n.date_time    || n.date || '',
       url:     n.link         || n.url  || '',
       summary: n.description  || n.content || '',
       source:  n.source       || 'FinMind',
     })).filter(n => n.title.length > 3);
+
+    // ── 備援：FinMind 無資料時改走 Yahoo Finance 新聞 ──
+    if (allItems.length === 0) {
+      let yahooItems = [];
+      try {
+        const yUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${sid}.TW&newsCount=30&quotesCount=0&lang=zh-TW`;
+        for (const mkProxy of US_PROXIES) {
+          try {
+            const pr  = await fetch(mkProxy(yUrl), { signal: AbortSignal.timeout(7000) });
+            if (!pr.ok) continue;
+            const pj  = await pr.json();
+            const raw = pj?.contents ? JSON.parse(pj.contents) : pj;
+            const arr = Array.isArray(raw?.news) ? raw.news : [];
+            if (arr.length > 0) {
+              yahooItems = arr.map(n => ({
+                title:   n.title || '',
+                date:    n.providerPublishTime
+                           ? new Date(n.providerPublishTime * 1000).toISOString().slice(0,19)
+                           : '',
+                url:     n.link || '',
+                summary: n.summary || '',
+                source:  n.publisher || 'Yahoo Finance',
+              })).filter(n => n.title.length > 3);
+              break; // 成功拿到就跳出
+            }
+          } catch(_) { /* 靜默 fallback 到下一個 proxy */ }
+        }
+      } catch(_) {}
+
+      if (yahooItems.length > 0) {
+        yahooItems.sort((a, b) => _parseSunDate(b.date) - _parseSunDate(a.date));
+        _sunCache[dim] = yahooItems;
+        _sunCache[dim + '_usFiltered'] = false;
+        _renderSunList(yahooItems, listEl, dim, false);
+        return;
+      }
+      // Yahoo 也沒資料 → 顯示原始空白訊息
+      _sunCache[dim] = [];
+      _renderSunList([], listEl, dim, false);
+      return;
+    }
 
     // ── 第二層：美股關鍵字過濾 ──
     const usItems = allItems.filter(n => {
@@ -51994,7 +52033,6 @@ async function _fetchAndRenderStockUsNews(dim) {
     const finalItems = usItems.length > 0 ? usItems : allItems;
     const hasUsFilter = usItems.length > 0;
 
-    // v6.25 修正：日期排序用 _parseSunDate（解決純日期字串排序問題）
     finalItems.sort((a, b) => _parseSunDate(b.date) - _parseSunDate(a.date));
 
     _sunCache[dim] = finalItems;
