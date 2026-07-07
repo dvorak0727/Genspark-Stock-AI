@@ -65947,11 +65947,10 @@ function _updateOpGuide() {
   window.toggleStockTwNews = function() {
     const panel = document.getElementById('stockTwNewsPanel');
     if (!panel) return;
-    const isOpen = panel.style.display !== 'none';
-    // 關閉美股新聞（若開著）
-    const usPanel = document.getElementById('stockUsNewsPanel');
-    if (usPanel) usPanel.style.display = 'none';
-    panel.style.display = isOpen ? 'none' : '';
+    const isOpen = panel.classList.contains('open');
+    // 關閉美股新聞（若開著）—— 用 classList 不用 style，避免衝突
+    document.getElementById('stockUsNewsPanel')?.classList.remove('open');
+    panel.classList.toggle('open', !isOpen);
     if (!isOpen) {
       const sid = window._currentStockId || window._currentAnalysisId || '';
       if (sid !== _stnCurrentStockId) { _stnCache = {}; _stnCurrentStockId = sid; }
@@ -66056,13 +66055,12 @@ function _updateOpGuide() {
     }
   }
 
-  // 點外部關閉 panel
-  document.addEventListener('click', e => {
+  // 點外部關閉 panel（once:true 防止殘留 listener）
+  document.addEventListener('click', function _stnOutside(e) {
     const wrap = document.getElementById('stockTwNewsWrap');
-    if (wrap && !wrap.contains(e.target)) {
-      const p = document.getElementById('stockTwNewsPanel');
-      if (p) p.style.display = 'none';
-    }
+    const panel = document.getElementById('stockTwNewsPanel');
+    if (!panel?.classList.contains('open')) return;
+    if (wrap && !wrap.contains(e.target)) panel.classList.remove('open');
   });
 })();
 </script>
