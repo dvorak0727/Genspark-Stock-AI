@@ -65997,25 +65997,54 @@ function _updateOpGuide() {
       })).filter(n => n.title.length > 3);
     } catch(_) {}
 
-    // ② Yahoo Finance 中文搜尋（備援）
+    // ② Google News RSS（中文，最穩定的備援）
     if (items.length === 0 && typeof US_PROXIES !== 'undefined') {
-      for (const q of [`${sid}.TW`, stockName]) {
+      const queries = [stockName, `${stockName} 股票`, sid];
+      outer2:
+      for (const q of queries) {
+        const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+        for (const mkProxy of US_PROXIES) {
+          try {
+            const pr = await fetch(mkProxy(rssUrl), { signal: AbortSignal.timeout(8000) });
+            if (!pr.ok) continue;
+            const pj  = await pr.json().catch(() => null);
+            const txt = pj?.contents || (typeof pj === 'string' ? pj : null) || await pr.text?.() || '';
+            const xml = new DOMParser().parseFromString(txt, 'text/xml');
+            const nodes = Array.from(xml.querySelectorAll('item'));
+            if (nodes.length > 0) {
+              items = nodes.map(el => ({
+                title:   el.querySelector('title')?.textContent?.replace(/<[^>]+>/g,'') || '',
+                date:    el.querySelector('pubDate')?.textContent || '',
+                url:     el.querySelector('link')?.textContent || el.querySelector('guid')?.textContent || '',
+                summary: el.querySelector('description')?.textContent?.replace(/<[^>]+>/g,'').slice(0,120) || '',
+                source:  el.querySelector('source')?.textContent || 'Google新聞',
+              })).filter(n => n.title.length > 3);
+              if (items.length > 0) break outer2;
+            }
+          } catch(_) {}
+        }
+      }
+    }
+
+    // ③ Yahoo Finance v2 news（最後備援）
+    if (items.length === 0 && typeof US_PROXIES !== 'undefined') {
+      for (const sym of [`${sid}.TW`, sid]) {
         if (items.length > 0) break;
         for (const mkProxy of US_PROXIES) {
           try {
-            const yUrl = `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(q)}&newsCount=30&quotesCount=0&lang=zh-TW`;
+            const yUrl = `https://query2.finance.yahoo.com/v2/finance/news?symbols=${sym}&count=30`;
             const pr  = await fetch(mkProxy(yUrl), { signal: AbortSignal.timeout(6000) });
             if (!pr.ok) continue;
             const pj  = await pr.json();
             const raw = pj?.contents ? JSON.parse(pj.contents) : pj;
-            const arr = Array.isArray(raw?.news) ? raw.news : [];
+            const arr = Array.isArray(raw?.items?.result) ? raw.items.result : [];
             if (arr.length > 0) {
               items = arr.map(n => ({
                 title:   n.title || '',
-                date:    n.providerPublishTime ? new Date(n.providerPublishTime*1000).toISOString().slice(0,19) : '',
+                date:    n.pubTime ? new Date(n.pubTime*1000).toISOString().slice(0,19) : '',
                 url:     n.link || '',
                 summary: n.summary || '',
-                source:  n.publisher || 'Yahoo Finance',
+                source:  n.provider || 'Yahoo Finance',
               })).filter(n => n.title.length > 3);
               break;
             }
