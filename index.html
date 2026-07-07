@@ -14885,6 +14885,78 @@
 }
 .og-reopen-btn:hover { background: var(--surface2); color: var(--accent); border-color: var(--accent); }
 
+/* ══════════════════════════════════════════════════
+   模組手風琴系統 v1.0
+   ══════════════════════════════════════════════════ */
+.mod-acc-wrap {
+  margin-bottom: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  overflow: visible;
+  transition: box-shadow 0.25s;
+}
+.mod-acc-wrap.acc-open {
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+}
+.mod-acc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 16px;
+  background: var(--surface2, #f3f4f6);
+  cursor: pointer;
+  user-select: none;
+  border-radius: 14px 14px 0 0;
+  position: sticky;
+  top: 48px;
+  z-index: 25;
+  transition: background 0.15s;
+}
+.mod-acc-wrap:not(.acc-open) .mod-acc-header {
+  border-radius: 14px;
+}
+[data-theme="dark"] .mod-acc-header { background: #1e2030; }
+.mod-acc-header:hover { filter: brightness(0.95); }
+.mod-acc-emoji { font-size: 1.1rem; flex-shrink: 0; }
+.mod-acc-label {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--fg);
+  flex-shrink: 0;
+  min-width: 72px;
+}
+.mod-acc-why {
+  font-size: 0.76rem;
+  color: var(--fg3);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-style: italic;
+}
+.mod-acc-toggle {
+  font-size: 0.8rem;
+  color: var(--fg3);
+  transition: transform 0.25s;
+  flex-shrink: 0;
+}
+.mod-acc-wrap:not(.acc-open) .mod-acc-toggle {
+  transform: rotate(-90deg);
+}
+.mod-acc-body {
+  overflow: hidden;
+  transition: opacity 0.2s;
+}
+.mod-acc-wrap:not(.acc-open) .mod-acc-body {
+  display: none;
+}
+/* active nav highlight */
+a.module-nav-item.acc-active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
   </style>
 </head>
 <body>
@@ -65396,6 +65468,144 @@ function _renderCmpReturnBadges(stocks) {
   <div class="src-desc" id="srcDesc">MACD · 法人 · KD 三弦同頻共振，多方能量疊加</div>
   <div class="src-conditions" id="srcConditions"></div>
 </div>
+
+<!-- ══ 模組手風琴系統 v1.0 ══ -->
+<script>
+(function initModuleAccordion() {
+  const MODS = [
+    { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。' },
+    { id:'aiCard',        label:'AI建言',    emoji:'🤖', why:'AI綜合所有指標給出白話結論，不知道從哪看起？先看這裡。' },
+    { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。' },
+    { id:'usLeadCard',    label:'美股先行',  emoji:'🌐', why:'台股是美股的影子，AI/半導體類股尤其明顯。美股昨晚怎麼收，今天開盤就知道了。' },
+    { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。' },
+    { id:'phaseCard',     label:'籌碼週期',  emoji:'🔬', why:'主力有其慣性，吸籌→拉升→出貨→洗盤是標準劇本，這裡告訴你現在在哪個章節。' },
+    { id:'peakCard',      label:'高點偵測',  emoji:'🔴', why:'歷史高點是壓力，也是主力出貨的好地方。接近前高要提高警覺。' },
+    { id:'contraCard',    label:'反指標',    emoji:'🔀', why:'散戶情緒是反指標。大家都看多時要小心，大家都看空時才是底部。' },
+    { id:'bigIntentCard', label:'大戶意圖',  emoji:'👤', why:'法人是不對稱資訊的持有者。外資、投信、自營商的方向，比任何技術線型都可靠。' },
+    { id:'bpcCard',       label:'五大券商',  emoji:'💎', why:'特定券商分點的進出，往往透露主力佈局動作，是籌碼分析中最細緻的一層。' },
+    { id:'washCard',      label:'洗盤估算',  emoji:'🎯', why:'主力洗盤是為了讓散戶出清再低價補貨。學會判斷洗盤，才能在最佳位置掛單。' },
+    { id:'vrCard',        label:'VR噪音',    emoji:'📐', why:'VR值衡量成交量的真實性。大量但VR低，可能是假成交量。' },
+    { id:'geoRiskCard',   label:'地緣風險',  emoji:'🌏', why:'地緣政治是系統性風險，不管個股多好，戰爭/制裁可以讓整個板塊歸零。' },
+    { id:'hedgeCard',     label:'對沖策略',  emoji:'🛡️', why:'不是每次都要進攻。學會用選擇權或反向ETF保護部位，才是成熟的投資者。' },
+    { id:'compareCard',   label:'多股比較',  emoji:'📊', why:'同板塊比強弱，選強的買。相對強度比絕對價格更能告訴你資金往哪裡流。' },
+    { id:'earnCalCard',   label:'財報日曆',  emoji:'📅', why:'財報前後是最容易出現暴漲暴跌的時間點，提前知道日期才不會被洗出去。' },
+    { id:'etfCalCard',    label:'ETF換檔',   emoji:'📆', why:'ETF成分股調整日前後，被加入的股票會被動買進，製造短期紅利。' },
+    { id:'chipLogCard',   label:'籌碼記錄',  emoji:'📋', why:'把歷史籌碼記錄下來，才能看出主力的完整佈局時間軸，而不只是看昨天的動作。' },
+    { id:'ctrl14Card',    label:'1:4控盤',   emoji:'📊', why:'大戶用1元控制4元的槓桿邏輯，一旦看懂這個，就能預判主力何時會啟動拉升。' },
+    { id:'knowledgeStation', label:'知識站', emoji:'📖', why:'創作者把所有判讀邏輯的底層原理放在這裡。看不懂某個數字？來這裡找答案。' },
+  ];
+
+  // href → card id 對應表（有些 nav href 和 card id 不一致）
+  const HREF_MAP = {
+    'biCard':           'bigIntentCard',
+    'vrAnchor':         'vrCard',
+    'geoRiskAnchor':    'geoRiskCard',
+    'hedgeAnchor':      'hedgeCard',
+    'compareAnchor':    'compareCard',
+    'earnCalAnchor':    'earnCalCard',
+    'etfCalAnchor':     'etfCalCard',
+    'chipLogAnchor':    'chipLogCard',
+    'ctrl14Anchor':     'ctrl14Card',
+    'knowledgeStation': 'knowledgeStation',
+  };
+
+  function wrapModules() {
+    MODS.forEach(mod => {
+      const card = document.getElementById(mod.id);
+      if (!card || card.dataset.accWrapped) return;
+      card.dataset.accWrapped = '1';
+
+      const wrap = document.createElement('div');
+      wrap.className = 'mod-acc-wrap acc-open';
+      wrap.id = `accWrap_${mod.id}`;
+
+      const header = document.createElement('div');
+      header.className = 'mod-acc-header';
+      header.innerHTML =
+        `<span class="mod-acc-emoji">${mod.emoji}</span>` +
+        `<span class="mod-acc-label">${mod.label}</span>` +
+        `<span class="mod-acc-why">💡 ${mod.why}</span>` +
+        `<span class="mod-acc-toggle">▼</span>`;
+      header.addEventListener('click', () => toggleMod(mod.id));
+
+      const body = document.createElement('div');
+      body.className = 'mod-acc-body';
+
+      card.parentNode.insertBefore(wrap, card);
+      wrap.appendChild(header);
+      wrap.appendChild(body);
+      body.appendChild(card);
+    });
+
+    hookNavLinks();
+    addExpandAllBtn();
+  }
+
+  function hookNavLinks() {
+    const navEl = document.getElementById('moduleNav');
+    if (!navEl) return;
+    navEl.querySelectorAll('.module-nav-item').forEach(a => {
+      const rawHref = (a.getAttribute('href') || '').replace('#', '');
+      const cardId  = HREF_MAP[rawHref] || (MODS.find(m => m.id === rawHref) ? rawHref : null);
+      if (!cardId) return;
+      a.dataset.modTarget = cardId;
+      a.addEventListener('click', e => { e.preventDefault(); activateMod(cardId); });
+    });
+  }
+
+  function addExpandAllBtn() {
+    const navEl = document.getElementById('moduleNav');
+    if (!navEl) return;
+    const btn = document.createElement('a');
+    btn.className = 'module-nav-item';
+    btn.textContent = '≡ 全部展開';
+    btn.style.cssText = 'border-color:#6b7280;color:#6b7280;font-weight:700;cursor:pointer;';
+    btn.addEventListener('click', e => { e.preventDefault(); expandAllMods(); });
+    navEl.appendChild(btn);
+  }
+
+  function toggleMod(id) {
+    const wrap = document.getElementById(`accWrap_${id}`);
+    if (wrap) wrap.classList.toggle('acc-open');
+    updateNavActive(null);
+  }
+
+  function activateMod(id) {
+    MODS.forEach(m => {
+      const w = document.getElementById(`accWrap_${m.id}`);
+      if (w) w.classList.remove('acc-open');
+    });
+    const wrap = document.getElementById(`accWrap_${id}`);
+    if (wrap) {
+      wrap.classList.add('acc-open');
+      setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    }
+    updateNavActive(id);
+  }
+
+  function expandAllMods() {
+    MODS.forEach(m => {
+      const w = document.getElementById(`accWrap_${m.id}`);
+      if (w) w.classList.add('acc-open');
+    });
+    updateNavActive(null);
+  }
+
+  function updateNavActive(activeId) {
+    document.querySelectorAll('.module-nav-item[data-mod-target]').forEach(a => {
+      a.classList.toggle('acc-active', a.dataset.modTarget === activeId);
+    });
+  }
+
+  // renderAll 完成後才包（等 cards 都 render 進 DOM）
+  const _origRenderAll = typeof renderAll === 'function' ? renderAll : null;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(wrapModules, 800));
+  } else {
+    setTimeout(wrapModules, 800);
+  }
+})();
+</script>
 
 </body>
 </html>
