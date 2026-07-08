@@ -66020,37 +66020,36 @@ function _updateOpGuide() {
       console.log('[STN] FinMind items=', items.length);
     } catch(e) { console.warn('[STN] FinMind err', e?.message); }
 
-    // ② Google News RSS 中文（allorigins.win 不會 503，優先抓中文）
-    // 只用 allorigins.win，不用 corsproxy（corsproxy 對 Google 回 503）
+    // ② 鉅亨網 API（台灣最大中文財經新聞，JSON 格式，無需解析 XML）
     if (items.length === 0) {
       const _aoProxy = r => `https://api.allorigins.win/get?url=${encodeURIComponent(r)}`;
-      for (const q of [stockName, `${stockName} 股票`, sid]) {
+      for (const kw of [stockName, sid]) {
         if (items.length > 0) break;
-        const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+        const url = `https://news.cnyes.com/api/v3/search/newsV2?keyword=${encodeURIComponent(kw)}&limit=30`;
         try {
-          const r = await fetch(_aoProxy(rssUrl), { signal: AbortSignal.timeout(8000) });
-          console.log('[STN] Google RSS via allorigins', r.status, 'q=', q);
+          const r = await fetch(_aoProxy(url), { signal: AbortSignal.timeout(9000) });
+          console.log('[STN] cnyes', r.status, 'kw=', kw);
           if (!r.ok) continue;
           const raw = await r.text();
-          let txt = raw;
-          try { const j = JSON.parse(raw); if (j?.contents) txt = j.contents; } catch(_) {}
-          const xml   = new DOMParser().parseFromString(txt, 'text/xml');
-          const nodes = Array.from(xml.querySelectorAll('item'));
-          console.log('[STN] Google RSS nodes=', nodes.length);
-          if (nodes.length > 0) {
-            items = nodes.map(el => ({
-              title:   el.querySelector('title')?.textContent?.replace(/<[^>]+>/g,'') || '',
-              date:    el.querySelector('pubDate')?.textContent || '',
-              url:     el.querySelector('link')?.textContent || el.querySelector('guid')?.textContent || '',
-              summary: el.querySelector('description')?.textContent?.replace(/<[^>]+>/g,'').slice(0,120) || '',
-              source:  el.querySelector('source')?.textContent || 'Google新聞',
+          let content = raw;
+          try { const j = JSON.parse(raw); if (j?.contents) content = j.contents; } catch(_) {}
+          const js  = JSON.parse(content);
+          const arr = js?.items?.data || js?.data || [];
+          console.log('[STN] cnyes items=', arr.length);
+          if (arr.length > 0) {
+            items = arr.map(n => ({
+              title:   n.title || '',
+              date:    n.publishAt ? new Date(n.publishAt*1000).toISOString().slice(0,16) : '',
+              url:     n.newsId ? `https://news.cnyes.com/news/id/${n.newsId}` : (n.url || ''),
+              summary: (n.summary || n.content || '').replace(/<[^>]+>/g,'').slice(0,120),
+              source:  '鉅亨網',
             })).filter(n => n.title.length > 3);
           }
-        } catch(e) { console.warn('[STN] Google RSS err', e?.message); }
+        } catch(e) { console.warn('[STN] cnyes err', e?.message); }
       }
     }
 
-    // ③ Yahoo Finance v1 search 中文版（備援，有時含中文標題）
+    // ③ Yahoo Finance v1 search 台灣版（備援）
     if (items.length === 0) {
       for (const sym of [`${sid}.TW`, sid]) {
         if (items.length > 0) break;
@@ -66060,7 +66059,7 @@ function _updateOpGuide() {
         try {
           const js  = JSON.parse(txt);
           const arr = Array.isArray(js?.news) ? js.news : [];
-          console.log('[STN] YF v1 zh news=', arr.length, 'sym=', sym);
+          console.log('[STN] YF v1 news=', arr.length, 'sym=', sym);
           if (arr.length > 0) {
             items = arr.map(n => ({
               title:   n.title || '',
