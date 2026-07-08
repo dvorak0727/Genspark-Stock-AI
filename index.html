@@ -66185,7 +66185,7 @@ function _updateOpGuide() {
 })();
 </script>
 
-<!-- ══ 教學教盤面板 v2.0 ══ -->
+<!-- ══ 教學教盤面板 v3.0 真實數據版 ══ -->
 <script>
 // ── 教學用股票池（30檔常見台股，含參考基準價）──
 const _TEACH_POOL = [
@@ -66221,161 +66221,314 @@ const _TEACH_POOL = [
   { id:'2388', name:'威盛',    price:68,   sector:'IC設計',   note:'車用與AI邊緣運算' },
 ];
 
-// 每日固定種子亂數（同一天看到相同5檔）
+// 每日固定種子亂數
 function _teachSeededRand(seed) {
   let s = seed;
   return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return Math.abs(s) / 0xffffffff; };
 }
 
-function _openTeachPanel() {
-  // 日期種子
-  const today = new Date();
-  const seed  = today.getFullYear()*10000 + (today.getMonth()+1)*100 + today.getDate();
-  const rand  = _teachSeededRand(seed);
-
-  // 洗牌取5
-  const pool  = [..._TEACH_POOL];
-  for (let i = pool.length-1; i > 0; i--) {
-    const j = Math.floor(rand() * (i+1));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
+// ─── 指標計算（純數學，不依賴外部） ───
+function _tEMA(arr, p) {
+  const k = 2/(p+1); let e = arr[0];
+  return arr.map(v => (e = v*k + e*(1-k)));
+}
+function _tRSI(C, p=14) {
+  const g=[], l=[];
+  for (let i=1;i<C.length;i++){const d=C[i]-C[i-1];g.push(d>0?d:0);l.push(d<0?-d:0);}
+  let ag=g.slice(0,p).reduce((s,v)=>s+v,0)/p, al=l.slice(0,p).reduce((s,v)=>s+v,0)/p;
+  const out=[...Array(p+1).fill(null)];
+  for(let i=p;i<g.length;i++){ag=(ag*(p-1)+g[i])/p;al=(al*(p-1)+l[i])/p;out.push(al===0?100:100-100/(1+ag/al));}
+  return out;
+}
+function _tKD(H, L, C, p=9, m=3) {
+  const n=C.length; let kv=50, dv=50; const k=[], d=[];
+  for(let i=0;i<n;i++){
+    const lo=Math.min(...L.slice(Math.max(0,i-p+1),i+1));
+    const hi=Math.max(...H.slice(Math.max(0,i-p+1),i+1));
+    const rsv=hi===lo?50:(C[i]-lo)/(hi-lo)*100;
+    kv=kv*(m-1)/m+rsv/m; dv=dv*(m-1)/m+kv/m;
+    k.push(kv); d.push(dv);
   }
-  const five = pool.slice(0, 5);
-
-  // 美股方向（讀開盤壓力表）
-  const oppEl   = document.getElementById('oppVerdict');
-  const oppTxt  = oppEl?.querySelector('.vd-main')?.textContent || oppEl?.textContent || '';
-  const mktBull = /偏多|中性偏多|樂觀/.test(oppTxt);
-  const mktBear = /偏空|下跌|警戒|悲觀/.test(oppTxt);
-  const mktTxt  = mktBull ? '🟢 美股偏多，台股順風' : mktBear ? '🔴 美股偏空，台股逆風' : '🟡 美股中性，以個股為主';
-
-  // 時段提示
-  const hm = today.getHours()*60 + today.getMinutes();
-  let timeTip = '';
-  if (hm < 9*60)            timeTip = '⏰ 盤前時段：先確認美股狀況，擬好今日策略';
-  else if (hm <= 9*60+30)   timeTip = '⚡ 開盤前30分鐘：不追高、等量縮再決策';
-  else if (hm <= 13*60+30)  timeTip = '📊 盤中時段：掛好條件單後可以放心做其他事';
-  else                       timeTip = '✅ 已收盤：今日練習複盤，記下哪個訊號有效';
-
-  // 生成每檔教學
-  const cards = five.map((s, idx) => {
-    const r2 = _teachSeededRand(seed + idx * 7919);
-    const rsi = 35 + Math.floor(r2() * 45);          // 35~79
-    const k   = 20 + Math.floor(r2() * 60);          // 20~79
-    const d   = Math.max(10, k - 5 + Math.floor(r2() * 15) - 7);
-    const goldCross = k > d && k < 60;
-    const deadCross = k < d && k > 50;
-    const macdBull  = r2() > 0.45;
-    const aboveMa20 = r2() > 0.40;
-    const p = s.price;
-
-    // 技術綜合
-    let techBias = 0;
-    if (rsi > 55) techBias++; else if (rsi < 40) techBias--;
-    if (goldCross) techBias++; else if (deadCross) techBias--;
-    if (macdBull) techBias++; else techBias--;
-    if (aboveMa20) techBias++; else techBias--;
-    const isBull = techBias >= 1;
-    const isBear = techBias <= -2;
-
-    // 普通掛價
-    let normalOrder = '', normalDesc = '';
-    if (isBull) {
-      const buy  = (p * 0.993).toFixed(p >= 100 ? 0 : 1);
-      const sl   = (p * 0.972).toFixed(p >= 100 ? 0 : 1);
-      const tgt  = (p * 1.04).toFixed(p >= 100 ? 0 : 1);
-      normalOrder = `📥 買進掛價：<b>${buy}</b>（等小拉回再進）`;
-      normalDesc  = `停損設 ${sl}（跌 2.8% 出），目標 ${tgt}（漲 4%），風報比 1:1.4`;
-    } else if (isBear) {
-      const sell = (p * 1.008).toFixed(p >= 100 ? 0 : 1);
-      const sl2  = (p * 1.025).toFixed(p >= 100 ? 0 : 1);
-      normalOrder = `📤 賣出／空手掛價：反彈至 <b>${sell}</b> 再賣`;
-      normalDesc  = `若反彈超過 ${sl2} 視為空頭結構改變，暫停賣出`;
-    } else {
-      const watch = (p * 0.998).toFixed(p >= 100 ? 0 : 1);
-      normalOrder = `👀 觀察為主：等回測 <b>${watch}</b> 附近確認撐住再看`;
-      normalDesc  = `多空尚未明確，先不操作，避免被洗出場`;
+  return {k, d};
+}
+function _tMACD(C, fast=12, slow=26, sig=9) {
+  const ef=_tEMA(C,fast), es=_tEMA(C,slow);
+  const dif=ef.map((v,i)=>v-es[i]), dea=_tEMA(dif,sig);
+  return {dif, dea, hist:dif.map((v,i)=>v-dea[i])};
+}
+function _tSlope(arr, n=4) {
+  const t=arr.slice(-n).filter(v=>v!=null);
+  return t.length<2?0:(t[t.length-1]-t[0])/(t.length-1);
+}
+function _tDaysToCross(k, d) {
+  const n=k.length, kL=k[n-1], dL=d[n-1];
+  if(kL>=dL) return 0;
+  const closure=_tSlope(k,4)-_tSlope(d,4);
+  if(closure<=0) return null;
+  const days=Math.ceil((dL-kL)/closure);
+  return days>30?null:days;
+}
+function _tMACDDaysToCross(hist) {
+  const n=hist.length, hL=hist[n-1];
+  if(hL>=0) return 0;
+  const slope=_tSlope(hist,4);
+  if(slope<=0) return null;
+  const days=Math.ceil(-hL/slope);
+  return days>30?null:days;
+}
+function _tBacktest(C, k, d) {
+  const results=[];
+  for(let i=1;i<k.length-1;i++){
+    if(k[i]>d[i]&&k[i-1]<=d[i-1]){           // 金叉
+      const entry=C[i]; let exit=null, days=0;
+      for(let j=i+1;j<Math.min(i+25,k.length);j++){
+        if((k[j]<d[j]&&k[j-1]>=d[j-1])||k[j]>82){exit=C[j];days=j-i;break;}
+      }
+      if(!exit){days=Math.min(20,k.length-1-i);exit=C[i+days];}
+      results.push({days, ret:(exit-entry)/entry*100});
     }
+  }
+  if(results.length<2) return null;
+  const wins=results.filter(r=>r.ret>0).length;
+  return {
+    signals: results.length,
+    winRate: Math.round(wins/results.length*100),
+    avgDays: Math.round(results.reduce((s,r)=>s+r.days,0)/results.length),
+    avgRet:  (results.reduce((s,r)=>s+r.ret,0)/results.length).toFixed(1),
+    bestRet: Math.max(...results.map(r=>r.ret)).toFixed(1),
+  };
+}
+function _tMA(C, p) { return C.map((_,i)=>i<p-1?null:C.slice(i-p+1,i+1).reduce((s,v)=>s+v,0)/p); }
 
-    // 條件單
-    let condOrder = '', condDesc = '';
-    if (isBull) {
-      const breakout = (p * 1.012).toFixed(p >= 100 ? 0 : 1);
-      const condBuy  = (p * 1.015).toFixed(p >= 100 ? 0 : 1);
-      const sl3      = (p * 0.978).toFixed(p >= 100 ? 0 : 1);
-      condOrder = `⚡ 突破條件單：當股價 ≥ <b>${breakout}</b>，自動掛買 ${condBuy}`;
-      condDesc  = `突破訊號確認後才追，不用盯盤。停損同樣設 ${sl3}`;
-    } else if (isBear) {
-      const breakdown = (p * 0.988).toFixed(p >= 100 ? 0 : 1);
-      const condSell  = (p * 0.985).toFixed(p >= 100 ? 0 : 1);
-      condOrder = `⚡ 跌破條件單：當股價 ≤ <b>${breakdown}</b>，自動掛賣 ${condSell}`;
-      condDesc  = `跌破支撐自動減碼，避免在盤中來不及反應`;
-    } else {
-      const upper = (p * 1.015).toFixed(p >= 100 ? 0 : 1);
-      const lower = (p * 0.985).toFixed(p >= 100 ? 0 : 1);
-      condOrder = `⚡ 雙向條件單：突破 <b>${upper}</b> 買、跌破 <b>${lower}</b> 賣`;
-      condDesc  = `震盪格局設雙邊條件單，讓市場決定方向`;
-    }
+// ─── FinMind 抓取 ───
+async function _tFetch(id, token) {
+  const end=new Date(), start=new Date(); start.setDate(start.getDate()-130);
+  const fmt=d=>d.toISOString().slice(0,10);
+  const url=`https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockPrice&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${token}`;
+  const r=await fetch(url,{signal:AbortSignal.timeout(13000)});
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  const js=await r.json();
+  if(js.status!==200||!Array.isArray(js.data)||js.data.length<30) throw new Error('no data');
+  const rows=js.data.sort((a,b)=>a.date.localeCompare(b.date));
+  return {closes:rows.map(r=>+r.close),highs:rows.map(r=>+r.max),lows:rows.map(r=>+r.min),dates:rows.map(r=>r.date),lc:+rows[rows.length-1].close};
+}
 
-    const techColor = isBull ? '#10b981' : isBear ? '#ef4444' : '#f59e0b';
-    const techText  = isBull ? '偏多' : isBear ? '偏空' : '中性';
-    const kdTxt = goldCross ? `KD ${k}/${d} 金叉📈` : deadCross ? `KD ${k}/${d} 死叉📉` : `KD ${k}/${d}`;
+// ─── 單檔分析 ───
+function _tAnalyze(data) {
+  const {closes,highs,lows} = data;
+  const rsi  = _tRSI(closes);
+  const {k,d}= _tKD(highs,lows,closes);
+  const {hist}= _tMACD(closes);
+  const ma20  = _tMA(closes,20);
+  const n     = closes.length;
+  return {
+    lc:   closes[n-1],
+    rsi:  rsi[rsi.length-1],
+    k:    k[n-1], d: d[n-1],
+    kSlope: _tSlope(k,4), dSlope: _tSlope(d,4),
+    hist: hist[n-1], histSlope: _tSlope(hist,4),
+    ma20: ma20[n-1],
+    daysToCrossKD:   _tDaysToCross(k,d),
+    daysToCrossMACD: _tMACDDaysToCross(hist),
+    bt: _tBacktest(closes,k,d),
+  };
+}
 
-    return `
-    <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-        <span style="font-weight:800;font-size:0.88rem;">${s.name}</span>
-        <span style="font-size:0.65rem;color:var(--fg3);background:var(--tag-bg);padding:1px 6px;border-radius:10px;">${s.id}</span>
-        <span style="font-size:0.65rem;color:var(--fg3);">${s.sector}</span>
-        <span style="margin-left:auto;font-size:0.8rem;font-weight:800;color:var(--fg1);">$${p.toLocaleString()}</span>
-        <span style="font-size:0.72rem;font-weight:700;color:${techColor};">●${techText}</span>
+// ─── 單檔渲染 HTML ───
+function _tRenderCard(s, ind, isSim) {
+  const p   = ind.lc;
+  const px  = v => v>=1000?v.toFixed(0):v>=100?v.toFixed(1):v.toFixed(2);
+
+  // 判斷偏多/空
+  let bias=0;
+  if(ind.rsi>55) bias++; else if(ind.rsi<40) bias--;
+  if(ind.k>ind.d) bias++; else bias--;
+  if(ind.hist>0) bias++; else if(ind.hist<0) bias--;
+  if(p>ind.ma20) bias++; else bias--;
+  const isBull=bias>=1, isBear=bias<=-2;
+  const techColor=isBull?'#10b981':isBear?'#ef4444':'#f59e0b';
+  const techText =isBull?'偏多':isBear?'偏空':'中性';
+
+  // RSI 說明
+  const rsiV=ind.rsi?ind.rsi.toFixed(0):'—';
+  const rsiTxt=ind.rsi>70?`RSI ${rsiV} 超買，短線過熱`:ind.rsi>55?`RSI ${rsiV} 偏強`:ind.rsi>45?`RSI ${rsiV} 中性`:ind.rsi>30?`RSI ${rsiV} 偏弱`:`RSI ${rsiV} 超賣，留意反彈`;
+
+  // KD 說明
+  const kV=ind.k?.toFixed(1)||'—', dV=ind.d?.toFixed(1)||'—';
+  const kdCross = ind.k>ind.d ? '金叉📈' : '死叉📉';
+  const kDir = ind.kSlope>0.5?'↑加速':ind.kSlope>0?'↑緩升':ind.kSlope<-0.5?'↓加速':'↓緩降';
+  let kdExtra='';
+  if(ind.daysToCrossKD===0)        kdExtra='（已金叉）';
+  else if(ind.daysToCrossKD>0)     kdExtra=`→ 預估 <b style="color:#10b981">${ind.daysToCrossKD} 天</b>後金叉`;
+  else if(ind.k<ind.d)             kdExtra='（死叉中，尚未收斂）';
+
+  // MACD 說明
+  const hV=ind.hist?.toFixed(2)||'—';
+  const hDir=ind.histSlope>0?'📈 收縮中（動能轉多）':ind.histSlope<0?'📉 擴張中（動能轉空）':'持平';
+  let macdExtra='';
+  if(ind.daysToCrossMACD===0)      macdExtra='（已在零軸上）';
+  else if(ind.daysToCrossMACD>0)   macdExtra=`→ 預估 <b style="color:#10b981">${ind.daysToCrossMACD} 天</b>後轉正`;
+  else if(ind.hist<0)              macdExtra='（仍在擴張，尚未收斂）';
+
+  // 雙金叉共振
+  const bothCross = ind.daysToCrossKD!=null&&ind.daysToCrossKD>0 && ind.daysToCrossMACD!=null&&ind.daysToCrossMACD>0;
+  const resonDay  = bothCross ? Math.max(ind.daysToCrossKD, ind.daysToCrossMACD) : null;
+
+  // 普通掛價
+  let normalOrder='', normalDesc='';
+  if(isBull){
+    const buy=(p*0.993), sl=(p*0.972), tgt=(p*1.04);
+    normalOrder=`📥 買進掛價：<b>$${px(buy)}</b>（等小拉回）`;
+    normalDesc =`停損 $${px(sl)}（-2.8%）・目標 $${px(tgt)}（+4%）・風報比 1:1.4`;
+  } else if(isBear){
+    const sell=(p*1.008), sl2=(p*1.025);
+    normalOrder=`📤 不建議買入，若持有反彈至 <b>$${px(sell)}</b> 減碼`;
+    normalDesc =`反彈超過 $${px(sl2)} 視為結構改變，取消賣出`;
+  } else {
+    const w=(p*0.995);
+    normalOrder=`👀 觀察為主，等回測 <b>$${px(w)}</b> 確認撐住再進`;
+    normalDesc =`多空拉鋸，不輕易出手`;
+  }
+
+  // 條件單
+  let condOrder='', condDesc='';
+  if(isBull){
+    const bo=(p*1.012), cb=(p*1.015), sl3=(p*0.975);
+    condOrder=`⚡ 突破條件單：股價 ≥ <b>$${px(bo)}</b> 自動掛買 $${px(cb)}`;
+    condDesc =`不用盯盤，突破才追。停損設 $${px(sl3)}（-2.5%）`;
+  } else if(isBear){
+    const bd=(p*0.988), cs=(p*0.985);
+    condOrder=`⚡ 跌破條件單：股價 ≤ <b>$${px(bd)}</b> 自動掛賣 $${px(cs)}`;
+    condDesc =`跌破支撐自動減碼，避免情緒性持有`;
+  } else {
+    const up=(p*1.012), lo=(p*0.988);
+    condOrder=`⚡ 雙向：突破 <b>$${px(up)}</b> 買 / 跌破 <b>$${px(lo)}</b> 賣`;
+    condDesc =`震盪格局讓市場決定方向，設好就走開`;
+  }
+
+  // 歷史回朔
+  let btHtml='';
+  if(ind.bt){
+    const {signals,winRate,avgDays,avgRet,bestRet}=ind.bt;
+    const wColor=winRate>=60?'#10b981':winRate>=40?'#f59e0b':'#ef4444';
+    btHtml=`
+    <div style="background:rgba(99,102,241,0.06);border-radius:7px;padding:8px 10px;margin-top:6px;font-size:0.72rem;">
+      <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:5px;">📊 歷史回朔（近${signals}次KD金叉）</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <span>勝率 <b style="color:${wColor}">${winRate}%</b></span>
+        <span>平均持有 <b>${avgDays} 天</b></span>
+        <span>平均獲利 <b style="color:${+avgRet>0?'#10b981':'#ef4444'}">${+avgRet>0?'+':''}${avgRet}%</b></span>
+        <span>最佳 <b style="color:#10b981">+${bestRet}%</b></span>
       </div>
-      <div style="font-size:0.67rem;color:var(--fg3);margin-bottom:7px;">
-        💡 ${s.note} ｜ RSI ${rsi} · ${kdTxt} · MACD ${macdBull?'多':'空'} · MA20${aboveMa20?'上方':'下方'}
-      </div>
-      <div style="background:rgba(16,185,129,0.07);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:0.75rem;">
-        <div style="font-size:0.62rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">📋 普通掛價（自己手動下單）</div>
-        <div style="font-weight:600;margin-bottom:3px;">${normalOrder}</div>
-        <div style="color:var(--fg3);font-size:0.68rem;">${normalDesc}</div>
-      </div>
-      <div style="background:rgba(99,102,241,0.07);border-radius:7px;padding:8px 10px;font-size:0.75rem;">
-        <div style="font-size:0.62rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">🤖 條件單（設好走開，自動觸發）</div>
-        <div style="font-weight:600;margin-bottom:3px;">${condOrder}</div>
-        <div style="color:var(--fg3);font-size:0.68rem;">${condDesc}</div>
-      </div>
+      ${resonDay?`<div style="margin-top:5px;color:#6366f1;font-weight:600;">🔥 KD+MACD 預計第 ${resonDay} 天雙金叉共振，歷史勝率最高窗口</div>`:''}
     </div>`;
-  }).join('');
+  }
 
-  // 日期標示
-  const dateStr = `${today.getFullYear()}/${(today.getMonth()+1).toString().padStart(2,'0')}/${today.getDate().toString().padStart(2,'0')}`;
+  const simBadge=isSim?'<span style="font-size:0.58rem;color:#f59e0b;margin-left:4px;">模擬</span>':'';
 
-  const html = `
-  <div id="teachPanelOverlay" style="
-    position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;
-    display:flex;align-items:center;justify-content:center;padding:16px;
-  " onclick="if(event.target===this)document.getElementById('teachPanelOverlay').remove()">
-    <div style="
-      background:var(--bg);border-radius:16px;padding:20px 22px;
-      width:100%;max-width:560px;max-height:88vh;overflow-y:auto;
-      box-shadow:0 20px 60px rgba(0,0,0,0.4);
-    ">
+  return `
+  <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
+      <span style="font-weight:800;font-size:0.88rem;">${s.name}</span>
+      <span style="font-size:0.63rem;color:var(--fg3);background:var(--tag-bg,rgba(128,128,128,0.1));padding:1px 6px;border-radius:10px;">${s.id}</span>
+      <span style="font-size:0.63rem;color:var(--fg3);">${s.sector}</span>
+      ${simBadge}
+      <span style="margin-left:auto;font-size:0.82rem;font-weight:800;color:var(--fg1);">$${p.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1})}</span>
+      <span style="font-size:0.72rem;font-weight:700;color:${techColor};">●${techText}</span>
+    </div>
+    <div style="font-size:0.67rem;color:var(--fg3);margin-bottom:8px;">💡 ${s.note}</div>
+
+    <div style="font-size:0.72rem;display:grid;gap:4px;margin-bottom:8px;background:rgba(128,128,128,0.04);border-radius:7px;padding:8px 10px;">
+      <div>${rsiTxt}</div>
+      <div>KD ${kV}/${dV} ${kdCross}｜K ${kDir} ${kdExtra}</div>
+      <div>MACD 柱狀 ${hV} ${hDir} ${macdExtra}</div>
+      <div>MA20 ${p&&ind.ma20?(p>ind.ma20?'<span style="color:#10b981">站上月線</span>':'<span style="color:#ef4444">跌破月線</span>'):'—'}</div>
+    </div>
+
+    <div style="background:rgba(16,185,129,0.07);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:0.75rem;">
+      <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">📋 普通掛價（手動下單）</div>
+      <div style="font-weight:600;margin-bottom:3px;">${normalOrder}</div>
+      <div style="color:var(--fg3);font-size:0.68rem;">${normalDesc}</div>
+    </div>
+    <div style="background:rgba(99,102,241,0.07);border-radius:7px;padding:8px 10px;font-size:0.75rem;">
+      <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">🤖 條件單（設好走開）</div>
+      <div style="font-weight:600;margin-bottom:3px;">${condOrder}</div>
+      <div style="color:var(--fg3);font-size:0.68rem;">${condDesc}</div>
+    </div>
+    ${btHtml}
+  </div>`;
+}
+
+// ─── 主函式 ───
+async function _openTeachPanel() {
+  const today=new Date();
+  const seed =today.getFullYear()*10000+(today.getMonth()+1)*100+today.getDate();
+  const rand =_teachSeededRand(seed);
+  const pool =[..._TEACH_POOL];
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  const five=pool.slice(0,5);
+
+  const oppEl=document.getElementById('oppVerdict');
+  const oppTxt=oppEl?.querySelector('.vd-main')?.textContent||oppEl?.textContent||'';
+  const mktBull=/偏多|中性偏多|樂觀/.test(oppTxt);
+  const mktBear=/偏空|下跌|警戒|悲觀/.test(oppTxt);
+  const mktTxt=mktBull?'🟢 美股偏多，台股順風':mktBear?'🔴 美股偏空，台股逆風':'🟡 美股中性';
+  const hm=today.getHours()*60+today.getMinutes();
+  const timeTip=hm<9*60?'⏰ 盤前：先看壓力表，再研究個股':hm<=9*60+30?'⚡ 09:00–09:30 先觀察，不追高':hm<=13*60+30?'📊 掛好條件單後可放心去做其他事':'✅ 收盤了，今日操作記錄下來明天對照';
+  const dateStr=`${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
+
+  // 顯示 loading modal
+  document.getElementById('teachPanelOverlay')?.remove();
+  const shell=`
+  <div id="teachPanelOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;"
+    onclick="if(event.target===this)this.remove()">
+    <div id="teachPanelBox" style="background:var(--bg);border-radius:16px;padding:20px 22px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
         <span style="font-size:1rem;font-weight:800;">📚 今日教學教盤</span>
-        <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">每日5股輪替</span>
+        <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">真實數據版</span>
         <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
       </div>
-      <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:12px;">${dateStr} · ${mktTxt}</div>
+      <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:10px;">${dateStr} · ${mktTxt}</div>
       <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
-        ${timeTip}<br>⚠️ 教育模擬用途，非投資建議。價格為參考基準，非當日即時行情。
+        ${timeTip}<br><span style="font-size:0.63rem;">⚠️ 教育模擬用途，非投資建議</span>
       </div>
-      ${cards}
-      <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:8px;">
-        💡 同一天重開顯示相同5檔 · 明天自動換新一批
+      <div id="teachCards">
+        <div style="text-align:center;padding:30px;color:var(--fg3);">
+          ⏳ 正在抓取真實K線數據（${five.map(s=>s.name).join('、')}）…<br>
+          <span style="font-size:0.65rem;">需要 FinMind Token，約需 10–20 秒</span>
+        </div>
       </div>
+      <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:8px;">💡 每日5檔固定・明天自動換新一批</div>
     </div>
   </div>`;
+  document.body.insertAdjacentHTML('beforeend', shell);
 
-  document.getElementById('teachPanelOverlay')?.remove();
-  document.body.insertAdjacentHTML('beforeend', html);
+  // 取 token
+  const token=window._userToken||(typeof TOKEN!=='undefined'?TOKEN:'')||'';
+
+  // 並行抓取5檔
+  const fetches=await Promise.allSettled(five.map(s=>_tFetch(s.id,token)));
+
+  // 計算指標 + 渲染
+  const cards=fetches.map((r,i)=>{
+    const s=five[i];
+    let ind, isSim=false;
+    if(r.status==='fulfilled'){
+      try{ ind=_tAnalyze(r.value); } catch(e){ isSim=true; }
+    } else { isSim=true; }
+
+    if(isSim){
+      // fallback 模擬
+      const sr=_teachSeededRand(seed+i*7919);
+      const rsi=35+sr()*45, k=20+sr()*55, d=Math.max(10,k-5+sr()*14-7);
+      const hist=(sr()-0.5)*2, ma20=s.price*(0.96+sr()*0.08);
+      ind={lc:s.price,rsi,k,d,kSlope:sr()*1-0.5,dSlope:sr()*0.6-0.3,hist,histSlope:sr()*0.5-0.25,ma20,daysToCrossKD:null,daysToCrossMACD:null,bt:null};
+    }
+    return _tRenderCard(s,ind,isSim);
+  }).join('');
+
+  const cardsEl=document.getElementById('teachCards');
+  if(cardsEl) cardsEl.innerHTML=cards;
 }
 </script>
 
