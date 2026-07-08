@@ -66082,7 +66082,7 @@ function _updateOpGuide() {
       const days = dim === 'today' ? 2 : dim === '7d' ? 9 : 32;
       const end = new Date(), start = new Date(); start.setDate(start.getDate() - days);
       const fmt = d => d.toISOString().slice(0,10);
-      const tok = window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '') || '';
+      const tok = localStorage.getItem('tsai_finmind_token') || window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '') || '';
       const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockNews&data_id=${sid}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
       const js  = await (await fetch(url, { signal: AbortSignal.timeout(10000) })).json();
       const raw = (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
