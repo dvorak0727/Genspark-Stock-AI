@@ -15429,6 +15429,9 @@ a.module-nav-item.acc-active {
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
+    <button class="ks-shortcut-btn" onclick="_openTeachPanel()" title="每日5股教學教盤" style="border:1.5px solid #10b981;color:#10b981;">
+      <span class="ks-sb-icon">📚</span> 教學教盤
+    </button>
     <a class="ks-shortcut-btn" href="#knowledgeStation"
        onclick="setTimeout(()=>document.getElementById('knowledgeStation').scrollIntoView({behavior:'smooth'}),10);return false;"
        title="跳至知識/技術補充站">
@@ -66180,6 +66183,199 @@ function _updateOpGuide() {
     if (wrap && !wrap.contains(e.target)) panel.classList.remove('open');
   });
 })();
+</script>
+
+<!-- ══ 教學教盤面板 v2.0 ══ -->
+<script>
+// ── 教學用股票池（30檔常見台股，含參考基準價）──
+const _TEACH_POOL = [
+  { id:'2330', name:'台積電',  price:2440, sector:'半導體',  note:'權王，跟著外資走' },
+  { id:'2317', name:'鴻海',    price:238,  sector:'電子製造', note:'蘋果供應鏈指標' },
+  { id:'2454', name:'聯發科',  price:1250, sector:'IC設計',  note:'手機晶片龍頭' },
+  { id:'2303', name:'聯電',    price:58,   sector:'半導體',  note:'成熟製程受惠股' },
+  { id:'2382', name:'廣達',    price:310,  sector:'雲端伺服器',note:'AI伺服器概念' },
+  { id:'2308', name:'台達電',  price:380,  sector:'電源/散熱', note:'AI散熱受惠' },
+  { id:'2357', name:'華碩',    price:560,  sector:'PC/筆電',  note:'AI PC受惠' },
+  { id:'2412', name:'中華電',  price:132,  sector:'電信',     note:'高殖利率防守股' },
+  { id:'2881', name:'富邦金',  price:88,   sector:'金融',     note:'升息受惠，穩定配息' },
+  { id:'2882', name:'國泰金',  price:72,   sector:'金融',     note:'壽險龍頭，跟匯率' },
+  { id:'2886', name:'兆豐金',  price:47,   sector:'金融',     note:'官股金控，波動低' },
+  { id:'3711', name:'日月光',  price:188,  sector:'封裝測試', note:'先進封裝 CoWoS 受惠' },
+  { id:'2379', name:'瑞昱',    price:620,  sector:'IC設計',   note:'乙太網路晶片龍頭' },
+  { id:'6505', name:'台塑化',  price:72,   sector:'石化',     note:'油價連動，高殖利率' },
+  { id:'1301', name:'台塑',    price:78,   sector:'塑化',     note:'傳產權王，配息穩定' },
+  { id:'2002', name:'中鋼',    price:28,   sector:'鋼鐵',     note:'景氣循環，觀察中國需求' },
+  { id:'2618', name:'長榮航',  price:38,   sector:'航空',     note:'兩岸旅遊受惠' },
+  { id:'2603', name:'長榮',    price:195,  sector:'航運',     note:'貨櫃龍頭，景氣循環' },
+  { id:'3008', name:'大立光',  price:2400, sector:'光學鏡頭', note:'蘋果鏡頭唯一供應商' },
+  { id:'2395', name:'研華',    price:370,  sector:'工業電腦', note:'邊緣AI受惠' },
+  { id:'6669', name:'緯穎',    price:2900, sector:'雲端伺服器',note:'超大規模雲端CSP供應' },
+  { id:'2376', name:'技嘉',    price:450,  sector:'主機板/GPU',note:'NVIDIA生態系受惠' },
+  { id:'2353', name:'宏碁',    price:52,   sector:'PC',       note:'AI PC轉型受惠' },
+  { id:'4938', name:'和碩',    price:88,   sector:'代工',     note:'蘋果第二大代工廠' },
+  { id:'2474', name:'可成',    price:280,  sector:'金屬機殼', note:'iPhone機殼供應商' },
+  { id:'3034', name:'聯詠',    price:520,  sector:'IC設計',   note:'面板驅動IC龍頭' },
+  { id:'2337', name:'旺宏',    price:78,   sector:'記憶體',   note:'NOR Flash龍頭' },
+  { id:'5274', name:'信驊',    price:2100, sector:'IC設計',   note:'BMC晶片AI伺服器受惠' },
+  { id:'6415', name:'矽力-KY', price:2300, sector:'電源IC',   note:'PMIC龍頭，高毛利' },
+  { id:'2388', name:'威盛',    price:68,   sector:'IC設計',   note:'車用與AI邊緣運算' },
+];
+
+// 每日固定種子亂數（同一天看到相同5檔）
+function _teachSeededRand(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return Math.abs(s) / 0xffffffff; };
+}
+
+function _openTeachPanel() {
+  // 日期種子
+  const today = new Date();
+  const seed  = today.getFullYear()*10000 + (today.getMonth()+1)*100 + today.getDate();
+  const rand  = _teachSeededRand(seed);
+
+  // 洗牌取5
+  const pool  = [..._TEACH_POOL];
+  for (let i = pool.length-1; i > 0; i--) {
+    const j = Math.floor(rand() * (i+1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const five = pool.slice(0, 5);
+
+  // 美股方向（讀開盤壓力表）
+  const oppEl   = document.getElementById('oppVerdict');
+  const oppTxt  = oppEl?.querySelector('.vd-main')?.textContent || oppEl?.textContent || '';
+  const mktBull = /偏多|中性偏多|樂觀/.test(oppTxt);
+  const mktBear = /偏空|下跌|警戒|悲觀/.test(oppTxt);
+  const mktTxt  = mktBull ? '🟢 美股偏多，台股順風' : mktBear ? '🔴 美股偏空，台股逆風' : '🟡 美股中性，以個股為主';
+
+  // 時段提示
+  const hm = today.getHours()*60 + today.getMinutes();
+  let timeTip = '';
+  if (hm < 9*60)            timeTip = '⏰ 盤前時段：先確認美股狀況，擬好今日策略';
+  else if (hm <= 9*60+30)   timeTip = '⚡ 開盤前30分鐘：不追高、等量縮再決策';
+  else if (hm <= 13*60+30)  timeTip = '📊 盤中時段：掛好條件單後可以放心做其他事';
+  else                       timeTip = '✅ 已收盤：今日練習複盤，記下哪個訊號有效';
+
+  // 生成每檔教學
+  const cards = five.map((s, idx) => {
+    const r2 = _teachSeededRand(seed + idx * 7919);
+    const rsi = 35 + Math.floor(r2() * 45);          // 35~79
+    const k   = 20 + Math.floor(r2() * 60);          // 20~79
+    const d   = Math.max(10, k - 5 + Math.floor(r2() * 15) - 7);
+    const goldCross = k > d && k < 60;
+    const deadCross = k < d && k > 50;
+    const macdBull  = r2() > 0.45;
+    const aboveMa20 = r2() > 0.40;
+    const p = s.price;
+
+    // 技術綜合
+    let techBias = 0;
+    if (rsi > 55) techBias++; else if (rsi < 40) techBias--;
+    if (goldCross) techBias++; else if (deadCross) techBias--;
+    if (macdBull) techBias++; else techBias--;
+    if (aboveMa20) techBias++; else techBias--;
+    const isBull = techBias >= 1;
+    const isBear = techBias <= -2;
+
+    // 普通掛價
+    let normalOrder = '', normalDesc = '';
+    if (isBull) {
+      const buy  = (p * 0.993).toFixed(p >= 100 ? 0 : 1);
+      const sl   = (p * 0.972).toFixed(p >= 100 ? 0 : 1);
+      const tgt  = (p * 1.04).toFixed(p >= 100 ? 0 : 1);
+      normalOrder = `📥 買進掛價：<b>${buy}</b>（等小拉回再進）`;
+      normalDesc  = `停損設 ${sl}（跌 2.8% 出），目標 ${tgt}（漲 4%），風報比 1:1.4`;
+    } else if (isBear) {
+      const sell = (p * 1.008).toFixed(p >= 100 ? 0 : 1);
+      const sl2  = (p * 1.025).toFixed(p >= 100 ? 0 : 1);
+      normalOrder = `📤 賣出／空手掛價：反彈至 <b>${sell}</b> 再賣`;
+      normalDesc  = `若反彈超過 ${sl2} 視為空頭結構改變，暫停賣出`;
+    } else {
+      const watch = (p * 0.998).toFixed(p >= 100 ? 0 : 1);
+      normalOrder = `👀 觀察為主：等回測 <b>${watch}</b> 附近確認撐住再看`;
+      normalDesc  = `多空尚未明確，先不操作，避免被洗出場`;
+    }
+
+    // 條件單
+    let condOrder = '', condDesc = '';
+    if (isBull) {
+      const breakout = (p * 1.012).toFixed(p >= 100 ? 0 : 1);
+      const condBuy  = (p * 1.015).toFixed(p >= 100 ? 0 : 1);
+      const sl3      = (p * 0.978).toFixed(p >= 100 ? 0 : 1);
+      condOrder = `⚡ 突破條件單：當股價 ≥ <b>${breakout}</b>，自動掛買 ${condBuy}`;
+      condDesc  = `突破訊號確認後才追，不用盯盤。停損同樣設 ${sl3}`;
+    } else if (isBear) {
+      const breakdown = (p * 0.988).toFixed(p >= 100 ? 0 : 1);
+      const condSell  = (p * 0.985).toFixed(p >= 100 ? 0 : 1);
+      condOrder = `⚡ 跌破條件單：當股價 ≤ <b>${breakdown}</b>，自動掛賣 ${condSell}`;
+      condDesc  = `跌破支撐自動減碼，避免在盤中來不及反應`;
+    } else {
+      const upper = (p * 1.015).toFixed(p >= 100 ? 0 : 1);
+      const lower = (p * 0.985).toFixed(p >= 100 ? 0 : 1);
+      condOrder = `⚡ 雙向條件單：突破 <b>${upper}</b> 買、跌破 <b>${lower}</b> 賣`;
+      condDesc  = `震盪格局設雙邊條件單，讓市場決定方向`;
+    }
+
+    const techColor = isBull ? '#10b981' : isBear ? '#ef4444' : '#f59e0b';
+    const techText  = isBull ? '偏多' : isBear ? '偏空' : '中性';
+    const kdTxt = goldCross ? `KD ${k}/${d} 金叉📈` : deadCross ? `KD ${k}/${d} 死叉📉` : `KD ${k}/${d}`;
+
+    return `
+    <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-weight:800;font-size:0.88rem;">${s.name}</span>
+        <span style="font-size:0.65rem;color:var(--fg3);background:var(--tag-bg);padding:1px 6px;border-radius:10px;">${s.id}</span>
+        <span style="font-size:0.65rem;color:var(--fg3);">${s.sector}</span>
+        <span style="margin-left:auto;font-size:0.72rem;font-weight:700;color:${techColor};">●${techText}</span>
+      </div>
+      <div style="font-size:0.67rem;color:var(--fg3);margin-bottom:7px;">
+        💡 ${s.note} ｜ RSI ${rsi} · ${kdTxt} · MACD ${macdBull?'多':'空'} · MA20${aboveMa20?'上方':'下方'}
+      </div>
+      <div style="background:rgba(16,185,129,0.07);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:0.75rem;">
+        <div style="font-size:0.62rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">📋 普通掛價（自己手動下單）</div>
+        <div style="font-weight:600;margin-bottom:3px;">${normalOrder}</div>
+        <div style="color:var(--fg3);font-size:0.68rem;">${normalDesc}</div>
+      </div>
+      <div style="background:rgba(99,102,241,0.07);border-radius:7px;padding:8px 10px;font-size:0.75rem;">
+        <div style="font-size:0.62rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">🤖 條件單（設好走開，自動觸發）</div>
+        <div style="font-weight:600;margin-bottom:3px;">${condOrder}</div>
+        <div style="color:var(--fg3);font-size:0.68rem;">${condDesc}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // 日期標示
+  const dateStr = `${today.getFullYear()}/${(today.getMonth()+1).toString().padStart(2,'0')}/${today.getDate().toString().padStart(2,'0')}`;
+
+  const html = `
+  <div id="teachPanelOverlay" style="
+    position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;
+    display:flex;align-items:center;justify-content:center;padding:16px;
+  " onclick="if(event.target===this)document.getElementById('teachPanelOverlay').remove()">
+    <div style="
+      background:var(--bg);border-radius:16px;padding:20px 22px;
+      width:100%;max-width:560px;max-height:88vh;overflow-y:auto;
+      box-shadow:0 20px 60px rgba(0,0,0,0.4);
+    ">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <span style="font-size:1rem;font-weight:800;">📚 今日教學教盤</span>
+        <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">每日5股輪替</span>
+        <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
+      </div>
+      <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:12px;">${dateStr} · ${mktTxt}</div>
+      <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
+        ${timeTip}<br>⚠️ 教育模擬用途，非投資建議。價格為參考基準，非當日即時行情。
+      </div>
+      ${cards}
+      <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:8px;">
+        💡 同一天重開顯示相同5檔 · 明天自動換新一批
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('teachPanelOverlay')?.remove();
+  document.body.insertAdjacentHTML('beforeend', html);
+}
 </script>
 
 <!-- ══ 教學教盤引擎 v1.0 ══ -->
