@@ -14958,6 +14958,52 @@ a.module-nav-item.acc-active {
 }
 
 /* ══════════════════════════════════════════════════
+   教學教盤卡
+   ══════════════════════════════════════════════════ */
+#teachCard {
+  background: linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(59,130,246,0.05) 100%);
+  border: 1.5px solid rgba(16,185,129,0.25);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.teach-header {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 0.92rem; font-weight: 700; color: var(--accent);
+  margin-bottom: 12px;
+}
+.teach-badge {
+  font-size: 0.6rem; font-weight: 700; letter-spacing:.05em;
+  background: linear-gradient(90deg,#10b981,#3b82f6);
+  color:#fff; padding: 2px 7px; border-radius: 20px;
+}
+.teach-body {
+  font-size: 0.78rem; line-height: 1.85; color: var(--fg1);
+  white-space: pre-wrap;
+}
+.teach-section {
+  margin-bottom: 10px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.04);
+}
+.teach-section-title {
+  font-size: 0.7rem; font-weight: 700; letter-spacing:.05em;
+  color: var(--fg3); margin-bottom: 5px;
+}
+.teach-bull  { color: #10b981; font-weight: 700; }
+.teach-bear  { color: #ef4444; font-weight: 700; }
+.teach-warn  { color: #f59e0b; font-weight: 700; }
+.teach-note  { font-size: 0.65rem; color: var(--fg3); margin-top: 8px; border-top: 1px solid rgba(128,128,128,0.15); padding-top: 6px; }
+.teach-refresh {
+  float: right; font-size: 0.65rem; cursor: pointer;
+  color: var(--fg3); padding: 2px 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: none;
+}
+.teach-refresh:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ══════════════════════════════════════════════════
    操作指導欄 + 今日開盤壓力表
    ══════════════════════════════════════════════════ */
 /* 操作指導欄 */
@@ -16066,6 +16112,7 @@ a.module-nav-item.acc-active {
     <nav class="module-nav" id="moduleNav" aria-label="模組快速導覽">
       <a class="module-nav-item" href="#csCard">💼 籌碼</a>
       <a class="module-nav-item" href="#aiCard">🤖 AI建言</a>
+      <a class="module-nav-item" href="#teachCard">📚 教學教盤</a>
       <a class="module-nav-item" href="#srCard">🌍 板塊</a>
       <a class="module-nav-item" href="#usLeadCard">🌐 美股先行</a>
       <a class="module-nav-item" href="#techCard">📈 技術</a>
@@ -17131,6 +17178,21 @@ a.module-nav-item.acc-active {
 
         </div><!-- /.ql-accordion-box -->
       </div>
+    </div>
+
+    <!-- 4b. 教學教盤 -->
+    <div id="teachCard">
+      <div class="teach-header">
+        📚 教學教盤
+        <span class="teach-badge">AI 陪你學</span>
+        <button class="teach-refresh" onclick="_renderTeachGuide()">🔄 更新</button>
+      </div>
+      <div id="teachBody">
+        <div class="teach-body" style="color:var(--fg3);text-align:center;padding:20px 0;">
+          ⏳ 請先查詢個股，教學內容將自動生成…
+        </div>
+      </div>
+      <div class="teach-note">⚠️ 本功能為教育模擬用途，非投資建議。實際交易請自行判斷，並依個人風險承受能力操作。</div>
     </div>
 
     <!-- 4. 技術指標 -->
@@ -43175,6 +43237,12 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
                             fSeries, tSeries, instMap, instDays,
                             ma20arr, lc, lRSI, lK, lD, lBollL, lMA5, lMA20) {
 
+  // 存技術數據供教學教盤使用
+  window._teachData = Object.assign(window._teachData || {}, {
+    lc, rsi: lRSI, k: lK, d: lD, bollL: lBollL, ma5: lMA5, ma20: lMA20,
+    macd: parseFloat(document.getElementById('macdHistEl')?.textContent) || null,
+  });
+
   const set = (id, v) => { const e=document.getElementById(id); if(e) e.innerHTML=v; };
   const px  = v => v != null ? (v>=100 ? v.toFixed(0) : v.toFixed(1)) : '—';
 
@@ -66114,6 +66182,172 @@ function _updateOpGuide() {
 })();
 </script>
 
+<!-- ══ 教學教盤引擎 v1.0 ══ -->
+<script>
+function _renderTeachGuide() {
+  const el = document.getElementById('teachBody');
+  if (!el) return;
+
+  const td  = window._teachData || {};
+  const sm  = window._smData   || {};
+  const name = window._currentStockName || window._currentStockId || '個股';
+  const sid  = window._currentStockId || '';
+
+  if (!td.lc && !sm.ai?.score) {
+    el.innerHTML = '<div class="teach-body" style="color:var(--fg3);text-align:center;padding:16px 0;">⏳ 請先查詢個股</div>';
+    return;
+  }
+
+  // ── 收集數據 ──
+  const lc      = td.lc || 0;
+  const rsi     = td.rsi != null ? td.rsi : NaN;
+  const k       = td.k   != null ? td.k   : NaN;
+  const d       = td.d   != null ? td.d   : NaN;
+  const ma20    = td.ma20 || 0;
+  const macd    = td.macd != null ? td.macd : NaN;
+  const aiScore = sm.ai?.score ?? parseInt(document.getElementById('gaugeScore')?.textContent || '50');
+  const aiLabel = sm.ai?.label || document.getElementById('gaugeLabel')?.textContent || '';
+  const washRisk= sm.wash?.risk || '';
+  const cfdFlow = sm.cfd?.stateText || '';
+  const cfWin   = sm.cf?.win || 0;
+
+  // 美股開盤壓力
+  const oppEl = document.getElementById('oppVerdict');
+  const oppText = oppEl?.querySelector('.vd-main')?.textContent || oppEl?.textContent || '';
+  const oppIsBull = /偏多|中性偏多|樂觀|溫和上漲/.test(oppText);
+  const oppIsBear = /偏空|下跌|警戒|悲觀/.test(oppText);
+
+  // ── 現在時間 ──
+  const now  = new Date();
+  const hm   = now.getHours() * 60 + now.getMinutes();
+  const isPreOpen  = hm < 9*60;
+  const isEarlyAM  = hm >= 9*60 && hm <= 9*60+30;
+  const isMorning  = hm > 9*60+30 && hm < 11*60;
+  const isNoon     = hm >= 11*60 && hm < 12*60+30;
+  const isAfternoon= hm >= 12*60+30 && hm < 13*60+15;
+  const isClose    = hm >= 13*60+15 && hm < 13*60+30;
+  const isAfter    = hm >= 13*60+30;
+
+  // ── ① 美股環境 ──
+  let envText = '', envCls = '';
+  if (oppIsBull)      { envText = '美股昨晚收紅，市場偏多氣氛，今日開盤台股可望跟進。'; envCls = 'teach-bull'; }
+  else if (oppIsBear) { envText = '美股昨晚收黑，市場承壓，今日開盤偏謹慎。'; envCls = 'teach-bear'; }
+  else if (oppText && oppText.length > 5) { envText = `市場處於中性狀態（${oppText.slice(0,20)}），無明顯方向。`; envCls = 'teach-warn'; }
+  else                { envText = '美股數據尚未載入，建議先跑開盤壓力表（點左上🌏）。'; envCls = ''; }
+
+  // ── ② 個股技術診斷 ──
+  const lines = [];
+  if (!isNaN(rsi)) {
+    if      (rsi >= 70) lines.push(`RSI ${rsi.toFixed(0)}：<span class="teach-bear">超買區，短線過熱，追高風險高</span>`);
+    else if (rsi >= 55) lines.push(`RSI ${rsi.toFixed(0)}：<span class="teach-bull">偏強，多方動能充足</span>`);
+    else if (rsi >= 45) lines.push(`RSI ${rsi.toFixed(0)}：中性，多空拉鋸`);
+    else if (rsi >= 30) lines.push(`RSI ${rsi.toFixed(0)}：<span class="teach-warn">偏弱，待確認止跌</span>`);
+    else                lines.push(`RSI ${rsi.toFixed(0)}：<span class="teach-bull">超賣區，注意反彈機會</span>`);
+  }
+  if (!isNaN(k) && !isNaN(d)) {
+    const cross = k > d ? '金叉' : '死叉';
+    const crossCls = k > d ? 'teach-bull' : 'teach-bear';
+    if (k > d && k < 20)       lines.push(`KD ${k.toFixed(0)}/${d.toFixed(0)}：<span class="teach-bull">低檔金叉，短線強烈買訊！</span>`);
+    else if (k > d && k < 50)  lines.push(`KD ${k.toFixed(0)}/${d.toFixed(0)}：<span class="teach-bull">低位金叉，多方正在接管</span>`);
+    else if (k > d && k >= 80) lines.push(`KD ${k.toFixed(0)}/${d.toFixed(0)}：<span class="teach-warn">高位金叉，留意假訊號</span>`);
+    else if (k < d && k > 80)  lines.push(`KD ${k.toFixed(0)}/${d.toFixed(0)}：<span class="teach-bear">高檔死叉，賣壓轉強</span>`);
+    else                        lines.push(`KD ${k.toFixed(0)}/${d.toFixed(0)}：<span class="${crossCls}">${cross}，多空方向剛確認</span>`);
+  }
+  if (!isNaN(macd)) {
+    if (macd > 0) lines.push(`MACD 柱狀 +${macd.toFixed(2)}：<span class="teach-bull">站在零軸上，趨勢偏多</span>`);
+    else          lines.push(`MACD 柱狀 ${macd.toFixed(2)}：<span class="teach-bear">零軸下方，趨勢偏空</span>`);
+  }
+  if (lc && ma20) {
+    const pct = ((lc - ma20) / ma20 * 100).toFixed(1);
+    if (lc > ma20) lines.push(`MA20：股價站上月線（+${pct}%），<span class="teach-bull">多頭格局</span>`);
+    else           lines.push(`MA20：股價跌破月線（${pct}%），<span class="teach-bear">需觀察能否回收</span>`);
+  }
+  if (cfdFlow) lines.push(`籌碼流態：<b>${cfdFlow}</b>`);
+
+  // ── ③ 操作建議 ──
+  let action = '', actionCls = '';
+  const isBull = aiScore >= 65;
+  const isBear = aiScore <  40;
+  const isNeut = !isBull && !isBear;
+
+  if (isBull && !isNaN(k) && k < 50 && k > d)
+    { action = '金叉 + AI 偏多共振！可考慮分批買入，停損設在最近低點下方 2–3%。'; actionCls = 'teach-bull'; }
+  else if (isBull)
+    { action = `AI 評分 ${aiScore} 分偏多，但要等回檔再進場，不追高。等拉回 ${lc ? (lc * 0.98).toFixed(0) : '—'} 附近再看。`; actionCls = 'teach-bull'; }
+  else if (isBear)
+    { action = `AI 評分 ${aiScore} 分偏空，此時不適合買入。若有持倉，評估停損或減碼。`; actionCls = 'teach-bear'; }
+  else
+    { action = `多空拉鋸（AI ${aiScore} 分），先觀察，不輕易出手。等訊號明確再動。`; actionCls = 'teach-warn'; }
+
+  // 洗盤提示
+  let washTip = '';
+  if (/danger|高|洗/.test(washRisk))
+    washTip = '⚠️ 洗盤估算顯示目前可能處於洗盤區，短線下跌未必是真跌，耐心持有再看。';
+
+  // ── ④ 時間相關建議 ──
+  let timeTip = '';
+  if (isPreOpen)   timeTip = '🌅 盤前：先跑開盤壓力表，看美股狀況，擬好今天策略，不要一開盤就衝動下單。';
+  else if (isEarlyAM) timeTip = '⚡ 09:00–09:30 是最危險的時段！量大、波動大、散戶最容易被洗。<b>建議先觀察，不要搶開盤。</b>';
+  else if (isMorning) timeTip = '📊 早盤穩定後，方向漸明。若持有多單且盤面偏強，可續抱；若跌破早盤低點，考慮停損。';
+  else if (isNoon)    timeTip = '😴 午盤流動性低，不必盯盤。已設好停損就放心休息，避免在無量時下單。';
+  else if (isAfternoon) timeTip = '👀 下午盤注意尾盤動作：法人通常在 12:30–13:00 會做最後調整，出現方向改變要警覺。';
+  else if (isClose)   timeTip = '🔔 13:15 進入最後15分鐘！若要賣可掛市價或限價近市，不要等到最後1分鐘才下單。';
+  else if (isAfter)   timeTip = '✅ 收盤了。今天操作複盤一下：哪個訊號有效？哪裡多或少了？明天再來。';
+
+  // ── 掛單建議 ──
+  let orderTip = '';
+  if (lc && isBull && !isNaN(k) && k < 50) {
+    const buy1 = (lc * 0.995).toFixed(1);
+    const buy2 = (lc * 0.985).toFixed(1);
+    const sl   = (lc * 0.970).toFixed(1);
+    orderTip = `參考掛單：條件買單 ${buy1}（輕倉試單）/ ${buy2}（加碼）。停損 ${sl}，跌破就出。`;
+  } else if (lc && isBear) {
+    const sell = (lc * 1.005).toFixed(1);
+    orderTip = `若持有 ${name}，可考慮在反彈到 ${sell} 附近掛賣單減碼，不要等到大跌才賣。`;
+  }
+
+  // ── 組裝 HTML ──
+  el.innerHTML = `
+    <div class="teach-section">
+      <div class="teach-section-title">🌏 今日市場環境</div>
+      <div class="${envCls}">${envText}</div>
+    </div>
+    <div class="teach-section">
+      <div class="teach-section-title">📊 ${name} 技術狀態</div>
+      ${lines.length ? lines.map(l=>`<div>• ${l}</div>`).join('') : '<div style="color:var(--fg3)">尚未取得技術數據</div>'}
+    </div>
+    <div class="teach-section">
+      <div class="teach-section-title">🎯 操作建議（教學練習）</div>
+      <div class="${actionCls}">${action}</div>
+      ${orderTip ? `<div style="margin-top:6px;font-size:0.73rem;">${orderTip}</div>` : ''}
+      ${washTip  ? `<div style="margin-top:6px;color:#f59e0b;font-size:0.73rem;">${washTip}</div>` : ''}
+    </div>
+    ${timeTip ? `<div class="teach-section"><div class="teach-section-title">⏰ 現在時段 ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}</div><div>${timeTip}</div></div>` : ''}
+  `;
+}
+
+// 分析完成後自動呼叫
+const _origRenderSM = window.renderSignalMatrix;
+if (typeof _origRenderSM === 'function') {
+  window.renderSignalMatrix = function(...a) {
+    const r = _origRenderSM.apply(this, a);
+    setTimeout(_renderTeachGuide, 800);
+    return r;
+  };
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    const orig = window.renderSignalMatrix;
+    if (typeof orig === 'function') {
+      window.renderSignalMatrix = function(...a) {
+        const r = orig.apply(this, a);
+        setTimeout(_renderTeachGuide, 800);
+        return r;
+      };
+    }
+  });
+}
+</script>
+
 <!-- ══ 模組手風琴系統 v1.0 ══ -->
 <script>
 (function initModuleAccordion() {
@@ -66121,6 +66355,7 @@ function _updateOpGuide() {
     { id:'opPressureCard',label:'開盤壓力表',emoji:'🌏', why:'每天第一件事！美股昨晚怎麼收，台積電ADR怎麼動，決定今天開盤的基本盤。' },
     { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。' },
     { id:'aiCard',        label:'AI建言',    emoji:'🤖', why:'AI綜合所有指標給出白話結論，不知道從哪看起？先看這裡。' },
+    { id:'teachCard',     label:'教學教盤',  emoji:'📚', why:'AI陪你學！把技術指標翻譯成白話，告訴你現在該買、該賣、還是等，附上掛單參考價。' },
     { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。' },
     { id:'usLeadCard',    label:'美股先行',  emoji:'🌐', why:'台股是美股的影子，AI/半導體類股尤其明顯。美股昨晚怎麼收，今天開盤就知道了。' },
     { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。' },
