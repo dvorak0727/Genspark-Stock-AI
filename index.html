@@ -66149,6 +66149,38 @@ function _updateOpGuide() {
       }
     }
 
+    // ④ RSS via rss2json（同重要新聞 modal Path B，最穩定的備援路徑）
+    if (items.length === 0) {
+      const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
+      const RSS_SOURCES = [
+        { url:'https://www.cnyes.com/rss/news.aspx?cat=tw_stock', src:'鉅亨網' },
+        { url:'https://tw.stock.yahoo.com/rss', src:'Yahoo財經' },
+      ];
+      for (const {url: rssUrl, src} of RSS_SOURCES) {
+        if (items.length > 0) break;
+        try {
+          const resp = await fetch(RSS2JSON + encodeURIComponent(rssUrl), { signal: AbortSignal.timeout(7000) });
+          const jj = await resp.json();
+          if (jj.status === 'ok' && Array.isArray(jj.items) && jj.items.length > 0) {
+            const filtered = jj.items.filter(item => {
+              const fullText = ((item.title||'') + ' ' + (item.description||'')).toUpperCase();
+              return fullText.includes(sid.toUpperCase()) || (stockName && fullText.includes(stockName));
+            });
+            if (filtered.length > 0) {
+              items = filtered.map(item => ({
+                title:   item.title || '',
+                date:    item.pubDate ? new Date(item.pubDate).toISOString().slice(0,16).replace('T',' ') : '',
+                url:     item.link || '',
+                summary: (item.description||'').replace(/<[^>]+>/g,'').slice(0,120),
+                source:  src,
+              })).filter(n => n.title.length > 3);
+              console.log('[STN] RSS', src, 'items=', items.length);
+            }
+          }
+        } catch(e) { console.warn('[STN] RSS err', src, e?.message); }
+      }
+    }
+
     items.sort((a,b) => (typeof _parseSunDate==='function' ? _parseSunDate(b.date)-_parseSunDate(a.date) : 0));
     _stnCache[dim] = items;
     _renderStn(items, listEl, dim);
