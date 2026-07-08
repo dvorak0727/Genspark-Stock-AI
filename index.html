@@ -65979,7 +65979,29 @@ function _updateOpGuide() {
     const stockName = window._currentStockName || (typeof STOCK_DB !== 'undefined' && STOCK_DB[sid]?.name) || sid;
     let items = [];
 
-    // ① FinMind TaiwanStockNews
+    // proxy 輔助（與美股新聞相同的 US_PROXIES + allorigins.win）
+    const STN_ALL_PROXIES = [
+      r => `https://api.allorigins.win/get?url=${encodeURIComponent(r)}`,
+      ...(typeof US_PROXIES !== 'undefined' ? US_PROXIES : []),
+    ];
+    const _stnFetch = async (url, ms=7000) => {
+      for (const mkP of STN_ALL_PROXIES) {
+        const pu = mkP(url);
+        try {
+          const r = await fetch(pu, { signal: AbortSignal.timeout(ms) });
+          console.log(`[STN] ${r.status} ${pu.slice(0,90)}`);
+          if (!r.ok) { console.warn(`[STN] HTTP ${r.status}`); continue; }
+          const raw = await r.text();
+          let content = raw;
+          try { const j = JSON.parse(raw); if (j?.contents) content = j.contents; } catch(_) {}
+          console.log(`[STN] OK len=${content.length} head=${content.slice(0,80)}`);
+          return content;
+        } catch(e) { console.warn(`[STN] ERR ${pu.slice(0,70)}`, e?.message||e); }
+      }
+      return null;
+    };
+
+    // ① FinMind TaiwanStockNews（有 token 時最準）
     try {
       const days = dim === 'today' ? 2 : dim === '7d' ? 9 : 32;
       const end = new Date(), start = new Date(); start.setDate(start.getDate() - days);
@@ -65995,61 +66017,60 @@ function _updateOpGuide() {
         summary: n.description || '',
         source:  n.source || 'FinMind',
       })).filter(n => n.title.length > 3);
-    } catch(_) {}
+      console.log('[STN] FinMind items=', items.length);
+    } catch(e) { console.warn('[STN] FinMind err', e?.message); }
 
-    // ② Google News RSS（中文，最穩定的備援）
-    if (items.length === 0 && typeof US_PROXIES !== 'undefined') {
-      const queries = [stockName, `${stockName} 股票`, sid];
-      outer2:
-      for (const q of queries) {
+    // ② Google News RSS 中文（allorigins.win 不會 503，優先抓中文）
+    // 只用 allorigins.win，不用 corsproxy（corsproxy 對 Google 回 503）
+    if (items.length === 0) {
+      const _aoProxy = r => `https://api.allorigins.win/get?url=${encodeURIComponent(r)}`;
+      for (const q of [stockName, `${stockName} 股票`, sid]) {
+        if (items.length > 0) break;
         const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
-        for (const mkProxy of US_PROXIES) {
-          try {
-            const pr = await fetch(mkProxy(rssUrl), { signal: AbortSignal.timeout(8000) });
-            if (!pr.ok) continue;
-            const pj  = await pr.json().catch(() => null);
-            const txt = pj?.contents || (typeof pj === 'string' ? pj : null) || await pr.text?.() || '';
-            const xml = new DOMParser().parseFromString(txt, 'text/xml');
-            const nodes = Array.from(xml.querySelectorAll('item'));
-            if (nodes.length > 0) {
-              items = nodes.map(el => ({
-                title:   el.querySelector('title')?.textContent?.replace(/<[^>]+>/g,'') || '',
-                date:    el.querySelector('pubDate')?.textContent || '',
-                url:     el.querySelector('link')?.textContent || el.querySelector('guid')?.textContent || '',
-                summary: el.querySelector('description')?.textContent?.replace(/<[^>]+>/g,'').slice(0,120) || '',
-                source:  el.querySelector('source')?.textContent || 'Google新聞',
-              })).filter(n => n.title.length > 3);
-              if (items.length > 0) break outer2;
-            }
-          } catch(_) {}
-        }
+        try {
+          const r = await fetch(_aoProxy(rssUrl), { signal: AbortSignal.timeout(8000) });
+          console.log('[STN] Google RSS via allorigins', r.status, 'q=', q);
+          if (!r.ok) continue;
+          const raw = await r.text();
+          let txt = raw;
+          try { const j = JSON.parse(raw); if (j?.contents) txt = j.contents; } catch(_) {}
+          const xml   = new DOMParser().parseFromString(txt, 'text/xml');
+          const nodes = Array.from(xml.querySelectorAll('item'));
+          console.log('[STN] Google RSS nodes=', nodes.length);
+          if (nodes.length > 0) {
+            items = nodes.map(el => ({
+              title:   el.querySelector('title')?.textContent?.replace(/<[^>]+>/g,'') || '',
+              date:    el.querySelector('pubDate')?.textContent || '',
+              url:     el.querySelector('link')?.textContent || el.querySelector('guid')?.textContent || '',
+              summary: el.querySelector('description')?.textContent?.replace(/<[^>]+>/g,'').slice(0,120) || '',
+              source:  el.querySelector('source')?.textContent || 'Google新聞',
+            })).filter(n => n.title.length > 3);
+          }
+        } catch(e) { console.warn('[STN] Google RSS err', e?.message); }
       }
     }
 
-    // ③ Yahoo Finance v2 news（最後備援）
-    if (items.length === 0 && typeof US_PROXIES !== 'undefined') {
+    // ③ Yahoo Finance v1 search 中文版（備援，有時含中文標題）
+    if (items.length === 0) {
       for (const sym of [`${sid}.TW`, sid]) {
         if (items.length > 0) break;
-        for (const mkProxy of US_PROXIES) {
-          try {
-            const yUrl = `https://query2.finance.yahoo.com/v2/finance/news?symbols=${sym}&count=30`;
-            const pr  = await fetch(mkProxy(yUrl), { signal: AbortSignal.timeout(6000) });
-            if (!pr.ok) continue;
-            const pj  = await pr.json();
-            const raw = pj?.contents ? JSON.parse(pj.contents) : pj;
-            const arr = Array.isArray(raw?.items?.result) ? raw.items.result : [];
-            if (arr.length > 0) {
-              items = arr.map(n => ({
-                title:   n.title || '',
-                date:    n.pubTime ? new Date(n.pubTime*1000).toISOString().slice(0,19) : '',
-                url:     n.link || '',
-                summary: n.summary || '',
-                source:  n.provider || 'Yahoo Finance',
-              })).filter(n => n.title.length > 3);
-              break;
-            }
-          } catch(_) {}
-        }
+        const url = `https://query1.finance.yahoo.com/v1/finance/search?q=${sym}&lang=zh-TW&region=TW&newsCount=25&quotesCount=0`;
+        const txt = await _stnFetch(url, 7000);
+        if (!txt) continue;
+        try {
+          const js  = JSON.parse(txt);
+          const arr = Array.isArray(js?.news) ? js.news : [];
+          console.log('[STN] YF v1 zh news=', arr.length, 'sym=', sym);
+          if (arr.length > 0) {
+            items = arr.map(n => ({
+              title:   n.title || '',
+              date:    n.providerPublishTime ? new Date(n.providerPublishTime*1000).toISOString().slice(0,16) : '',
+              url:     n.link || '',
+              summary: '',
+              source:  n.publisher || 'Yahoo Finance',
+            })).filter(n => n.title.length > 3);
+          }
+        } catch(e) { console.warn('[STN] YF v1 err', e?.message); }
       }
     }
 
