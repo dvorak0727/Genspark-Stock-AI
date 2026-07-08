@@ -66340,10 +66340,14 @@ async function _tFetch(id, token) {
     const byDate={};
     instRes.value.data.sort((a,b)=>a.date.localeCompare(b.date)).forEach(d=>{
       if(!byDate[d.date]) byDate[d.date]={f:0,t:0,m:0};
-      const net=(+d.buy||0)-(+d.sell||0);
-      if(/外資/.test(d.name)||/Foreign/.test(d.name)) byDate[d.date].f+=net;
-      if(/投信/.test(d.name)||/Investment_Trust/.test(d.name)) byDate[d.date].t+=net;
-      if(/自營/.test(d.name)||/Dealer/.test(d.name)) byDate[d.date].m+=net;
+      const net=+d.net||0; // FinMind 直接提供 net 欄位
+      const nm=d.name||'';
+      // 外資：含「外資及陸資」但排除「外資自營商」（避免重複）
+      if(nm==='外資及陸資(不含外資自營商)'||nm==='Foreign_Investor') byDate[d.date].f+=net;
+      // 投信
+      if(nm==='投信'||nm==='Investment_Trust') byDate[d.date].t+=net;
+      // 自營商：只計自行買賣（不含避險）
+      if(nm==='自營商(自行買賣)'||nm==='Dealer_self') byDate[d.date].m+=net;
     });
     const dts=Object.keys(byDate).sort();
     fStreak=_tStreakN(dts.map(d=>byDate[d].f));
@@ -66477,25 +66481,25 @@ function _tRenderCard(s, ind, isSim) {
 
   // 籌碼連動區塊
   function streakHtml(label, n) {
-    if(n===0) return `<span style="color:var(--fg3)">${label}：持平</span>`;
+    if(n===0) return `<span style="font-size:0.62rem;color:var(--fg3);">${label}：— 無連續方向</span>`;
     const abs=Math.abs(n), isBuy=n>0;
     const col=isBuy?'#10b981':'#ef4444';
     const icon=isBuy?'🟢':'🔴';
-    const txt=isBuy?`連買${abs}天`:`連賣${abs}天`;
-    const warn=(!isBuy&&abs>=3)?'<span style="color:#f59e0b;font-size:0.6rem;"> ⚠️籌碼出逃</span>'
-              :(isBuy&&abs>=3)?'<span style="color:#10b981;font-size:0.6rem;"> 💪持續吸籌</span>':'';
-    return `${icon} ${label}：<b style="color:${col}">${txt}</b>${warn}`;
+    const txt=isBuy?`連買 ${abs} 天`:`連賣 ${abs} 天`;
+    const badge=(!isBuy&&abs>=3)?'<span style="background:#f59e0b22;color:#b45309;border-radius:4px;padding:0 4px;font-size:0.6rem;margin-left:4px;">⚠️籌碼出逃</span>'
+               :(isBuy&&abs>=3)?'<span style="background:#10b98122;color:#059669;border-radius:4px;padding:0 4px;font-size:0.6rem;margin-left:4px;">💪持續吸籌</span>':'';
+    return `${icon} <b>${label}</b>：<b style="color:${col}">${txt}</b>${badge}`;
   }
   function marginStreakHtml(n) {
-    if(n===0) return `<span style="color:var(--fg3)">融資：持平</span>`;
+    if(n===0) return `<span style="font-size:0.62rem;color:var(--fg3);">融資：— 無連續方向</span>`;
     const abs=Math.abs(n), isUp=n>0;
     const col=isUp?'#f59e0b':'#10b981';
     const icon=isUp?'⚠️':'✅';
-    const txt=isUp?`連增${abs}天`:`連減${abs}天`;
-    const warn=isUp&&abs>=3?'<span style="color:#ef4444;font-size:0.6rem;"> 高風險</span>':'';
-    return `${icon} 融資：<b style="color:${col}">${txt}</b>${warn}`;
+    const txt=isUp?`連增 ${abs} 天（散戶加碼）`:`連減 ${abs} 天（去槓桿）`;
+    const badge=isUp&&abs>=3?'<span style="background:#ef444422;color:#dc2626;border-radius:4px;padding:0 4px;font-size:0.6rem;margin-left:4px;">高風險</span>':'';
+    return `${icon} <b>融資</b>：<b style="color:${col}">${txt}</b>${badge}`;
   }
-  const chipHtml=(ind.fStreak!==0||ind.tStreak!==0||ind.mStreak!==0||ind.marginStreak!==0)?`
+  const chipHtml=`
     <div style="background:rgba(245,158,11,0.06);border-radius:7px;padding:8px 10px;margin-top:6px;font-size:0.70rem;">
       <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:5px;">🏦 籌碼連動（近期）</div>
       <div style="display:grid;gap:4px;">
@@ -66504,7 +66508,7 @@ function _tRenderCard(s, ind, isSim) {
         <div>${streakHtml('自營',ind.mStreak)}</div>
         <div>${marginStreakHtml(ind.marginStreak)}</div>
       </div>
-    </div>`:'';
+    </div>`;
 
   const simBadge=isSim?'<span style="font-size:0.58rem;color:#f59e0b;margin-left:4px;">模擬</span>':'';
 
