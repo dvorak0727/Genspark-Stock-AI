@@ -66327,7 +66327,7 @@ async function _tFetch(id, token) {
   const base=`https://stock-api-214539875795.asia-east1.run.app`;
   const [priceRes,instRes,marginRes]=await Promise.allSettled([
     fetch(`${base}?dataset=TaiwanStockPrice&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(13000)}).then(r=>r.json()),
-    fetch(`${base}?dataset=TaiwanStockInstitutionalInvestors&data_id=${id}&start_date=${fmt(s30)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(10000)}).then(r=>r.json()),
+    fetch(`${base}?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${id}&start_date=${fmt(s30)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(10000)}).then(r=>r.json()),
     fetch(`${base}?dataset=TaiwanStockMarginPurchaseShortSale&data_id=${id}&start_date=${fmt(s30)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(10000)}).then(r=>r.json()),
   ]);
   const js=priceRes.status==='fulfilled'?priceRes.value:{};
@@ -66339,11 +66339,12 @@ async function _tFetch(id, token) {
   if(instRes.status==='fulfilled'&&instRes.value?.data?.length){
     const byDate={};
     instRes.value.data.sort((a,b)=>a.date.localeCompare(b.date)).forEach(d=>{
-      if(!byDate[d.date]) byDate[d.date]={f:0,t:0,m:0};
-      const net=+d.net||0; // FinMind 直接提供 net 欄位
+      if(!byDate[d.date]) byDate[d.date]={f:0,t:0,m:0,fSet:false};
+      const net=(+d.buy||0)-(+d.sell||0); // FinMind 只有 buy/sell，需自算 net
       const nm=d.name||'';
-      // 外資：含「外資及陸資」但排除「外資自營商」（避免重複）
-      if(nm==='外資及陸資(不含外資自營商)'||nm==='Foreign_Investor') byDate[d.date].f+=net;
+      // 外資：優先「外資及陸資」（主量），fallback「不含外資自營商」版本，各只取一筆避免重複
+      if((nm==='外資及陸資'||nm==='Foreign_Investor')&&!byDate[d.date].fSet){byDate[d.date].f=net;byDate[d.date].fSet=true;}
+      else if(nm==='外資及陸資(不含外資自營商)'&&!byDate[d.date].fSet){byDate[d.date].f=net;}
       // 投信
       if(nm==='投信'||nm==='Investment_Trust') byDate[d.date].t+=net;
       // 自營商：只計自行買賣（不含避險）
@@ -66389,6 +66390,159 @@ function _tAnalyze(data) {
   };
 }
 
+// ─── 練功題：使用者答題後揭曉 ───
+window._tPracticeData = window._tPracticeData || {};
+window._tPracticeAnswer = function(uid, choice) {
+  const data = window._tPracticeData[uid];
+  if(!data || data.answered) return;
+  data.answered = true;
+
+  const { isBull, isBear, normalOrder, normalDesc, ai, p, ind } = data;
+  const correctChoice = isBull ? 'buy' : 'wait';
+  const isCorrect = choice === correctChoice;
+  const px = v => v>=1000?v.toFixed(0):v>=100?v.toFixed(1):v.toFixed(2);
+
+  // 按鈕狀態更新
+  ['buy','wait'].forEach(c => {
+    const btn = document.getElementById('pb_'+c+'_'+uid);
+    if(!btn) return;
+    btn.disabled = true;
+    btn.style.opacity = c===choice?'1':'0.4';
+    if(c===correctChoice) { btn.style.borderColor='#10b981'; btn.style.background='rgba(16,185,129,0.18)'; btn.style.color='#10b981'; }
+    else { btn.style.borderColor='#ef4444'; btn.style.background='rgba(239,68,68,0.1)'; btn.style.color='#ef4444'; }
+  });
+
+  // 3日走勢預測
+  let pred3;
+  const r = ind.rsi||50, k = ind.k||50;
+  const kdCrossed = k > (ind.d||50);
+  if(isBull) {
+    const tgt = px(p*1.025), sup = px(p*0.985);
+    pred3 = kdCrossed && r<55
+      ? `KD 低位金叉後通常有一波補漲，3日內若守住 <b>$${sup}</b> 支撐，有機會測試 <b>$${tgt}</b>。${ind.daysToCrossMACD>0?`MACD 預估 ${ind.daysToCrossMACD} 天後轉正，動能持續增強。`:''}`
+      : `技術面偏多，3日內在 <b>$${sup}～$${tgt}</b> 間的走勢機率偏高。設好停損，不要因為小回調就恐慌出場。`;
+  } else if(isBear) {
+    const dn = px(p*0.975);
+    pred3 = `技術面偏空，3日內下行壓力偏大，注意 <b>$${dn}</b> 一帶是否有撐。此時進場等於逆勢操作，風險較高。耐心等底部訊號出現再說。`;
+  } else {
+    const up = px(p*1.012), dn = px(p*0.988);
+    pred3 = `多空拉鋸，3日內可能在 <b>$${dn}～$${up}</b> 區間震盪整理。等回測支撐撐住、K線收紅才是安全的進場時機。現在衝進去等於替機構抬轎。`;
+  }
+
+  // 更新練功計數（localStorage）
+  const today = new Date().toISOString().slice(0,10);
+  let rec = JSON.parse(localStorage.getItem('_tPractice')||'{}');
+  if(rec.date!==today) rec={date:today,total:0,correct:0};
+  rec.total++; if(isCorrect) rec.correct++;
+  localStorage.setItem('_tPractice', JSON.stringify(rec));
+  const pct = Math.round(rec.correct/rec.total*100);
+  const counterTxt = `今日練功：${rec.total} 題 ／ 答對 ${rec.correct} 題（勝率 ${pct}%）`;
+
+  // 揭曉區
+  const el = document.getElementById('pr_'+uid);
+  if(!el) return;
+  el.style.display='block';
+  el.innerHTML=`
+    <div style="background:${isCorrect?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.08)'};border-radius:7px;padding:9px 11px;font-size:0.68rem;margin-top:6px;">
+      <div style="font-weight:800;font-size:0.75rem;color:${isCorrect?'#10b981':'#ef4444'};margin-bottom:5px;">
+        ${isCorrect?'✅ 答對了！判斷正確，思路清晰 👏':'❌ 答錯了！正確答案是：'+(correctChoice==='buy'?'<b>買入下單</b>':'<b>等下次</b>')}
+      </div>
+      <div style="color:var(--fg2);margin-bottom:7px;line-height:1.6;">${normalOrder}<br/><span style="font-size:0.63rem;color:var(--fg3);">${normalDesc}</span></div>
+      <div style="border-top:1px solid var(--border);padding-top:7px;">
+        <div style="font-size:0.60rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">📅 AI 3日走勢預測（信心 ${ai.score}%）</div>
+        <div style="line-height:1.65;color:var(--fg2);">${pred3}</div>
+      </div>
+      <div style="margin-top:7px;border-top:1px solid var(--border);padding-top:5px;font-size:0.60rem;color:var(--fg3);">🎯 ${counterTxt}${rec.total>=5?'　｜　<b style="color:#f59e0b;">今日目標 5 題完成！</b>':''}</div>
+    </div>`;
+};
+
+// ─── AI 綜合研判 ───
+function _tAiJudge(p, ind) {
+  let score = 50;
+  const r = ind.rsi||50, k = ind.k||50, d = ind.d||50;
+  const hist = ind.hist||0, histSlope = ind.histSlope||0, kSlope = ind.kSlope||0;
+  const ma20 = ind.ma20||p;
+  const fS = ind.fStreak||0, tS = ind.tStreak||0, mS = ind.mStreak||0, mgS = ind.marginStreak||0;
+  const kdCrossed = k > d;
+  const lowCross = kdCrossed && k < 50;
+  const veryLowCross = kdCrossed && k < 30;
+
+  // RSI
+  if(r>75) score-=15; else if(r>65) score-=5; else if(r>50) score+=3;
+  else if(r>38) score+=5; else if(r>28) score+=8; else score+=3;
+
+  // KD
+  if(kdCrossed) {
+    score += veryLowCross?20:lowCross?15:8;
+    if(kSlope>0.5) score+=5;
+  } else {
+    score += k>70?-20:k>50?-12:-5;
+  }
+
+  // MACD
+  if(hist>0) score += histSlope>0?10:5;
+  else if(hist<0&&histSlope>0) score+=8;
+  else if(hist<0&&histSlope<0) score-=10;
+  if(ind.daysToCrossMACD===0) score+=5;
+  else if(ind.daysToCrossMACD>0&&ind.daysToCrossMACD<=5) score+=3;
+
+  // MA20
+  score += p>ma20?5:-3;
+
+  // 三大法人
+  if(fS>=5) score+=15; else if(fS>=3) score+=10; else if(fS>=1) score+=5;
+  else if(fS<=-5) score-=15; else if(fS<=-3) score-=10; else if(fS<=-1) score-=5;
+  if(tS>=3) score+=8; else if(tS>=1) score+=4;
+  else if(tS<=-3) score-=8; else if(tS<=-1) score-=4;
+  if(mS>=3) score+=5; else if(mS>=1) score+=3;
+  else if(mS<=-3) score-=5; else if(mS<=-1) score-=3;
+
+  // 融資（去槓桿是好事）
+  if(mgS<=-5) score+=12; else if(mgS<=-3) score+=8; else if(mgS<=-1) score+=4;
+  else if(mgS>=5) score-=12; else if(mgS>=3) score-=8; else if(mgS>=1) score-=4;
+
+  score = Math.max(8, Math.min(95, Math.round(score)));
+
+  // 階段 & 建議
+  let phase, phaseColor, action, actionColor;
+  if(r>72 && k>78 && hist>0) {
+    phase='高檔風險區'; phaseColor='#ef4444'; action='建議減碼或觀望'; actionColor='#ef4444';
+  } else if(score>=78 && veryLowCross) {
+    phase='低檔啟動期'; phaseColor='#10b981'; action='可考慮分批買入'; actionColor='#10b981';
+  } else if(score>=78 && lowCross) {
+    phase='啟動期'; phaseColor='#10b981'; action='可考慮買入'; actionColor='#10b981';
+  } else if(score>=70 && kdCrossed) {
+    phase='偏多醞釀期'; phaseColor='#10b981'; action='等回測確認再進'; actionColor='#f59e0b';
+  } else if(score>=78) {
+    phase='上漲延伸期'; phaseColor='#10b981'; action='持股為宜'; actionColor='#10b981';
+  } else if(score>=55) {
+    phase='多空交戰'; phaseColor='#f59e0b'; action='觀察為主'; actionColor='#f59e0b';
+  } else if(score>=38) {
+    phase='震盪整理'; phaseColor='#f59e0b'; action='暫不進場'; actionColor='#f59e0b';
+  } else {
+    phase='下跌修正期'; phaseColor='#ef4444'; action='建議迴避'; actionColor='#ef4444';
+  }
+
+  // 關鍵理由（最多3條）
+  const reasons = [];
+  if(veryLowCross) reasons.push('KD 超低位金叉（最強啟動訊號）');
+  else if(lowCross) reasons.push('KD 低位金叉（洗盤結束）');
+  else if(kdCrossed) reasons.push('KD 金叉（偏多）');
+  else reasons.push('KD 死叉（偏空）');
+  if(hist<0&&histSlope>0) reasons.push('MACD 動能轉多中');
+  else if(hist>0&&histSlope>0) reasons.push('MACD 多方擴張');
+  else if(hist<0&&histSlope<0) reasons.push('MACD 動能繼續轉弱');
+  if(fS>=3) reasons.push(`外資連買 ${fS} 天（主力吸籌）`);
+  else if(fS<=-3) reasons.push(`外資連賣 ${Math.abs(fS)} 天（主力出走）`);
+  if(tS>=2) reasons.push(`投信連買 ${tS} 天`);
+  else if(tS<=-2) reasons.push(`投信連賣 ${Math.abs(tS)} 天`);
+  if(mgS<=-3) reasons.push(`融資去槓桿 ${Math.abs(mgS)} 天（籌碼乾淨）`);
+  else if(mgS>=3) reasons.push(`融資連增 ${mgS} 天（散戶追高，留意風險）`);
+
+  const reasonTxt = reasons.slice(0,3).join('、') + '。';
+  return { score, phase, phaseColor, action, actionColor, reasonTxt };
+}
+
 // ─── 單檔渲染 HTML ───
 function _tRenderCard(s, ind, isSim) {
   const p   = ind.lc;
@@ -66403,6 +66557,7 @@ function _tRenderCard(s, ind, isSim) {
   const isBull=bias>=1, isBear=bias<=-2;
   const techColor=isBull?'#10b981':isBear?'#ef4444':'#f59e0b';
   const techText =isBull?'偏多':isBear?'偏空':'中性';
+  const ai = _tAiJudge(p, ind);
 
   // RSI 說明
   const rsiV=ind.rsi?ind.rsi.toFixed(0):'—';
@@ -66445,6 +66600,9 @@ function _tRenderCard(s, ind, isSim) {
     normalDesc =`多空拉鋸，不輕易出手`;
   }
 
+  // 練功資料存入（normalOrder/normalDesc 已設好）
+  window._tPracticeData[s.id] = { isBull, isBear, normalOrder, normalDesc, ai, p, ind, answered:false };
+
   // 條件單
   let condOrder='', condDesc='';
   if(isBull){
@@ -66467,7 +66625,7 @@ function _tRenderCard(s, ind, isSim) {
     const {signals,winRate,avgDays,avgRet,bestRet}=ind.bt;
     const wColor=winRate>=60?'#10b981':winRate>=40?'#f59e0b':'#ef4444';
     btHtml=`
-    <div style="background:rgba(99,102,241,0.06);border-radius:7px;padding:8px 10px;margin-top:6px;font-size:0.72rem;">
+    <div style="background:rgba(99,102,241,0.06);border-radius:7px;padding:8px 10px;margin-bottom:8px;font-size:0.72rem;">
       <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:5px;">📊 歷史回朔（近${signals}次KD金叉）</div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;">
         <span>勝率 <b style="color:${wColor}">${winRate}%</b></span>
@@ -66500,7 +66658,7 @@ function _tRenderCard(s, ind, isSim) {
     return `${icon} <b>融資</b>：<b style="color:${col}">${txt}</b>${badge}`;
   }
   const chipHtml=`
-    <div style="background:rgba(245,158,11,0.06);border-radius:7px;padding:8px 10px;margin-top:6px;font-size:0.70rem;">
+    <div style="background:rgba(245,158,11,0.06);border-radius:7px;padding:8px 10px;margin-bottom:8px;font-size:0.70rem;">
       <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:5px;">🏦 籌碼連動（近期）</div>
       <div style="display:grid;gap:4px;">
         <div>${streakHtml('外資',ind.fStreak)}</div>
@@ -66524,6 +66682,8 @@ function _tRenderCard(s, ind, isSim) {
     </div>
     <div style="font-size:0.67rem;color:var(--fg3);margin-bottom:8px;">💡 ${s.note}</div>
 
+    ${chipHtml}
+
     <div style="font-size:0.72rem;display:grid;gap:4px;margin-bottom:8px;background:rgba(128,128,128,0.04);border-radius:7px;padding:8px 10px;">
       <div>${rsiTxt}</div>
       <div>KD ${kV}/${dV} ${kdCross}｜K ${kDir} ${kdExtra}</div>
@@ -66531,18 +66691,36 @@ function _tRenderCard(s, ind, isSim) {
       <div>MA20 ${p&&ind.ma20?(p>ind.ma20?'<span style="color:#10b981">站上月線</span>':'<span style="color:#ef4444">跌破月線</span>'):'—'}</div>
     </div>
 
-    <div style="background:rgba(16,185,129,0.07);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:0.75rem;">
-      <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">📋 普通掛價（手動下單）</div>
-      <div style="font-weight:600;margin-bottom:3px;">${normalOrder}</div>
-      <div style="color:var(--fg3);font-size:0.68rem;">${normalDesc}</div>
+    ${btHtml}
+
+    <div style="background:rgba(16,185,129,0.07);border-radius:7px;padding:10px 12px;margin-bottom:6px;font-size:0.75rem;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">
+        <span style="font-size:0.61rem;font-weight:700;color:var(--fg3);">📋 普通掛價 練功題</span>
+        <span style="font-size:0.58rem;color:#f59e0b;background:rgba(245,158,11,0.1);padding:1px 6px;border-radius:8px;">每日 5 題練功</span>
+      </div>
+      <div style="font-size:0.70rem;color:var(--fg2);margin-bottom:9px;line-height:1.65;">
+        現在股價 <b style="font-size:0.78rem;">$${p.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1})}</b>，
+        AI 建議掛單 <b style="color:#10b981;">$${isBull?(p*0.993).toFixed(p<10?2:p<100?1:0):(p*0.995).toFixed(p<10?2:p<100?1:0)}</b> 等回測${isBear?'（但技術面偏空）':''}。<br/>
+        <span style="color:var(--fg3);font-size:0.65rem;">你的決策是？（先選，再看 AI 總評）</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:4px;">
+        <button id="pb_buy_${s.id}" onclick="window._tPracticeAnswer('${s.id}','buy')"
+          style="flex:1;padding:9px 4px;background:rgba(16,185,129,0.10);border:1.5px solid #10b981;border-radius:8px;font-size:0.73rem;font-weight:700;color:#10b981;cursor:pointer;transition:all .15s;">
+          ✅ 買入下單
+        </button>
+        <button id="pb_wait_${s.id}" onclick="window._tPracticeAnswer('${s.id}','wait')"
+          style="flex:1;padding:9px 4px;background:rgba(245,158,11,0.08);border:1.5px solid #f59e0b;border-radius:8px;font-size:0.73rem;font-weight:700;color:#f59e0b;cursor:pointer;transition:all .15s;">
+          ⏳ 不買等下次
+        </button>
+      </div>
+      <div id="pr_${s.id}" style="display:none;"></div>
     </div>
+
     <div style="background:rgba(99,102,241,0.07);border-radius:7px;padding:8px 10px;font-size:0.75rem;">
-      <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">🤖 條件單（設好走開）</div>
+      <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:4px;">⚡ 條件單（設好走開）</div>
       <div style="font-weight:600;margin-bottom:3px;">${condOrder}</div>
       <div style="color:var(--fg3);font-size:0.68rem;">${condDesc}</div>
     </div>
-    ${chipHtml}
-    ${btHtml}
   </div>`;
 }
 
