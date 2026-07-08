@@ -36867,14 +36867,13 @@ function _renderChipSparklines(fSeries, tSeries, mSeries, instDays) {
  * @param {number}   days     - 窗口：1 / 5 / 10
  * @returns {number|null}     - 加權平均成本，無法計算時返回 null
  */
-function _calcInstCost(series, instDays, dateCloseMap, days) {
-  const n = Math.min(days, series.length, instDays.length);
-  const sNet  = series.slice(-n);
-  const sDays = instDays.slice(-n);
+function _calcInstCost(series, instDaysAll, closes, days) {
+  const n = Math.min(days, series.length, instDaysAll.length);
   let wSum = 0, vSum = 0;
   for (let i = 0; i < n; i++) {
-    const v = sNet[i];
-    const c = dateCloseMap && dateCloseMap[sDays[i]];
+    const globalIdx = instDaysAll.length - n + i;
+    const v = series[globalIdx];
+    const c = closes[globalIdx];
     if (v > 0 && c) { wSum += v * c; vSum += v; }
   }
   return vSum > 0 ? wSum / vSum : null;
@@ -36941,10 +36940,10 @@ function _renderCostMatrixUI(cache, days) {
   // ── I. 成本彙總格子 ─────────────────────────────────────
   const majorSeries = fSeries.map((v,i) => v + (tSeries[i]||0));
   const instDefs = [
-    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, instDays, dateCloseMap, days) },
-    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, dateCloseMap, days) },
-    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, dateCloseMap, days) },
-    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, dateCloseMap, days) },
+    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, instDays, closes, days) },
+    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, closes, days) },
+    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, closes, days) },
+    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, closes, days) },
     { label:'💳 融資', series: null,        cost: marginCost },
     { label:'👥 散戶', series: null,        cost: retailCost },
   ];
@@ -36973,10 +36972,10 @@ function _renderCostMatrixUI(cache, days) {
 
   // 法人定義（含融資/散戶行，以量能反推）
   const rows = [
-    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, instDays, dateCloseMap, days) },
-    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, dateCloseMap, days) },
-    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, dateCloseMap, days) },
-    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, dateCloseMap, days) },
+    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, instDays, closes, days) },
+    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, closes, days) },
+    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, closes, days) },
+    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, closes, days) },
     { label:'💳 融資', series: vols ? vols.map((v,i) => v > 0 ? +(v/1000).toFixed(1) : 0) : [], cost: marginCost, isVol: true },
     { label:'👥 散戶', series: vols ? vols.map((v,i) => {
         const fv = fSeries[i]||0, tv = tSeries[i]||0, mv = mSeries[i]||0;
