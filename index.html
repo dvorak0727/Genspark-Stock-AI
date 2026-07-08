@@ -36862,14 +36862,15 @@ function _renderChipSparklines(fSeries, tSeries, mSeries, instDays) {
  * @param {number}   days     - 窗口：1 / 5 / 10
  * @returns {number|null}     - 加權平均成本，無法計算時返回 null
  */
-function _calcInstCost(series, closes, days) {
-  const n = Math.min(days, series.length, closes.length);
-  const sSlice = series.slice(-n);
-  const cSlice = closes.slice(-n);
+function _calcInstCost(series, instDays, priceMap, days) {
+  const n = Math.min(days, series.length, instDays.length);
+  const sNet  = series.slice(-n);
+  const sDays = instDays.slice(-n);
   let wSum = 0, vSum = 0;
-  for (let i = 0; i < sSlice.length; i++) {
-    const v = sSlice[i];
-    if (v > 0) { wSum += v * cSlice[i]; vSum += v; }
+  for (let i = 0; i < n; i++) {
+    const v = sNet[i];
+    const c = priceMap && priceMap[sDays[i]]?.close;
+    if (v > 0 && c) { wSum += v * c; vSum += v; }
   }
   return vSum > 0 ? wSum / vSum : null;
 }
@@ -36914,7 +36915,7 @@ function switchCostMatTab(days) {
  * 渲染成本矩陣 UI（成本彙總 + 熱力表格）
  */
 function _renderCostMatrixUI(cache, days) {
-  const { instMap, instDays, fSeries, tSeries, mSeries, closes, vols } = cache;
+  const { instMap, instDays, fSeries, tSeries, mSeries, closes, vols, priceMap } = cache;
 
   // ── 融資/散戶成本估算 ──────────────────────────────────────
   // 融資：用成交量加權平均收盤（量大的日子融資成本較重）
@@ -36935,10 +36936,10 @@ function _renderCostMatrixUI(cache, days) {
   // ── I. 成本彙總格子 ─────────────────────────────────────
   const majorSeries = fSeries.map((v,i) => v + (tSeries[i]||0));
   const instDefs = [
-    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, closes, days) },
-    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, closes, days) },
-    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, closes, days) },
-    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, closes, days) },
+    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, instDays, priceMap, days) },
+    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, priceMap, days) },
+    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, priceMap, days) },
+    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, priceMap, days) },
     { label:'💳 融資', series: null,        cost: marginCost },
     { label:'👥 散戶', series: null,        cost: retailCost },
   ];
@@ -36967,10 +36968,10 @@ function _renderCostMatrixUI(cache, days) {
 
   // 法人定義（含融資/散戶行，以量能反推）
   const rows = [
-    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, closes, days) },
-    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, closes, days) },
-    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, closes, days) },
-    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, closes, days) },
+    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, instDays, priceMap, days) },
+    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, priceMap, days) },
+    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, priceMap, days) },
+    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, priceMap, days) },
     { label:'💳 融資', series: vols ? vols.map((v,i) => v > 0 ? +(v/1000).toFixed(1) : 0) : [], cost: marginCost, isVol: true },
     { label:'👥 散戶', series: vols ? vols.map((v,i) => {
         const fv = fSeries[i]||0, tv = tSeries[i]||0, mv = mSeries[i]||0;
