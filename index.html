@@ -15041,7 +15041,7 @@ a.module-nav-item.acc-active {
 }
 
 /* ══════════════════════════════════════════════════
-   教學教盤卡
+   教學操盤卡
    ══════════════════════════════════════════════════ */
 #teachCard {
   background: linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(59,130,246,0.05) 100%);
@@ -15512,8 +15512,8 @@ a.module-nav-item.acc-active {
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
-    <button class="ks-shortcut-btn" onclick="_openTeachPanel()" title="每日5股教學教盤" style="border:1.5px solid #10b981;color:#10b981;">
-      <span class="ks-sb-icon">📚</span> 教學教盤
+    <button class="ks-shortcut-btn" onclick="_openTeachPanel()" title="每日5股教學操盤" style="border:1.5px solid #10b981;color:#10b981;">
+      <span class="ks-sb-icon">📚</span> 教學操盤
     </button>
     <a class="ks-shortcut-btn" href="#knowledgeStation"
        onclick="setTimeout(()=>document.getElementById('knowledgeStation').scrollIntoView({behavior:'smooth'}),10);return false;"
@@ -16198,7 +16198,7 @@ a.module-nav-item.acc-active {
     <nav class="module-nav" id="moduleNav" aria-label="模組快速導覽">
       <a class="module-nav-item" href="#csCard">💼 籌碼</a>
       <a class="module-nav-item" href="#aiCard">🤖 AI建言</a>
-      <a class="module-nav-item" href="#teachCard">📚 教學教盤</a>
+      <a class="module-nav-item" href="#teachCard">📚 教學操盤</a>
       <a class="module-nav-item" href="#srCard">🌍 板塊</a>
       <a class="module-nav-item" href="#usLeadCard">🌐 美股先行</a>
       <a class="module-nav-item" href="#techCard">📈 技術</a>
@@ -17266,10 +17266,10 @@ a.module-nav-item.acc-active {
       </div>
     </div>
 
-    <!-- 4b. 教學教盤 -->
+    <!-- 4b. 教學操盤 -->
     <div id="teachCard">
       <div class="teach-header">
-        📚 教學教盤
+        📚 教學操盤
         <span class="teach-badge">AI 陪你學</span>
         <button class="teach-refresh" onclick="_renderTeachGuide()">🔄 更新</button>
       </div>
@@ -43518,7 +43518,7 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
                             fSeries, tSeries, instMap, instDays,
                             ma20arr, lc, lRSI, lK, lD, lBollL, lMA5, lMA20) {
 
-  // 存技術數據供教學教盤使用
+  // 存技術數據供教學操盤使用
   window._teachData = Object.assign(window._teachData || {}, {
     lc, rsi: lRSI, k: lK, d: lD, bollL: lBollL, ma5: lMA5, ma20: lMA20,
     macd: parseFloat(document.getElementById('macdHistEl')?.textContent) || null,
@@ -67066,7 +67066,7 @@ function _updateOpGuide() {
 })();
 </script>
 
-<!-- ══ 教學教盤面板 v3.0 真實數據版 ══ -->
+<!-- ══ 教學操盤面板 v3.0 真實數據版 ══ -->
 <script>
 // ── 教學用股票池（30檔常見台股，含參考基準價）──
 const _TEACH_POOL = [
@@ -67625,7 +67625,7 @@ async function _openTeachPanel() {
     onclick="if(event.target===this)this.remove()">
     <div id="teachPanelBox" style="background:var(--bg);border-radius:16px;padding:20px 22px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-        <span style="font-size:1rem;font-weight:800;">📚 今日教學教盤</span>
+        <span style="font-size:1rem;font-weight:800;">📚 今日教學操盤</span>
         <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">真實數據版</span>
         <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
       </div>
@@ -67673,7 +67673,7 @@ async function _openTeachPanel() {
 }
 </script>
 
-<!-- ══ 教學教盤引擎 v1.0 ══ -->
+<!-- ══ 教學操盤引擎 v1.0 ══ -->
 <script>
 function _renderTeachGuide() {
   const el = document.getElementById('teachBody');
@@ -67846,7 +67846,7 @@ if (typeof _origRenderSM === 'function') {
     { id:'opPressureCard',label:'開盤壓力表',emoji:'🌏', why:'每天第一件事！美股昨晚怎麼收，台積電ADR怎麼動，決定今天開盤的基本盤。',           ksTab:'philosophy' },
     { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。',       ksTab:'chips' },
     { id:'aiCard',        label:'AI建言',    emoji:'🤖', why:'AI綜合所有指標給出白話結論，不知道從哪看起？先看這裡。',                           ksTab:'models' },
-    { id:'teachCard',     label:'教學教盤',  emoji:'📚', why:'AI陪你學！把技術指標翻譯成白話，告訴你現在該買、該賣、還是等，附上掛單參考價。',   ksTab:'philosophy' },
+    { id:'teachCard',     label:'教學操盤',  emoji:'📚', why:'AI陪你學！把技術指標翻譯成白話，告訴你現在該買、該賣、還是等，附上掛單參考價。',   ksTab:'philosophy' },
     { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。',                 ksTab:'sectors' },
     { id:'usLeadCard',    label:'美股先行',  emoji:'🌐', why:'台股是美股的影子，AI/半導體類股尤其明顯。美股昨晚怎麼收，今天開盤就知道了。',       ksTab:'sectors' },
     { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。', ksTab:'indicators' },
