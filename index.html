@@ -19626,7 +19626,7 @@ a.module-nav-item.acc-active {
       此模組為 <b>$399 商務會員</b> 專屬。<br>
       請輸入您的啟用序號以解鎖完整功能。
     </div>
-    <input class="vip-modal-input" id="vipCodeInput" placeholder="請輸入啟用序號…" maxlength="32"
+    <input class="vip-modal-input" id="vipCodeInput" placeholder="TSAIU-XXXXXXXXXXXX" maxlength="32"
            onkeydown="if(event.key==='Enter')vipActivate()" />
     <div id="vipModalErr" style="font-size:.68rem;color:#dc2626;margin:-6px 0 10px;min-height:16px;"></div>
     <div class="vip-modal-btns">
@@ -56400,21 +56400,43 @@ function wallisExportCSV() {
 document.addEventListener('DOMContentLoaded', ()=>{ const e=document.getElementById('wallisLogCount'); if(e) e.textContent=wallisGetLog().length; });
 
 // ==============================================================
-//  👑 VIP 啟用系統
+//  👑 VIP 啟用系統（Firestore 即時驗證版）
 // ==============================================================
 const VIP_KEY = 'vip_activated_v1';
 
-// 合法序號清單（可自行新增；前端僅做基本驗證，正式商業應搭配後端）
-const VIP_CODES = new Set([
-  'VIP399-2026', 'VIP399-GOLD', 'TEACH-PRO-01',
-  // 測試用
-  'TEST399',
-]);
+// ── Firebase SDK（Compat）──
+(function loadFirebaseSDK() {
+  const sdks = [
+    'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js',
+  ];
+  sdks.forEach(src => {
+    const s = document.createElement('script'); s.src = src; document.head.appendChild(s);
+  });
+})();
 
+function _getFirestore() {
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey: "AIzaSyA16i5bWaK3mJyEBN0ATv9Dln-A3xtRoZY",
+        authDomain: "genspark-ai-stock.firebaseapp.com",
+        projectId: "genspark-ai-stock",
+        storageBucket: "genspark-ai-stock.firebasestorage.app",
+        messagingSenderId: "214539875795",
+        appId: "1:214539875795:web:319292bd3704f0b10d2b26",
+      });
+    }
+    return firebase.firestore();
+  } catch { return null; }
+}
+
+// ── 本地快取驗證（避免每次都打 API）──
 function isVIP() {
   try {
     const d = JSON.parse(localStorage.getItem(VIP_KEY)||'null');
-    return !!(d && d.activated && VIP_CODES.has(d.code));
+    if (!d || !d.activated || !d.expiry) return false;
+    return d.expiry >= new Date().toISOString().slice(0,10);
   } catch { return false; }
 }
 
@@ -56431,22 +56453,50 @@ function vipModalClose() {
   document.getElementById('vipModal').classList.remove('show');
   _vipPendingModId = null;
 }
-function vipActivate() {
-  const code = (document.getElementById('vipCodeInput').value||'').trim().toUpperCase();
+
+// ── 啟用：查 Firestore ──
+async function vipActivate() {
+  const code  = (document.getElementById('vipCodeInput').value||'').trim();
   const errEl = document.getElementById('vipModalErr');
-  if (!code) { errEl.textContent = '請輸入序號'; return; }
-  if (!VIP_CODES.has(code)) { errEl.textContent = '❌ 序號無效，請確認後再試'; return; }
-  localStorage.setItem(VIP_KEY, JSON.stringify({ activated: true, code, since: Date.now() }));
-  vipModalClose();
-  showEpicToast('👑 商務會員已啟用！知識站 × 教學操盤 已解鎖', '#059669');
-  // 啟用後自動展開原先要開的模組
+  if (!code) { errEl.textContent = '請輸入授權序號'; return; }
+  errEl.textContent = '🔍 驗證中…';
+
+  try {
+    const db = _getFirestore();
+    if (!db) throw new Error('Firebase 尚未載入，請稍後再試');
+    const doc = await db.collection('licenses').doc(code).get();
+    if (!doc.exists) { errEl.textContent = '❌ 序號不存在，請確認後再試'; return; }
+    const data = doc.data();
+    if (data.active === false) { errEl.textContent = '⛔ 此序號已停用，請聯絡管理員'; return; }
+    const today = new Date().toISOString().slice(0,10);
+    if (data.expiry && data.expiry < today) {
+      errEl.textContent = `⏰ 序號已於 ${data.expiry} 到期，請續訂`; return;
+    }
+    // 驗證通過 → 存入快取
+    localStorage.setItem(VIP_KEY, JSON.stringify({
+      activated: true, code,
+      user:   data.user   || '',
+      tier:   data.tier   || 'vip',
+      expiry: data.expiry || '9999-12-31',
+      since:  Date.now(),
+    }));
+    vipModalClose();
+    const name = data.user ? `${data.user}，` : '';
+    showEpicToast(`👑 ${name}商務會員已啟用！知識站 × 教學操盤 已解鎖`, '#059669');
+    _vipUnlock();
+  } catch(e) {
+    errEl.textContent = '⚠️ 驗證失敗：' + e.message;
+  }
+}
+
+function _vipUnlock() {
   if (_vipPendingModId) {
     const wrap = document.getElementById(`accWrap_${_vipPendingModId}`);
     if (wrap) wrap.classList.add('acc-open');
   }
-  // 移除鎖定樣式
   document.querySelectorAll('.mod-acc-wrap.vip-locked').forEach(w => w.classList.remove('vip-locked'));
 }
+
 // 點 modal 背景關閉
 document.addEventListener('click', e => {
   const modal = document.getElementById('vipModal');
@@ -56455,9 +56505,7 @@ document.addEventListener('click', e => {
 // 頁面載入時若已是 VIP，移除鎖定樣式
 document.addEventListener('DOMContentLoaded', () => {
   if (isVIP()) {
-    setTimeout(() => {
-      document.querySelectorAll('.mod-acc-wrap.vip-locked').forEach(w => w.classList.remove('vip-locked'));
-    }, 900);
+    setTimeout(_vipUnlock, 900);
   }
 });
 
