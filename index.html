@@ -38344,21 +38344,15 @@ function toggleCard(btnEl) {
 // 動態給每個主要卡片注入 data 屬性 + 折疊按鈕
 function injectCollapseButtons() {
   // [ 選擇器, header子選擇器 ]
+  // 只保留「不在 initModuleAccordion MODS 裡」的卡片
+  // 已在 MODS 的卡片由外層手風琴管理，不需再疊加內層折疊
   const configs = [
-    { card: '#cfdCard',                   hdr: '.cfd-header',        label: '🌊 籌碼流體動力學' },
-    { card: '.card:has(#priceChart)',     hdr: '.card-title',        label: '📈 技術指標' },
-    { card: '#phaseCard',                 hdr: '.phase-header',      label: '🔬 籌碼週期診斷' },
-    { card: '#contraCard',                hdr: '.contra-header',     label: '🔀 反指標分析' },
-    { card: '#scatterCard',               hdr: '.scatter-header',    label: '👥 股權分散' },
-    { card: '.ai-card',                   hdr: '.card-title',        label: '🤖 AI建言' },
-    { card: '#bpcCard',                   hdr: '.bpc-header',        label: '💎 五大券商' },
-    { card: '#washCard',                  hdr: '.wash-header',       label: '🎯 洗盤估算' },
+    { card: '#cfdCard',    hdr: '.cfd-header',     label: '🌊 籌碼流體動力學' },
+    { card: '#scatterCard',hdr: '.scatter-header', label: '👥 股權分散' },
   ];
 
-  // 預設全部折疊
   const DEFAULT_COLLAPSED = new Set([
-    '#cfdCard', '.card:has(#priceChart)', '#phaseCard',
-    '#contraCard', '#scatterCard', '.ai-card', '#bpcCard', '#washCard'
+    '#cfdCard', '#scatterCard'
   ]);
 
   configs.forEach(({ card: sel, hdr: hdrSel }) => {
