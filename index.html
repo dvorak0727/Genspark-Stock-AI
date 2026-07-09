@@ -34766,6 +34766,16 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
     closes, opens, highs, lows, vols, dates, ma5, ma20, rsi, kd, macd, boll,
     lc, pc, lRSI, lK, lD, lMACD, lHist, lSig, lU, lL, lM, lMA5, lMA20, lVol };
   window.aData = aData; // ← let 變數不自動掛到 window，需明確同步
+  // ── 同步追蹤清單價格（分析成功時立即更新，不依賴獨立 API 呼叫）──
+  try {
+    const _wlList = loadWatchlist();
+    const _wlIdx  = _wlList.findIndex(w => w.id === stockId);
+    if (_wlIdx >= 0 && lc > 0) {
+      _wlList[_wlIdx].price     = lc.toString();
+      _wlList[_wlIdx].priceDate = dates.at(-1) || new Date().toISOString().slice(0,10);
+      saveWatchlist(_wlList);
+    }
+  } catch(e) {}
 
   const info  = STOCK_DB[stockId] || { name: stockId, industry: '—' };
   const chg   = lc - pc, chgPct = pc ? chg/pc*100 : 0;
