@@ -787,8 +787,13 @@
     .btn-pin-stock:hover { background: rgba(245,158,11,0.2); border-color:#F59E0B; }
     .btn-pin-stock.pinned { background:rgba(245,158,11,0.25); border-color:#F59E0B; color:#78350F; }
 
-    /* ====== LAYOUT ====== */
-    .container { max-width: 1200px; margin: 0 auto; padding: 10px 12px; }
+    /* ====== LAYOUT — clamp 流體排版 v7.44 ====== */
+    /* 桌機最寬1200px，平板自動縮，手機保留兩側8px */
+    .container {
+      max-width: clamp(320px, 94vw, 1200px);
+      margin: 0 auto;
+      padding: 10px clamp(8px, 2vw, 20px);
+    }
 
     /* ====== 我的追蹤清單（右側抽屜）====== */
     .watchlist-btn {
@@ -3964,8 +3969,7 @@
 
     /* ====== 手機版綜合唒改 (RWD Compact v6.99) ====== */
     @media (max-width: 600px) {
-      /* 容器左右內邊縮小 */
-      .container { padding: 6px 8px; }
+      /* container padding 由 clamp() 接管，不需重複覆寫 */
 
       /* 歡迎頁 padding 大幅縮小 */
       #welcomeMsg { padding: 16px 8px; }
@@ -4002,8 +4006,7 @@
       .footer { font-size: 0.64rem; padding: 8px 10px; }
     }
     @media (max-width: 400px) {
-      /* 超小螢幕進一步縮小 */
-      .container { padding: 4px 6px; }
+      /* container padding 由 clamp() 接管 */
       .card { padding: 7px 8px; }
       .search-bar { padding: 5px 6px; }
       .quick-chips .chip:nth-child(n+4) { display: none; } /* 只顯 3 個 */
@@ -9986,9 +9989,9 @@
   margin-top: 0;
 }
 .ks-container {
-  max-width: 900px;
+  max-width: clamp(320px, 94vw, 1200px);
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 clamp(8px, 2vw, 20px);
 }
 .ks-header {
   text-align: center;
@@ -14940,6 +14943,20 @@
   transition: transform 0.25s;
   flex-shrink: 0;
 }
+.mod-ks-btn {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 16px;
+  border: 1px solid rgba(99,102,241,.45);
+  background: rgba(99,102,241,.1);
+  color: #6366f1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.mod-ks-btn:hover { background: rgba(99,102,241,.22); }
 .mod-acc-wrap:not(.acc-open) .mod-acc-toggle {
   transform: rotate(-90deg);
 }
@@ -18103,6 +18120,119 @@ a.module-nav-item.acc-active {
         ⚠️ 本模組以技術指標與籌碼資料估算，<b>無法取得真實五檔掛單、Tick成交資料</b>。
         散戶成本以30日VWAP估算，洗盤目標為統計分佈推算，僅供參考，不構成任何投資建議。
       </div>
+
+      <!-- ✦ 沃利斯收斂偵測器 ✦ -->
+      <div id="wallisBox" style="margin-top:14px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(16,185,129,.06));border:1.5px solid rgba(124,58,237,.25);border-radius:12px;padding:14px 16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:1.2rem;">∿</span>
+          <div>
+            <div style="font-size:.78rem;font-weight:900;color:var(--fg);">沃利斯收斂偵測器</div>
+            <div style="font-size:.62rem;color:var(--fg3);">每波洗盤幅度是否遞減？振幅收斂 → 籌碼乾淨 → 啟動條件成熟</div>
+          </div>
+          <button onclick="goWallisTheory()" title="跳到知識庫：沃利斯理論" style="margin-left:auto;font-size:.62rem;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(124,58,237,.15);color:#7c3aed;border:1px solid rgba(124,58,237,.4);cursor:pointer;white-space:nowrap;">📖 理解理論</button>
+          <div id="wallisBadge" style="margin-left:6px;font-size:.68rem;font-weight:900;padding:3px 10px;border-radius:20px;background:var(--bg2);color:var(--fg3);">偵測中</div>
+        </div>
+
+        <!-- 收斂進度條 -->
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--fg3);margin-bottom:4px;">
+            <span>振幅收斂度</span>
+            <span id="wallisScore" style="font-weight:900;color:var(--fg);">—</span>
+          </div>
+          <div style="height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;">
+            <div id="wallisFill" style="height:100%;width:0%;background:linear-gradient(90deg,#7c3aed,#10b981);border-radius:4px;transition:width .6s;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.56rem;color:var(--fg3);margin-top:2px;">
+            <span>震盪雜亂</span><span>收斂中</span><span>接近完成</span>
+          </div>
+        </div>
+
+        <!-- 三燈交叉驗證 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;" id="wallisLights">
+          <div style="background:var(--bg2);border-radius:8px;padding:7px;text-align:center;">
+            <div id="wallisL1Icon" style="font-size:1.1rem;">⬜</div>
+            <div style="font-size:.6rem;color:var(--fg3);margin-top:2px;">振幅收斂<br><span id="wallisL1Val" style="color:var(--fg);font-weight:700;">—</span></div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:7px;text-align:center;">
+            <div id="wallisL2Icon" style="font-size:1.1rem;">⬜</div>
+            <div style="font-size:.6rem;color:var(--fg3);margin-top:2px;">量能收縮<br><span id="wallisL2Val" style="color:var(--fg);font-weight:700;">—</span></div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:7px;text-align:center;">
+            <div id="wallisL3Icon" style="font-size:1.1rem;">⬜</div>
+            <div style="font-size:.6rem;color:var(--fg3);margin-top:2px;">法人轉向<br><span id="wallisL3Val" style="color:var(--fg);font-weight:700;">—</span></div>
+          </div>
+        </div>
+
+        <!-- 三燈顏色說明 -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px;padding:5px 8px;background:var(--bg2);border-radius:6px;font-size:.62rem;color:var(--fg3);">
+          <span>燈號說明：</span>
+          <span>🟢 <b style="color:var(--fg);">條件達標</b></span>
+          <span>🟡 <b style="color:var(--fg);">部分達標</b></span>
+          <span>🔴 <b style="color:var(--fg);">未達標</b></span>
+          <span style="margin-left:4px;padding:2px 8px;background:rgba(16,185,129,.15);border:1px solid #10b981;border-radius:10px;color:#10b981;font-weight:700;">三燈全🟢 = 啟動前夕</span>
+        </div>
+
+        <!-- 波形圖：各波振幅條 -->
+        <div style="font-size:.62rem;color:var(--fg3);margin-bottom:4px;">近期各波洗盤振幅（越來越短 = 收斂中）</div>
+        <div id="wallisWaves" style="display:flex;align-items:flex-end;gap:4px;height:48px;margin-bottom:8px;"></div>
+
+        <!-- 結論文字 -->
+        <div id="wallisVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #7c3aed;">偵測中…</div>
+
+        <!-- 📸 記錄按鈕列 -->
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+          <button onclick="wallisSnapshot()" id="wallisSnapBtn"
+            style="flex:1;font-size:.68rem;font-weight:700;padding:6px 12px;border-radius:8px;
+            background:rgba(124,58,237,.15);color:#7c3aed;border:1.5px solid rgba(124,58,237,.4);
+            cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">
+            📸 存入研究記錄
+          </button>
+          <button onclick="wallisExportCSV()" title="匯出 Excel CSV"
+            style="font-size:.68rem;font-weight:700;padding:6px 10px;border-radius:8px;
+            background:rgba(16,185,129,.12);color:#10b981;border:1.5px solid rgba(16,185,129,.35);cursor:pointer;">
+            📥 匯出
+          </button>
+          <button onclick="wallisToggleLog()" title="查看歷史記錄"
+            style="font-size:.68rem;font-weight:700;padding:6px 10px;border-radius:8px;
+            background:var(--bg2);color:var(--fg2);border:1.5px solid var(--border);cursor:pointer;"
+            id="wallisLogToggleBtn">
+            📋 記錄 <span id="wallisLogCount" style="color:#7c3aed;">0</span>
+          </button>
+        </div>
+
+        <!-- 歷史記錄表格（預設隱藏） -->
+        <div id="wallisLogPanel" style="display:none;margin-top:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+            <span style="font-size:.65rem;font-weight:800;color:var(--fg);">📊 研究記錄日誌</span>
+            <button onclick="wallisClearLog()" style="font-size:.58rem;color:var(--fg3);background:none;border:none;cursor:pointer;text-decoration:underline;">清除全部</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table id="wallisLogTable" style="width:100%;border-collapse:collapse;font-size:.6rem;">
+              <thead>
+                <tr style="background:rgba(124,58,237,.1);color:var(--fg2);">
+                  <th style="padding:5px 6px;text-align:left;white-space:nowrap;">日期時間</th>
+                  <th style="padding:5px 6px;text-align:left;">股票</th>
+                  <th style="padding:5px 6px;text-align:center;">燈1<br><span style="font-weight:400;">振幅</span></th>
+                  <th style="padding:5px 6px;text-align:center;">燈2<br><span style="font-weight:400;">量能</span></th>
+                  <th style="padding:5px 6px;text-align:center;">燈3<br><span style="font-weight:400;">法人</span></th>
+                  <th style="padding:5px 6px;text-align:right;">收斂%</th>
+                  <th style="padding:5px 6px;text-align:left;min-width:80px;">狀態</th>
+                  <th style="padding:5px 6px;text-align:right;">+隔日%</th>
+                  <th style="padding:5px 6px;"></th>
+                </tr>
+              </thead>
+              <tbody id="wallisLogBody">
+                <tr><td colspan="9" style="text-align:center;color:var(--fg3);padding:12px;">尚無記錄，按「📸 存入研究記錄」開始</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="font-size:.56rem;color:var(--fg3);margin-top:6px;">
+            💡 「+隔日%」欄位請事後手動填寫，用於驗證準確率。記錄存於瀏覽器本機，不會上傳。
+          </div>
+        </div>
+      </div>
+      <!-- ✦ 沃利斯收斂偵測器 END ✦ -->
+
     </div><!-- /.wash-card -->
 
     <!-- ============================================================
@@ -24113,6 +24243,53 @@ a.module-nav-item.acc-active {
         理解公式，你才能知道它何時失靈——這比知道它何時有效更重要。
       </div>
       <div class="ks-philosophy-sign">— 知識站創作者手記</div>
+    </div>
+
+    <!-- 沃利斯收斂 × 洗盤理論 -->
+    <div class="ks-card" id="ks-wallis-theory" style="border:1.5px solid rgba(124,58,237,.35);box-shadow:0 0 0 0 rgba(124,58,237,.4);transition:box-shadow .6s;">
+      <div class="ks-card-header">
+        <div class="ks-card-icon">∿</div>
+        <div>
+          <div class="ks-card-title">沃利斯乘積 × 洗盤收斂理論</div>
+          <div class="ks-card-origin">
+            由英國數學家 <b>John Wallis</b>（1616–1703）發現；
+            應用於市場洗盤波段分析由本系統原創（2026）
+          </div>
+        </div>
+      </div>
+      <div class="ks-body">
+        <p><strong>沃利斯乘積：</strong></p>
+        <div style="text-align:center;font-size:1.1rem;letter-spacing:1px;padding:10px;background:var(--bg2);border-radius:8px;margin:8px 0;">
+          π/2 = (2/1)·(2/3)·(4/3)·(4/5)·(6/5)·(6/7)·…
+        </div>
+        <p>每一項交替「略大於 1」→「略小於 1」，振盪幅度逐步收窄，最終收斂至 π/2 ≈ 1.5708。</p>
+
+        <p><strong>對應到股市洗盤：</strong></p>
+        <ul>
+          <li>主力吸籌時，故意製造上下震盪（洗出浮籌）</li>
+          <li>每一波洗盤振幅比前一波<em>略小</em> → 成本集中化</li>
+          <li>振幅越來越短 → 籌碼越來越乾淨 → 啟動條件逐步成熟</li>
+          <li>當振幅收斂到 1×ATR 附近，等同沃利斯乘積趨近極限值</li>
+        </ul>
+
+        <p><strong>三燈判斷邏輯：</strong></p>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:.8rem;align-items:start;margin:8px 0;">
+          <span style="color:#7c3aed;font-weight:700;">🟢 燈一</span><span><b>振幅收斂 ≥ 60%</b>：近期各波振幅（ATR正規化後）呈現明顯下降趨勢</span>
+          <span style="color:#0ea5e9;font-weight:700;">🟢 燈二</span><span><b>量能收縮</b>：近5日成交量 / 近20日均量 &lt; 80%，代表換手沉澱</span>
+          <span style="color:#10b981;font-weight:700;">🟢 燈三</span><span><b>法人轉向買超</b>：外資＋投信近5日淨買入 &gt; 前5日，機構資金悄悄回流</span>
+        </div>
+
+        <p><strong>為什麼不直接看 KD / MACD 就好？</strong></p>
+        <p>傳統指標是「快照」——只看當下；沃利斯偵測器是「序列分析」——看<em>一連串波動的趨勢</em>是否在收斂。前者告訴你「現在超賣」，後者告訴你「洗盤快結束了」。兩者互補，不互斥。</p>
+
+        <p><strong>波數 vs. 時間參考（原創觀察）：</strong></p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:.75rem;text-align:center;margin:8px 0;">
+          <div style="padding:8px;background:var(--bg2);border-radius:6px;"><div style="font-weight:700;color:var(--fg);">小型股</div><div style="color:var(--fg3);">每波約 3–5 天</div></div>
+          <div style="padding:8px;background:var(--bg2);border-radius:6px;"><div style="font-weight:700;color:var(--fg);">中型股</div><div style="color:var(--fg3);">每波約 7–15 天</div></div>
+          <div style="padding:8px;background:var(--bg2);border-radius:6px;"><div style="font-weight:700;color:var(--fg);">大型股</div><div style="color:var(--fg3);">每波約 15–25 天</div></div>
+        </div>
+        <p style="font-size:.75rem;color:var(--fg3);">⚠️ 地緣政治不確定性高（如川普關稅期間）會壓縮波長，使大型股也出現類似小型股的短波洗盤。觀察三燈是否全亮比預測天數更可靠。</p>
+      </div>
     </div>
 
     <!-- 線性代數 -->
@@ -31646,134 +31823,126 @@ a.module-nav-item.acc-active {
 
   </div><!-- /#ks-manga -->
 
-  <!-- ══════════ v7.43 Panel: 主力行為學 ══════════ -->
+  <!-- ══════════ v7.44 Panel: 主力行為學 ══════════ -->
   <div class="ks-panel" id="ks-bigplayer">
 
-    <!-- 標題區 -->
-    <div style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4c1d95 100%);
-      border-radius:14px;padding:24px 20px;margin-bottom:18px;text-align:center;position:relative;overflow:hidden;">
-      <div style="position:absolute;top:-20px;right:-20px;font-size:6rem;opacity:0.06;">&#x1F98A;</div>
-      <div style="font-size:1.4rem;font-weight:900;color:#e0e7ff;letter-spacing:0.06em;margin-bottom:6px;">
-        🦊 主力行為學
+    <!-- 標題橫幅（與其他 tab 一致的 ks-philosophy 風格） -->
+    <div class="ks-philosophy" style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 60%,#4c1d95 100%);">
+      <div class="ks-philosophy-icon">🦊</div>
+      <div class="ks-philosophy-text">
+        解碼主力建倉、洗盤、出貨三大階段的心理與行為模式，讓你看懂「聰明資金」在做什麼。<br/>
+        <em>跟著主力走，不是猜主力想什麼——是讀懂它留下的痕跡。</em>
       </div>
-      <div style="font-size:0.75rem;color:#a5b4fc;max-width:480px;margin:0 auto;line-height:1.6;">
-        解碼主力建仓、洗盤、出貨三大閘段的心理與行為模式，讓您看懂「聰明資金」在做什麼
-      </div>
-      <div style="display:flex;justify-content:center;gap:12px;margin-top:14px;flex-wrap:wrap;">
-        <span style="background:rgba(99,102,241,0.3);border:1px solid #818cf8;color:#e0e7ff;
-          padding:3px 10px;border-radius:20px;font-size:0.65rem;font-weight:700;">🐈 建仓心理學</span>
-        <span style="background:rgba(99,102,241,0.3);border:1px solid #818cf8;color:#e0e7ff;
-          padding:3px 10px;border-radius:20px;font-size:0.65rem;font-weight:700;">💧 洗盤三段論</span>
-        <span style="background:rgba(99,102,241,0.3);border:1px solid #818cf8;color:#e0e7ff;
-          padding:3px 10px;border-radius:20px;font-size:0.65rem;font-weight:700;">🎯 出貨識別</span>
-        <span style="background:rgba(99,102,241,0.3);border:1px solid #818cf8;color:#e0e7ff;
-          padding:3px 10px;border-radius:20px;font-size:0.65rem;font-weight:700;">🔵 主力 vs 散戶</span>
-      </div>
+      <div class="ks-philosophy-sign">— 知識站創作者手記</div>
     </div>
 
-    <!-- 卡片 1：建仓心理學 -->
-    <div class="ks-math-card" style="border-left:4px solid #6366f1;">
-      <div class="ks-math-title">🐈 建仓心理學：主力如何收集籌碼</div>
-      <div class="ks-math-desc">&ldquo;Smart money 不投票，它無聲無息地收購&rdquo;
-        &mdash; 主力建仓需要夸夠多籌碼才能控盤，如果行情太好反而狂吟不到低價籌碼</div>
-
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:14px 0;">
-        <div style="background:#1e1b4b;border:1px solid #4338ca;border-radius:10px;padding:12px;">
-          <div style="font-size:0.72rem;font-weight:800;color:#818cf8;margin-bottom:5px;">原則① 小量潜伏</div>
-          <div style="font-size:0.67rem;color:#c7d2fe;line-height:1.6;">建仓初期，主力小手滞入，不讓肇波懂。每日成交量低、漲動小，如同「乃至無」。</div>
-        </div>
-        <div style="background:#1e1b4b;border:1px solid #4338ca;border-radius:10px;padding:12px;">
-          <div style="font-size:0.72rem;font-weight:800;color:#818cf8;margin-bottom:5px;">原則② 自然承效</div>
-          <div style="font-size:0.67rem;color:#c7d2fe;line-height:1.6;">每次回調就復購，遇到利空拖據就小購支撑，將成本流平。2–6月累積。</div>
-        </div>
-        <div style="background:#1e1b4b;border:1px solid #4338ca;border-radius:10px;padding:12px;">
-          <div style="font-size:0.72rem;font-weight:800;color:#818cf8;margin-bottom:5px;">原則③ 封鎖浮筌</div>
-          <div style="font-size:0.67rem;color:#c7d2fe;line-height:1.6;">建仓完成後，公開浮筌録小、我方持股大。浮筌少 = 控盤容易、股價輕鬆。</div>
+    <!-- 卡片 1：建倉心理學 -->
+    <div class="ks-card" style="border-left:4px solid #6366f1;">
+      <div class="ks-card-header">
+        <div class="ks-card-icon">🐈</div>
+        <div>
+          <div class="ks-card-title">建倉心理學：主力如何收集籌碼</div>
+          <div class="ks-card-origin">核心原則：<b>Smart money 不投票，它無聲無息地收購</b> — 行情太好反而吃不到低價籌碼</div>
         </div>
       </div>
-
-      <div style="background:#0f172a;border-radius:10px;padding:14px;margin-top:6px;">
-        <div style="font-size:0.7rem;font-weight:800;color:#a5b4fc;margin-bottom:8px;">🔍 建仓標誌（蘸藏式建仓期信號）</div>
-        <table style="width:100%;border-collapse:collapse;font-size:0.62rem;">
-          <thead>
-            <tr style="color:#64748b;border-bottom:1px solid #1e293b;">
-              <th style="padding:5px 8px;text-align:left;">指標</th>
-              <th style="padding:5px 8px;text-align:left;">建倉期表現</th>
-              <th style="padding:5px 8px;text-align:left;">意義</th>
-            </tr>
-          </thead>
-          <tbody style="color:#cbd5e1;">
-            <tr style="border-bottom:1px solid #1e293b;">
-              <td style="padding:5px 8px;color:#818cf8;">成交量</td>
-              <td style="padding:5px 8px;">縮量橫盤，偶爾放量下漬</td>
-              <td style="padding:5px 8px;color:#94a3b8;">散戶出貨被主力默默承接</td>
-            </tr>
-            <tr style="border-bottom:1px solid #1e293b;">
-              <td style="padding:5px 8px;color:#818cf8;">法人籌碼</td>
-              <td style="padding:5px 8px;">外資/投信悄悄連買</td>
-              <td style="padding:5px 8px;color:#94a3b8;">機構先知先覺佈局</td>
-            </tr>
-            <tr style="border-bottom:1px solid #1e293b;">
-              <td style="padding:5px 8px;color:#818cf8;">千張大戶</td>
-              <td style="padding:5px 8px;">人數+持股佔比雙增</td>
-              <td style="padding:5px 8px;color:#94a3b8;">🐋 鯨魚悄入，籌碼集中化</td>
-            </tr>
-            <tr>
-              <td style="padding:5px 8px;color:#818cf8;">OBI 買賣比</td>
-              <td style="padding:5px 8px;">下漬時 OBI &gt; 50%（外資偷買）</td>
-              <td style="padding:5px 8px;color:#94a3b8;">下漬只是「表演」</td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="ks-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px;">
+          <div style="background:var(--bg2);border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:12px;">
+            <div style="font-size:0.72rem;font-weight:800;color:#6366f1;margin-bottom:5px;">原則① 小量潛伏</div>
+            <div style="font-size:0.67rem;color:var(--fg2);line-height:1.6;">建倉初期小手滲入，每日成交量低、漲動小，不讓散戶察覺。</div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:12px;">
+            <div style="font-size:0.72rem;font-weight:800;color:#6366f1;margin-bottom:5px;">原則② 自然承接</div>
+            <div style="font-size:0.67rem;color:var(--fg2);line-height:1.6;">每次回調就補倉，遇到利空就小買支撐，成本平攤，2–6月累積。</div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid rgba(99,102,241,.3);border-radius:10px;padding:12px;">
+            <div style="font-size:0.72rem;font-weight:800;color:#6366f1;margin-bottom:5px;">原則③ 封鎖浮籌</div>
+            <div style="font-size:0.67rem;color:var(--fg2);line-height:1.6;">建倉完成後公開浮籌極小、主力持股大。浮籌少 = 控盤容易、股價輕鬆拉升。</div>
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:14px;">
+          <div style="font-size:0.7rem;font-weight:800;color:#6366f1;margin-bottom:8px;">🔍 建倉標誌（隱藏式建倉期信號）</div>
+          <table style="width:100%;border-collapse:collapse;font-size:0.63rem;">
+            <thead><tr style="color:var(--fg3);border-bottom:1px solid var(--border);">
+              <th style="padding:5px 8px;text-align:left;font-weight:600;">指標</th>
+              <th style="padding:5px 8px;text-align:left;font-weight:600;">建倉期表現</th>
+              <th style="padding:5px 8px;text-align:left;font-weight:600;">意義</th>
+            </tr></thead>
+            <tbody style="color:var(--fg2);">
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:5px 8px;color:#6366f1;font-weight:600;">成交量</td>
+                <td style="padding:5px 8px;">縮量橫盤，偶爾放量下殺</td>
+                <td style="padding:5px 8px;color:var(--fg3);">散戶出貨被主力默默承接</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:5px 8px;color:#6366f1;font-weight:600;">法人籌碼</td>
+                <td style="padding:5px 8px;">外資/投信悄悄連買</td>
+                <td style="padding:5px 8px;color:var(--fg3);">機構先知先覺佈局</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:5px 8px;color:#6366f1;font-weight:600;">千張大戶</td>
+                <td style="padding:5px 8px;">人數＋持股佔比雙增</td>
+                <td style="padding:5px 8px;color:var(--fg3);">🐋 鯨魚悄入，籌碼集中化</td>
+              </tr>
+              <tr>
+                <td style="padding:5px 8px;color:#6366f1;font-weight:600;">OBI 買賣比</td>
+                <td style="padding:5px 8px;">下殺時 OBI &gt; 50%（外資偷買）</td>
+                <td style="padding:5px 8px;color:var(--fg3);">下殺只是「表演」</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
     <!-- 卡片 2：洗盤三段論 -->
-    <div class="ks-math-card" style="border-left:4px solid #f59e0b;margin-top:14px;">
-      <div class="ks-math-title">💧 洗盤三段論：主力如何清除弱手</div>
-      <div class="ks-math-desc">洗盤是建仓後、拉升前的清場動作 &mdash;— 讓沒信心的散戶据損離場，主力低成本拶路。</div>
-
-      <div style="position:relative;margin:16px 0 8px;">
-        <div style="position:absolute;top:28px;left:calc(16.6% + 8px);right:calc(16.6% + 8px);height:2px;
-          background:linear-gradient(90deg,#f59e0b,#ef4444,#22c55e);border-radius:2px;z-index:0;"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;position:relative;z-index:1;">
-          <div style="background:#1c1917;border:2px solid #f59e0b;border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:1.2rem;margin-bottom:4px;">💧</div>
-            <div style="font-size:0.68rem;font-weight:800;color:#fbbf24;margin-bottom:4px;">第一段：漫水</div>
-            <div style="font-size:0.6rem;color:#d4c5a9;line-height:1.5;">小幅震鸞、輕度興風作空，測試市場浮筌補充營，主力介型拉高</div>
-          </div>
-          <div style="background:#1c0a09;border:2px solid #ef4444;border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:1.2rem;margin-bottom:4px;">⚡</div>
-            <div style="font-size:0.68rem;font-weight:800;color:#f87171;margin-bottom:4px;">第二段：大洗</div>
-            <div style="font-size:0.6rem;color:#fca5a5;line-height:1.5;">突然放量大跌，打破支撑，觸發止損潮歲。散戶恐慑上山，主力接盤</div>
-          </div>
-          <div style="background:#052e16;border:2px solid #22c55e;border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:1.2rem;margin-bottom:4px;">🚀</div>
-            <div style="font-size:0.68rem;font-weight:800;color:#4ade80;margin-bottom:4px;">第三段：拉升</div>
-            <div style="font-size:0.6rem;color:#86efac;line-height:1.5;">洗盤完成，浮筌納清，放量突破，股價起飛。散戶追高主力出貨</div>
-          </div>
+    <div class="ks-card" style="border-left:4px solid #f59e0b;">
+      <div class="ks-card-header">
+        <div class="ks-card-icon">💧</div>
+        <div>
+          <div class="ks-card-title">洗盤三段論：主力如何清除弱手</div>
+          <div class="ks-card-origin">洗盤 = 建倉後、拉升前的清場動作，讓沒信心的散戶停損離場，主力低成本補倉</div>
         </div>
       </div>
-
-      <div style="background:#0f172a;border-radius:10px;padding:14px;margin-top:10px;">
-        <div style="font-size:0.7rem;font-weight:800;color:#fbbf24;margin-bottom:8px;">⚠️ 洗盤 vs 真跨 — 如何分辨？</div>
+      <div class="ks-body">
+        <div style="position:relative;margin:8px 0 16px;">
+          <div style="position:absolute;top:28px;left:calc(16.6% + 8px);right:calc(16.6% + 8px);height:2px;
+            background:linear-gradient(90deg,#f59e0b,#ef4444,#22c55e);border-radius:2px;z-index:0;"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;position:relative;z-index:1;">
+            <div style="background:var(--bg2);border:2px solid #f59e0b;border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:1.2rem;margin-bottom:4px;">💧</div>
+              <div style="font-size:0.68rem;font-weight:800;color:#d97706;margin-bottom:4px;">第一段：試盤</div>
+              <div style="font-size:0.6rem;color:var(--fg2);line-height:1.5;">小幅震盪、輕度做空，測試市場浮籌數量</div>
+            </div>
+            <div style="background:var(--bg2);border:2px solid #ef4444;border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:1.2rem;margin-bottom:4px;">⚡</div>
+              <div style="font-size:0.68rem;font-weight:800;color:#dc2626;margin-bottom:4px;">第二段：大洗</div>
+              <div style="font-size:0.6rem;color:var(--fg2);line-height:1.5;">突然放量大跌，打破支撐，觸發止損潮，主力接盤</div>
+            </div>
+            <div style="background:var(--bg2);border:2px solid #22c55e;border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:1.2rem;margin-bottom:4px;">🚀</div>
+              <div style="font-size:0.68rem;font-weight:800;color:#16a34a;margin-bottom:4px;">第三段：拉升</div>
+              <div style="font-size:0.6rem;color:var(--fg2);line-height:1.5;">洗盤完成，放量突破，股價起飛，散戶追高主力出貨</div>
+            </div>
+          </div>
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div style="background:#1c1917;border-left:3px solid #f59e0b;border-radius:6px;padding:10px;">
-            <div style="font-size:0.67rem;font-weight:700;color:#fbbf24;margin-bottom:5px;">💧 洗盤特征</div>
-            <ul style="font-size:0.6rem;color:#d4c5a9;line-height:1.8;margin:0;padding-left:14px;">
-              <li>下漬時 OBI 主動買入仍高</li>
+          <div style="background:rgba(245,158,11,.08);border-left:3px solid #f59e0b;border-radius:6px;padding:10px;">
+            <div style="font-size:0.67rem;font-weight:700;color:#d97706;margin-bottom:5px;">💧 洗盤特徵</div>
+            <ul style="font-size:0.62rem;color:var(--fg2);line-height:1.8;margin:0;padding-left:14px;">
+              <li>下殺時 OBI 主動買入仍高</li>
               <li>千張大戶持股續增</li>
               <li>法人連買不中斷</li>
-              <li>震鸞盤中成交量縮</li>
-              <li>VWAP 支撑位有股價彄件</li>
+              <li>震盪盤中成交量縮</li>
+              <li>VWAP 支撐位股價彈升</li>
             </ul>
           </div>
-          <div style="background:#1c0a09;border-left:3px solid #ef4444;border-radius:6px;padding:10px;">
-            <div style="font-size:0.67rem;font-weight:700;color:#f87171;margin-bottom:5px;">❌ 真跨特征</div>
-            <ul style="font-size:0.6rem;color:#fca5a5;line-height:1.8;margin:0;padding-left:14px;">
-              <li>下漬時 OBI 迷惑筌也走人</li>
-              <li>千張大戶持股遁退</li>
-              <li>法人追購轉為連賣</li>
+          <div style="background:rgba(239,68,68,.08);border-left:3px solid #ef4444;border-radius:6px;padding:10px;">
+            <div style="font-size:0.67rem;font-weight:700;color:#dc2626;margin-bottom:5px;">❌ 真跌特徵</div>
+            <ul style="font-size:0.62rem;color:var(--fg2);line-height:1.8;margin:0;padding-left:14px;">
+              <li>下殺時 OBI 也轉低</li>
+              <li>千張大戶持股持續退出</li>
+              <li>法人連賣不止</li>
               <li>成交量持續放大</li>
               <li>均線系統空頭排列</li>
             </ul>
@@ -31783,176 +31952,158 @@ a.module-nav-item.acc-active {
     </div>
 
     <!-- 卡片 3：出貨識別 -->
-    <div class="ks-math-card" style="border-left:4px solid #ef4444;margin-top:14px;">
-      <div class="ks-math-title">🎯 出貨識別學：讀懂主力送大禮包的訊號</div>
-      <div class="ks-math-desc">出貨是最難識別的階段 &mdash;— 主力會用漂亮的消息和高高的股價讓散戶帶走籌碼，自己在高位出貨</div>
-
-      <div style="margin:14px 0;">
-        <div style="font-size:0.7rem;font-weight:800;color:#f87171;margin-bottom:10px;">🚨 出貨五大預警訊號</div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;align-items:flex-start;gap:10px;background:#1c0a09;
-            border-radius:8px;padding:10px 12px;border-left:3px solid #ef4444;">
+    <div class="ks-card" style="border-left:4px solid #ef4444;">
+      <div class="ks-card-header">
+        <div class="ks-card-icon">🎯</div>
+        <div>
+          <div class="ks-card-title">出貨識別學：讀懂主力送大禮包的訊號</div>
+          <div class="ks-card-origin">出貨是最難識別的階段 — 主力用漂亮的消息和高股價讓散戶帶走籌碼</div>
+        </div>
+      </div>
+      <div class="ks-body">
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;">
+          <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(239,68,68,.07);border-radius:8px;padding:10px 12px;border-left:3px solid #ef4444;">
             <span style="font-size:1.1rem;flex-shrink:0;">📈</span>
             <div>
-              <div style="font-size:0.67rem;font-weight:800;color:#f87171;">量價背離（光項變量）</div>
-              <div style="font-size:0.6rem;color:#fca5a5;line-height:1.5;margin-top:2px;">股價創新高但成交量沒有跟上 &mdash; 主力正在隱密出貨，元氣在第一波潮迭尽。</div>
+              <div style="font-size:0.67rem;font-weight:800;color:#dc2626;">量價背離</div>
+              <div style="font-size:0.62rem;color:var(--fg2);line-height:1.5;margin-top:2px;">股價創新高但成交量沒有跟上 — 主力正在隱密出貨。</div>
             </div>
           </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;background:#1c0a09;
-            border-radius:8px;padding:10px 12px;border-left:3px solid #f97316;">
+          <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(249,115,22,.07);border-radius:8px;padding:10px 12px;border-left:3px solid #f97316;">
             <span style="font-size:1.1rem;flex-shrink:0;">⭐</span>
             <div>
-              <div style="font-size:0.67rem;font-weight:800;color:#fb923c;">利多消息不漲漨（利空鉀規律）</div>
-              <div style="font-size:0.6rem;color:#fca5a5;line-height:1.5;margin-top:2px;">爆烸進財、神技訂單等大利多消息下，股價反而不漲，這是主力利空出貨。</div>
+              <div style="font-size:0.67rem;font-weight:800;color:#ea580c;">利多消息不漲（利多出盡規律）</div>
+              <div style="font-size:0.62rem;color:var(--fg2);line-height:1.5;margin-top:2px;">爆單、大訂單等利多消息下，股價反而不漲，主力借利多出貨。</div>
             </div>
           </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;background:#1c0a09;
-            border-radius:8px;padding:10px 12px;border-left:3px solid #eab308;">
+          <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(234,179,8,.07);border-radius:8px;padding:10px 12px;border-left:3px solid #eab308;">
             <span style="font-size:1.1rem;flex-shrink:0;">📊</span>
             <div>
-              <div style="font-size:0.67rem;font-weight:800;color:#facc15;">千張大戶持股遁退</div>
-              <div style="font-size:0.6rem;color:#fef08a;line-height:1.5;margin-top:2px;">持股分構資料顯示千張級持股人數減少、佔比下降 &rarr; 主力將籌碼往小手轉移。</div>
+              <div style="font-size:0.67rem;font-weight:800;color:#ca8a04;">千張大戶持股退出</div>
+              <div style="font-size:0.62rem;color:var(--fg2);line-height:1.5;margin-top:2px;">持股分布顯示千張級人數減少、佔比下降 → 主力將籌碼往散戶轉移。</div>
             </div>
           </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;background:#1c0a09;
-            border-radius:8px;padding:10px 12px;border-left:3px solid #06b6d4;">
-            <span style="font-size:1.1rem;flex-shrink:0;">🏁</span>
+          <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(6,182,212,.07);border-radius:8px;padding:10px 12px;border-left:3px solid #06b6d4;">
+            <span style="font-size:1.1rem;flex-shrink:0;">📉</span>
             <div>
-              <div style="font-size:0.67rem;font-weight:800;color:#22d3ee;">重要均線開口外漏山</div>
-              <div style="font-size:0.6rem;color:#a5f3fc;line-height:1.5;margin-top:2px;">均線系統空頭排列（MA5&rarr;MA20&rarr;MA60），主力路蝶調要通路，散戶們幫主力找理由賣出。</div>
+              <div style="font-size:0.67rem;font-weight:800;color:#0891b2;">均線空頭排列</div>
+              <div style="font-size:0.62rem;color:var(--fg2);line-height:1.5;margin-top:2px;">MA5→MA20→MA60 死亡交叉，主力已離場，散戶幫忙找賣出理由。</div>
             </div>
           </div>
-          <div style="display:flex;align-items:flex-start;gap:10px;background:#1c0a09;
-            border-radius:8px;padding:10px 12px;border-left:3px solid #8b5cf6;">
+          <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(139,92,246,.07);border-radius:8px;padding:10px 12px;border-left:3px solid #8b5cf6;">
             <span style="font-size:1.1rem;flex-shrink:0;">🔔</span>
             <div>
-              <div style="font-size:0.67rem;font-weight:800;color:#a78bfa;">高漏浮筌回流（券出資料）</div>
-              <div style="font-size:0.6rem;color:#c4b5fd;line-height:1.5;margin-top:2px;">主力券商產生大量賣單，發棱前後浮筌流入將迷失方向，建議參考前五大賣超券商。</div>
+              <div style="font-size:0.67rem;font-weight:800;color:#7c3aed;">券商分點大量賣超</div>
+              <div style="font-size:0.62rem;color:var(--fg2);line-height:1.5;margin-top:2px;">主力券商產生大量賣單，前五大賣超分點異常集中。</div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div style="background:#0f172a;border:1px solid #374151;border-radius:10px;padding:14px;margin-top:8px;">
-        <div style="font-size:0.7rem;font-weight:800;color:#f87171;margin-bottom:8px;">📐 出貨風險評估公式</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <div style="background:#1e293b;border-radius:6px;padding:8px;">
-            <div style="font-size:0.58rem;color:#94a3b8;margin-bottom:3px;">公式① 量價背離指數</div>
-            <div style="font-size:0.68rem;font-weight:700;color:#f1f5f9;font-family:monospace;">VPD = (Volₙ/avgVol₁₀) / |Pₙ/Pₙ₋₁ &minus; 1 + &epsilon;|</div>
-            <div style="font-size:0.58rem;color:#64748b;margin-top:3px;">VPD &lt; 0.5 且股價創新高 &rarr; 出貨警訊</div>
-          </div>
-          <div style="background:#1e293b;border-radius:6px;padding:8px;">
-            <div style="font-size:0.58rem;color:#94a3b8;margin-bottom:3px;">公式② 籌碼離散度</div>
-            <div style="font-size:0.68rem;font-weight:700;color:#f1f5f9;font-family:monospace;">CD = 1 &minus; (千張佔比 / 60日移動平均)</div>
-            <div style="font-size:0.58rem;color:#64748b;margin-top:3px;">CD 上升 &rarr; 籌碼離散，小心出貨</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:14px;">
+          <div style="font-size:0.7rem;font-weight:800;color:#dc2626;margin-bottom:8px;">📐 出貨風險評估公式</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;">
+              <div style="font-size:0.58rem;color:var(--fg3);margin-bottom:3px;">公式① 量價背離指數</div>
+              <div style="font-size:0.65rem;font-weight:700;color:var(--fg);font-family:monospace;">VPD = (Volₙ/avgVol₁₀) / |ΔP + ε|</div>
+              <div style="font-size:0.58rem;color:var(--fg3);margin-top:3px;">VPD &lt; 0.5 且股價創新高 → 出貨警訊</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px;">
+              <div style="font-size:0.58rem;color:var(--fg3);margin-bottom:3px;">公式② 籌碼離散度</div>
+              <div style="font-size:0.65rem;font-weight:700;color:var(--fg);font-family:monospace;">CD = 1 − (千張佔比 / MA60)</div>
+              <div style="font-size:0.58rem;color:var(--fg3);margin-top:3px;">CD 上升 → 籌碼離散，小心出貨</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 卡片 4：主力 vs 散戶 -->
-    <div class="ks-math-card" style="border-left:4px solid #22c55e;margin-top:14px;">
-      <div class="ks-math-title">🔵 主力 vs 散戶：巧用的信息不對稱模型</div>
-      <div class="ks-math-desc">主力握有話語權、資金量、信息優勢，散戶則依賴消息交易 &mdash;— 了解此不對稱，才能跟對正空</div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0;">
-        <div style="background:#052e16;border:1px solid #166534;border-radius:10px;padding:14px;">
-          <div style="font-size:0.72rem;font-weight:800;color:#4ade80;margin-bottom:8px;">💪 主力優勢</div>
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:6px;height:6px;background:#4ade80;border-radius:50%;flex-shrink:0;"></span>
-              <span style="font-size:0.6rem;color:#86efac;">內線消息 &amp; 企業層溝通</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:6px;height:6px;background:#4ade80;border-radius:50%;flex-shrink:0;"></span>
-              <span style="font-size:0.6rem;color:#86efac;">大資金對市場的話語權</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:6px;height:6px;background:#4ade80;border-radius:50%;flex-shrink:0;"></span>
-              <span style="font-size:0.6rem;color:#86efac;">按照自己計畫設定入出場時點</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:6px;height:6px;background:#4ade80;border-radius:50%;flex-shrink:0;"></span>
-              <span style="font-size:0.6rem;color:#86efac;">大資金控盤，小資金被控盤</span>
-            </div>
-          </div>
-        </div>
-        <div style="background:#1c0a09;border:1px solid #7f1d1d;border-radius:10px;padding:14px;">
-          <div style="font-size:0.72rem;font-weight:800;color:#f87171;margin-bottom:8px;">⚠️ 散戶局限</div>
-          <div style="display:flex;flex-direction:column;gap:6px;">
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:6px;height:6px;background:#f87171;border-radius:50%;flex-shrink:0;"></span>
-              <span style="font-size:0.6rem;color:#fca5a5;">資訊來源往往是已公開的後知</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:6px;height:6px;background:#f87171;border-radius:50%;flex-shrink:0;"></span>
-              <span style="font-size:0.6rem;color:#fca5a5;">情緒由市場操控，昆拼反應</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:6px;height:6px;background:#f87171;border-radius:50%;flex-shrink:0;"></span>
-              <span style="font-size:0.6rem;color:#fca5a5;">迫於止損、追漲、恐慌出貨</span>
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="width:6px;height:6px;background:#f87171;border-radius:50%;flex-shrink:0;"></span>
-              <span style="font-size:0.6rem;color:#fca5a5;">短期價格變動遮蓋了長期趨勢</span>
-            </div>
-          </div>
+    <div class="ks-card" style="border-left:4px solid #22c55e;">
+      <div class="ks-card-header">
+        <div class="ks-card-icon">🔵</div>
+        <div>
+          <div class="ks-card-title">主力 vs 散戶：信息不對稱模型</div>
+          <div class="ks-card-origin">主力握有資金量、資訊優勢、時間主動權；散戶依賴後知消息 — 了解不對稱才能跟對方向</div>
         </div>
       </div>
-
-      <div style="background:#0f172a;border:1px solid #166534;border-radius:10px;padding:14px;">
-        <div style="font-size:0.7rem;font-weight:800;color:#4ade80;margin-bottom:8px;">✔️ 跟著主力的實操策略</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
-          <div style="background:#052e16;border-radius:8px;padding:10px;text-align:center;">
-            <div style="font-size:0.95rem;margin-bottom:4px;">🐈</div>
-            <div style="font-size:0.62rem;font-weight:700;color:#4ade80;">觀察建倉信號</div>
-            <div style="font-size:0.58rem;color:#86efac;margin-top:3px;">法人連買 + 千張雙增 + OBI&gt;50%</div>
+      <div class="ks-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+          <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:10px;padding:14px;">
+            <div style="font-size:0.72rem;font-weight:800;color:#16a34a;margin-bottom:8px;">💪 主力優勢</div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:0.62rem;color:var(--fg2);">
+              <div>• 內線消息 &amp; 企業層溝通</div>
+              <div>• 大資金對市場的話語權</div>
+              <div>• 自訂入出場時點</div>
+              <div>• 大資金控盤，小資金被控</div>
+            </div>
           </div>
-          <div style="background:#052e16;border-radius:8px;padding:10px;text-align:center;">
-            <div style="font-size:0.95rem;margin-bottom:4px;">💧</div>
-            <div style="font-size:0.62rem;font-weight:700;color:#4ade80;">洗盤期間佈局</div>
-            <div style="font-size:0.58rem;color:#86efac;margin-top:3px;">洗盤風險低 + 強力底部信號</div>
+          <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:14px;">
+            <div style="font-size:0.72rem;font-weight:800;color:#dc2626;margin-bottom:8px;">⚠️ 散戶局限</div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:0.62rem;color:var(--fg2);">
+              <div>• 資訊來源往往是後知後覺</div>
+              <div>• 情緒被市場波動操控</div>
+              <div>• 迫於止損、追漲、恐慌出貨</div>
+              <div>• 短期波動遮蓋長期趨勢</div>
+            </div>
           </div>
-          <div style="background:#052e16;border-radius:8px;padding:10px;text-align:center;">
-            <div style="font-size:0.95rem;margin-bottom:4px;">🚀</div>
-            <div style="font-size:0.62rem;font-weight:700;color:#4ade80;">放量突破跟進</div>
-            <div style="font-size:0.58rem;color:#86efac;margin-top:3px;">吸籌節律健康 + 量價俱增</div>
-          </div>
-          <div style="background:#7f1d1d;border-radius:8px;padding:10px;text-align:center;">
-            <div style="font-size:0.95rem;margin-bottom:4px;">🚨</div>
-            <div style="font-size:0.62rem;font-weight:700;color:#f87171;">量價背離出場</div>
-            <div style="font-size:0.58rem;color:#fca5a5;margin-top:3px;">千張撤退 + 量價背離</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:14px;">
+          <div style="font-size:0.7rem;font-weight:800;color:#16a34a;margin-bottom:8px;">✔️ 跟著主力的實操策略</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;">
+            <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:10px;text-align:center;">
+              <div style="font-size:0.95rem;margin-bottom:4px;">🐈</div>
+              <div style="font-size:0.62rem;font-weight:700;color:#16a34a;">觀察建倉信號</div>
+              <div style="font-size:0.58rem;color:var(--fg3);margin-top:3px;">法人連買＋千張雙增＋OBI&gt;50%</div>
+            </div>
+            <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:10px;text-align:center;">
+              <div style="font-size:0.95rem;margin-bottom:4px;">💧</div>
+              <div style="font-size:0.62rem;font-weight:700;color:#16a34a;">洗盤期間佈局</div>
+              <div style="font-size:0.58rem;color:var(--fg3);margin-top:3px;">洗盤風險低＋底部信號</div>
+            </div>
+            <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:10px;text-align:center;">
+              <div style="font-size:0.95rem;margin-bottom:4px;">🚀</div>
+              <div style="font-size:0.62rem;font-weight:700;color:#16a34a;">放量突破跟進</div>
+              <div style="font-size:0.58rem;color:var(--fg3);margin-top:3px;">吸籌健康＋量價俱增</div>
+            </div>
+            <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px;text-align:center;">
+              <div style="font-size:0.95rem;margin-bottom:4px;">🚨</div>
+              <div style="font-size:0.62rem;font-weight:700;color:#dc2626;">量價背離出場</div>
+              <div style="font-size:0.58rem;color:var(--fg3);margin-top:3px;">千張撤退＋量價背離</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 本站工具與主力行為學的連結 -->
-    <div style="background:linear-gradient(135deg,#0f172a,#1e1b4b);border:1px solid #312e81;
-      border-radius:12px;padding:16px;margin-top:14px;">
-      <div style="font-size:0.72rem;font-weight:800;color:#a5b4fc;margin-bottom:10px;">🔍 本站功能 &times; 主力行為學對映</div>
+    <!-- 本站功能對映 -->
+    <div class="ks-card">
+      <div class="ks-card-header">
+        <div class="ks-card-icon">🔍</div>
+        <div>
+          <div class="ks-card-title">本站功能 × 主力行為學對映</div>
+        </div>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div style="background:rgba(99,102,241,0.1);border:1px solid #4338ca;border-radius:8px;padding:10px;">
-          <div style="font-size:0.65rem;font-weight:700;color:#818cf8;margin-bottom:5px;">🦊 建仓展眾</div>
-          <div style="font-size:0.58rem;color:#c7d2fe;line-height:1.6;">籌碼金字塔可見千張大戶持股雙將，海選可筌碼小波少横盤構居、錢隨主力踏入首選。</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;">
+          <div style="font-size:0.65rem;font-weight:700;color:#6366f1;margin-bottom:5px;">🐈 建倉偵測</div>
+          <div style="font-size:0.62rem;color:var(--fg2);line-height:1.6;">籌碼金字塔可見千張大戶持股雙增，海選掃描縮量橫盤＋法人連買的建倉型態。</div>
         </div>
-        <div style="background:rgba(99,102,241,0.1);border:1px solid #4338ca;border-radius:8px;padding:10px;">
-          <div style="font-size:0.65rem;font-weight:700;color:#818cf8;margin-bottom:5px;">💧 洗盤偵測</div>
-          <div style="font-size:0.58rem;color:#c7d2fe;line-height:1.6;">洗盤識別器 &times; 千張大戶流入 &rarr; 準確要找真底部的磁茄模式</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;">
+          <div style="font-size:0.65rem;font-weight:700;color:#0891b2;margin-bottom:5px;">💧 洗盤偵測</div>
+          <div style="font-size:0.62rem;color:var(--fg2);line-height:1.6;">洗盤估算器＋沃利斯收斂偵測器 → 精準找出洗盤尾聲的進場位。</div>
         </div>
-        <div style="background:rgba(99,102,241,0.1);border:1px solid #4338ca;border-radius:8px;padding:10px;">
-          <div style="font-size:0.65rem;font-weight:700;color:#818cf8;margin-bottom:5px;">🎯 週潜重布 OBI</div>
-          <div style="font-size:0.58rem;color:#c7d2fe;line-height:1.6;">吉冈尼指標 / OBI 買賣比 檢測主力建仓期的谷底長期垃策 + 寺瑞密度推陣展眾</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;">
+          <div style="font-size:0.65rem;font-weight:700;color:#16a34a;margin-bottom:5px;">🎯 OBI 買賣比</div>
+          <div style="font-size:0.62rem;color:var(--fg2);line-height:1.6;">OBI &gt; 50% 在下殺時 = 主力偷買；OBI 低迷 = 主力真出貨，與高點偵測配合使用。</div>
         </div>
-        <div style="background:rgba(99,102,241,0.1);border:1px solid #4338ca;border-radius:8px;padding:10px;">
-          <div style="font-size:0.65rem;font-weight:700;color:#818cf8;margin-bottom:5px;">📈 出貨偵測</div>
-          <div style="font-size:0.58rem;color:#c7d2fe;line-height:1.6;">吸籌節律衰弱 + 送強小試巧 + 法人過度賣超 &rarr; 停昵高點重資訊號</div>
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px;">
+          <div style="font-size:0.65rem;font-weight:700;color:#dc2626;margin-bottom:5px;">📈 出貨偵測</div>
+          <div style="font-size:0.62rem;color:var(--fg2);line-height:1.6;">高點偵測評分 + 五大券商賣超 + 法人連賣 → 出場三重確認訊號。</div>
         </div>
       </div>
     </div>
 
-    <div style="text-align:center;margin-top:16px;font-size:0.62rem;color:var(--fg3);">
-      🦊 主力行為學 &mdash; 知道主力在想什麼，才能跟對正的路走 &nbsp;&middot;&nbsp; v7.43
+    <div style="text-align:center;margin-top:8px;font-size:0.62rem;color:var(--fg3);">
+      🦊 主力行為學 — 知道主力在想什麼，才能跟對正確的方向走 · v7.44
     </div>
 
   </div><!-- /#ks-bigplayer -->
@@ -38194,9 +38345,9 @@ function toggleCard(btnEl) {
 function injectCollapseButtons() {
   // [ 選擇器, header子選擇器 ]
   const configs = [
+    { card: '#cfdCard',                   hdr: '.cfd-header',        label: '🌊 籌碼流體動力學' },
     { card: '.card:has(#priceChart)',     hdr: '.card-title',        label: '📈 技術指標' },
     { card: '#phaseCard',                 hdr: '.phase-header',      label: '🔬 籌碼週期診斷' },
-    { card: '#peakCard',                  hdr: '.peak-header',       label: '🔴 高點偵測' },
     { card: '#contraCard',                hdr: '.contra-header',     label: '🔀 反指標分析' },
     { card: '#scatterCard',               hdr: '.scatter-header',    label: '👥 股權分散' },
     { card: '.ai-card',                   hdr: '.card-title',        label: '🤖 AI建言' },
@@ -38204,8 +38355,11 @@ function injectCollapseButtons() {
     { card: '#washCard',                  hdr: '.wash-header',       label: '🎯 洗盤估算' },
   ];
 
-  // 預設折疊的卡片（孤立模組，需要時才展開）
-  const DEFAULT_COLLAPSED = new Set(['#scatterCard']);
+  // 預設全部折疊
+  const DEFAULT_COLLAPSED = new Set([
+    '#cfdCard', '.card:has(#priceChart)', '#phaseCard',
+    '#contraCard', '#scatterCard', '.ai-card', '#bpcCard', '#washCard'
+  ]);
 
   configs.forEach(({ card: sel, hdr: hdrSel }) => {
     const cardEl = document.querySelector(sel);
@@ -39028,7 +39182,7 @@ function renderInst(stockId, instMap, instDays, fS, tS, mS) {
   const noticeEl = document.getElementById('instNotice');
   noticeEl.innerHTML = _fallback
     ? `<div class="notice sim">⚠️ 使用模擬示範資料（FinMind API 暫不可用）。實際投資請以官方資料為準。</div>`
-    : `<div class="notice info">✅ 資料日期：${todayKey || '—'}（FinMind API 即時資料）</div>`;
+    : `<div class="notice info">✅ 資料日期：${todayKey || '—'}（FinMind API 即時資料）<span style="margin-left:8px;font-size:0.75em;opacity:0.7;">※ 三大法人盤後資料通常延遲 6–8 小時更新，顯示昨日屬正常</span></div>`;
 
   document.getElementById('instDateBadge').textContent = _fallback ? '模擬資料' : (todayKey || '—');
 
@@ -49580,6 +49734,194 @@ function renderWashDetect(closes, opens, highs, lows, vols, dates,
     risk: washRisk, label: likelyLabel, cls: likelyCls,
     smCls: likelyCls === 'safe' ? 'bull' : likelyCls === 'danger' ? 'bear' : 'warn'
   };
+
+  // ── ✦ 沃利斯收斂偵測器 ──────────────────────────────────────
+  (function wallisDetect() {
+    const box = document.getElementById('wallisBox');
+    if (!box) return;
+
+    // 取近 60 天資料
+    const N = Math.min(60, closes.length);
+    const C = closes.slice(-N);
+    const V = vols.slice(-N);
+    const H = highs.slice(-N);
+    const L = lows.slice(-N);
+
+    // ATR 計算（近 14 日，用於振幅標準化）
+    const atrArr = [];
+    for (let i = 1; i < C.length; i++) {
+      const tr = Math.max(H[i]-L[i], Math.abs(H[i]-C[i-1]), Math.abs(L[i]-C[i-1]));
+      atrArr.push(tr);
+    }
+    const atr14 = atrArr.slice(-14).reduce((s,v)=>s+v,0) / Math.min(14, atrArr.length) || 1;
+    const atrPct = atr14 / (C.at(-1)||1) * 100;  // ATR 佔現價 %
+
+    // Step 1：找波峰/波谷，窗口 5 日（過濾短線雜訊）
+    const peaks = [], troughs = [];
+    for (let i = 5; i < C.length - 5; i++) {
+      const hi = Math.max(...C.slice(i-5, i+6));
+      const lo = Math.min(...C.slice(i-5, i+6));
+      if (C[i] === hi && C[i] > C[i-1] && C[i] > C[i+1]) peaks.push({ i, v: C[i] });
+      if (C[i] === lo && C[i] < C[i-1] && C[i] < C[i+1]) troughs.push({ i, v: C[i] });
+    }
+
+    // Step 2：配對峰→谷，ATR 標準化振幅，過濾 < 1.5× ATR 的雜訊波
+    const waves = [];
+    const minAmpPct = Math.max(1.5, atrPct * 1.2);  // 至少 1.5% 或 1.2×ATR
+    for (const p of peaks) {
+      const nextT = troughs.find(t => t.i > p.i);
+      if (!nextT) continue;
+      const rawAmp = (p.v - nextT.v) / p.v * 100;
+      if (rawAmp < minAmpPct) continue;           // 過濾雜訊
+      const normAmp = rawAmp / atrPct;            // ATR 標準化（幾倍 ATR）
+      waves.push({ amp: +rawAmp.toFixed(2), norm: +normAmp.toFixed(2), peakI: p.i, troughI: nextT.i });
+    }
+
+    // Step 3：用標準化振幅判斷收斂（更公平）
+    // 計算「線性趨勢斜率」：若斜率為負 = 整體收斂
+    let slope = 0;
+    if (waves.length >= 3) {
+      const xs = waves.map((_, i) => i);
+      const ys = waves.map(w => w.norm);
+      const xMean = xs.reduce((s,v)=>s+v,0)/xs.length;
+      const yMean = ys.reduce((s,v)=>s+v,0)/ys.length;
+      const num = xs.reduce((s,x,i)=>s+(x-xMean)*(ys[i]-yMean),0);
+      const den = xs.reduce((s,x)=>s+(x-xMean)**2,0)||1;
+      slope = num/den;  // 負值 = 收斂趨勢
+    }
+
+    // 逐對比較（近4波加重）
+    let convergePairs = 0, totalPairs = 0;
+    for (let i = 1; i < waves.length; i++) {
+      totalPairs++;
+      if (waves[i].norm < waves[i-1].norm) convergePairs++;
+    }
+    const pairRatio = totalPairs > 0 ? convergePairs / totalPairs : 0;
+    const slopeBonus = slope < 0 ? Math.min(0.25, Math.abs(slope) * 5) : 0;
+    // 近3波若持續收斂，額外加分
+    const last3 = waves.slice(-3);
+    const last3ok = last3.length >= 2 && last3.every((w,i) => i===0 || w.norm < last3[i-1].norm);
+    const lastBonus = last3ok ? 0.2 : 0;
+    const wallisScore = Math.min(100, Math.round((pairRatio * 0.55 + slopeBonus + lastBonus) * 100));
+
+    // Step 4：量能收縮（近5日平均 vs 近20日平均）
+    const vol5  = V.slice(-5).reduce((s,v)=>s+v,0)/5 || 1;
+    const vol20 = V.slice(-20).reduce((s,v)=>s+v,0)/20 || 1;
+    const volShrink = vol5 / vol20;  // < 0.75 = 明顯縮量
+
+    // Step 5：法人轉向（外資+投信近5日合計 vs 前5日合計）
+    const instR5  = (fSeries.slice(-5).reduce((s,v)=>s+v,0) + tSeries.slice(-5).reduce((s,v)=>s+v,0));
+    const instR10 = (fSeries.slice(-10,-5).reduce((s,v)=>s+v,0) + tSeries.slice(-10,-5).reduce((s,v)=>s+v,0));
+    const instTurning = instR5 > instR10;  // 由賣轉買
+
+    // Step 6：三燈判斷
+    const l1ok = wallisScore >= 60;
+    const l2ok = volShrink < 0.80;
+    const l3ok = instTurning;
+    const litCount = [l1ok, l2ok, l3ok].filter(Boolean).length;
+
+    // 更新 UI
+    const setEl = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
+    const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+
+    setTx('wallisScore', wallisScore + '%');
+    document.getElementById('wallisFill').style.width = wallisScore + '%';
+
+    const l1icon = l1ok ? '🟢' : wallisScore >= 35 ? '🟡' : '🔴';
+    const l2icon = l2ok ? '🟢' : volShrink < 0.95 ? '🟡' : '🔴';
+    const l3icon = l3ok ? '🟢' : '🔴';
+    setTx('wallisL1Icon', l1icon); setTx('wallisL1Val', wallisScore + '%');
+    setTx('wallisL2Icon', l2icon); setTx('wallisL2Val', (volShrink*100).toFixed(0) + '%量比');
+    setTx('wallisL3Icon', l3icon); setTx('wallisL3Val', instTurning ? '轉買超' : '仍賣超');
+
+    // Badge
+    const badge = document.getElementById('wallisBadge');
+    if (badge) {
+      if (litCount === 3)      { badge.textContent='🚀 洗盤尾聲'; badge.style.background='rgba(16,185,129,.15)'; badge.style.color='#10b981'; }
+      else if (litCount === 2) { badge.textContent='⚡ 收斂中';   badge.style.background='rgba(234,179,8,.12)';  badge.style.color='#ca8a04'; }
+      else                     { badge.textContent='🌊 洗盤進行'; badge.style.background='rgba(100,116,139,.12)';badge.style.color='var(--fg3)'; }
+    }
+
+    // 波形條
+    const waveEl = document.getElementById('wallisWaves');
+    if (waveEl && waves.length > 0) {
+      const maxAmp = Math.max(...waves.map(w=>w.amp), 0.1);
+      const show = waves.slice(-8);
+      waveEl.innerHTML = show.map((w, i) => {
+        const h = Math.round(w.amp / maxAmp * 44);
+        const isLast = i === show.length - 1;
+        const clr = isLast ? '#10b981' : (i % 2 === 0 ? '#7c3aed' : '#6366f1');
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:1px;">
+          <div style="font-size:.5rem;color:var(--fg3);">${w.amp}%</div>
+          <div style="width:100%;height:${h}px;background:${clr};border-radius:3px 3px 0 0;opacity:${isLast?1:.7};"></div>
+        </div>`;
+      }).join('');
+      // 加收斂趨勢箭頭
+      if (waves.length >= 2) {
+        const last2 = waves.slice(-2);
+        waveEl.innerHTML += `<div style="align-self:center;font-size:1rem;color:${last2[1].amp < last2[0].amp ? '#10b981':'#ef4444'};">${last2[1].amp < last2[0].amp ? '↘縮' : '↗擴'}</div>`;
+      }
+    }
+
+    // ── 預估還需幾波（只顯示波數，不顯示天數）────────────────
+    let remainWaves = null;
+    if (waves.length >= 2) {
+      const norms = waves.map(w => w.norm);
+      const avgDecay = (norms[0] - norms.at(-1)) / Math.max(norms.length - 1, 1);
+      const curNorm = norms.at(-1);
+      if (avgDecay > 0.05 && curNorm > 1.0) {
+        remainWaves = Math.max(1, Math.ceil((curNorm - 1.0) / avgDecay));
+      } else if (curNorm <= 1.0) {
+        remainWaves = 0;
+      }
+    }
+
+    // ── 法人轉向提醒（第三燈剛從紅轉綠）────────────────────
+    const prevInstKey = `wallis_inst_${(window._currentStockId||'x')}`;
+    const prevInstState = sessionStorage.getItem(prevInstKey);
+    const instJustTurned = l3ok && prevInstState === 'sell';
+    sessionStorage.setItem(prevInstKey, l3ok ? 'buy' : 'sell');
+
+    // 結論
+    const verdictEl = document.getElementById('wallisVerdict');
+    if (verdictEl) {
+      // 法人轉向提醒橫幅
+      const instAlert = instJustTurned
+        ? `<div style="margin-bottom:8px;padding:8px 12px;background:linear-gradient(90deg,rgba(16,185,129,.15),rgba(16,185,129,.05));border:1.5px solid #10b981;border-radius:8px;display:flex;align-items:center;gap:8px;">
+             <span style="font-size:1.2rem;">🚨</span>
+             <div><b style="color:#10b981;">法人剛轉向買超！</b>
+             <span style="font-size:.62rem;color:var(--fg2);display:block;">第三燈今日由紅轉綠——這是洗盤進入尾聲的關鍵訊號，留意明後日啟動 K 棒。</span></div>
+           </div>` : '';
+
+      // 波數提示
+      const waveHint = remainWaves === 0
+        ? `<div style="margin-top:7px;padding:6px 10px;background:rgba(16,185,129,.08);border-radius:6px;border-left:3px solid #10b981;font-size:.66rem;">
+             📐 振幅已趨近收斂閾值，<b>隨時可能啟動</b>——三燈全亮即可佈局
+           </div>`
+        : remainWaves !== null
+        ? `<div style="margin-top:7px;padding:6px 10px;background:rgba(124,58,237,.08);border-radius:6px;border-left:3px solid #7c3aed;font-size:.66rem;">
+             📐 依目前收斂速率，預估還需 <b>${remainWaves} 波</b>震盪才能完成洗盤<br>
+             <span style="color:var(--fg3);font-size:.58rem;">⚠️ 關鍵仍是三燈全亮，波數僅供參考</span>
+           </div>` : '';
+
+      // 主結論
+      let txt = '';
+      if (litCount === 3) {
+        txt = `${instAlert}✅ <b>三燈全亮！</b>振幅收斂 ${waves.at(-1)?.amp||'—'}%，量縮，法人轉買。<br>
+               🚀 洗盤尾聲——明確出現<b>量增長紅 K</b>時，即為啟動訊號。${waveHint}`;
+      } else if (litCount === 2) {
+        const missing = [!l1ok&&'振幅收斂不足',!l2ok&&'量能未萎縮',!l3ok&&'法人仍賣超'].filter(Boolean).join('、');
+        txt = `${instAlert}⚡ 收斂進行中，尚缺：<b>${missing}</b>。<br>
+               現在只有 2 燈亮，<b>法人還沒轉向就別急</b>——等第三燈從紅變綠的那天，才是啟動前夕。${waveHint}`;
+      } else {
+        const trend = waves.length>=2 && waves.at(-1).amp < waves.at(-2).amp ? '開始縮小' : '仍在震盪';
+        txt = `${instAlert}🌊 洗盤進行中，近 ${waves.length} 波振幅${trend}。<br>
+               持續觀察三燈狀態，勿在震盪中追漲殺跌。${waveHint}`;
+      }
+      verdictEl.innerHTML = txt;
+    }
+  })();
+  // ── ✦ 沃利斯收斂偵測器 END ─────────────────────────────────
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -55668,6 +56010,214 @@ function ksSwitch(panelId) {
     panel.style.display = isTarget ? 'block' : 'none';  // v6.30 inline 保險
   });
 }
+
+// ── 通用知識庫跳轉：模組「📖 理論」按鈕使用 ──
+function goKsTab(tabId, anchorId) {
+  // 知識站手風琴可能是閉合的，先強制展開
+  const ksWrap = document.getElementById('accWrap_knowledgeStation');
+  if (ksWrap) ksWrap.classList.add('acc-open');
+
+  // 捲到知識站、切換 tab
+  setTimeout(() => {
+    document.getElementById('knowledgeStation')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    ksSwitch(tabId);
+    // 若有指定卡片錨點，再捲到該卡並閃光
+    if (anchorId) {
+      setTimeout(() => {
+        const el = document.getElementById(anchorId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.style.boxShadow = '0 0 0 4px rgba(99,102,241,.6)';
+        setTimeout(() => el.style.boxShadow = '', 1800);
+      }, 350);
+    }
+  }, 80);
+}
+
+// ── 沃利斯理論跳轉：從偵測器按鈕直連知識庫 ──
+function goWallisTheory() { goKsTab('math', 'ks-wallis-theory'); }
+
+// ══════════════════════════════════════════
+//  📸 沃利斯研究記錄系統
+// ══════════════════════════════════════════
+const WALLIS_LOG_KEY = 'wallisResearchLog_v1';
+
+function wallisGetLog() {
+  try { return JSON.parse(localStorage.getItem(WALLIS_LOG_KEY) || '[]'); }
+  catch { return []; }
+}
+function wallisSaveLog(arr) { localStorage.setItem(WALLIS_LOG_KEY, JSON.stringify(arr)); }
+
+function wallisSnapshot() {
+  const stockId   = (window._currentStockId || document.getElementById('searchInput')?.value || '').trim() || '—';
+  const stockName = (window._currentStockName || document.getElementById('shName')?.textContent || stockId).trim();
+  const score     = document.getElementById('wallisScore')?.textContent?.trim() || '—';
+  const l1Icon    = document.getElementById('wallisL1Icon')?.textContent?.trim() || '⬜';
+  const l2Icon    = document.getElementById('wallisL2Icon')?.textContent?.trim() || '⬜';
+  const l3Icon    = document.getElementById('wallisL3Icon')?.textContent?.trim() || '⬜';
+  const l1Val     = document.getElementById('wallisL1Val')?.textContent?.trim() || '—';
+  const l2Val     = document.getElementById('wallisL2Val')?.textContent?.trim() || '—';
+  const l3Val     = document.getElementById('wallisL3Val')?.textContent?.trim() || '—';
+  const badge     = document.getElementById('wallisBadge')?.textContent?.trim() || '—';
+  const verdict   = (document.getElementById('wallisVerdict')?.textContent || '').replace(/\s+/g,' ').trim().slice(0,80);
+  const greenCount = [l1Icon,l2Icon,l3Icon].filter(i=>i==='🟢').length;
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const record = {
+    id: Date.now(),
+    date: `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,
+    time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+    stockId, stockName, score,
+    l1: l1Icon, l1Val, l2: l2Icon, l2Val, l3: l3Icon, l3Val,
+    greenCount, badge, verdict, nextDayPct: ''
+  };
+
+  const log = wallisGetLog();
+  log.unshift(record);
+  wallisSaveLog(log);
+  wallisRenderLog();
+  document.getElementById('wallisLogPanel').style.display = 'block';
+
+  const btn = document.getElementById('wallisSnapBtn');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '✅ 已記錄！'; btn.style.color = '#10b981';
+  setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1400);
+}
+
+function wallisRenderLog() {
+  const log = wallisGetLog();
+  const countEl = document.getElementById('wallisLogCount');
+  if (countEl) countEl.textContent = log.length;
+
+  // 改用 div 容器（不用 tbody，改為卡片式分組）
+  const panel = document.getElementById('wallisLogPanel');
+  if (!panel) return;
+
+  // 移除舊的分組區，保留標題列
+  panel.querySelectorAll('.wallis-stock-group').forEach(el => el.remove());
+
+  if (!log.length) {
+    let empty = panel.querySelector('.wallis-empty');
+    if (!empty) {
+      empty = document.createElement('div');
+      empty.className = 'wallis-empty';
+      empty.style.cssText = 'text-align:center;color:var(--fg3);padding:16px;font-size:.68rem;';
+      empty.textContent = '尚無記錄，按「📸 存入研究記錄」開始';
+      panel.appendChild(empty);
+    }
+    return;
+  }
+  panel.querySelector('.wallis-empty')?.remove();
+
+  // 依股號分組，組內按時間升序（最舊在上 = 時間軸由上往下）
+  const groups = {};
+  [...log].reverse().forEach(r => {  // reverse讓最舊在前
+    if (!groups[r.stockId]) groups[r.stockId] = { name: r.stockName, rows: [] };
+    groups[r.stockId].rows.push(r);
+  });
+
+  // 排序：最後一筆綠燈數最多的股票排前面
+  const sortedKeys = Object.keys(groups).sort((a, b) => {
+    const lastA = groups[a].rows[groups[a].rows.length - 1].greenCount;
+    const lastB = groups[b].rows[groups[b].rows.length - 1].greenCount;
+    return lastB - lastA;
+  });
+
+  const lightLabel = n => n===3?'<span style="color:#10b981;font-weight:700;">三燈全亮 🚀</span>'
+    : n===2?'<span style="color:#f59e0b;font-weight:700;">二燈</span>'
+    : n===1?'<span style="color:#ef4444;">一燈</span>'
+    : '<span style="color:var(--fg3);">無燈</span>';
+
+  sortedKeys.forEach(stockId => {
+    const g = groups[stockId];
+    const lastR = g.rows[g.rows.length - 1];
+    const latestGreen = lastR.greenCount;
+    const headerCol = latestGreen===3?'#10b981':latestGreen===2?'#f59e0b':'var(--fg3)';
+    const headerBg  = latestGreen===3?'rgba(16,185,129,.1)':latestGreen===2?'rgba(245,158,11,.08)':'var(--bg2)';
+
+    const rowsHtml = g.rows.map((r, i) => {
+      const lc = r.greenCount;
+      const col = lc===3?'#10b981':lc===2?'#f59e0b':'var(--fg3)';
+      const rowBg = lc===3?'rgba(16,185,129,.07)':'';
+      const isLast = i === g.rows.length - 1;
+
+      // 箭頭指示收斂方向（跟前一筆比）
+      let arrow = '';
+      if (i > 0) {
+        const prev = parseFloat(g.rows[i-1].score) || 0;
+        const curr = parseFloat(r.score) || 0;
+        arrow = curr > prev ? ' <span style="color:#10b981;">↑</span>'
+              : curr < prev ? ' <span style="color:#ef4444;">↓</span>' : '';
+      }
+
+      return `<div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 52px 80px auto;
+          gap:0;padding:6px 10px;border-bottom:1px solid var(--border);background:${rowBg};
+          align-items:center;font-size:.62rem;${isLast?'border-bottom:none;':''}">
+        <!-- 日期時間 -->
+        <div style="color:var(--fg3);">${r.date}<br><span style="font-size:.56rem;">${r.time}</span></div>
+        <!-- 三燈 -->
+        <div style="text-align:center;">${r.l1}<br><span style="color:var(--fg3);font-size:.55rem;">${r.l1Val}</span></div>
+        <div style="text-align:center;">${r.l2}<br><span style="color:var(--fg3);font-size:.55rem;">${r.l2Val}</span></div>
+        <div style="text-align:center;">${r.l3}<br><span style="color:var(--fg3);font-size:.55rem;">${r.l3Val}</span></div>
+        <!-- 收斂% -->
+        <div style="text-align:right;font-weight:800;color:${col};">${r.score}${arrow}</div>
+        <!-- 狀態 -->
+        <div style="font-size:.58rem;color:${col};">${r.badge}</div>
+        <!-- 刪除 -->
+        <div><button onclick="wallisDeleteRecord(${r.id})" style="font-size:.6rem;color:var(--fg3);background:none;border:none;cursor:pointer;padding:0 4px;">✕</button></div>
+      </div>`;
+    }).join('');
+
+    const group = document.createElement('div');
+    group.className = 'wallis-stock-group';
+    group.style.cssText = 'margin-bottom:10px;border:1px solid var(--border);border-radius:10px;overflow:hidden;';
+    group.innerHTML = `
+      <!-- 股票標題列 -->
+      <div style="display:grid;grid-template-columns:1fr auto auto;align-items:center;
+          padding:8px 10px;background:${headerBg};gap:8px;">
+        <div>
+          <span style="font-size:.78rem;font-weight:900;color:var(--fg);">${g.name}</span>
+          <span style="font-size:.65rem;color:var(--fg3);margin-left:6px;">${stockId}</span>
+        </div>
+        <div style="font-size:.65rem;">${lightLabel(latestGreen)}</div>
+        <div style="font-size:.6rem;color:var(--fg3);">${g.rows.length}筆記錄</div>
+      </div>
+      <!-- 欄位標頭 -->
+      <div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 52px 80px auto;
+          padding:4px 10px;background:var(--bg2);gap:0;font-size:.56rem;color:var(--fg3);font-weight:600;">
+        <div>日期</div><div style="text-align:center;">燈1振幅</div>
+        <div style="text-align:center;">燈2量能</div><div style="text-align:center;">燈3法人</div>
+        <div style="text-align:right;">收斂%</div><div>狀態</div><div></div>
+      </div>
+      ${rowsHtml}`;
+    panel.appendChild(group);
+  });
+}
+
+function wallisUpdatePct(id, val) {
+  const log = wallisGetLog();
+  const r = log.find(r=>r.id===id);
+  if (r) { r.nextDayPct = val.replace('%',''); wallisSaveLog(log); wallisRenderLog(); }
+}
+function wallisDeleteRecord(id) { wallisSaveLog(wallisGetLog().filter(r=>r.id!==id)); wallisRenderLog(); }
+function wallisClearLog() { if(confirm('確定清除所有研究記錄？')){ wallisSaveLog([]); wallisRenderLog(); } }
+function wallisToggleLog() {
+  const p = document.getElementById('wallisLogPanel');
+  if (!p) return;
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+  if (p.style.display==='block') wallisRenderLog();
+}
+function wallisExportCSV() {
+  const log = wallisGetLog();
+  if (!log.length) { alert('尚無記錄可匯出'); return; }
+  const hdr = ['日期','時間','股票名稱','代號','燈1','燈1值','燈2','燈2值','燈3','燈3值','綠燈數','收斂%','狀態','研判摘要','隔日漲跌%'];
+  const rows = log.map(r=>[r.date,r.time,r.stockName,r.stockId,r.l1,r.l1Val,r.l2,r.l2Val,r.l3,r.l3Val,r.greenCount,r.score,r.badge,`"${r.verdict.replace(/"/g,'""')}"`,r.nextDayPct||''].join(','));
+  const csv = '﻿' + [hdr.join(','),...rows].join('\n');
+  const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})),download:`沃利斯研究記錄_${new Date().toISOString().slice(0,10)}.csv`});
+  a.click();
+}
+document.addEventListener('DOMContentLoaded', ()=>{ const e=document.getElementById('wallisLogCount'); if(e) e.textContent=wallisGetLog().length; });
 
 // ── v7.42 多迪數迭代計算機（知識站「數學基礎」Tab 互動元件）──
 function _runDottieIter() {
@@ -66999,27 +67549,26 @@ if (typeof _origRenderSM === 'function') {
 <script>
 (function initModuleAccordion() {
   const MODS = [
-    { id:'opPressureCard',label:'開盤壓力表',emoji:'🌏', why:'每天第一件事！美股昨晚怎麼收，台積電ADR怎麼動，決定今天開盤的基本盤。' },
-    { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。' },
-    { id:'aiCard',        label:'AI建言',    emoji:'🤖', why:'AI綜合所有指標給出白話結論，不知道從哪看起？先看這裡。' },
-    { id:'teachCard',     label:'教學教盤',  emoji:'📚', why:'AI陪你學！把技術指標翻譯成白話，告訴你現在該買、該賣、還是等，附上掛單參考價。' },
-    { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。' },
-    { id:'usLeadCard',    label:'美股先行',  emoji:'🌐', why:'台股是美股的影子，AI/半導體類股尤其明顯。美股昨晚怎麼收，今天開盤就知道了。' },
-    { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。' },
-    { id:'phaseCard',     label:'籌碼週期',  emoji:'🔬', why:'主力有其慣性，吸籌→拉升→出貨→洗盤是標準劇本，這裡告訴你現在在哪個章節。' },
-    { id:'peakCard',      label:'高點偵測',  emoji:'🔴', why:'歷史高點是壓力，也是主力出貨的好地方。接近前高要提高警覺。' },
-    { id:'contraCard',    label:'反指標',    emoji:'🔀', why:'散戶情緒是反指標。大家都看多時要小心，大家都看空時才是底部。' },
-    { id:'bigIntentCard', label:'大戶意圖',  emoji:'👤', why:'法人是不對稱資訊的持有者。外資、投信、自營商的方向，比任何技術線型都可靠。' },
-    { id:'bpcCard',       label:'五大券商',  emoji:'💎', why:'特定券商分點的進出，往往透露主力佈局動作，是籌碼分析中最細緻的一層。' },
-    { id:'washCard',      label:'洗盤估算',  emoji:'🎯', why:'主力洗盤是為了讓散戶出清再低價補貨。學會判斷洗盤，才能在最佳位置掛單。' },
-    { id:'vrCard',        label:'VR噪音',    emoji:'📐', why:'VR值衡量成交量的真實性。大量但VR低，可能是假成交量。' },
-    { id:'geoRiskCard',   label:'地緣風險',  emoji:'🌏', why:'地緣政治是系統性風險，不管個股多好，戰爭/制裁可以讓整個板塊歸零。' },
-    { id:'hedgeCard',     label:'對沖策略',  emoji:'🛡️', why:'不是每次都要進攻。學會用選擇權或反向ETF保護部位，才是成熟的投資者。' },
-    { id:'compareCard',   label:'多股比較',  emoji:'📊', why:'同板塊比強弱，選強的買。相對強度比絕對價格更能告訴你資金往哪裡流。' },
-    { id:'earnCalCard',   label:'財報日曆',  emoji:'📅', why:'財報前後是最容易出現暴漲暴跌的時間點，提前知道日期才不會被洗出去。' },
-    { id:'etfCalCard',    label:'ETF換檔',   emoji:'📆', why:'ETF成分股調整日前後，被加入的股票會被動買進，製造短期紅利。' },
-    { id:'chipLogCard',   label:'籌碼記錄',  emoji:'📋', why:'把歷史籌碼記錄下來，才能看出主力的完整佈局時間軸，而不只是看昨天的動作。' },
-    { id:'ctrl14Card',    label:'1:4控盤',   emoji:'📊', why:'大戶用1元控制4元的槓桿邏輯，一旦看懂這個，就能預判主力何時會啟動拉升。' },
+    { id:'opPressureCard',label:'開盤壓力表',emoji:'🌏', why:'每天第一件事！美股昨晚怎麼收，台積電ADR怎麼動，決定今天開盤的基本盤。',           ksTab:'philosophy' },
+    { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。',       ksTab:'chips' },
+    { id:'aiCard',        label:'AI建言',    emoji:'🤖', why:'AI綜合所有指標給出白話結論，不知道從哪看起？先看這裡。',                           ksTab:'models' },
+    { id:'teachCard',     label:'教學教盤',  emoji:'📚', why:'AI陪你學！把技術指標翻譯成白話，告訴你現在該買、該賣、還是等，附上掛單參考價。',   ksTab:'philosophy' },
+    { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。',                 ksTab:'sectors' },
+    { id:'usLeadCard',    label:'美股先行',  emoji:'🌐', why:'台股是美股的影子，AI/半導體類股尤其明顯。美股昨晚怎麼收，今天開盤就知道了。',       ksTab:'sectors' },
+    { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。', ksTab:'indicators' },
+    { id:'phaseCard',     label:'籌碼週期',  emoji:'🔬', why:'主力有其慣性，吸籌→拉升→出貨→洗盤是標準劇本，這裡告訴你現在在哪個章節。底部探測與高點偵測同步收在此處。', ksTab:'wyckoff' },
+    { id:'contraCard',    label:'反指標',    emoji:'🔀', why:'散戶情緒是反指標。大家都看多時要小心，大家都看空時才是底部。',                     ksTab:'philosophy' },
+    { id:'bigIntentCard', label:'大戶意圖',  emoji:'👤', why:'法人是不對稱資訊的持有者。外資、投信、自營商的方向，比任何技術線型都可靠。',       ksTab:'bigplayer' },
+    { id:'bpcCard',       label:'五大券商',  emoji:'💎', why:'特定券商分點的進出，往往透露主力佈局動作，是籌碼分析中最細緻的一層。',             ksTab:'chips' },
+    { id:'washCard',      label:'洗盤估算',  emoji:'🎯', why:'主力洗盤是為了讓散戶出清再低價補貨。學會判斷洗盤，才能在最佳位置掛單。',           ksTab:'math', ksAnchor:'ks-wallis-theory' },
+    { id:'vrCard',        label:'VR噪音',    emoji:'📐', why:'VR值衡量成交量的真實性。大量但VR低，可能是假成交量。',                             ksTab:'indicators' },
+    { id:'geoRiskCard',   label:'地緣風險',  emoji:'🌏', why:'地緣政治是系統性風險，不管個股多好，戰爭/制裁可以讓整個板塊歸零。',               ksTab:'quantum' },
+    { id:'hedgeCard',     label:'對沖策略',  emoji:'🛡️', why:'不是每次都要進攻。學會用選擇權或反向ETF保護部位，才是成熟的投資者。',             ksTab:'etf' },
+    { id:'compareCard',   label:'多股比較',  emoji:'📊', why:'同板塊比強弱，選強的買。相對強度比絕對價格更能告訴你資金往哪裡流。',               ksTab:'sectors' },
+    { id:'earnCalCard',   label:'財報日曆',  emoji:'📅', why:'財報前後是最容易出現暴漲暴跌的時間點，提前知道日期才不會被洗出去。',               ksTab:'philosophy' },
+    { id:'etfCalCard',    label:'ETF換檔',   emoji:'📆', why:'ETF成分股調整日前後，被加入的股票會被動買進，製造短期紅利。',                     ksTab:'etf' },
+    { id:'chipLogCard',   label:'籌碼記錄',  emoji:'📋', why:'把歷史籌碼記錄下來，才能看出主力的完整佈局時間軸，而不只是看昨天的動作。',         ksTab:'chips' },
+    { id:'ctrl14Card',    label:'1:4控盤',   emoji:'📊', why:'大戶用1元控制4元的槓桿邏輯，一旦看懂這個，就能預判主力何時會啟動拉升。',           ksTab:'bigplayer' },
     { id:'knowledgeStation', label:'知識站', emoji:'📖', why:'創作者把所有判讀邏輯的底層原理放在這裡。看不懂某個數字？來這裡找答案。' },
   ];
 
@@ -67044,15 +67593,19 @@ if (typeof _origRenderSM === 'function') {
       card.dataset.accWrapped = '1';
 
       const wrap = document.createElement('div');
-      wrap.className = 'mod-acc-wrap acc-open';
+      wrap.className = 'mod-acc-wrap'; // 預設全部閉合，不加 acc-open
       wrap.id = `accWrap_${mod.id}`;
 
       const header = document.createElement('div');
       header.className = 'mod-acc-header';
+      const ksBtn = mod.ksTab
+        ? `<button class="mod-ks-btn" onclick="event.stopPropagation();goKsTab('${mod.ksTab}'${mod.ksAnchor ? `,'${mod.ksAnchor}'` : ''})" title="跳到知識庫了解原理">📖 理論</button>`
+        : '';
       header.innerHTML =
         `<span class="mod-acc-emoji">${mod.emoji}</span>` +
         `<span class="mod-acc-label">${mod.label}</span>` +
         `<span class="mod-acc-why">💡 ${mod.why}</span>` +
+        ksBtn +
         `<span class="mod-acc-toggle">▼</span>`;
       header.addEventListener('click', () => toggleMod(mod.id));
 
@@ -67063,6 +67616,20 @@ if (typeof _origRenderSM === 'function') {
       wrap.appendChild(header);
       wrap.appendChild(body);
       body.appendChild(card);
+
+      // 籌碼週期：把底部探測 + 高點偵測子模組一起收進來
+      if (mod.id === 'phaseCard') {
+        ['bottomDetect', 'peakCard'].forEach(subId => {
+          const sub = document.getElementById(subId);
+          if (!sub || sub.dataset.accWrapped) return;
+          sub.dataset.accWrapped = '1';
+          // 加一條分隔線
+          const sep = document.createElement('div');
+          sep.style.cssText = 'border-top:1px dashed var(--border);margin:6px 0;opacity:0.4;';
+          body.appendChild(sep);
+          body.appendChild(sub);
+        });
+      }
     });
 
     hookNavLinks();
