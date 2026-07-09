@@ -32140,9 +32140,6 @@ a.module-nav-item.acc-active {
   <div>所有分析結果僅供參考，不構成任何投資建議。投資有風險，操作請審慎評估。</div>
   <div style="color:var(--accent);">台股AI分析器 v7.43 · 2026
     <span style="margin-left:12px;font-size:0.58rem;">
-      <!-- 選項M v6.99：Debug Panel 觸發點 -->
-      <a href="#" onclick="_dbgOpen();return false;"
-         style="color:var(--fg3);font-size:0.55rem;opacity:0.4;" title="Debug: _basePrices vs genSim 差異核對">&#x1F527;</a>
     </span>
   </div>
 </div>
@@ -32158,7 +32155,8 @@ const TOKEN   = '';
 // true = 開啟所有診斷 log（上線前請確認為 false）
 window._DEBUG_MODE = false;
 
-// ══ 選項M v6.99：_basePrices vs genSim Debug Panel ══════════════
+// ══ 選項M Debug Panel 已移除 ══════════════════════════════════════
+if (false) { // disabled
 document.body.insertAdjacentHTML('beforeend', `
 <div id="dbgPanelOverlay">
   <div id="dbgPanel">
@@ -32273,6 +32271,7 @@ function _dbgCopy() {
     document.execCommand('copy'); document.body.removeChild(ta); alert(`已複製 ${diff.length} 筆差異項！`);
   });
 }
+} // end if(false) — debug panel disabled
 // ══ 選項M Debug Panel 結束 ══════════════════════════════════════
 
 const STOCK_DB = {
