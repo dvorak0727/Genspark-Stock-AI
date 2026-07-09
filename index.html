@@ -14957,6 +14957,49 @@
 /* ══════════════════════════════════════════════════
    模組手風琴系統 v1.0
    ══════════════════════════════════════════════════ */
+/* ── VIP 鎖定樣式 ── */
+.mod-vip-badge {
+  flex-shrink:0; font-size:.6rem; font-weight:800;
+  padding:2px 8px; border-radius:12px; margin-left:4px;
+  background:linear-gradient(90deg,#f59e0b,#fbbf24);
+  color:#78350f; letter-spacing:.04em;
+}
+.mod-acc-wrap.vip-locked .mod-acc-header {
+  opacity:.7;
+  cursor:pointer;
+}
+/* VIP 啟用 modal */
+#vipModal {
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;
+}
+#vipModal.show { display:flex; }
+#vipModalBox {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:18px; padding:28px 26px; max-width:360px; width:90%;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);
+}
+.vip-modal-title { font-size:1rem; font-weight:900; color:var(--fg); margin-bottom:4px; }
+.vip-modal-sub   { font-size:.72rem; color:var(--fg2); margin-bottom:18px; line-height:1.6; }
+.vip-modal-input {
+  width:100%; box-sizing:border-box; font-size:.82rem; padding:9px 13px;
+  border:1.5px solid var(--border); border-radius:9px;
+  background:var(--bg2); color:var(--fg); outline:none; margin-bottom:12px;
+}
+.vip-modal-input:focus { border-color:#f59e0b; }
+.vip-modal-btns { display:flex; gap:8px; }
+.vip-modal-ok  {
+  flex:1; padding:9px; font-size:.8rem; font-weight:800;
+  background:linear-gradient(90deg,#f59e0b,#fbbf24); color:#78350f;
+  border:none; border-radius:9px; cursor:pointer;
+}
+.vip-modal-ok:hover  { filter:brightness(1.05); }
+.vip-modal-cancel {
+  padding:9px 16px; font-size:.8rem; background:var(--bg2);
+  color:var(--fg2); border:1px solid var(--border); border-radius:9px; cursor:pointer;
+}
+
 .mod-acc-wrap {
   margin-bottom: 16px;
   border-radius: 14px;
@@ -19572,6 +19615,24 @@ a.module-nav-item.acc-active {
   <!-- ── 追蹤清單 panel ── -->
   <div class="tl-panel" id="tlWatchPanel" style="display:none;">
     <div id="tlWatchList"><div style="text-align:center;padding:20px;font-size:.72rem;color:var(--fg3);">追蹤清單是空的 — 從右側「⭐」按鈕加入股票</div></div>
+  </div>
+</div>
+
+<!-- ══ VIP 啟用 Modal ══ -->
+<div id="vipModal">
+  <div id="vipModalBox">
+    <div class="vip-modal-title">👑 商務會員專屬功能</div>
+    <div class="vip-modal-sub">
+      此模組為 <b>$399 商務會員</b> 專屬。<br>
+      請輸入您的啟用序號以解鎖完整功能。
+    </div>
+    <input class="vip-modal-input" id="vipCodeInput" placeholder="請輸入啟用序號…" maxlength="32"
+           onkeydown="if(event.key==='Enter')vipActivate()" />
+    <div id="vipModalErr" style="font-size:.68rem;color:#dc2626;margin:-6px 0 10px;min-height:16px;"></div>
+    <div class="vip-modal-btns">
+      <button class="vip-modal-ok"     onclick="vipActivate()">🔓 啟用</button>
+      <button class="vip-modal-cancel" onclick="vipModalClose()">取消</button>
+    </div>
   </div>
 </div>
 
@@ -56339,6 +56400,68 @@ function wallisExportCSV() {
 document.addEventListener('DOMContentLoaded', ()=>{ const e=document.getElementById('wallisLogCount'); if(e) e.textContent=wallisGetLog().length; });
 
 // ==============================================================
+//  👑 VIP 啟用系統
+// ==============================================================
+const VIP_KEY = 'vip_activated_v1';
+
+// 合法序號清單（可自行新增；前端僅做基本驗證，正式商業應搭配後端）
+const VIP_CODES = new Set([
+  'VIP399-2026', 'VIP399-GOLD', 'TEACH-PRO-01',
+  // 測試用
+  'TEST399',
+]);
+
+function isVIP() {
+  try {
+    const d = JSON.parse(localStorage.getItem(VIP_KEY)||'null');
+    return !!(d && d.activated && VIP_CODES.has(d.code));
+  } catch { return false; }
+}
+
+let _vipPendingModId = null;
+
+function vipModalOpen(modId) {
+  _vipPendingModId = modId || null;
+  document.getElementById('vipCodeInput').value = '';
+  document.getElementById('vipModalErr').textContent = '';
+  document.getElementById('vipModal').classList.add('show');
+  setTimeout(() => document.getElementById('vipCodeInput').focus(), 80);
+}
+function vipModalClose() {
+  document.getElementById('vipModal').classList.remove('show');
+  _vipPendingModId = null;
+}
+function vipActivate() {
+  const code = (document.getElementById('vipCodeInput').value||'').trim().toUpperCase();
+  const errEl = document.getElementById('vipModalErr');
+  if (!code) { errEl.textContent = '請輸入序號'; return; }
+  if (!VIP_CODES.has(code)) { errEl.textContent = '❌ 序號無效，請確認後再試'; return; }
+  localStorage.setItem(VIP_KEY, JSON.stringify({ activated: true, code, since: Date.now() }));
+  vipModalClose();
+  showEpicToast('👑 商務會員已啟用！知識站 × 教學操盤 已解鎖', '#059669');
+  // 啟用後自動展開原先要開的模組
+  if (_vipPendingModId) {
+    const wrap = document.getElementById(`accWrap_${_vipPendingModId}`);
+    if (wrap) wrap.classList.add('acc-open');
+  }
+  // 移除鎖定樣式
+  document.querySelectorAll('.mod-acc-wrap.vip-locked').forEach(w => w.classList.remove('vip-locked'));
+}
+// 點 modal 背景關閉
+document.addEventListener('click', e => {
+  const modal = document.getElementById('vipModal');
+  if (modal && e.target === modal) vipModalClose();
+});
+// 頁面載入時若已是 VIP，移除鎖定樣式
+document.addEventListener('DOMContentLoaded', () => {
+  if (isVIP()) {
+    setTimeout(() => {
+      document.querySelectorAll('.mod-acc-wrap.vip-locked').forEach(w => w.classList.remove('vip-locked'));
+    }, 900);
+  }
+});
+
+// ==============================================================
 //  📋 下單清單 × 追蹤預警（Trade Log v1）
 // ==============================================================
 const TL_KEY = 'tradeLog_v1';
@@ -67846,7 +67969,7 @@ if (typeof _origRenderSM === 'function') {
     { id:'opPressureCard',label:'開盤壓力表',emoji:'🌏', why:'每天第一件事！美股昨晚怎麼收，台積電ADR怎麼動，決定今天開盤的基本盤。',           ksTab:'philosophy' },
     { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。',       ksTab:'chips' },
     { id:'aiCard',        label:'AI建言',    emoji:'🤖', why:'AI綜合所有指標給出白話結論，不知道從哪看起？先看這裡。',                           ksTab:'models' },
-    { id:'teachCard',     label:'教學操盤',  emoji:'📚', why:'AI陪你學！把技術指標翻譯成白話，告訴你現在該買、該賣、還是等，附上掛單參考價。',   ksTab:'philosophy' },
+    { id:'teachCard',     label:'教學操盤',  emoji:'📚', why:'AI陪你學！把技術指標翻譯成白話，告訴你現在該買、該賣、還是等，附上掛單參考價。',   ksTab:'philosophy', vip:true },
     { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。',                 ksTab:'sectors' },
     { id:'usLeadCard',    label:'美股先行',  emoji:'🌐', why:'台股是美股的影子，AI/半導體類股尤其明顯。美股昨晚怎麼收，今天開盤就知道了。',       ksTab:'sectors' },
     { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。', ksTab:'indicators' },
@@ -67864,7 +67987,7 @@ if (typeof _origRenderSM === 'function') {
     { id:'chipLogCard',   label:'籌碼記錄',  emoji:'📋', why:'把歷史籌碼記錄下來，才能看出主力的完整佈局時間軸，而不只是看昨天的動作。',         ksTab:'chips' },
     { id:'ctrl14Card',    label:'1:4控盤',   emoji:'📊', why:'大戶用1元控制4元的槓桿邏輯，一旦看懂這個，就能預判主力何時會啟動拉升。',           ksTab:'bigplayer' },
     { id:'tradeLogCard',     label:'下單清單', emoji:'📋', why:'建倉記錄 × AI波段出場評分。查詢持倉股票時自動更新燈號，訊號觸發立即提醒。' },
-    { id:'knowledgeStation', label:'知識站', emoji:'📖', why:'創作者把所有判讀邏輯的底層原理放在這裡。看不懂某個數字？來這裡找答案。' },
+    { id:'knowledgeStation', label:'知識站', emoji:'📖', why:'創作者把所有判讀邏輯的底層原理放在這裡。看不懂某個數字？來這裡找答案。', vip:true },
   ];
 
   // href → card id 對應表（有些 nav href 和 card id 不一致）
@@ -67896,13 +68019,16 @@ if (typeof _origRenderSM === 'function') {
       const ksBtn = mod.ksTab
         ? `<button class="mod-ks-btn" onclick="event.stopPropagation();goKsTab('${mod.ksTab}'${mod.ksAnchor ? `,'${mod.ksAnchor}'` : ''})" title="跳到知識庫了解原理">📖 理論</button>`
         : '';
+      const vipBadge = mod.vip ? `<span class="mod-vip-badge">👑 VIP</span>` : '';
       header.innerHTML =
         `<span class="mod-acc-emoji">${mod.emoji}</span>` +
         `<span class="mod-acc-label">${mod.label}</span>` +
+        vipBadge +
         `<span class="mod-acc-why">💡 ${mod.why}</span>` +
         ksBtn +
         `<span class="mod-acc-toggle">▼</span>`;
-      header.addEventListener('click', () => toggleMod(mod.id));
+      if (mod.vip) wrap.classList.add('vip-locked');
+      header.addEventListener('click', () => toggleMod(mod.id, mod.vip));
 
       const body = document.createElement('div');
       body.className = 'mod-acc-body';
@@ -67954,7 +68080,11 @@ if (typeof _origRenderSM === 'function') {
     navEl.appendChild(btn);
   }
 
-  function toggleMod(id) {
+  function toggleMod(id, isVipRequired) {
+    if (isVipRequired && !isVIP()) {
+      vipModalOpen(id);
+      return;
+    }
     const wrap = document.getElementById(`accWrap_${id}`);
     if (wrap) wrap.classList.toggle('acc-open');
     updateNavActive(null);
