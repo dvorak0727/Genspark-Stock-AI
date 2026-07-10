@@ -56890,10 +56890,10 @@ function tlRenderOrders() {
         <span style="font-size:.6rem;color:var(--fg2)">現價損益 ${pnl}</span>
         <div style="margin-top:3px;width:100%">${sigHtml}</div>
       </div>
-      ${_tlPhaseMini(r.phase)}
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-        <span class="tl-exit-badge ${badgeCls}">${badgeText}</span>
-        <button class="tl-del-btn" onclick="tlRemoveOrder(${r.id})">✕ 移除</button>
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:auto;">
+        <span class="tl-exit-badge ${badgeCls}" style="white-space:nowrap;">${badgeText}</span>
+        ${_tlPhaseMini(r.phase)}
+        <button class="tl-del-btn" onclick="tlRemoveOrder(${r.id})" style="white-space:nowrap;">✕ 移除</button>
       </div>
     </div>`;
   }).join('');
