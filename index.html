@@ -56748,6 +56748,17 @@ const TL_KEY = 'tradeLog_v1';
 function tlLoad() { try { return JSON.parse(localStorage.getItem(TL_KEY)||'[]'); } catch { return []; } }
 function tlSave(arr) { localStorage.setItem(TL_KEY, JSON.stringify(arr)); }
 
+// 用 phaseScores 計算「當前階段走了幾%」
+// 原理：下一階段分數 / (當前+下一)，分越高代表快轉換
+function _tlCalcPhaseProgress(scores, phaseIdx) {
+  if (!scores || !phaseIdx || scores.length < 5) return null;
+  const cur = scores[phaseIdx - 1] || 0;
+  const nextIdx = phaseIdx % 5;          // 5→0 (出貨→吸籌，循環)
+  const nxt = scores[nextIdx] || 0;
+  if (cur + nxt <= 0) return null;
+  return Math.round(nxt / (cur + nxt) * 100);
+}
+
 function tlSwitchTab(tab) {
   document.getElementById('tlOrderPanel').style.display = tab==='order' ? '' : 'none';
   document.getElementById('tlWatchPanel').style.display = tab==='watch' ? '' : 'none';
@@ -56784,10 +56795,16 @@ function tlAddOrder() {
   if (!id || !price) { showEpicToast('⚠️ 請填入代號與建倉價', '#B45309'); return; }
   const info  = STOCK_DB?.[id] || {};
   const name  = info.name || window._currentStockName || id;
+  // 若目前分析的個股與加入代號一致，附帶儲存 phaseScores 以計算階段進度
+  let phaseScores = null, phaseProgress = null;
+  if (window._teachData?.phaseScores && window._currentStockId === id) {
+    phaseScores = window._teachData.phaseScores;
+    phaseProgress = _tlCalcPhaseProgress(phaseScores, window._teachData.phaseIdx);
+  }
   const rec   = { id: Date.now(), stockId: id, stockName: name,
                   entryDate: new Date().toISOString().slice(0,10),
                   entryPrice: price, shares, phase, targetPrice: target, stopLoss: sl,
-                  exitScore: null, signals: [] };
+                  exitScore: null, signals: [], phaseScores, phaseProgress };
   const arr = tlLoad();
   arr.unshift(rec);
   tlSave(arr);
@@ -56876,14 +56893,23 @@ function tlRenderOrders() {
     {key:'拉升期', label:'拉升', col:'#10b981'},
     {key:'出貨期', label:'出貨', col:'#f87171'},
   ];
-  function _tlPhaseMini(phase) {
+  // 各階段轉換後的名稱（用於「快轉換」提示）
+  const _nextLabel = {'吸籌期':'洗盤↑','洗盤期':'啟動↑','啟動期':'拉升↑','拉升期':'出貨↑','出貨期':'→吸籌'};
+
+  function _tlPhaseMini(phase, progress) {
     return `<div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
       ${_tlPhaseSegs.map(s=>{
         const active = phase===s.key;
-        return `<span style="font-size:.58rem;font-weight:${active?800:400};padding:2px 6px;border-radius:10px;white-space:nowrap;
+        const pct    = active && progress != null ? progress : null;
+        const soon   = pct != null && pct >= 65;   // 65% → 快轉換提示
+        let inner = s.label;
+        if (pct != null) {
+          inner = `${s.label}<span style="font-size:.5rem;font-weight:400;margin-left:3px;opacity:.9">${pct}%${soon?' '+_nextLabel[phase]:''}</span>`;
+        }
+        return `<span style="font-size:.58rem;font-weight:${active?800:400};padding:2px ${pct?7:6}px;border-radius:10px;white-space:nowrap;
           background:${active?s.col:'rgba(128,128,128,0.1)'};
           color:${active?'#fff':'var(--fg3)'};
-          ${active?'box-shadow:0 1px 6px '+s.col+'60;':''}">${s.label}</span>`;
+          ${active?'box-shadow:0 1px 6px '+s.col+'60;':''}">${inner}</span>`;
       }).join('')}
     </div>`;
   }
@@ -56912,34 +56938,96 @@ function tlRenderOrders() {
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:auto;">
         <span class="tl-exit-badge ${badgeCls}" style="white-space:nowrap;">${badgeText}</span>
-        ${_tlPhaseMini(r.phase)}
+        ${_tlPhaseMini(r.phase, r.phaseProgress ?? null)}
         <button class="tl-del-btn" onclick="tlRemoveOrder(${r.id})" style="white-space:nowrap;">✕ 移除</button>
       </div>
     </div>`;
   }).join('');
 }
 
-// ── 渲染追蹤清單 tab（讀現有 wl localStorage）──
+// ── 渲染追蹤清單 tab（下單清單 + 自選追蹤）──
 function tlRenderWatch() {
   const el = document.getElementById('tlWatchList');
   if (!el) return;
+
+  // ① 下單清單 部分（含 phase 進度）
+  const orders = tlLoad();
+  const _phaseSegs = [
+    {key:'吸籌期',label:'吸籌',col:'#a78bfa'},
+    {key:'洗盤期',label:'洗盤',col:'#60a5fa'},
+    {key:'啟動期',label:'啟動',col:'#34d399'},
+    {key:'拉升期',label:'拉升',col:'#10b981'},
+    {key:'出貨期',label:'出貨',col:'#f87171'},
+  ];
+  const _nextLbl = {'吸籌期':'洗盤↑','洗盤期':'啟動↑','啟動期':'拉升↑','拉升期':'出貨↑','出貨期':'→吸籌'};
+  function _miniBar(phase, progress) {
+    return _phaseSegs.map(s => {
+      const active = phase === s.key;
+      const pct    = active && progress != null ? progress : null;
+      const soon   = pct != null && pct >= 65;
+      let lbl = s.label;
+      if (pct != null) lbl += `<span style="font-size:.48rem;font-weight:400;margin-left:2px">${pct}%${soon?' '+_nextLbl[phase]:''}</span>`;
+      return `<span style="font-size:.56rem;font-weight:${active?800:400};padding:1px ${pct?7:5}px;
+        border-radius:8px;white-space:nowrap;
+        background:${active?s.col:'rgba(128,128,128,0.1)'};
+        color:${active?'#fff':'var(--fg3)'};
+        ${active?'box-shadow:0 1px 5px '+s.col+'55;':''}">${lbl}</span>`;
+    }).join('');
+  }
+
+  // 按「出貨期進度最高→吸籌期最低」排序，讓快循環回來的排前面
+  const _phaseOrder = {'出貨期':0,'拉升期':1,'啟動期':2,'洗盤期':3,'吸籌期':4,'觀察中':5};
+  const sorted = [...orders].sort((a,b) => {
+    const oa = _phaseOrder[a.phase]??5, ob = _phaseOrder[b.phase]??5;
+    if (oa !== ob) return oa - ob;
+    return (b.phaseProgress??0) - (a.phaseProgress??0);  // 同階段：進度高的排前
+  });
+
+  let html = '';
+  if (sorted.length) {
+    html += `<div style="font-size:.6rem;color:var(--fg3);padding:4px 8px 2px;font-weight:700;letter-spacing:.04em;">📋 下單清單 — 週期監控</div>`;
+    html += sorted.map(r => {
+      const sc = r.exitScore;
+      let badge = '';
+      if (sc != null) {
+        if      (sc>=70) badge = `<span style="font-size:.54rem;color:#f87171;font-weight:700">🔴 出場${sc}</span>`;
+        else if (sc>=40) badge = `<span style="font-size:.54rem;color:#f59e0b;font-weight:700">🟡 注意${sc}</span>`;
+        else             badge = `<span style="font-size:.54rem;color:#10b981;font-weight:700">🟢 持倉${sc}</span>`;
+      }
+      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;"
+        onclick="if(typeof searchAndAnalyze==='function')searchAndAnalyze('${r.stockId}')">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.68rem;font-weight:700;color:var(--fg)">${r.stockName} <span style="font-size:.6rem;color:var(--fg3)">${r.stockId}</span>${badge?'  '+badge:''}</div>
+          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px;">${_miniBar(r.phase, r.phaseProgress??null)}</div>
+        </div>
+        <span style="font-size:.56rem;color:var(--accent);flex-shrink:0">▶ 分析</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ② 自選追蹤清單（⭐ 右側按鈕加入的）
   const WL_KEY = 'tsai_watchlist_v1';
   let wl = [];
   try { wl = JSON.parse(localStorage.getItem(WL_KEY)||'[]'); } catch {}
-  if (!wl.length) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;font-size:.72rem;color:var(--fg3);">追蹤清單是空的 — 從右側「⭐」按鈕加入股票</div>';
+  if (wl.length) {
+    html += `<div style="font-size:.6rem;color:var(--fg3);padding:6px 8px 2px;font-weight:700;letter-spacing:.04em;margin-top:4px;">⭐ 自選追蹤</div>`;
+    html += wl.slice(0,30).map(r => {
+      const id = r.id || r.stockId || '';
+      const nm = r.name || r.stockName || id;
+      const dt = r.ts ? new Date(r.ts).toISOString().slice(0,10) : '';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;"
+        onclick="if(typeof searchAndAnalyze==='function')searchAndAnalyze('${id}')">
+        <span style="font-size:.66rem;font-weight:600;color:var(--fg)">${nm} <span style="font-size:.6rem;color:var(--fg3)">${id}</span></span>
+        <span style="font-size:.56rem;color:var(--fg3)">${dt}</span>
+      </div>`;
+    }).join('');
+  }
+
+  if (!html) {
+    el.innerHTML = '<div style="text-align:center;padding:20px;font-size:.72rem;color:var(--fg3);">尚無追蹤 — 加入下單清單或點右側 ⭐</div>';
     return;
   }
-  el.innerHTML = wl.slice(0,30).map(r => {
-    const id = r.id || r.stockId || '';
-    const nm = r.name || r.stockName || id;
-    const dt = r.addedDate || r.ts ? new Date(r.ts||r.addedDate).toISOString().slice(0,10) : '';
-    return `<div class="tl-wl-item" onclick="if(typeof searchAndAnalyze==='function')searchAndAnalyze('${id}')">
-      <span class="tl-wl-stock">${nm} <span style="font-size:.64rem;color:var(--fg3)">${id}</span></span>
-      <span class="tl-wl-meta">${dt ? '加入 '+dt : ''}</span>
-      <span class="tl-wl-wci">點擊分析</span>
-    </div>`;
-  }).join('');
+  el.innerHTML = html;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
