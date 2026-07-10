@@ -57006,9 +57006,8 @@ function tlRenderWatch() {
   }
 
   // ② 自選追蹤清單（⭐ 右側按鈕加入的）
-  const WL_KEY = 'tsai_watchlist_v1';
   let wl = [];
-  try { wl = JSON.parse(localStorage.getItem(WL_KEY)||'[]'); } catch {}
+  try { wl = loadWatchlist(); } catch {}
   if (wl.length) {
     html += `<div style="font-size:.6rem;color:var(--fg3);padding:6px 8px 2px;font-weight:700;letter-spacing:.04em;margin-top:4px;">⭐ 自選追蹤</div>`;
     html += wl.slice(0,30).map(r => {
