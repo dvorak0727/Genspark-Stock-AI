@@ -68088,7 +68088,20 @@ function _tRenderCard(s, ind, isSim) {
   const techColor=isBull?'#10b981':isBear?'#ef4444':'#f59e0b';
   const techText =isBull?'偏多':isBear?'偏空':'中性';
   const ai = _tAiJudge(p, ind);
-  const ph = _tDetectWyckoff(ind);
+  // 若此教學卡的股票 = 當前主分析股票，優先用籌碼週期的結果（確保一致）
+  let ph;
+  if (s.id === window._currentStockId && window._teachData?.phaseIdx) {
+    const _pm = {
+      1:{n:1,name:'吸籌期', emoji:'🧲',col:'#60a5fa',tip:'主力悄悄在建倉，最好的佈局時機。',   daysToLift:20,daysToDist:50,daysLeft:20},
+      2:{n:2,name:'洗盤期', emoji:'🚿',col:'#f59e0b',tip:'主力在嚇你賣！假跌破是正常的，耐心拿住。',daysToLift:10,daysToDist:35,daysLeft:10},
+      3:{n:3,name:'啟動期', emoji:'🎯',col:'#6366f1',tip:'量能是關鍵！啟動確認前等突破，不要急著衝。',daysToLift:5,daysToDist:25,daysLeft:5},
+      4:{n:4,name:'拉升期', emoji:'🚀',col:'#10b981',tip:'主力已建倉完成，正在拉升。持有為王，不要理雜訊。',daysToLift:0,daysToDist:15,daysLeft:15},
+      5:{n:5,name:'出貨期', emoji:'⚠️',col:'#ef4444',tip:'主力正在出貨，大家歡呼時你應該收了。',daysToLift:0,daysToDist:0,daysLeft:5},
+    };
+    ph = _pm[window._teachData.phaseIdx] || _tDetectWyckoff(ind);
+  } else {
+    ph = _tDetectWyckoff(ind);
+  }
 
   // RSI 說明
   const rsiV=ind.rsi?ind.rsi.toFixed(0):'—';
