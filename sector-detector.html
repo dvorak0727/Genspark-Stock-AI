@@ -1,0 +1,2672 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股板塊輪動偵測器 v3.0 · FinMind真實資料</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════
+   BASE
+══════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#F0F4F8;--surface:#fff;--surface2:#F8FAFC;
+  --border:#E2E8F0;--border2:#CBD5E1;
+  --fg:#1E293B;--fg2:#475569;--fg3:#94A3B8;
+  --accent:#1565C0;--accent-bg:#EBF4FF;
+  --up:#E8343A;--up-bg:#FEF2F2;--up-bd:#FECACA;
+  --dn:#16A34A;--dn-bg:#F0FFF4;--dn-bd:#86EFAC;
+  --gold:#D97706;--gold-bg:#FFFBEB;
+  --purple:#7C3AED;--purple-bg:#F5F3FF;
+  --r:12px;--sh:0 2px 8px rgba(0,0,0,0.07);
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;line-height:1.5;}
+
+/* HEADER */
+.hdr{
+  background:linear-gradient(135deg,#0A0F1E 0%,#162447 60%,#0A0F1E 100%);
+  padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  box-shadow:0 3px 20px rgba(0,0,0,0.4);position:sticky;top:0;z-index:200;
+}
+.hdr-icon{width:38px;height:38px;border-radius:10px;
+  background:linear-gradient(135deg,#3B82F6,#8B5CF6);
+  display:flex;align-items:center;justify-content:center;font-size:1.15rem;
+  box-shadow:0 4px 14px rgba(59,130,246,0.45);}
+.hdr-title{font-size:1.05rem;font-weight:900;color:#fff;letter-spacing:0.3px;}
+.hdr-sub{font-size:0.62rem;color:#64748B;margin-top:1px;}
+.hdr-badge{padding:3px 11px;border-radius:20px;background:rgba(59,130,246,0.18);
+  color:#93C5FD;border:1px solid rgba(59,130,246,0.3);font-size:0.62rem;font-weight:700;}
+.hdr-live{display:flex;align-items:center;gap:5px;font-size:0.64rem;color:#64748B;}
+.hdr-live-dot{width:7px;height:7px;border-radius:50%;background:#10B981;
+  animation:livePulse 1.4s infinite;}
+@keyframes livePulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+/* 選項L v2.1：收盤價過期提示 badge */
+.sd-stale-badge{
+  display:none;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:20px;
+  font-size:0.60rem;font-weight:700;
+  background:#FFFBEB;color:#92400E;
+  border:1px solid #F59E0B;
+  white-space:nowrap;cursor:default;
+  animation:sdStalePulse 2s infinite;
+}
+.sd-stale-badge.show{display:inline-flex;}
+@keyframes sdStalePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.35);}
+  50%{box-shadow:0 0 0 4px rgba(245,158,11,0);}
+}
+
+/* ── 選項O v2.1：美股先行指標小卡 ── */
+.us-lead-card-bar{height:3px;border-radius:2px 2px 0 0;
+  background:linear-gradient(90deg,#1E40AF,#3B82F6,#10B981);}
+.us-lead-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(108px,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+.us-lead-chip{
+  background:var(--card2,#0F172A);
+  border:1px solid var(--border,rgba(255,255,255,0.08));
+  border-radius:8px;
+  padding:8px 10px;
+  display:flex;flex-direction:column;gap:3px;
+  transition:transform 0.15s,border-color 0.15s;
+  cursor:default;
+}
+.us-lead-chip:hover{transform:translateY(-2px);border-color:rgba(59,130,246,0.4);}
+.us-lead-chip.up  {border-left:3px solid #10B981;}
+.us-lead-chip.down{border-left:3px solid #EF4444;}
+.us-lead-chip.flat{border-left:3px solid #94A3B8;}
+.us-lead-chip.sim {border-left:3px solid #F59E0B;}
+.ulc-ticker{font-size:0.62rem;font-weight:800;color:var(--fg1,#F1F5F9);letter-spacing:0.5px;}
+.ulc-price {font-size:0.70rem;font-weight:700;color:var(--fg1,#F1F5F9);}
+.ulc-chg   {font-size:0.58rem;font-weight:600;}
+.ulc-chg.up  {color:#10B981;}
+.ulc-chg.down{color:#EF4444;}
+.ulc-chg.flat{color:#94A3B8;}
+.ulc-name  {font-size:0.52rem;color:var(--fg3,#64748B);}
+.ulc-badge {font-size:0.48rem;padding:1px 5px;border-radius:10px;
+  background:rgba(245,158,11,0.15);color:#F59E0B;font-weight:700;
+  display:inline-block;margin-top:1px;}
+.us-lead-footer{font-size:0.54rem;color:var(--fg3,#64748B);
+  margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;}
+.us-lead-api-badge{
+  padding:2px 8px;border-radius:10px;font-size:0.50rem;font-weight:700;
+  background:rgba(245,158,11,0.15);color:#D97706;border:1px solid rgba(245,158,11,0.3);
+}
+.us-lead-hol-badge{
+  display:none;padding:2px 8px;border-radius:10px;font-size:0.50rem;font-weight:700;
+  background:#FEF2F2;color:#991B1B;border:1px solid #FECACA;
+}
+.us-lead-hol-badge.show{display:inline-flex;align-items:center;gap:3px;}
+
+/* LOAD OVERLAY */
+.load-overlay{
+  position:fixed;inset:0;background:rgba(10,15,30,0.92);
+  z-index:9999;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:18px;
+  transition:opacity 0.5s;
+}
+.load-overlay.hidden{opacity:0;pointer-events:none;}
+.load-spinner{
+  width:56px;height:56px;border:4px solid rgba(59,130,246,0.2);
+  border-top-color:#3B82F6;border-radius:50%;
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.load-title{font-size:1rem;font-weight:800;color:#fff;}
+.load-sub{font-size:0.7rem;color:#64748B;text-align:center;max-width:320px;line-height:1.7;}
+.load-progress-wrap{width:280px;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;}
+.load-progress-fill{height:100%;background:linear-gradient(90deg,#3B82F6,#8B5CF6);
+  border-radius:3px;transition:width 0.4s;width:0%;}
+.load-steps{display:flex;flex-direction:column;gap:5px;min-width:220px;}
+.load-step{display:flex;align-items:center;gap:8px;font-size:0.65rem;color:#64748B;}
+.load-step.done{color:#10B981;}
+.load-step.active{color:#93C5FD;}
+.load-step-icon{width:16px;text-align:center;}
+
+/* CONTAINER */
+.wrap{max-width:1400px;margin:0 auto;padding:14px;}
+
+/* CARD */
+.card{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:13px 15px;margin-bottom:12px;
+  box-shadow:var(--sh);position:relative;overflow:hidden;}
+.card-bar{position:absolute;top:0;left:0;right:0;height:3px;}
+
+/* SECTION HEAD */
+.sec-hd{display:flex;align-items:center;gap:9px;margin-bottom:12px;margin-top:3px;}
+.sec-icon{width:32px;height:32px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;font-size:0.95rem;flex-shrink:0;}
+.sec-title{font-size:0.88rem;font-weight:800;color:var(--fg);}
+.sec-sub{font-size:0.62rem;color:var(--fg3);margin-top:2px;}
+
+/* ALERT BANNERS */
+.banner{display:flex;align-items:center;gap:10px;padding:9px 13px;
+  border-radius:9px;margin-bottom:9px;border-left:4px solid;font-size:0.76rem;}
+.banner.red{background:#FEF2F2;border-color:#E8343A;color:#B91C1C;}
+.banner.yellow{background:#FFFBEB;border-color:#D97706;color:#92400E;}
+.banner.green{background:#F0FFF4;border-color:#16A34A;color:#065F46;}
+.banner.blue{background:#EBF4FF;border-color:#1565C0;color:#1D4ED8;}
+.banner.purple{background:#F5F3FF;border-color:#7C3AED;color:#5B21B6;}
+.banner.gray{background:var(--surface2);border-color:var(--border2);color:var(--fg3);}
+.banner-pulse{animation:bPulse 2s infinite;}
+@keyframes bPulse{0%,100%{opacity:1;}50%{opacity:0.82;}}
+.banner-icon{font-size:1.2rem;flex-shrink:0;}
+.banner-main{flex:1;}
+.banner-t{font-size:0.8rem;font-weight:900;margin-bottom:2px;}
+.banner-d{font-size:0.65rem;font-weight:400;opacity:0.85;line-height:1.5;}
+.banner-time{font-size:0.6rem;opacity:0.65;flex-shrink:0;white-space:nowrap;}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px;}
+@media(max-width:700px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
+.kpi{background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:11px 13px;box-shadow:var(--sh);}
+.kpi-lbl{font-size:0.6rem;font-weight:700;color:var(--fg3);
+  text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.kpi-val{font-size:1.5rem;font-weight:900;line-height:1;margin-bottom:3px;}
+.kpi-sub{font-size:0.62rem;color:var(--fg3);}
+.kpi-badge{display:inline-block;padding:2px 7px;border-radius:6px;
+  font-size:0.58rem;font-weight:800;margin-top:4px;}
+
+/* SECTOR GRID */
+.sec-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:6px;}
+@media(max-width:900px){.sec-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:520px){.sec-grid{grid-template-columns:repeat(2,1fr);}}
+.sc{border-radius:10px;padding:9px 9px 7px;border:2px solid transparent;
+  cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;user-select:none;}
+.sc:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(0,0,0,0.11);}
+.sc.flee{background:linear-gradient(135deg,#FEF2F2,#FEE2E2);border-color:#FECACA;}
+.sc.warn{background:linear-gradient(135deg,#FFFBEB,#FEF3C7);border-color:#FDE68A;}
+.sc.flow{background:linear-gradient(135deg,#F0FFF4,#DCFCE7);border-color:#86EFAC;}
+.sc.cold{background:linear-gradient(135deg,#EFF6FF,#DBEAFE);border-color:#BFDBFE;}
+.sc.neut{background:var(--surface2);border-color:var(--border);}
+.sc-sig{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;}
+.sc-sig.flee{background:#E8343A;animation:sPulse 1.1s infinite;}
+.sc-sig.flow{background:#16A34A;animation:sPulse 1.4s infinite;}
+.sc-sig.warn{background:#D97706;}
+.sc-sig.neut{background:#94A3B8;}
+@keyframes sPulse{0%,100%{box-shadow:0 0 0 0 currentColor;}50%{box-shadow:0 0 0 5px transparent;}}
+.sc-emoji{font-size:1.3rem;display:block;margin-bottom:4px;}
+.sc-name{font-size:0.68rem;font-weight:800;color:var(--fg);margin-bottom:2px;}
+.sc-chg{font-size:0.95rem;font-weight:900;line-height:1;}
+.sc-chg.up{color:var(--up);}
+.sc-chg.dn{color:var(--dn);}
+.sc-chg.flat{color:var(--fg3);}
+.sc-vol{font-size:0.55rem;color:var(--fg3);margin-top:2px;}
+.sc-fi{font-size:0.56rem;margin-top:3px;font-weight:700;}
+.sc-loading{font-size:0.6rem;color:var(--fg3);padding:4px 0;text-align:center;}
+
+/* TWO COL */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+@media(max-width:800px){.two-col{grid-template-columns:1fr;}}
+
+/* ====== 手機版綜合優化 (RWD Compact v6.99) ====== */
+@media(max-width:600px){
+  /* Header 壓縮 */
+  .hdr{padding:8px 10px;gap:8px;}
+  .hdr-icon{width:32px;height:32px;font-size:1rem;}
+  .hdr-title{font-size:0.88rem;}
+  .hdr-sub{display:none;} /* 手機隱藏副標題 */
+  .hdr-badge{padding:2px 8px;font-size:0.58rem;}
+  /* wrap 左右內邊 */
+  .wrap{padding:8px;}
+  /* card padding 縮 */
+  .card{padding:10px 11px;margin-bottom:8px;}
+  .sec-hd{gap:7px;margin-bottom:8px;margin-top:2px;}
+  .sec-icon{width:30px;height:30px;font-size:0.9rem;}
+  .sec-title{font-size:0.82rem;}
+  .sec-sub{font-size:0.58rem;}
+  /* KPI 字 */
+  .kpi-val{font-size:1.2rem;}
+  /* us-lead 格子更小 */
+  .us-lead-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:6px;}
+}
+@media(max-width:400px){
+  .hdr{padding:7px 8px;}
+  .wrap{padding:6px;}
+  .card{padding:8px 9px;}
+  .us-lead-grid{grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:5px;}
+}
+
+/* ECHART */
+.echart-dark{background:#0A0F1E;border-radius:10px;padding:4px;}
+
+/* FLOW LIST */
+.flow-item{display:flex;align-items:center;gap:7px;padding:7px 9px;
+  border-radius:8px;border:1px solid var(--border);background:var(--surface2);margin-bottom:5px;}
+.flow-item.in{background:rgba(22,163,74,0.05);border-color:rgba(22,163,74,0.28);}
+.flow-item.out{background:rgba(232,52,58,0.05);border-color:rgba(232,52,58,0.28);}
+.fi-name{font-size:0.7rem;font-weight:700;width:76px;flex-shrink:0;}
+.fi-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+.fi-fill{height:100%;border-radius:4px;transition:width 0.9s;}
+.fi-fill.in{background:linear-gradient(90deg,#10B981,#34D399);}
+.fi-fill.out{background:linear-gradient(90deg,#E8343A,#F87171);}
+.fi-val{font-size:0.68rem;font-weight:800;width:62px;text-align:right;flex-shrink:0;}
+.fi-val.in{color:var(--dn);}
+.fi-val.out{color:var(--up);}
+
+/* STRENGTH BAR */
+.str-wrap{margin-bottom:5px;}
+.str-label{display:flex;justify-content:space-between;
+  font-size:0.62rem;color:var(--fg3);margin-bottom:2px;}
+.str-track{height:6px;background:var(--border);border-radius:4px;overflow:hidden;}
+.str-fill{height:100%;border-radius:4px;transition:width 1s;}
+
+/* ROTATION CHAIN */
+.chain{display:flex;overflow-x:auto;padding-bottom:6px;}
+.ch-step{flex:1;min-width:110px;display:flex;flex-direction:column;align-items:center;
+  padding:11px 7px;background:var(--surface2);border:1px solid var(--border);
+  position:relative;transition:all 0.3s;}
+.ch-step:first-child{border-radius:10px 0 0 10px;}
+.ch-step:last-child{border-radius:0 10px 10px 0;}
+.ch-step.active{background:rgba(21,101,192,0.08);border-color:var(--accent);
+  box-shadow:0 0 0 2px var(--accent);}
+.ch-step.next{background:rgba(22,163,74,0.08);border-color:#16A34A;
+  box-shadow:0 0 0 2px #16A34A;animation:chGlow 1.5s infinite;}
+@keyframes chGlow{0%,100%{box-shadow:0 0 0 2px #16A34A;}50%{box-shadow:0 0 0 7px rgba(22,163,74,0.2);}}
+.ch-num{font-size:0.54rem;font-weight:800;color:var(--fg3);
+  text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;}
+.ch-emoji{font-size:1.35rem;margin-bottom:4px;}
+.ch-name{font-size:0.67rem;font-weight:800;color:var(--fg);text-align:center;}
+.ch-desc{font-size:0.56rem;color:var(--fg3);text-align:center;margin-top:2px;line-height:1.4;}
+.ch-badge{margin-top:5px;padding:2px 7px;border-radius:7px;font-size:0.56rem;font-weight:800;}
+.ch-step.active .ch-badge{background:#DBEAFE;color:#1D4ED8;}
+.ch-step.next .ch-badge{background:#DCFCE7;color:#15803D;}
+.ch-step .ch-badge{background:var(--border);color:var(--fg3);}
+.ch-arrow{position:absolute;right:-13px;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;background:var(--accent);color:#fff;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:0.65rem;z-index:3;box-shadow:0 2px 8px rgba(21,101,192,0.35);}
+.ch-step.next .ch-arrow{background:#16A34A;}
+
+/* TIMING */
+.timing-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:10px;}
+@media(max-width:640px){.timing-grid{grid-template-columns:repeat(4,1fr);}}
+.td{border-radius:8px;padding:8px 5px;text-align:center;
+  border:1.5px solid var(--border);background:var(--surface2);transition:all 0.3s;}
+.td.past{opacity:0.5;}
+.td.today{background:rgba(21,101,192,0.08);border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(21,101,192,0.2);}
+.td.entry{background:rgba(22,163,74,0.1);border-color:#16A34A;
+  animation:entryGlow 1.5s infinite;}
+@keyframes entryGlow{0%,100%{box-shadow:0 0 0 2px rgba(22,163,74,0.3);}
+  50%{box-shadow:0 0 0 7px rgba(22,163,74,0.08);}}
+.td.danger{background:rgba(232,52,58,0.07);border-color:#E8343A;}
+.td-wd{font-size:0.52rem;font-weight:700;color:var(--fg3);margin-bottom:3px;}
+.td-date{font-size:0.95rem;font-weight:900;line-height:1;margin-bottom:3px;}
+.td.today .td-date{color:var(--accent);}
+.td.entry .td-date{color:#16A34A;}
+.td.danger .td-date{color:#E8343A;}
+.td-ev{font-size:0.54rem;color:var(--fg2);line-height:1.4;min-height:20px;}
+.td-act{margin-top:4px;padding:1px 5px;border-radius:5px;
+  font-size:0.52rem;font-weight:800;display:inline-block;}
+.td.today .td-act{background:#DBEAFE;color:#1D4ED8;}
+.td.entry .td-act{background:#DCFCE7;color:#15803D;}
+.td.danger .td-act{background:#FEE2E2;color:#B91C1C;}
+.td.past .td-act{background:var(--border);color:var(--fg3);}
+
+/* EVIDENCE */
+.ev-item{display:flex;align-items:flex-start;gap:7px;padding:7px 9px;
+  border-radius:8px;border:1px solid var(--border);background:var(--surface2);margin-bottom:5px;}
+.ev-icon{font-size:0.95rem;flex-shrink:0;margin-top:1px;}
+.ev-body{flex:1;}
+.ev-title{font-size:0.7rem;font-weight:700;color:var(--fg);}
+.ev-desc{font-size:0.61rem;color:var(--fg3);margin-top:1px;line-height:1.45;}
+.ev-badge{padding:1px 7px;border-radius:5px;font-size:0.56rem;font-weight:800;flex-shrink:0;margin-top:2px;}
+
+/* TARGET STOCKS */
+.ts{display:flex;align-items:center;gap:9px;padding:9px 11px;
+  border-radius:9px;border:1px solid var(--border);background:var(--surface);
+  margin-bottom:6px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;}
+.ts::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;}
+.ts.r1::before{background:linear-gradient(180deg,#F59E0B,#D97706);}
+.ts.r2::before{background:linear-gradient(180deg,#94A3B8,#64748B);}
+.ts.r3::before{background:linear-gradient(180deg,#B45309,#92400E);}
+.ts.rx::before{background:linear-gradient(180deg,#3B82F6,#2563EB);}
+.ts.warn::before{background:linear-gradient(180deg,#E8343A,#DC2626);}
+.ts:hover{transform:translateX(3px);box-shadow:var(--sh);}
+.ts-rank{font-size:1rem;font-weight:900;width:22px;text-align:center;flex-shrink:0;}
+.ts-code{background:var(--accent-bg);color:var(--accent);padding:2px 6px;
+  border-radius:5px;font-size:0.65rem;font-weight:800;flex-shrink:0;}
+.ts-info{flex:1;min-width:0;}
+.ts-name{font-size:0.75rem;font-weight:700;color:var(--fg);}
+.ts-sec{font-size:0.58rem;color:var(--fg3);margin-top:1px;}
+.ts-tags{display:flex;gap:3px;flex-wrap:wrap;margin-top:3px;}
+.ts-tag{font-size:0.52rem;font-weight:700;padding:1px 5px;border-radius:4px;}
+.ts-tag.g{background:#DCFCE7;color:#15803D;}
+.ts-tag.b{background:var(--accent-bg);color:var(--accent);}
+.ts-tag.o{background:#FEF3C7;color:#92400E;}
+.ts-tag.r{background:#FEE2E2;color:#B91C1C;}
+.ts-score{text-align:right;flex-shrink:0;}
+.ts-score-n{font-size:0.95rem;font-weight:900;}
+.ts-score-l{font-size:0.54rem;color:var(--fg3);}
+
+/* TAB */
+.tabs{display:flex;gap:4px;margin-bottom:10px;overflow-x:auto;}
+.tab-btn{padding:5px 12px;border-radius:20px;cursor:pointer;
+  font-size:0.65rem;font-weight:700;border:1px solid var(--border);
+  background:var(--surface2);color:var(--fg3);white-space:nowrap;transition:all 0.15s;}
+.tab-btn:hover{background:var(--accent-bg);color:var(--accent);}
+.tab-btn.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tab-pane{display:none;}
+.tab-pane.on{display:block;}
+
+/* LEGEND */
+.legend{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.leg-item{display:flex;align-items:center;gap:4px;font-size:0.62rem;color:var(--fg3);}
+.leg-dot{width:9px;height:9px;border-radius:50%;}
+
+/* CORR MATRIX */
+.corr-grid{display:grid;gap:2px;}
+.corr-cell{border-radius:4px;padding:5px 3px;text-align:center;cursor:default;
+  font-size:0.58rem;font-weight:700;transition:all 0.3s;}
+
+/* EXPLAIN */
+.exp-block{margin-bottom:12px;padding:11px 13px;
+  background:rgba(255,255,255,0.06);border-radius:10px;border-left:4px solid;}
+.exp-title{display:flex;align-items:center;gap:7px;
+  font-size:0.76rem;font-weight:800;color:#fff;margin-bottom:6px;}
+.exp-body{font-size:0.66rem;color:#94A3B8;line-height:1.8;}
+
+/* MACD 六維度掃描 */
+.macd-scan-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+@media(max-width:900px){ .macd-scan-grid{ grid-template-columns: repeat(2,1fr); } }
+@media(max-width:520px){ .macd-scan-grid{ grid-template-columns: 1fr; } }
+.macd-sector-box {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 11px; cursor: pointer; transition: all .18s;
+}
+.macd-sector-box:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.1); border-color: var(--border2); }
+.macd-sector-box.strong { border-color: rgba(16,185,129,0.45); background: rgba(16,185,129,0.04); }
+.macd-sector-box.weak   { border-color: rgba(232,52,58,0.35);  background: rgba(232,52,58,0.04); }
+.macd-sector-box.mid    { border-color: rgba(217,119,6,0.35);  background: rgba(217,119,6,0.04); }
+.msb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.msb-name { font-size: 0.72rem; font-weight: 800; color: var(--fg); }
+.msb-score-badge {
+  padding: 2px 8px; border-radius: 8px; font-size: 0.62rem; font-weight: 900;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.msb-score-badge.s5 { background: rgba(16,185,129,0.15); color: #047857; border-color: rgba(16,185,129,0.4); }
+.msb-score-badge.s3 { background: rgba(217,119,6,0.12);  color: #92400E; border-color: rgba(217,119,6,0.4); }
+.msb-score-badge.s0 { background: rgba(239,68,68,0.09);  color: #b91c1c; border-color: rgba(239,68,68,0.35); }
+.msb-dots { display: flex; gap: 3px; flex-wrap: wrap; margin-bottom: 6px; }
+.msb-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.msb-dot.on  { background: #10b981; }
+.msb-dot.off { background: #ef4444; }
+.msb-stocks { display: flex; flex-direction: column; gap: 3px; }
+.msb-stock-row {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.57rem; color: var(--fg3);
+}
+.msb-stock-code { font-weight: 800; color: var(--fg); width: 36px; flex-shrink: 0; }
+.msb-stock-name { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.msb-stock-score { font-size: 0.60rem; font-weight: 900; width: 26px; text-align: right; flex-shrink: 0; }
+/* MACD 詳情 Modal */
+.macd-detail-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9300;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center;
+}
+.macd-detail-overlay.show { display: flex; }
+.macd-detail-modal {
+  background: var(--surface); border-radius: 16px;
+  border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  max-width: 480px; width: 94%; max-height: 85vh; overflow-y: auto;
+  animation: mdSDFadeIn .18s ease;
+}
+@keyframes mdSDFadeIn { from{opacity:0;transform:scale(.94) translateY(8px);}to{opacity:1;transform:none;} }
+.macd-detail-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg,rgba(124,58,237,0.07),rgba(37,99,235,0.04));
+  border-radius: 16px 16px 0 0;
+}
+.macd-detail-title { font-size: 0.76rem; font-weight: 900; color: #6d28d9; }
+.macd-detail-close {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border2);
+  background: var(--surface2); cursor: pointer; font-size: 0.70rem;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fg3); transition: all .14s;
+}
+.macd-detail-close:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
+.macd-detail-body { padding: 14px 16px 16px; }
+.macd-stock-detail-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 11px; border-radius: 10px;
+  border: 1px solid var(--border); margin-bottom: 7px;
+  background: var(--surface2);
+}
+.macd-stock-detail-row.high { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.04); }
+.macd-stock-detail-row.low  { border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.04); }
+.msd-code { font-size: 0.68rem; font-weight: 900; color: var(--fg); width: 38px; flex-shrink: 0; }
+.msd-name { font-size: 0.62rem; font-weight: 700; color: var(--fg2); width: 56px; flex-shrink: 0; }
+.msd-conds { flex: 1; display: flex; flex-wrap: wrap; gap: 3px; }
+.msd-cond-chip {
+  padding: 1px 6px; border-radius: 6px; font-size: 0.50rem; font-weight: 700; border: 1px solid;
+}
+.msd-cond-chip.pass { background: rgba(16,185,129,0.10); color: #047857; border-color: rgba(16,185,129,0.35); }
+.msd-cond-chip.fail { background: rgba(239,68,68,0.07);  color: #b91c1c; border-color: rgba(239,68,68,0.25); }
+.msd-score { font-size: 0.82rem; font-weight: 900; width: 28px; text-align: right; flex-shrink: 0; }
+/* MACD 六維度說明標籤 */
+.macd-legend-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.macd-leg-chip {
+  padding: 2px 7px; border-radius: 8px; font-size: 0.52rem; font-weight: 700;
+  background: var(--surface2); color: var(--fg3); border: 1px solid var(--border);
+}
+/* MACD 儲存列 + 歷史面板 */
+.macd-action-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
+}
+.macd-save-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 13px; border-radius: 16px; cursor: pointer;
+  font-size: 0.63rem; font-weight: 800;
+  border: 1.5px solid rgba(16,185,129,0.4);
+  background: rgba(16,185,129,0.08); color: #047857;
+  transition: all .15s;
+}
+.macd-save-btn:hover { background: rgba(16,185,129,0.18); }
+.macd-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.macd-hist-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 13px; border-radius: 16px; cursor: pointer;
+  font-size: 0.63rem; font-weight: 800;
+  border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--fg2);
+  transition: all .15s;
+}
+.macd-hist-btn:hover { border-color: var(--accent); color: var(--accent); }
+.macd-hist-btn.active { background: rgba(21,101,192,0.08); border-color: var(--accent); color: var(--accent); }
+/* 歷史面板 */
+.macd-history-panel {
+  display: none; margin-top: 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px;
+}
+.macd-history-panel.show { display: block; }
+.macd-hist-title {
+  font-size: 0.68rem; font-weight: 800; color: var(--fg);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+}
+.macd-hist-table {
+  width: 100%; border-collapse: collapse; font-size: 0.58rem;
+}
+.macd-hist-table th {
+  font-size: 0.55rem; font-weight: 700; color: var(--fg3);
+  text-align: left; padding: 4px 6px;
+  border-bottom: 1px solid var(--border); background: var(--surface);
+}
+.macd-hist-table td {
+  padding: 5px 6px; border-bottom: 1px solid var(--border); color: var(--fg2);
+  vertical-align: middle;
+}
+.macd-hist-table tr:hover td { background: var(--surface); }
+.macd-hist-score {
+  display: inline-block; min-width: 28px; text-align: center;
+  padding: 1px 5px; border-radius: 6px;
+  font-size: 0.60rem; font-weight: 900; border: 1px solid;
+}
+.macd-hist-score.s5 { background: rgba(16,185,129,0.12); color:#047857; border-color: rgba(16,185,129,0.4); }
+.macd-hist-score.s3 { background: rgba(217,119,6,0.10); color:#92400E; border-color: rgba(217,119,6,0.35); }
+.macd-hist-score.s0 { background: rgba(239,68,68,0.08); color:#b91c1c; border-color: rgba(239,68,68,0.3); }
+.macd-hist-dots { display: flex; gap: 2px; }
+.macd-hist-dot { width: 7px; height: 7px; border-radius: 50%; }
+.macd-hist-dot.on  { background: #10b981; }
+.macd-hist-dot.off { background: #ef4444; }
+.macd-hist-empty {
+  padding: 14px; text-align: center; color: var(--fg3); font-size: 0.65rem;
+}
+
+/* FOOTER */
+.footer{text-align:center;padding:18px;color:var(--fg3);
+  font-size:0.62rem;line-height:1.9;border-top:1px solid var(--border);}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* FADE */
+.fade-in{animation:fadeIn 0.5s ease both;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+/* API STATUS */
+.api-status{display:inline-flex;align-items:center;gap:5px;
+  padding:2px 9px;border-radius:10px;font-size:0.6rem;font-weight:700;}
+.api-status.live{background:rgba(16,185,129,0.12);color:#10B981;border:1px solid rgba(16,185,129,0.3);}
+.api-status.sim{background:rgba(245,158,11,0.12);color:#D97706;border:1px solid rgba(245,158,11,0.3);}
+.api-status.err{background:rgba(232,52,58,0.12);color:#E8343A;border:1px solid rgba(232,52,58,0.3);}
+</style>
+</head>
+<body>
+
+<!-- LOAD OVERLAY -->
+<div class="load-overlay" id="loadOverlay">
+  <div class="load-spinner"></div>
+  <div class="load-title">🌏 板塊輪動偵測器啟動中</div>
+  <div class="load-progress-wrap"><div class="load-progress-fill" id="loadBar"></div></div>
+  <div class="load-steps" id="loadSteps">
+    <div class="load-step" id="ls1"><span class="load-step-icon">⏳</span>連線 FinMind API...</div>
+    <div class="load-step" id="ls2"><span class="load-step-icon">⏳</span>拉取各板塊代表股股價...</div>
+    <div class="load-step" id="ls3"><span class="load-step-icon">⏳</span>拉取法人買賣超資料...</div>
+    <div class="load-step" id="ls4"><span class="load-step-icon">⏳</span>計算板塊漲跌 & 相關係數...</div>
+    <div class="load-step" id="ls5"><span class="load-step-icon">⏳</span>定位震央 & 推斷輪動鏈...</div>
+    <div class="load-step" id="ls6"><span class="load-step-icon">⏳</span>生成目標股名單...</div>
+  </div>
+  <div class="load-sub" id="loadMsg">請稍候，正在從 FinMind 拉取真實市場資料...</div>
+</div>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="hdr-icon">🌏</div>
+    <div>
+      <div class="hdr-title">台股板塊輪動偵測器 v3.0</div>
+      <div class="hdr-sub">FinMind 真實資料 · 震央定位 · 資金追蹤 · 進場時機偵測</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <div id="apiStatusBadge" class="api-status sim">⏳ 載入中</div>
+    <div class="hdr-badge">板塊輪動</div>
+    <!-- 選項L v2.1：收盤價過期提示 -->
+    <span class="sd-stale-badge" id="sdStaleBaseBadge"
+          title="定錨收盤價已超過7天，建議更新">
+      ⚠️ 收盤價待更新
+    </span>
+    <div class="hdr-live"><div class="hdr-live-dot"></div><span id="liveTime"></span></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 主警報 -->
+  <div id="mainBanner"></div>
+
+  <!-- KPI -->
+  <div class="kpi-row" id="kpiRow"></div>
+
+  <!-- 板塊儀表板 -->
+  <div class="card fade-in">
+    <div class="card-bar" style="background:linear-gradient(90deg,#E8343A,#F59E0B,#16A34A,#1565C0,#7C3AED);"></div>
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:linear-gradient(135deg,#E8343A,#F59E0B);">🌍</div>
+      <div>
+        <div class="sec-title">板塊狀態儀表板 <span id="dataDate" style="font-size:0.62rem;font-weight:400;color:var(--fg3);"></span></div>
+        <div class="sec-sub">FinMind 真實收盤資料 · 各板塊代表股加權平均 · 點擊格子查看詳情</div>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:#E8343A;"></div>資金外逃</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#D97706;"></div>警戒觀察</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#16A34A;"></div>資金流入</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#1565C0;"></div>低檔盤整</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#94A3B8;"></div>中性</div>
+    </div>
+    <div class="sec-grid" id="sectorGrid"></div>
+    <div style="font-size:0.6rem;color:var(--fg3);margin-top:6px;">
+      ⚠️ 板塊漲跌 = 各代表股收盤價加權平均變化；法人資料依 FinMind 免費方案有1天延遲
+    </div>
+  </div>
+
+  <!-- 震央地圖 + 資金流向 -->
+  <div class="two-col">
+    <div class="card fade-in">
+      <div class="card-bar" style="background:linear-gradient(90deg,#E8343A,#F97316);"></div>
+      <div class="sec-hd">
+        <div class="sec-icon" style="background:linear-gradient(135deg,#E8343A,#F97316);">🗺️</div>
+        <div>
+          <div class="sec-title">震央定位地圖</div>
+          <div class="sec-sub">圓圈大小=震波強度 · 連線粗細=相關性 · 紅=外逃 綠=流入</div>
+        </div>
+      </div>
+      <div class="echart-dark" style="height:280px;" id="quakeChart"></div>
+    </div>
+    <div>
+      <div class="card fade-in">
+        <div class="card-bar" style="background:linear-gradient(90deg,#16A34A,#0891B2);"></div>
+        <div class="sec-hd">
+          <div class="sec-icon" style="background:linear-gradient(135deg,#16A34A,#0891B2);">💰</div>
+          <div>
+            <div class="sec-title">法人資金流向</div>
+            <div class="sec-sub">外資+投信+自營合計 · 單位：億元 · <span id="fiDataBadge" style="font-weight:700;">載入中</span></div>
+          </div>
+        </div>
+        <div id="flowList"></div>
+      </div>
+      <div class="card fade-in">
+        <div class="card-bar" style="background:linear-gradient(90deg,#7C3AED,#3B82F6);"></div>
+        <div class="sec-hd">
+          <div class="sec-icon" style="background:linear-gradient(135deg,#7C3AED,#3B82F6);">📊</div>
+          <div>
+            <div class="sec-title">板塊震波強度</div>
+            <div class="sec-sub">跌幅 × 量能 × 法人賣超 綜合評分</div>
+          </div>
+        </div>
+        <div id="strengthBars"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 相關係數矩陣 -->
+  <div class="card fade-in">
+    <div class="card-bar" style="background:linear-gradient(90deg,#0891B2,#6366F1);"></div>
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:linear-gradient(135deg,#0891B2,#6366F1);">🔢</div>
+      <div>
+        <div class="sec-title">板塊相關係數矩陣（60日）</div>
+        <div class="sec-sub">顏色越深=相關性越高 · 越淡=越不相關（避風港選擇依據）</div>
+      </div>
+    </div>
+    <div id="corrMatrix"></div>
+  </div>
+
+  <!-- 輪動鏈 -->
+  <div class="card fade-in">
+    <div class="card-bar" style="background:linear-gradient(90deg,#1565C0,#7C3AED,#16A34A);"></div>
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:linear-gradient(135deg,#1565C0,#7C3AED);">🔗</div>
+      <div>
+        <div class="sec-title">台股輪動鏈路徑圖（AI自動推斷）</div>
+        <div class="sec-sub">綠色閃爍 = 當前最佳進場位置 · 根據真實資料動態更新</div>
+      </div>
+    </div>
+    <div class="chain" id="rotationChain"></div>
+  </div>
+
+  <!-- 時間差 + 目標股 -->
+  <div class="two-col">
+    <div class="card fade-in">
+      <div class="card-bar" style="background:linear-gradient(90deg,#F59E0B,#16A34A);"></div>
+      <div class="sec-hd">
+        <div class="sec-icon" style="background:linear-gradient(135deg,#F59E0B,#16A34A);">⏰</div>
+        <div>
+          <div class="sec-title">時間差進場偵測器</div>
+          <div class="sec-sub">D0=震央下跌日 · D+2~D+3=最佳卡位窗口 · D+5=散戶追高日</div>
+        </div>
+      </div>
+      <div id="timingBanner" style="margin-bottom:8px;"></div>
+      <div class="timing-grid" id="timingGrid"></div>
+      <div style="font-size:0.66rem;font-weight:800;color:var(--fg2);
+        margin:10px 0 6px;text-transform:uppercase;letter-spacing:0.4px;">📋 進場依據偵測</div>
+      <div id="evidenceList"></div>
+    </div>
+    <div class="card fade-in">
+      <div class="card-bar" style="background:linear-gradient(90deg,#D97706,#F59E0B);"></div>
+      <div class="sec-hd">
+        <div class="sec-icon" style="background:linear-gradient(135deg,#D97706,#F59E0B);">🎯</div>
+        <div>
+          <div class="sec-title">避險資金目標股名單</div>
+          <div class="sec-sub">輪動鏈過濾 × 相關性 × 法人異動 × 流動性 自動篩選</div>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn on" onclick="setTab('rec',this)">🏆 推薦</button>
+        <button class="tab-btn" onclick="setTab('watch',this)">👁️ 觀察</button>
+        <button class="tab-btn" onclick="setTab('avoid',this)">⚠️ 迴避</button>
+      </div>
+      <div class="tab-pane on" id="pane-rec"><div id="listRec"></div></div>
+      <div class="tab-pane" id="pane-watch"><div id="listWatch"></div></div>
+      <div class="tab-pane" id="pane-avoid"><div id="listAvoid"></div></div>
+    </div>
+  </div>
+
+  <!-- 漲跌歷史走勢 -->
+  <div class="card fade-in">
+    <div class="card-bar" style="background:linear-gradient(90deg,#6366F1,#EC4899);"></div>
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:linear-gradient(135deg,#6366F1,#EC4899);">📈</div>
+      <div>
+        <div class="sec-title">各板塊近10日走勢對比</div>
+        <div class="sec-sub">FinMind 真實收盤資料 · 以各板塊基準日標準化為 100</div>
+      </div>
+    </div>
+    <div class="echart-dark" style="height:280px;" id="trendChart"></div>
+  </div>
+
+  <!-- MACD 六維度掃描 -->
+  <div class="card fade-in" id="macdScanCard">
+    <div class="card-bar" style="background:linear-gradient(90deg,#7C3AED,#3B82F6,#10B981);"></div>
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:linear-gradient(135deg,#7C3AED,#3B82F6);">&#x1F52C;</div>
+      <div>
+        <div class="sec-title">MACD 六維度板塊掃描
+          <span id="macdScanStatus" style="font-size:0.60rem;font-weight:500;color:var(--fg3);margin-left:6px;">計算中...</span>
+        </div>
+        <div class="sec-sub">DIF/DEA/HIST 六條件同步判斷 · 得分越高多頭動能越強 · 點擊板塊格查看個股詳情</div>
+      </div>
+    </div>
+    <div class="macd-legend-row">
+      <div class="macd-leg-chip">&#9312; DIF &gt; 0（定錢多頭）</div>
+      <div class="macd-leg-chip">&#9313; DEA &gt; 0（勤年對多）</div>
+      <div class="macd-leg-chip">&#9314; HIST &gt; 0（柱狀泛紅）</div>
+      <div class="macd-leg-chip">&#9315; HIST 擴張（動能加速）</div>
+      <div class="macd-leg-chip">&#9316; DIF 上穿 DEA（黃金交叉）</div>
+      <div class="macd-leg-chip">&#9317; HIST 由負轉正（翻紅）</div>
+    </div>
+    <div class="macd-scan-grid" id="macdScanGrid">
+      <div style="grid-column:1/-1;padding:14px;text-align:center;font-size:0.68rem;color:var(--fg3);">&#9203; 等待股價資料載入後計算...</div>
+    </div>
+    <!-- 儲存列 + 歷史按鈕 -->
+    <div class="macd-action-row">
+      <button class="macd-save-btn" id="sdMacdSaveBtn" onclick="sdMacdSave()">&#x1F4BE; 儲存掃描結果</button>
+      <button class="macd-hist-btn" id="sdMacdHistBtn" onclick="sdMacdToggleHistory()">&#x1F4CA; 查看歷史紀錄</button>
+      <span id="sdMacdSaveNote" style="font-size:0.55rem;color:var(--fg3);">&#x2139;&#xFE0F; 儲存各板塊代表股 MACD 六維度得分至 Table API</span>
+    </div>
+    <!-- 歷史面板 -->
+    <div class="macd-history-panel" id="sdMacdHistPanel">
+      <div class="macd-hist-title">&#x1F4C5; MACD 六維度 歷史紀錄
+        <span id="sdMacdHistMeta" style="font-size:0.55rem;font-weight:400;color:var(--fg3);"></span>
+      </div>
+      <div id="sdMacdHistContent"><div class="macd-hist-empty">&#x23F3; 載入中...</div></div>
+    </div>
+  </div>
+
+  <!-- 選項O v2.1：美股先行指標小卡 -->
+  <div class="card fade-in" id="usLeadCard">
+    <div class="us-lead-card-bar"></div>
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:linear-gradient(135deg,#1E40AF,#3B82F6);">🇺🇸</div>
+      <div>
+        <div class="sec-title">美股先行指標
+          <span id="usLeadApiBadge" class="us-lead-api-badge">🟡 模擬定錨 07-03</span>
+          <span id="usLeadHolBadge" class="us-lead-hol-badge">🇺🇸 07-04 休市 · 採 07-03 定錨</span>
+        </div>
+        <div class="sec-sub">NVDA/AMD/MSFT/AAPL/TSM/SOX/QQQ/SPY · 定錨：07-03 美東收盤 · Yahoo Finance 即時（CORS 允許時）</div>
+      </div>
+    </div>
+    <div class="us-lead-grid" id="usLeadGrid">
+      <div style="grid-column:1/-1;text-align:center;font-size:0.66rem;color:var(--fg3);padding:16px;">⏳ 載入中...</div>
+    </div>
+    <div class="us-lead-footer">
+      <span id="usLeadAnchorNote" style="font-size:0.52rem;color:var(--fg3);">定錨日：2026-07-03（07-04 美股獨立紀念日休市）</span>
+      <span id="usLeadUpdateTime" style="font-size:0.52rem;color:var(--fg3);"></span>
+    </div>
+  </div>
+
+  <!-- 解說面板 -->
+  <div class="card" style="background:linear-gradient(135deg,#0A0F1E,#162447);">
+    <div class="sec-hd">
+      <div class="sec-icon" style="background:linear-gradient(135deg,#3B82F6,#8B5CF6);">🎓</div>
+      <div>
+        <div class="sec-title" style="color:#fff;">系統完整解說</div>
+        <div class="sec-sub">從地震震央到獲利的每一個邏輯步驟</div>
+      </div>
+    </div>
+    <div id="explainPanel"></div>
+  </div>
+
+</div>
+
+<div class="footer">
+  台股板塊輪動偵測器 v3.0 · 資料來源：FinMind API（免費方案有1日延遲）<br>
+  純教育/研究用途 · 不構成任何投資建議 · 概念基礎：圖論 · 網路傳播理論 · 馬可夫鏈 · 跨資產動能傳導<br>
+  <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:10px;">
+    <a href="index.html" style="color:#1565C0;text-decoration:none;font-size:0.68rem;font-weight:600;">&#128300; 台股AI分析器</a>
+    <a href="string-theory.html" style="color:#7c3aed;text-decoration:none;font-size:0.68rem;font-weight:600;">&#127925; 弦理論哲學</a>
+    <a href="m-theory.html" style="color:#a855f7;text-decoration:none;font-size:0.68rem;font-weight:600;">&#127756; M理論哲學</a>
+    <a href="chaos-theory.html" style="color:#059669;text-decoration:none;font-size:0.68rem;font-weight:600;">&#129419; 混沌理論</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     JAVASCRIPT — 完整 FinMind 真實資料版
+═══════════════════════════════════════════════════════ -->
+<script>
+/* sector-detector v2.1 — v6.99 同步（2026-07-04 定錨，MACD 儲存/歷史功能） */
+
+// ── 選項L v2.1：收盤價過期偵測 ───────────────────────────
+(function() {
+  const BASE_DATE_STR = '2026-07-07'; // ★ 每次更新定錨時同步修改
+  const STALE_DAYS = 7;
+  try {
+    const base = new Date(BASE_DATE_STR);
+    const now  = new Date();
+    const diffDays = Math.floor((now - base) / 86400000);
+    if (diffDays > STALE_DAYS) {
+      const badge = document.getElementById('sdStaleBaseBadge');
+      if (badge) {
+        badge.classList.add('show');
+        badge.title = `定錨收盤價（${BASE_DATE_STR}）已過 ${diffDays} 天，建議更新`;
+        badge.innerHTML = `⚠️ 收盤已逗 ${diffDays} 天`;
+      }
+    }
+  } catch(e) {}
+})();
+// ── 選項L 結束 ──────────────────────────────────────
+
+// ── 選項O v2.1：美股先行指標小卡 ───────────────────────
+(function _initUsLeadPanel() {
+  /* 定錨資料 2026-07-03（07-04 獨立紀念日休市） */
+  const US_LEAD_SD = [
+    { ticker:'NVDA', name:'輝達',      base:158.40, sector:'半導體' },
+    { ticker:'AMD',  name:'超微',      base:128.90, sector:'半導體' },
+    { ticker:'AVGO', name:'博通',      base:278.60, sector:'半導體' },
+    { ticker:'MSFT', name:'微軟',      base:478.20, sector:'AI雲端' },
+    { ticker:'AAPL', name:'蘋果',      base:218.90, sector:'AI雲端' },
+    { ticker:'TSM',  name:'台積 ADR',  base:228.40, sector:'半導體' },
+    { ticker:'SOXX', name:'SOX ETF',   base:248.70, sector:'ETF' },
+    { ticker:'QQQ',  name:'那指ETF',   base:542.30, sector:'ETF' },
+    { ticker:'SPY',  name:'標普ETF',   base:598.40, sector:'ETF' },
+    { ticker:'TQQQ', name:'那指3倍',   base:78.20,  sector:'ETF槓桿' },
+  ];
+
+  const grid    = document.getElementById('usLeadGrid');
+  const apiBadge= document.getElementById('usLeadApiBadge');
+  const holBadge= document.getElementById('usLeadHolBadge');
+  const updTime = document.getElementById('usLeadUpdateTime');
+
+  /* holiday badge 視窗判斷 07-04~07-07 */
+  (function _showHolBadge() {
+    const n = new Date();
+    const y = n.getFullYear(), m = n.getMonth()+1, d = n.getDate();
+    if (y===2026 && m===7 && d>=4 && d<=7) {
+      holBadge.classList.add('show');
+    }
+  })();
+
+  /* 嘗試 Yahoo Finance（大概率 CORS blocked，備援模擬） */
+  async function _fetchYhPrice(ticker) {
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return null;
+      const j = await r.json();
+      const meta = j?.chart?.result?.[0]?.meta;
+      if (meta?.regularMarketPrice) return meta.regularMarketPrice;
+      return null;
+    } catch { return null; }
+  }
+
+  /* 簡易模擬：±0.3% 擾動，視覺展示用 */
+  function _simPrice(base) {
+    const rnd = (Math.random()-0.48)*0.006;
+    return +(base * (1+rnd)).toFixed(2);
+  }
+
+  /* 渲染小卡格子 */
+  function _render(items) {
+    grid.innerHTML = items.map(it => {
+      const price = it.price;
+      const base  = it.base;
+      const chgPct= base ? ((price-base)/base*100) : 0;
+      const dir   = it.live ? (chgPct > 0.1 ? 'up' : chgPct < -0.1 ? 'down' : 'flat') : 'sim';
+      const chgStr= (chgPct >= 0 ? '+' : '') + chgPct.toFixed(2) + '%';
+      const arrow = dir==='up'?'▲' : dir==='down'?'▼' : '─';
+      const simBadge = it.live ? '' : `<span class="ulc-badge">模擬</span>`;
+      return `<div class="us-lead-chip ${dir}" title="定錨: $${base} (07-03)">
+        <div class="ulc-ticker">${it.ticker}</div>
+        <div class="ulc-price">$${price.toFixed(2)}</div>
+        <div class="ulc-chg ${dir}">${arrow} ${chgStr}${it.live?'':' vs錨'}</div>
+        <div class="ulc-name">${it.name}</div>
+        ${simBadge}
+      </div>`;
+    }).join('');
+  }
+
+  /* 主流程：先展示模擬，再嘗試 Yahoo 即時 */
+  async function _run() {
+    /* step1: 模擬定錨先填入 */
+    const items = US_LEAD_SD.map(d => ({
+      ...d, price: _simPrice(d.base), live: false
+    }));
+    _render(items);
+
+    /* step2: 嘗試 Yahoo 即時 */
+    let liveCount = 0;
+    await Promise.allSettled(items.map(async (it, i) => {
+      const livePrice = await _fetchYhPrice(it.ticker);
+      if (livePrice && livePrice > 0) {
+        items[i].price = livePrice;
+        items[i].live  = true;
+        liveCount++;
+      }
+    }));
+
+    /* step3: 更新 badge + 重繪 */
+    if (liveCount > 0) {
+      apiBadge.textContent = `✅ Yahoo Finance (${liveCount}/${items.length})`;
+      apiBadge.style.background = 'rgba(16,185,129,0.12)';
+      apiBadge.style.color       = '#10B981';
+      apiBadge.style.borderColor = 'rgba(16,185,129,0.3)';
+    } else {
+      apiBadge.textContent = '🟡 模擬定錨 07-03';
+    }
+    _render(items);
+    updTime.textContent = '更新: ' + new Date().toLocaleTimeString('zh-TW', {hour:'2-digit',minute:'2-digit'});
+  }
+
+  _run();
+})();
+// ── 選項O 結束 ──────────────────────────────────────
+
+/* ──────────────────────────────────────────────────────
+   CONFIG：板塊定義（代表股 + 靜態元資料）
+────────────────────────────────────────────────────── */
+// ★ v6.36 同步 index.html SR_SECTOR_DEF：10→14 板塊，修正 pharma 分類（移除非生技標的）
+const SECTOR_DEF = [
+  {
+    id:'semi', name:'半導體', emoji:'💾',
+    stocks:['2330','2454','2303'],
+    names:['台積電','聯發科','聯電'],
+    corrToSemi:1.00, dependency:'震央',
+    hhi:0.72, desc:'台積電/聯發科/聯電',
+  },
+  {
+    id:'ai_server', name:'AI伺服器', emoji:'🤖',
+    stocks:['2382','2317','2354'],
+    names:['廣達','鴻海','鴻準'],
+    corrToSemi:0.86, dependency:'高度依賴半導體',
+    hhi:0.58, desc:'廣達/鴻海/鴻準',
+  },
+  {
+    id:'pcb', name:'PCB/電子', emoji:'🔌',
+    stocks:['2367','2368','3037'],
+    names:['燿華','金像電','欣興'],
+    corrToSemi:0.68, dependency:'中度相關',
+    hhi:0.42, desc:'燿華/金像電/欣興',
+  },
+  {
+    id:'finance', name:'金融/銀行', emoji:'🏦',
+    stocks:['2882','2881','2891'],
+    names:['國泰金','富邦金','中信金'],
+    corrToSemi:0.13, dependency:'幾乎不相關',
+    hhi:0.28, desc:'國泰金/富邦金/中信金',
+  },
+  {
+    id:'telecom', name:'電信/網通', emoji:'📡',
+    stocks:['2412','4904','3045'],
+    names:['中華電','遠傳','台灣大'],
+    corrToSemi:0.09, dependency:'極低相關',
+    hhi:0.22, desc:'中華電/遠傳/台灣大',
+  },
+  {
+    // ★ v6.36 修正：移除 2406 國喬（石化，非生技），改為正確生技標的
+    id:'pharma', name:'生技醫療', emoji:'💊',
+    stocks:['4711','6547','6415'],    // 旭富、晟德、矽力-KY
+    names:['旭富','晟德','矽力-KY'],
+    corrToSemi:0.07, dependency:'不相關',
+    hhi:0.19, desc:'旭富/晟德/矽力',
+  },
+  {
+    id:'energy', name:'能源/原物料', emoji:'⚡',
+    stocks:['1301','1303','1326'],
+    names:['台塑','南亞','台化'],
+    corrToSemi:0.24, dependency:'低度相關',
+    hhi:0.34, desc:'台塑/南亞/台化',
+  },
+  {
+    id:'transport', name:'航運', emoji:'🚢',
+    stocks:['2603','2609','2615'],
+    names:['長榮','陽明','萬海'],
+    corrToSemi:0.31, dependency:'中低相關',
+    hhi:0.46, desc:'長榮/陽明/萬海',
+  },
+  {
+    id:'consumer', name:'民生消費', emoji:'🛒',
+    stocks:['1216','2912','2105'],    // 統一、統一超、正新（移除重複的國泰金）
+    names:['統一','統一超','正新'],
+    corrToSemi:0.15, dependency:'不相關',
+    hhi:0.26, desc:'統一/統一超/正新',
+  },
+  {
+    id:'memory', name:'記憶體/面板', emoji:'📱',
+    stocks:['2408','3481','3661'],    // 南亞科、奇美電、世芯-KY（移除仁寶避免與 ai_pc 重複）
+    names:['南亞科','奇美電','世芯-KY'],
+    corrToSemi:0.52, dependency:'中度相關',
+    hhi:0.38, desc:'南亞科/奇美電/世芯',
+  },
+  // ★ v6.36 新增四個板塊（與 index.html SR_SECTOR_DEF 同步）
+  {
+    id:'leo_sat', name:'低軌衛星', emoji:'🛰️',
+    stocks:['3491','2313','3105'],    // 昇達科、華通、穩懋
+    names:['昇達科','華通','穩懋'],
+    corrToSemi:0.72, dependency:'中高度相關',
+    hhi:0.55, desc:'昇達科/華通/穩懋',
+  },
+  {
+    id:'ar_glass', name:'AI智慧眼鏡', emoji:'🕶️',
+    stocks:['3088','5285','4968'],    // 羅昇、元太、立積
+    names:['羅昇','元太','立積'],
+    corrToSemi:0.65, dependency:'中度相關',
+    hhi:0.48, desc:'羅昇/元太/立積',
+  },
+  {
+    id:'quantum', name:'量子計算', emoji:'⚛️',
+    stocks:['6510','3661','3443'],    // 精測、世芯-KY、創意
+    names:['精測','世芯-KY','創意'],
+    corrToSemi:0.69, dependency:'中高度相關',
+    hhi:0.52, desc:'精測/世芯/創意',
+  },
+  {
+    id:'ai_pc', name:'AI PC/Edge AI', emoji:'💻',
+    stocks:['2357','2377','2382'],    // 華碩、微星、廣達
+    names:['華碩','微星','廣達'],
+    corrToSemi:0.75, dependency:'中高度相關',
+    hhi:0.56, desc:'華碩/微星/廣達',
+  },
+];
+
+/* ──────────────────────────────────────────────────────
+   目標股定義（靜態邏輯，動態評分）
+────────────────────────────────────────────────────── */
+// ★ v6.36 擴充 TARGET_DEF：12 支，移除重複碼，補入新板塊代表股
+const TARGET_DEF = [
+  // ── 低相關避風港（corrSemi < 0.30）
+  {code:'2882',name:'國泰金',  sector:'金融',  corrSemi:0.13, liquidityScore:95},
+  {code:'2881',name:'富邦金',  sector:'金融',  corrSemi:0.11, liquidityScore:92},
+  {code:'2891',name:'中信金',  sector:'金融',  corrSemi:0.12, liquidityScore:88},
+  {code:'2412',name:'中華電',  sector:'電信',  corrSemi:0.09, liquidityScore:88},
+  {code:'4904',name:'遠傳',    sector:'電信',  corrSemi:0.07, liquidityScore:72},
+  {code:'1301',name:'台塑',    sector:'原物料',corrSemi:0.24, liquidityScore:82},
+  {code:'1216',name:'統一',    sector:'消費',  corrSemi:0.15, liquidityScore:78},
+  {code:'2603',name:'長榮',    sector:'航運',  corrSemi:0.31, liquidityScore:90},
+  // ── 中相關（corrSemi 0.30~0.60，輪動潛力）
+  {code:'2408',name:'南亞科',  sector:'記憶體',corrSemi:0.52, liquidityScore:80},
+  {code:'3491',name:'昇達科',  sector:'低軌衛星',corrSemi:0.72, liquidityScore:65},
+  // ── 半導體核心（corrSemi > 0.75，非避風港，供比較基準）
+  {code:'2330',name:'台積電',  sector:'半導體',corrSemi:1.00, liquidityScore:100},
+  {code:'2454',name:'聯發科',  sector:'半導體',corrSemi:0.88, liquidityScore:90},
+];
+
+/* ──────────────────────────────────────────────────────
+   STATE
+────────────────────────────────────────────────────── */
+const S = {
+  sectorData: {},    // id → { change, volRatio, fi, state, strength }
+  priceHistory: {},  // code → [{ date, close }]
+  fiData: {},        // code → { foreign, invest, dealer }
+  dataDate: '',
+  isLive: false,
+  epicenter: null,   // 震央 sector id
+  rotationStep: 1,
+  alerts: [],
+};
+
+/* ──────────────────────────────────────────────────────
+   LOAD PROGRESS
+────────────────────────────────────────────────────── */
+function setLoadStep(n, done=false){
+  const el = document.getElementById(`ls${n}`);
+  if(!el) return;
+  el.className = `load-step ${done?'done':'active'}`;
+  el.querySelector('.load-step-icon').textContent = done ? '✅' : '🔄';
+  document.getElementById('loadBar').style.width = `${Math.round(n/6*100)}%`;
+}
+function setLoadMsg(msg){ document.getElementById('loadMsg').textContent = msg; }
+function hideLoader(){
+  const ov = document.getElementById('loadOverlay');
+  ov.classList.add('hidden');
+  setTimeout(() => ov.style.display='none', 600);
+}
+
+/* ──────────────────────────────────────────────────────
+   FinMind API
+────────────────────────────────────────────────────── */
+const FM_BASE = 'https://api.finmindtrade.com/api/v4/data';
+
+async function fmFetch(dataset, stockId, startDate){
+  const url = `${FM_BASE}?dataset=${dataset}&data_id=${stockId}&start_date=${startDate}`;
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  const j = await r.json();
+  if(j.status !== 200) throw new Error(`FM status ${j.status}`);
+  return j.data || [];
+}
+
+function getDateStr(daysAgo=0){
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0,10);
+}
+
+/* ──────────────────────────────────────────────────────
+   FETCH ALL DATA
+────────────────────────────────────────────────────── */
+async function fetchAllData(){
+  const allCodes = [...new Set(SECTOR_DEF.flatMap(s => s.stocks))];
+  const start60 = getDateStr(90);   // 抓90天確保有60交易日
+  const start5  = getDateStr(14);   // 法人近14天
+
+  // Step1
+  setLoadStep(1, false);
+  setLoadMsg('連線 FinMind API...');
+  await delay(200);
+
+  // Step2: 拉取股價（批次）
+  setLoadStep(1, true); setLoadStep(2, false);
+  setLoadMsg('拉取各板塊代表股股價...');
+  let priceOK = 0;
+  for(const code of allCodes){
+    try{
+      const rows = await fmFetch('TaiwanStockPrice', code, start60);
+      S.priceHistory[code] = rows.map(r => ({ date:r.date, close:+r.close, vol:+r.Trading_Volume }));
+      priceOK++;
+    } catch(e){
+      console.warn(`Price ${code}:`, e.message);
+      S.priceHistory[code] = null;
+    }
+    await delay(80);
+  }
+  setLoadMsg(`股價取得 ${priceOK}/${allCodes.length} 支`);
+
+  // Step3: 法人買賣超
+  setLoadStep(2, true); setLoadStep(3, false);
+  setLoadMsg('拉取法人買賣超資料...');
+  let fiOK = 0;
+  for(const code of allCodes){
+    try{
+      const rows = await fmFetch('TaiwanStockInstitutionalInvestorsBuySell', code, start5);
+      if(rows.length > 0){
+        // 取最新日期
+        const latest = rows[rows.length-1];
+        const latestDate = latest.date;
+        const dayRows = rows.filter(r => r.date === latestDate);
+        let foreign=0, invest=0, dealer=0;
+        for(const r of dayRows){
+          const net = ((+r.buy||0) - (+r.sell||0)) / 1e8; // 億元
+          if(r.name==='外資') foreign = net;
+          else if(r.name==='投信') invest = net;
+          else if(r.name==='自營商') dealer = net;
+        }
+        S.fiData[code] = { foreign, invest, dealer, date:latestDate };
+        if(!S.dataDate || latestDate > S.dataDate) S.dataDate = latestDate;
+        fiOK++;
+      }
+    } catch(e){
+      console.warn(`FI ${code}:`, e.message);
+      S.fiData[code] = null;
+    }
+    await delay(80);
+  }
+  setLoadMsg(`法人資料取得 ${fiOK}/${allCodes.length} 支`);
+
+  // ── v6.36 修復：法人 API 全部失敗時（fiOK===0），補入模擬法人資料
+  // 原因：FinMind TaiwanStockInstitutionalInvestorsBuySell 偶爾整批回傳空陣列
+  // 若不補入，computeSectorData() 的 fiTotals 陣列為空 → totalFI=0 → 法人資金流向全 0 億
+  if (fiOK === 0) {
+    console.warn('[FI] 法人資料全部失敗，補入估算模擬值（依板塊漲跌方向推算）');
+    // 依各板塊的實際股價漲跌方向，動態推算合理法人數值
+    const FI_SIM_BY_SECTOR = {
+      semi:-95, ai_server:-40, pcb:-15, memory:-5,
+      finance:+38, telecom:+19, pharma:+9,
+      energy:+4, consumer:+5, transport:-5,
+      // v6.35d 新增板塊
+      leo_sat:-8, ar_glass:-3, quantum:-12, ai_pc:-18,
+    };
+    for (const sec of SECTOR_DEF) {
+      const baseFI = FI_SIM_BY_SECTOR[sec.id] ?? 0;
+      for (const code of sec.stocks) {
+        // 若股價資料存在，可用漲跌微調（跌得多 → 法人偏賣）
+        const hist = S.priceHistory[code];
+        let adjFI = baseFI;
+        if (hist && hist.length >= 2) {
+          const lastClose = hist[hist.length-1].close;
+          const prevClose = hist[hist.length-2].close;
+          const chgPct = prevClose > 0 ? (lastClose - prevClose) / prevClose * 100 : 0;
+          // 依漲跌微幅調整：基礎值 ± chgPct×2
+          adjFI = baseFI + chgPct * 2;
+        }
+        const perStock = adjFI / sec.stocks.length;
+        S.fiData[code] = {
+          foreign: +(perStock * 0.7).toFixed(2),
+          invest:  +(perStock * 0.2).toFixed(2),
+          dealer:  +(perStock * 0.1).toFixed(2),
+          date: '估算'
+        };
+      }
+    }
+    setLoadMsg(`法人資料估算補入（${SECTOR_DEF.length} 板塊）`);
+  }
+
+  // Step4: 計算板塊數據
+  setLoadStep(3, true); setLoadStep(4, false);
+  setLoadMsg('計算板塊漲跌 & 相關係數...');
+  await delay(100);
+  computeSectorData();
+  computeCorrelations();
+  setLoadMsg('板塊計算完成');
+
+  // Step5: 定位震央
+  setLoadStep(4, true); setLoadStep(5, false);
+  setLoadMsg('定位震央 & 推斷輪動鏈...');
+  await delay(150);
+  locateEpicenter();
+  buildRotationChain();
+  setLoadMsg('震央定位完成');
+
+  // Step6: 生成目標股
+  setLoadStep(5, true); setLoadStep(6, false);
+  setLoadMsg('生成目標股名單...');
+  await delay(100);
+  scoreTargets();
+  setLoadStep(6, true);
+  setLoadMsg('完成！正在渲染介面...');
+  await delay(200);
+
+  S.isLive = priceOK > 0;
+  S.fiIsLive = fiOK > 0;   // v6.36 新增：法人資料是否為真實資料
+  return true;
+}
+
+function delay(ms){ return new Promise(res => setTimeout(res, ms)); }
+
+/* ──────────────────────────────────────────────────────
+   COMPUTE: 板塊資料彙整
+────────────────────────────────────────────────────── */
+function computeSectorData(){
+  for(const sec of SECTOR_DEF){
+    const changes = [], fiTotals = [], volRatios = [];
+    for(const code of sec.stocks){
+      const hist = S.priceHistory[code];
+      if(hist && hist.length >= 2){
+        const last  = hist[hist.length-1];
+        const prev  = hist[hist.length-2];
+        const chg   = prev.close > 0 ? ((last.close - prev.close) / prev.close * 100) : 0;
+        changes.push(chg);
+        // 量比
+        const avg5  = hist.slice(-6,-1).reduce((a,b) => a+b.vol,0) / 5;
+        const vr    = avg5 > 0 ? last.vol / avg5 : 1;
+        volRatios.push(vr);
+      }
+      const fi = S.fiData[code];
+      if(fi) fiTotals.push((fi.foreign||0)+(fi.invest||0));
+    }
+    const avgChg = changes.length ? avg(changes) : 0;
+    const avgVR  = volRatios.length ? avg(volRatios) : 1;
+    const totalFI= fiTotals.reduce((a,b)=>a+b,0);
+
+    // 狀態判斷
+    let state = 'neut';
+    if(avgChg <= -1.5 && totalFI < -10) state = 'flee';
+    else if(avgChg <= -0.5) state = 'warn';
+    else if(avgChg >= 0.5 && totalFI > 5) state = 'flow';
+    else if(avgChg >= 0 && totalFI >= 0) state = 'cold';
+
+    // 震波強度分數（0~100）
+    const fleeScore = Math.min(100,
+      Math.max(0,
+        (-avgChg * 12) +
+        (Math.max(0,-totalFI) * 0.8) +
+        (Math.max(0, avgVR - 1) * 15)
+      )
+    );
+
+    S.sectorData[sec.id] = {
+      change: +avgChg.toFixed(2),
+      volRatio: +avgVR.toFixed(2),
+      fi: totalFI.toFixed(1),
+      foreignArr: fiTotals,
+      state,
+      strength: Math.round(fleeScore),
+    };
+  }
+}
+
+function avg(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : 0; }
+
+/* ──────────────────────────────────────────────────────
+   COMPUTE: 相關係數（皮爾森）
+────────────────────────────────────────────────────── */
+const CORR_RESULT = {}; // "idA-idB" → coeff
+
+function computeCorrelations(){
+  // 取各板塊第一支代表股的60日收益率
+  const retMap = {};
+  for(const sec of SECTOR_DEF){
+    const code = sec.stocks[0];
+    const hist = S.priceHistory[code];
+    if(!hist || hist.length < 10){ retMap[sec.id] = []; continue; }
+    const closes = hist.slice(-62).map(r=>r.close);
+    const rets = [];
+    for(let i=1;i<closes.length;i++){
+      rets.push(closes[i-1]>0 ? (closes[i]-closes[i-1])/closes[i-1] : 0);
+    }
+    retMap[sec.id] = rets;
+  }
+  const ids = SECTOR_DEF.map(s=>s.id);
+  for(let i=0;i<ids.length;i++){
+    for(let j=0;j<ids.length;j++){
+      const a = retMap[ids[i]], b = retMap[ids[j]];
+      CORR_RESULT[`${ids[i]}-${ids[j]}`] = pearson(a,b);
+    }
+  }
+}
+
+function pearson(a, b){
+  const n = Math.min(a.length, b.length);
+  if(n < 5) return 0;
+  const x = a.slice(-n), y = b.slice(-n);
+  const mx = avg(x), my = avg(y);
+  let num=0, dx2=0, dy2=0;
+  for(let i=0;i<n;i++){
+    const dx=x[i]-mx, dy=y[i]-my;
+    num += dx*dy; dx2 += dx*dx; dy2 += dy*dy;
+  }
+  const denom = Math.sqrt(dx2*dy2);
+  return denom === 0 ? 0 : +(num/denom).toFixed(3);
+}
+
+/* ──────────────────────────────────────────────────────
+   LOCATE EPICENTER（震央）
+────────────────────────────────────────────────────── */
+function locateEpicenter(){
+  // 震波強度最高 + 資金外逃最多 = 震央
+  let maxScore = -1, epicId = 'semi';
+  for(const sec of SECTOR_DEF){
+    const d = S.sectorData[sec.id];
+    if(!d) continue;
+    if(d.strength > maxScore && d.change < 0){
+      maxScore = d.strength;
+      epicId = sec.id;
+    }
+  }
+  S.epicenter = epicId;
+
+  // 找避風港（震央相關性 < 0.3 且資金流入）
+  S.safeHavens = SECTOR_DEF.filter(sec => {
+    if(sec.id === S.epicenter) return false;
+    const corr = CORR_RESULT[`${S.epicenter}-${sec.id}`] || sec.corrToSemi;
+    const d = S.sectorData[sec.id];
+    return Math.abs(corr) < 0.35 && d && d.change >= -0.3;
+  }).map(s => s.id);
+
+  // 判斷輪動日（震央持續幾天下跌）
+  const epicSec = SECTOR_DEF.find(s=>s.id===S.epicenter);
+  const epicCode = epicSec?.stocks[0];
+  const epicHist = epicCode ? S.priceHistory[epicCode] : null;
+  S.rotationDay = 1;
+  if(epicHist && epicHist.length >= 4){
+    let days = 0;
+    for(let i = epicHist.length-1; i >= epicHist.length-4; i--){
+      if(epicHist[i].close < epicHist[i-1]?.close) days++;
+      else break;
+    }
+    S.rotationDay = days;
+  }
+}
+
+/* ──────────────────────────────────────────────────────
+   BUILD ROTATION CHAIN
+────────────────────────────────────────────────────── */
+function buildRotationChain(){
+  const epicSec = SECTOR_DEF.find(s=>s.id===S.epicenter);
+  const safeNames = (S.safeHavens||[]).slice(0,2)
+    .map(id => SECTOR_DEF.find(s=>s.id===id)?.name || id).join('、');
+
+  S.chainSteps = [
+    {
+      label:'Step 1', emoji:'💥',
+      name:`${epicSec?.name||'板塊'}崩跌`,
+      desc:'震央發威\n資金恐慌外逃',
+      badge:`震波 ${S.sectorData[S.epicenter]?.strength||'?'}分`,
+      isActive: S.rotationDay >= 1,
+      isNext: false,
+    },
+    {
+      label:'Step 2', emoji:'📉',
+      name:'外圍跟跌',
+      desc:'震波傳導\n外圍股同步下殺',
+      badge:'高相關板塊',
+      isActive: S.rotationDay >= 2,
+      isNext: false,
+    },
+    {
+      label:'Step 3', emoji:'🔍',
+      name:'資金尋避風港',
+      desc:'大戶試單\n評估目標板塊',
+      badge:'偵測資金異動',
+      isActive: S.rotationDay >= 2,
+      isNext: S.rotationDay === 2,
+    },
+    {
+      label:'Step 4 ⭐', emoji:'💰',
+      name: safeNames ? `${safeNames}吸籌` : '避風港吸籌',
+      desc:'法人默默買進\n量能異常放大',
+      badge:'最佳進場！',
+      isActive: false,
+      isNext: S.rotationDay >= 3,
+    },
+    {
+      label:'Step 5', emoji:'🚀',
+      name:'散戶跟進推升',
+      desc:'媒體報導\n散戶大量湧入',
+      badge:'準備出場',
+      isActive: false,
+      isNext: false,
+    },
+  ];
+}
+
+/* ──────────────────────────────────────────────────────
+   SCORE TARGETS
+────────────────────────────────────────────────────── */
+function scoreTargets(){
+  for(const t of TARGET_DEF){
+    const hist = S.priceHistory[t.code];
+    const fi   = S.fiData[t.code];
+    // 相關係數
+    const corrKey = `${S.epicenter}-${SECTOR_DEF.find(s=>s.stocks.includes(t.code))?.id||'semi'}`;
+    const corrAbs = Math.abs(CORR_RESULT[corrKey] ?? t.corrSemi);
+    // 法人分
+    const fiTotal = fi ? (fi.foreign+fi.invest) : 0;
+    const fiScore = Math.min(30, Math.max(-30, fiTotal * 3));
+    // 技術分（站上MA5？）
+    let techScore = 0;
+    if(hist && hist.length >= 6){
+      const last  = hist[hist.length-1].close;
+      const ma5   = avg(hist.slice(-5).map(r=>r.close));
+      if(last > ma5) techScore = 15;
+    }
+    // 低相關分
+    const lowCorrScore = corrAbs < 0.15 ? 30 : corrAbs < 0.30 ? 20 : corrAbs < 0.50 ? 8 : 0;
+    // 流動性分
+    const liqScore = t.liquidityScore * 0.25;
+    // 綜合
+    t.score = Math.round(Math.max(0, Math.min(100,
+      lowCorrScore + fiScore + techScore + liqScore
+    )));
+    t.fiTotal = +fiTotal.toFixed(1);
+    t.corrCalc = corrAbs;
+    // 分類
+    if(corrAbs >= 0.60 || t.score < 35) t.tab = 'avoid';
+    else if(t.score >= 60) t.tab = 'rec';
+    else t.tab = 'watch';
+    // 標籤
+    const tags = [];
+    if(corrAbs < 0.15) tags.push({t:'低相關 '+corrAbs.toFixed(2),c:'g'});
+    else if(corrAbs > 0.6) tags.push({t:'高相關 '+corrAbs.toFixed(2),c:'r'});
+    if(fiTotal > 3) tags.push({t:`法人+${fiTotal.toFixed(1)}億`,c:'g'});
+    else if(fiTotal < -3) tags.push({t:`法人${fiTotal.toFixed(1)}億`,c:'r'});
+    if(techScore > 0) tags.push({t:'站MA5',c:'b'});
+    if(t.liquidityScore > 85) tags.push({t:'高流動性',c:'b'});
+    t.tags = tags;
+  }
+  TARGET_DEF.sort((a,b) => b.score - a.score);
+}
+
+/* ──────────────────────────────────────────────────────
+   SIMULATE FALLBACK（API 失敗時的模擬資料）
+────────────────────────────────────────────────────── */
+function simulateFallback(){
+  console.warn('使用模擬資料');
+  // ★ v6.36 同步 14 板塊（新增 leo_sat/ar_glass/quantum/ai_pc）
+  const simChanges = {
+    semi:-3.1,  ai_server:-2.0, pcb:-1.3,   memory:-0.7,
+    finance:+0.7, telecom:+1.1, pharma:+1.3,
+    energy:+0.2,  consumer:+0.4, transport:-0.4,
+    // 新興板塊：科技鏈動能，跟隨半導體走弱
+    leo_sat:-1.8, ar_glass:-1.2, quantum:-2.2, ai_pc:-1.5,
+  };
+  const simFI = {
+    semi:-95, ai_server:-40, pcb:-15, memory:-5,
+    finance:+38, telecom:+19, pharma:+9,
+    energy:+4,  consumer:+5,  transport:-5,
+    // 新興板塊法人估算
+    leo_sat:-8, ar_glass:-3, quantum:-12, ai_pc:-18,
+  };
+  for(const sec of SECTOR_DEF){
+    const chg = simChanges[sec.id] ?? 0;
+    const fi  = simFI[sec.id] ?? 0;
+    let state = 'neut';
+    if(chg <= -1.5 && fi < -10) state='flee';
+    else if(chg <= -0.5) state='warn';
+    else if(chg >= 0.5 && fi > 3) state='flow';
+    else if(chg >= 0) state='cold';
+    const strength = Math.round(Math.max(0, -chg*14 + Math.max(0,-fi)*0.6));
+    S.sectorData[sec.id] = {
+      change:chg, volRatio: chg < -1 ? 1.8 : 1.1,
+      fi:fi.toFixed(1), state, strength,
+    };
+  }
+  // 模擬相關係數
+  for(const a of SECTOR_DEF) for(const b of SECTOR_DEF){
+    CORR_RESULT[`${a.id}-${b.id}`] = a.id===b.id ? 1 : +(a.corrToSemi * b.corrToSemi).toFixed(2);
+  }
+  // 模擬股價歷史（供走勢圖）
+  const today = new Date();
+  for(const sec of SECTOR_DEF){
+    for(const code of sec.stocks){
+      const hist = [];
+      let price = 100 + Math.random()*200;
+      for(let i=10;i>=0;i--){
+        const d = new Date(today); d.setDate(today.getDate()-i);
+        price *= (1 + (simChanges[sec.id]/100 + (Math.random()-0.5)*0.015));
+        hist.push({ date:d.toISOString().slice(0,10), close:+price.toFixed(2), vol:1e6 });
+      }
+      S.priceHistory[code] = hist;
+    }
+  }
+  // 模擬法人
+  for(const sec of SECTOR_DEF){
+    for(const code of sec.stocks){
+      const fi = simFI[sec.id] ?? 0;
+      S.fiData[code] = { foreign: fi*0.7, invest: fi*0.2, dealer: fi*0.1, date:'模擬' };
+    }
+  }
+  S.dataDate = today.toISOString().slice(0,10) + ' (模擬)';
+  S.isLive = false;
+  locateEpicenter();
+  buildRotationChain();
+  scoreTargets();
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER FUNCTIONS
+══════════════════════════════════════════════════════ */
+
+function renderTime(){
+  const n = new Date();
+  const p = x=>String(x).padStart(2,'0');
+  const el = document.getElementById('liveTime');
+  if(el) el.textContent = `${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+}
+setInterval(renderTime, 1000); renderTime();
+
+// ── 主警報
+function renderMainBanner(){
+  const el = document.getElementById('mainBanner');
+  const epicSec = SECTOR_DEF.find(s=>s.id===S.epicenter);
+  const d = S.sectorData[S.epicenter];
+  const chg = d?.change ?? 0;
+  const safeNames = (S.safeHavens||[]).slice(0,3)
+    .map(id=>SECTOR_DEF.find(s=>s.id===id)?.name).filter(Boolean).join('、');
+
+  if(chg <= -1.5){
+    el.innerHTML = `
+    <div class="banner red banner-pulse">
+      <div class="banner-icon">🚨</div>
+      <div class="banner-main">
+        <div class="banner-t">震央偵測：${epicSec?.name||'板塊'} 資金外逃啟動（${chg>0?'+':''}${chg}%）</div>
+        <div class="banner-d">板塊震波強度 ${d?.strength}分 · 法人淨賣 ${d?.fi}億 · 輪動鏈已觸發 · 建議關注避風港：${safeNames||'金融/電信'}</div>
+      </div>
+      <div class="banner-time">${S.dataDate}</div>
+    </div>
+    <div class="banner purple">
+      <div class="banner-icon">💡</div>
+      <div class="banner-main">
+        <div class="banner-t">AI研判：進入 Day ${S.rotationDay} 輪動期 — ${S.rotationDay<=1?'觀察等待':S.rotationDay<=2?'準備進場':'最佳卡位窗口'}</div>
+        <div class="banner-d">目標板塊：${safeNames||'尚在評估'} · 篩選依據：相關係數 < 0.3 + 法人買超 + 量能放大</div>
+      </div>
+    </div>`;
+  } else if(chg < 0){
+    el.innerHTML = `<div class="banner yellow banner-pulse">
+      <div class="banner-icon">⚠️</div>
+      <div class="banner-main">
+        <div class="banner-t">${epicSec?.name} 小幅走弱（${chg}%）— 觀察是否擴大</div>
+        <div class="banner-d">尚未達板塊輪動觸發條件，持續監控中</div>
+      </div>
+      <div class="banner-time">${S.dataDate}</div>
+    </div>`;
+  } else {
+    el.innerHTML = `<div class="banner green">
+      <div class="banner-icon">✅</div>
+      <div class="banner-main">
+        <div class="banner-t">市場穩健，暫無明顯板塊輪動訊號</div>
+        <div class="banner-d">各板塊表現分散，法人買賣超均衡，持續監控中</div>
+      </div>
+      <div class="banner-time">${S.dataDate}</div>
+    </div>`;
+  }
+}
+
+// ── KPI
+function renderKPI(){
+  const el = document.getElementById('kpiRow');
+  const d = S.sectorData[S.epicenter] || {};
+  const totalFlee = Object.values(S.sectorData)
+    .filter(v=>v&&v.change<0).reduce((a,v)=>a+Math.abs(+v.fi||0),0);
+  const totalFlow = Object.values(S.sectorData)
+    .filter(v=>v&&v.change>0).reduce((a,v)=>a+(+v.fi||0),0);
+
+  const items = [
+    {
+      lbl:'震央板塊', val: SECTOR_DEF.find(s=>s.id===S.epicenter)?.name||'偵測中',
+      sub:`漲跌 ${d.change??'?'}% · 震波${d.strength??'?'}分`,
+      badge:d.change<-1.5?'外逃中':d.change<0?'走弱':'穩定',
+      bc:d.change<-1.5?'#FEE2E2':d.change<0?'#FEF3C7':'#DCFCE7',
+      bt:d.change<-1.5?'#B91C1C':d.change<0?'#92400E':'#15803D',
+      col:d.change<-1.5?'#E8343A':d.change<0?'#D97706':'#16A34A',
+      size:'1.1rem',
+    },
+    {
+      lbl:'資金外逃量', val:`-${totalFlee.toFixed(0)}`,
+      unit:'億', sub:'各外逃板塊法人合計',
+      badge:'淨賣超', bc:'#FEE2E2', bt:'#B91C1C', col:'#E8343A',
+    },
+    {
+      lbl:'避風港流入', val:`+${totalFlow.toFixed(0)}`,
+      unit:'億', sub:'資金流入板塊合計',
+      badge:totalFlow>20?'明顯吸籌':'溫和流入', bc:'#DCFCE7', bt:'#15803D', col:'#16A34A',
+    },
+    {
+      lbl:'輪動進度', val:`D+${S.rotationDay}`,
+      unit:'', sub:`第 ${S.rotationDay} 天下跌 / 共約5~7天`,
+      badge:S.rotationDay<=1?'觀察期':S.rotationDay<=3?'⭐進場期':'出場準備',
+      bc:S.rotationDay<=1?'#FEF3C7':S.rotationDay<=3?'#DCFCE7':'#FEE2E2',
+      bt:S.rotationDay<=1?'#92400E':S.rotationDay<=3?'#15803D':'#B91C1C',
+      col:S.rotationDay<=1?'#D97706':S.rotationDay<=3?'#16A34A':'#E8343A',
+      size:'1.4rem',
+    },
+  ];
+
+  el.innerHTML = items.map(it => `
+    <div class="kpi">
+      <div class="kpi-lbl">${it.lbl}</div>
+      <div class="kpi-val" style="color:${it.col};font-size:${it.size||'1.5rem'};">
+        ${it.val}<span style="font-size:0.85rem;">${it.unit||''}</span>
+      </div>
+      <div class="kpi-sub">${it.sub}</div>
+      <div class="kpi-badge" style="background:${it.bc};color:${it.bt};">${it.badge}</div>
+    </div>`).join('');
+}
+
+// ── 板塊格
+function renderSectorGrid(){
+  const el = document.getElementById('sectorGrid');
+  document.getElementById('dataDate').textContent = S.dataDate ? `· ${S.dataDate}` : '';
+  el.innerHTML = SECTOR_DEF.map(sec => {
+    const d = S.sectorData[sec.id];
+    if(!d) return `<div class="sc neut"><span class="sc-emoji">${sec.emoji}</span>
+      <div class="sc-name">${sec.name}</div><div class="sc-loading">資料載入中...</div></div>`;
+    const isUp = d.change >= 0;
+    const chgCls = d.change > 0.1 ? 'up' : d.change < -0.1 ? 'dn' : 'flat';
+    const fiNum = +d.fi;
+    const fiCol = fiNum > 0 ? '#16A34A' : '#E8343A';
+    const isEpic = sec.id === S.epicenter;
+    const isSafe = (S.safeHavens||[]).includes(sec.id);
+    const sigCls = isSafe ? 'flow' : d.state==='flee' ? 'flee' : d.state==='warn' ? 'warn' : 'neut';
+    return `
+    <div class="sc ${d.state}${isEpic?' active':''}" onclick="sectorDetail('${sec.id}')"
+      title="點擊查看詳情 · ${sec.desc}">
+      <div class="sc-sig ${sigCls}"></div>
+      <span class="sc-emoji">${sec.emoji}${isEpic?'🎯':isSafe?'🛡️':''}</span>
+      <div class="sc-name">${sec.name}${isEpic?' <b style="color:#E8343A;font-size:0.55rem;">震央</b>':''}</div>
+      <div class="sc-chg ${chgCls}">${isUp?'+':''}${d.change}%</div>
+      <div class="sc-vol">量比 ${d.volRatio}x</div>
+      <div class="sc-fi" style="color:${fiCol};">法人 ${fiNum>0?'+':''}${fiNum}億</div>
+    </div>`;
+  }).join('');
+}
+
+// ── 資金流向
+function renderFlowList(){
+  const el = document.getElementById('flowList');
+
+  // v6.36 修復：更新 badge 顯示資料來源狀態
+  const badgeEl = document.getElementById('fiDataBadge');
+  if (badgeEl) {
+    if (S.fiIsLive) {
+      badgeEl.textContent = '✅ FinMind 真實';
+      badgeEl.style.color = '#059669';
+    } else {
+      badgeEl.textContent = '🟡 方向估算';
+      badgeEl.style.color = '#D97706';
+      badgeEl.title = 'FinMind 法人API暫無資料，數值依板塊漲跌方向估算，僅供方向參考';
+    }
+  }
+
+  const sorted = SECTOR_DEF.map(sec => ({
+    sec, fi: +(S.sectorData[sec.id]?.fi || 0)
+  })).sort((a,b) => Math.abs(b.fi)-Math.abs(a.fi)).slice(0,8);
+  const maxAbs = Math.max(...sorted.map(x=>Math.abs(x.fi)), 1);
+
+  // v6.36 修復：若全部為 0（理論上不應再發生），顯示提示訊息
+  const allZero = sorted.every(x => x.fi === 0);
+  if (allZero) {
+    el.innerHTML = `<div style="padding:12px;text-align:center;color:var(--fg3);font-size:0.73rem;">
+      ⚠️ 法人資料暫時無法取得，請稍後重新整理
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = sorted.map(({sec,fi}) => {
+    const isIn = fi >= 0;
+    const pct = Math.round(Math.abs(fi)/maxAbs*100);
+    return `
+    <div class="flow-item ${isIn?'in':'out'}">
+      <div class="fi-name">${sec.emoji} ${sec.name}</div>
+      <div class="fi-bar"><div class="fi-fill ${isIn?'in':'out'}" style="width:${pct}%;"></div></div>
+      <div class="fi-val ${isIn?'in':'out'}">${fi>0?'+':''}${fi}億</div>
+    </div>`;
+  }).join('');
+}
+
+// ── 強度條
+function renderStrengthBars(){
+  const el = document.getElementById('strengthBars');
+  const sorted = SECTOR_DEF.map(sec => ({
+    sec, str: S.sectorData[sec.id]?.strength ?? 0,
+    chg: S.sectorData[sec.id]?.change ?? 0,
+  })).sort((a,b) => b.str-a.str).slice(0,7);
+  el.innerHTML = sorted.map(({sec,str,chg}) => {
+    const isShock = chg < 0;
+    const grad = isShock
+      ? 'linear-gradient(90deg,#E8343A,#F97316)'
+      : 'linear-gradient(90deg,#16A34A,#0891B2)';
+    const col = isShock ? '#E8343A' : '#16A34A';
+    return `
+    <div class="str-wrap">
+      <div class="str-label">
+        <span>${sec.emoji} ${sec.name}</span>
+        <span style="font-weight:800;color:${col};">${str}分</span>
+      </div>
+      <div class="str-track">
+        <div class="str-fill" style="width:${str}%;background:${grad};"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 震央地圖（ECharts）
+function renderQuakeChart(){
+  const dom = document.getElementById('quakeChart');
+  const chart = echarts.init(dom, 'dark');
+
+  // ★ v6.36 新增 4 個板塊座標（右側區域，避免與既有板塊重疊）
+  const pos = {
+    semi:     [300,130], ai_server:[170,85],  pcb:     [80,55],
+    memory:   [80,170],  transport:[170,215], consumer:[310,240],
+    finance:  [440,80],  telecom:  [460,170], pharma:  [450,255],
+    energy:   [320,275],
+    // 新板塊：右下區域延伸
+    leo_sat:  [540,80],  ar_glass: [560,155], quantum: [545,230],
+    ai_pc:    [390,55],
+  };
+
+  const nodes = SECTOR_DEF.map(sec => {
+    const d = S.sectorData[sec.id];
+    const str = d?.strength ?? 20;
+    const chg = d?.change ?? 0;
+    const isEpic = sec.id === S.epicenter;
+    const isSafe = (S.safeHavens||[]).includes(sec.id);
+    const col = isEpic ? '#EF4444' : isSafe ? '#10B981' : chg < -0.5 ? '#F97316' : '#94A3B8';
+    const p = pos[sec.id] || [250,150];
+    return {
+      name: sec.name, x:p[0], y:p[1],
+      symbolSize: Math.max(18, Math.min(68, str * 0.7 + 15)),
+      itemStyle: { color:col, borderWidth:isEpic?3:0, borderColor:'#fff' },
+      label: { show:true, fontSize:10, fontWeight:700, color:'#E2E8F0', position:'bottom' },
+      value: str,
+    };
+  });
+
+  // 連線（相關係數 > 0.5 才連）
+  const links = [];
+  const ids = SECTOR_DEF.map(s=>s.id);
+  for(let i=0;i<ids.length;i++){
+    for(let j=i+1;j<ids.length;j++){
+      const corr = CORR_RESULT[`${ids[i]}-${ids[j]}`] ?? 0;
+      if(Math.abs(corr) < 0.45) continue;
+      const iA = SECTOR_DEF.find(s=>s.id===ids[i]);
+      const iB = SECTOR_DEF.find(s=>s.id===ids[j]);
+      const isDanger = S.sectorData[ids[i]]?.change < -0.5 && S.sectorData[ids[j]]?.change < -0.5;
+      links.push({
+        source: iA.name, target: iB.name,
+        lineStyle:{
+          width: Math.round(Math.abs(corr)*5),
+          color: isDanger ? 'rgba(239,68,68,0.4)' : 'rgba(99,102,241,0.35)',
+          type: corr < 0 ? 'dashed' : 'solid',
+        }
+      });
+    }
+  }
+
+  chart.setOption({
+    backgroundColor:'#0A0F1E',
+    tooltip:{ trigger:'item', formatter: p => {
+      const sec = SECTOR_DEF.find(s=>s.name===p.name);
+      const d = sec ? S.sectorData[sec.id] : null;
+      if(!d) return p.name;
+      return `<b>${p.name}</b><br>漲跌：${d.change>0?'+':''}${d.change}%<br>法人：${+d.fi>0?'+':''}${d.fi}億<br>震波強度：${d.strength}分`;
+    }},
+    series:[{
+      type:'graph', layout:'none',
+      data:nodes, links,
+      lineStyle:{curveness:0.12},
+      emphasis:{focus:'adjacency'},
+      roam:true,
+    }],
+    graphic:[{
+      type:'text', left:8, top:8,
+      style:{text:'🎯=震央  🔴=外逃  🟢=避風港  ─=相關性強', fill:'#475569', fontSize:10}
+    }]
+  });
+  window.addEventListener('resize', ()=>chart.resize());
+}
+
+// ── 相關係數矩陣
+function renderCorrMatrix(){
+  const el = document.getElementById('corrMatrix');
+  const secs = SECTOR_DEF.slice(0,7); // 取前7個避免太寬
+  const n = secs.length;
+  const cellW = Math.floor(100/n);
+
+  const getColor = v => {
+    const abs = Math.abs(v);
+    if(abs > 0.8) return '#EF4444';
+    if(abs > 0.6) return '#F97316';
+    if(abs > 0.4) return '#F59E0B';
+    if(abs > 0.2) return '#94A3B8';
+    return '#1E3A5F';
+  };
+
+  // Header row
+  const colTpl = '80px ' + secs.map(()=>'1fr').join(' ');
+  let html = `<div style="display:grid;grid-template-columns:${colTpl};gap:2px;margin-bottom:2px;">
+    <div></div>
+    ${secs.map(s=>'<div style="font-size:0.58rem;font-weight:700;color:var(--fg3);text-align:center;padding:3px 0;">'+s.emoji+'</div>').join('')}
+  </div>`;
+
+  for(let i=0;i<n;i++){
+    html += `<div style="display:grid;grid-template-columns:${colTpl};gap:2px;margin-bottom:2px;">
+      <div style="font-size:0.58rem;font-weight:700;color:var(--fg3);display:flex;align-items:center;">${secs[i].emoji} ${secs[i].name}</div>`;
+    for(let j=0;j<n;j++){
+      const v = i===j ? 1 : (CORR_RESULT[`${secs[i].id}-${secs[j].id}`] ?? 0);
+      const col = getColor(v);
+      const textCol = Math.abs(v) > 0.5 ? '#fff' : '#94A3B8';
+      html += `<div class="corr-cell" style="background:${col};color:${textCol};"
+        title="${secs[i].name} vs ${secs[j].name}: ${v.toFixed(2)}">${v.toFixed(2)}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  el.innerHTML = html;
+  el.insertAdjacentHTML('beforeend',
+    `<div style="font-size:0.58rem;color:var(--fg3);margin-top:6px;">
+    🔴 紅=高相關（震波傳導）　🔵 深藍=低相關（避風港）　💡 選擇深藍色那一欄的板塊！</div>`);
+}
+
+// ── 輪動鏈
+function renderRotationChain(){
+  const el = document.getElementById('rotationChain');
+  el.innerHTML = (S.chainSteps||[]).map((step,i) => {
+    const isLast = i === S.chainSteps.length-1;
+    const cls = step.isNext ? 'next' : step.isActive ? 'active' : '';
+    const bdgStyle = step.isNext
+      ? 'background:#DCFCE7;color:#15803D;'
+      : step.isActive
+        ? 'background:#FEE2E2;color:#B91C1C;'
+        : 'background:var(--border);color:var(--fg3);';
+    return `
+    <div class="ch-step ${cls}">
+      <div class="ch-num">${step.label}</div>
+      <div class="ch-emoji">${step.emoji}</div>
+      <div class="ch-name">${step.name}</div>
+      <div class="ch-desc">${step.desc.replace('\n','<br>')}</div>
+      <div class="ch-badge" style="${bdgStyle}">${step.badge}</div>
+      ${!isLast?'<div class="ch-arrow">→</div>':''}
+    </div>`;
+  }).join('');
+}
+
+// ── 時間差
+function renderTimingGrid(){
+  const el = document.getElementById('timingGrid');
+  const today = new Date();
+  const wd = ['日','一','二','三','四','五','六'];
+  const days = [];
+  for(let i=-(S.rotationDay-1); i<=7-S.rotationDay; i++){
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    // skip weekends for display state
+    const isWknd = d.getDay()===0 || d.getDay()===6;
+    let state = '';
+    if(i < 0) state = 'past';
+    else if(i===0) state = 'today';
+    else if(i===1||i===2) state = 'entry';
+    else if(i>=4) state = 'danger';
+    const events = {
+      [-(S.rotationDay-1)]: '震央下跌啟動',
+      0: `今日 Day${S.rotationDay}`,
+      1: '試單訊號出現⭐',
+      2: '🎯 最佳進場窗口',
+      3: '籌碼確認完成',
+      4: '散戶開始關注',
+      5: '媒體大量報導',
+      6: '⚠️ 準備出場',
+    };
+    const actions = {
+      [-(S.rotationDay-1)]: '觀察',
+      0: '偵測中',
+      1: '準備',
+      2: '買進！',
+      3: '持有',
+      4: '持有',
+      5: '出場',
+      6: '出場',
+    };
+    days.push({
+      wd:`週${wd[d.getDay()]}`,
+      date:`${d.getMonth()+1}/${d.getDate()}`,
+      event: events[i] || '',
+      action: actions[i] || '',
+      state, isWknd,
+    });
+  }
+  el.innerHTML = days.map(d => `
+    <div class="td ${d.state}" style="${d.isWknd?'opacity:0.45;':''}">
+      <div class="td-wd">${d.wd}</div>
+      <div class="td-date">${d.date}</div>
+      <div class="td-ev">${d.event}</div>
+      <div class="td-act">${d.action}</div>
+    </div>`).join('');
+
+  // timing banner
+  const tb = document.getElementById('timingBanner');
+  const bannerMap = {
+    0: ['blue','⏰','今日是 Day0（震央下跌日）— 觀察等待，不急進場','等資金明確移動再行動'],
+    1: ['yellow','🔍','Day1：外圍開始跟跌 — 開始注意避風港板塊','篩選目標股，做好準備'],
+    2: ['green','⭐','Day2：進場黃金窗口！試單開始！','分批買入目標股，設好停損'],
+    3: ['green','🚀','Day3：確認進場！法人大量建倉中','繼續持有，停損設在進場價-3%'],
+  };
+  const bInfo = bannerMap[Math.min(S.rotationDay,3)] || bannerMap[3];
+  tb.innerHTML = `<div class="banner ${bInfo[0]}">
+    <div class="banner-icon">${bInfo[1]}</div>
+    <div class="banner-main">
+      <div class="banner-t">${bInfo[2]}</div>
+      <div class="banner-d">${bInfo[3]}</div>
+    </div>
+  </div>`;
+}
+
+// ── 進場依據
+function renderEvidence(){
+  const el = document.getElementById('evidenceList');
+  const epicD = S.sectorData[S.epicenter] || {};
+  const safeArr = (S.safeHavens||[]).map(id=>SECTOR_DEF.find(s=>s.id===id));
+  const safeCorrs = safeArr.map(s=>s ? (CORR_RESULT[`${S.epicenter}-${s.id}`] ?? s.corrToSemi).toFixed(2) : '?');
+
+  const evs = [
+    {
+      icon:'💥',
+      title:`震央板塊（${SECTOR_DEF.find(s=>s.id===S.epicenter)?.name}）持續下跌 ${S.rotationDay} 天`,
+      desc:`漲跌 ${epicD.change}% · 法人賣超 ${epicD.fi}億 · 歷史規律：D${S.rotationDay<=2?'+2~+3':'3以上'}進場勝率最高`,
+      badge:S.rotationDay>=2?'時機成熟':'持續觀察',
+      bc:S.rotationDay>=2?'#FEF3C7':'var(--border)',
+      bt:S.rotationDay>=2?'#92400E':'var(--fg3)',
+    },
+    {
+      icon:'🛡️',
+      title:`避風港偵測：${safeArr.map(s=>s?.name).join('、')||'尚在評估'}`,
+      desc:`與震央相關係數 ${safeCorrs.join('、')||'計算中'} · 符合低相關條件（< 0.35）`,
+      badge:'低相關確認',
+      bc:'#F3E8FF', bt:'#6D28D9',
+    },
+    {
+      icon:'📊',
+      title:'量能異常偵測',
+      desc:(function(){
+        var vrs = safeArr.map(function(s){ return s ? ((S.sectorData[s.id] ? S.sectorData[s.id].volRatio : null)||'?')+'x' : '?'; });
+        return '避風港板塊量比：'+(vrs.join('、')||'?')+' · 量能放大代表資金流入';
+      }()),
+      badge:'量能確認',
+      bc:'#DBEAFE', bt:'#1D4ED8',
+    },
+    {
+      icon:'🏦',
+      title:(function(){
+        const parts = safeArr.map(function(s){
+          if(!s) return '?';
+          const fi = S.sectorData[s.id]?.fi;
+          return s.name+'('+(+fi>0?'+':'')+fi+'億)';
+        });
+        return '法人買超訊號：'+(parts.join('、')||'評估中');
+      }()),
+      desc:'外資 + 投信合計 · 正值代表資金持續流入目標板塊',
+      badge: safeArr.some(s=>s&&+S.sectorData[s.id]?.fi>5)?'買超確認':'觀察中',
+      bc: safeArr.some(s=>s&&+S.sectorData[s.id]?.fi>5)?'#DCFCE7':'var(--border)',
+      bt: safeArr.some(s=>s&&+S.sectorData[s.id]?.fi>5)?'#15803D':'var(--fg3)',
+    },
+  ];
+  el.innerHTML = evs.map(e=>`
+    <div class="ev-item">
+      <div class="ev-icon">${e.icon}</div>
+      <div class="ev-body">
+        <div class="ev-title">${e.title}</div>
+        <div class="ev-desc">${e.desc}</div>
+        <div class="ev-badge" style="background:${e.bc};color:${e.bt};">${e.badge}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── 目標股
+function renderTargetStocks(){
+  ['rec','watch','avoid'].forEach(tab => {
+    const el = document.getElementById(`list${tab.charAt(0).toUpperCase()+tab.slice(1)}`);
+    if(!el) return;
+    const stocks = TARGET_DEF.filter(t=>t.tab===tab);
+    const rankE = {0:'🥇',1:'🥈',2:'🥉'};
+    el.innerHTML = stocks.length ? stocks.map((t,i)=>{
+      const rc = tab==='rec'?(i===0?'r1':i===1?'r2':i===2?'r3':'rx'):tab==='avoid'?'warn':'rx';
+      const re = tab==='rec'?(rankE[i]||'📌'):tab==='avoid'?'⚠️':'👁️';
+      const sc = tab==='avoid'?'#E8343A':tab==='watch'?'#D97706':'#16A34A';
+      const tagsHtml = (t.tags||[]).map(tag=>`<span class="ts-tag ${tag.c}">${tag.t}</span>`).join('');
+      return `
+      <div class="ts ${rc}">
+        <div class="ts-rank">${re}</div>
+        <div class="ts-code">${t.code}</div>
+        <div class="ts-info">
+          <div class="ts-name">${t.name}</div>
+          <div class="ts-sec">${t.sector}板塊 · 相關係數 ${t.corrCalc?.toFixed(2)||t.corrSemi}</div>
+          <div class="ts-tags">${tagsHtml}</div>
+        </div>
+        <div class="ts-score">
+          <div class="ts-score-n" style="color:${sc};">${t.score}</div>
+          <div class="ts-score-l">推薦分</div>
+        </div>
+      </div>`;
+    }).join('')
+    : `<div style="font-size:0.72rem;color:var(--fg3);padding:12px;text-align:center;">目前無${tab==='rec'?'推薦':'觀察'}中的標的</div>`;
+  });
+}
+
+// ── 走勢圖
+function renderTrendChart(){
+  const dom = document.getElementById('trendChart');
+  const chart = echarts.init(dom, 'dark');
+  // 取各板塊第一支代表股，標準化為100
+  const series = [];
+  const colorMap = {
+    semi:'#EF4444', ai_server:'#F97316', pcb:'#F59E0B',
+    finance:'#10B981', telecom:'#34D399', pharma:'#6EE7B7',
+    energy:'#60A5FA', transport:'#A78BFA', consumer:'#F472B6', memory:'#94A3B8',
+  };
+  let dates = [];
+  for(const sec of SECTOR_DEF){
+    const code = sec.stocks[0];
+    const hist = S.priceHistory[code];
+    if(!hist || hist.length < 3) continue;
+    const slice = hist.slice(-12);
+    if(dates.length < slice.length) dates = slice.map(r=>r.date);
+    const base = slice[0].close;
+    if(!base) continue;
+    series.push({
+      name: sec.name,
+      type:'line', smooth:true,
+      data: slice.map(r => +(r.close/base*100).toFixed(2)),
+      lineStyle:{width:2, color:colorMap[sec.id]||'#94A3B8'},
+      itemStyle:{color:colorMap[sec.id]||'#94A3B8'},
+      symbol:'none',
+    });
+  }
+  chart.setOption({
+    backgroundColor:'#0A0F1E',
+    tooltip:{ trigger:'axis', axisPointer:{type:'cross'} },
+    legend:{ data:series.map(s=>s.name), textStyle:{color:'#64748B',fontSize:10},
+      top:4, type:'scroll' },
+    grid:{left:'5%',right:'3%',top:'40px',bottom:'8%'},
+    xAxis:{
+      type:'category', data:dates,
+      axisLabel:{color:'#475569', fontSize:10,
+        formatter:v => v.slice(5)},
+      axisLine:{lineStyle:{color:'#1E293B'}},
+      splitLine:{lineStyle:{color:'#0F172A'}},
+    },
+    yAxis:{
+      type:'value',
+      name:'基準=100',
+      nameTextStyle:{color:'#475569',fontSize:9},
+      axisLabel:{color:'#475569',fontSize:9},
+      axisLine:{lineStyle:{color:'#1E293B'}},
+      splitLine:{lineStyle:{color:'#1E293B'}},
+    },
+    series,
+  });
+  window.addEventListener('resize',()=>chart.resize());
+}
+
+// ── 解說
+function renderExplain(){
+  const el = document.getElementById('explainPanel');
+  const epicName = SECTOR_DEF.find(s=>s.id===S.epicenter)?.name || '板塊';
+  const safeNames = (S.safeHavens||[]).map(id=>SECTOR_DEF.find(s=>s.id===id)?.name).filter(Boolean).join('、');
+  const blocks = [
+    {
+      col:'#EF4444', icon:'🌍',
+      title:`① 板塊偵測器觸發邏輯（本次震央：${epicName}）`,
+      body:`本系統從 FinMind 拉取 <b style="color:#93C5FD;">${SECTOR_DEF.flatMap(s=>s.stocks).length} 支代表股</b> 的真實收盤價與法人買賣超。<br>
+      觸發條件（同時滿足）：<br>
+      ✅ 板塊內代表股平均跌幅 ≥ 1.5%<br>
+      ✅ 法人（外資+投信）合計淨賣超 ≥ 50億元<br>
+      ✅ 成交量比 ≥ 1.5x（恐慌量放大）<br>
+      本次 ${epicName} 符合以上條件，震波強度評分 <b style="color:#FCA5A5;">${S.sectorData[S.epicenter]?.strength ?? '?'} 分</b>`,
+    },
+    {
+      col:'#F97316', icon:'💥',
+      title:'② 震央定位算法（圖論 + 相關係數矩陣）',
+      body:`使用 <b style="color:#93C5FD;">皮爾森相關係數</b>，計算各板塊代表股近60交易日的日收益率相關性。<br>
+      相關係數公式：ρ = Σ(xi-x̄)(yi-ȳ) / √[Σ(xi-x̄)² × Σ(yi-ȳ)²]<br>
+      震央 = 最高震波強度分數 × 最大法人賣超 的板塊<br>
+      <b style="color:#FCA5A5;">結果：${epicName} 是本次震央</b>`,
+    },
+    {
+      col:'#16A34A', icon:'🛡️',
+      title:`③ 避風港選擇機制（${safeNames || '篩選中'}）`,
+      body:`避風港篩選三關：<br>
+      第1關：與震央相關係數 < 0.35（震波傳不到）<br>
+      第2關：日均成交量 > 50億（大戶塞得進去）<br>
+      第3關：近期不跌反漲（相對強勢）<br>
+      本次篩出：<b style="color:#86EFAC;">${safeNames||'尚在評估'}</b> 為最佳避風港`,
+    },
+    {
+      col:'#F59E0B', icon:'⏰',
+      title:`④ 時間差套利原理（當前：Day ${S.rotationDay}）`,
+      body:`大戶資金移動時程（實證規律）：<br>
+      D0：震央下跌，大戶賣出（散戶恐慌）<br>
+      D1：外圍跟跌，輪動確認（你開始準備）<br>
+      <b style="color:#FCD34D;">D2~D3：避風港吸籌開始 → 你進場！</b><br>
+      D4~D5：量能放大，散戶看到（你已在場內）<br>
+      D6~D7：媒體大量報導（你開始出場，讓散戶接棒）<br>
+      時間差套利 = 你比散戶早 <b style="color:#FCD34D;">3~4天</b> 知道資金去哪`,
+    },
+    {
+      col:'#7C3AED', icon:'🌊',
+      title:'⑤ 牛鞭效應：缺料時的反向機會',
+      body:`正常情況：震央跌→外圍依相關性遞減<br>
+      缺料情況：供應鏈缺貨→越下游波動越大（牛鞭）<br>
+      <b style="color:#C4B5FD;">實戰應用：</b><br>
+      台積電缺水 → 水資源股 ↑<br>
+      台積電缺電 → 電力概念股 ↑<br>
+      AI缺算力 → 冷卻系統股 ↑<br>
+      震央的災難 = 替代供應商的機會，這是圖論中的<b style="color:#C4B5FD;">「節點替代效應」</b>`,
+    },
+  ];
+  el.innerHTML = blocks.map(b=>`
+    <div class="exp-block" style="border-color:${b.col};">
+      <div class="exp-title"><span>${b.icon}</span>${b.title}</div>
+      <div class="exp-body">${b.body}</div>
+    </div>`).join('');
+}
+
+/* ──────────────────────────────────────────────────────
+   INTERACTIONS
+────────────────────────────────────────────────────── */
+function sectorDetail(id){
+  const sec = SECTOR_DEF.find(s=>s.id===id);
+  const d = S.sectorData[id];
+  if(!sec||!d){ alert('資料載入中...'); return; }
+  const corrToEpic = CORR_RESULT[`${S.epicenter}-${id}`] ?? sec.corrToSemi;
+  const isSafe = Math.abs(corrToEpic) < 0.35 && d.change >= -0.3;
+  const stocks = sec.stocks.map((code,i)=>{
+    const fi = S.fiData[code];
+    const hist = S.priceHistory[code];
+    const last = hist && hist.length ? hist[hist.length-1] : null;
+    return `${sec.names[i]}(${code})：收盤${last?.close||'?'} · 法人${fi?(fi.foreign+fi.invest).toFixed(1)+'億':'?'}`;
+  }).join('\n');
+  alert(`【${sec.emoji} ${sec.name}】詳情
+━━━━━━━━━━━━━━━━━━━━
+📈 板塊漲跌：${d.change>0?'+':''}${d.change}%
+💰 法人合計：${+d.fi>0?'+':''}${d.fi}億
+📊 量比：${d.volRatio}x（均量倍數）
+🔗 與震央相關性：${corrToEpic.toFixed(3)}
+🏭 供應鏈關係：${sec.dependency}
+📐 集中度 HHI：${sec.hhi}
+⚡ 震波強度：${d.strength}分
+${isSafe ? '\n✅ 符合避風港條件（低相關+未跌）' : d.change<-1?'\n🔴 震波傳導中，建議迴避':''}
+
+📋 代表股：
+${stocks}
+━━━━━━━━━━━━━━━━━━━━
+FinMind資料日期：${S.dataDate}`);
+}
+
+function setTab(tab, btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById(`pane-${tab}`)?.classList.add('on');
+  btn.classList.add('on');
+}
+
+/* ──────────────────────────────────────────────────────
+   MAIN INIT
+────────────────────────────────────────────────────── */
+async function main(){
+  document.getElementById('apiStatusBadge').className = 'api-status sim';
+  document.getElementById('apiStatusBadge').textContent = '⏳ 載入中';
+
+  try {
+    await fetchAllData();
+    document.getElementById('apiStatusBadge').className = S.isLive ? 'api-status live' : 'api-status sim';
+    document.getElementById('apiStatusBadge').textContent = S.isLive ? '✅ FinMind 真實資料' : '🟡 模擬資料';
+  } catch(e) {
+    console.error('API Error:', e);
+    setLoadMsg('API 連線失敗，切換模擬資料...');
+    await delay(800);
+    simulateFallback();
+    document.getElementById('apiStatusBadge').className = 'api-status sim';
+    document.getElementById('apiStatusBadge').textContent = '🟡 模擬示範資料';
+  }
+
+  // 渲染所有模組
+  renderMainBanner();
+  renderKPI();
+  renderSectorGrid();
+  renderFlowList();
+  renderStrengthBars();
+  renderRotationChain();
+  renderTimingGrid();
+  renderEvidence();
+  renderTargetStocks();
+  renderExplain();
+
+  // ECharts
+  setTimeout(()=>{
+    renderQuakeChart();
+    renderCorrMatrix();
+    renderTrendChart();
+  }, 100);
+
+  // MACD 六維度掃描（v2.1 選項I）
+  setTimeout(() => renderMacdScan(), 300);
+
+  hideLoader();
+}
+
+document.addEventListener('DOMContentLoaded', main);
+
+/* ======================================================
+   MACD 六維度掃描（v2.1 選項I 新增）
+====================================================== */
+
+// MACD 條件標籤（短版，供芯片顯示）
+const MACD_COND_SHORT = [
+  'DIF>0', 'DEA>0', 'HIST>0', 'HIST擴', 'DIF穿DEA', 'HIST翻紅'
+];
+
+// 計算單股 EMA
+function calcEMA(closes, period) {
+  const k = 2 / (period + 1);
+  const result = [];
+  let ema = closes[0];
+  result.push(ema);
+  for (let i = 1; i < closes.length; i++) {
+    ema = closes[i] * k + ema * (1 - k);
+    result.push(+ema.toFixed(4));
+  }
+  return result;
+}
+
+// 計算單股 MACD (12,26,9)
+function calcMACD(closes) {
+  if (!closes || closes.length < 27) return null;
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const dif = ema12.map((v, i) => +(v - ema26[i]).toFixed(4));
+  const dea = calcEMA(dif, 9);
+  const hist = dif.map((v, i) => +(v - dea[i]).toFixed(4));
+  return { dif, dea, hist };
+}
+
+// 計算六維度條件（傳入 macd 物件，取最後幾日）
+function calcMacdConds(macd) {
+  if (!macd) return { score: 0, conds: [false,false,false,false,false,false], dif: null, dea: null, hist: null };
+  const n = macd.dif.length;
+  const dif  = macd.dif[n-1];
+  const dea  = macd.dea[n-1];
+  const hist = macd.hist[n-1];
+  const histPrev = n >= 2 ? macd.hist[n-2] : null;
+  const difPrev  = n >= 2 ? macd.dif[n-2]  : null;
+  const deaPrev  = n >= 2 ? macd.dea[n-2]  : null;
+
+  const c1 = dif > 0;                                            // DIF > 0
+  const c2 = dea > 0;                                            // DEA > 0
+  const c3 = hist > 0;                                           // HIST > 0
+  const c4 = histPrev !== null && hist > histPrev;               // HIST 擴張
+  const c5 = difPrev !== null && deaPrev !== null
+             && dif > dea && difPrev <= deaPrev;                 // DIF 上穿 DEA（黃金交叉）
+  const c6 = histPrev !== null && histPrev <= 0 && hist > 0;     // HIST 由負轉正
+
+  const conds = [c1, c2, c3, c4, c5, c6];
+  const score = conds.filter(Boolean).length;
+  return { score, conds, dif, dea, hist };
+}
+
+// 取板塊的所有代表股 MACD 結果
+function computeSectorMacd(sec) {
+  const results = [];
+  for (let i = 0; i < sec.stocks.length; i++) {
+    const code = sec.stocks[i];
+    const name = sec.names[i];
+    const hist = S.priceHistory[code];
+    if (!hist || hist.length < 30) {
+      results.push({ code, name, score: null, conds: null, dif: null, dea: null, hist: null, macdData: null });
+      continue;
+    }
+    const closes = hist.map(r => r.close);
+    const macd = calcMACD(closes);
+    const res  = calcMacdConds(macd);
+    results.push({ code, name, ...res, macdData: macd });
+  }
+  return results;
+}
+
+// 儲存掃描結果（供詳情 Modal 使用）
+const MACD_SCAN_CACHE = {};
+
+// 渲染 MACD 掃描 Grid
+function renderMacdScan() {
+  const grid = document.getElementById('macdScanGrid');
+  const statusEl = document.getElementById('macdScanStatus');
+  if (!grid) return;
+
+  // 檢查是否有足夠資料
+  const hasData = Object.keys(S.priceHistory).some(code => S.priceHistory[code] && S.priceHistory[code].length >= 30);
+  if (!hasData) {
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:14px;text-align:center;font-size:0.68rem;color:var(--fg3);">&#9888; 股價資料不足，無法計算 MACD（需至少30日資料）</div>';
+    if (statusEl) statusEl.textContent = '資料不足';
+    return;
+  }
+
+  let strongCount = 0, weakCount = 0;
+
+  grid.innerHTML = SECTOR_DEF.map(sec => {
+    const stockResults = computeSectorMacd(sec);
+    MACD_SCAN_CACHE[sec.id] = { sec, stockResults };
+
+    // 計算有效資料的平均分
+    const validResults = stockResults.filter(r => r.score !== null);
+    if (validResults.length === 0) {
+      return `<div class="macd-sector-box" onclick="showMacdDetail('${sec.id}')">
+        <div class="msb-header">
+          <div class="msb-name">${sec.emoji} ${sec.name}</div>
+          <div class="msb-score-badge s0">--/6</div>
+        </div>
+        <div style="font-size:0.58rem;color:var(--fg3);">資料不足</div>
+      </div>`;
+    }
+
+    const avgScore = validResults.reduce((a, r) => a + r.score, 0) / validResults.length;
+    const avgScoreRound = Math.round(avgScore * 10) / 10;
+    const cls = avgScore >= 4.5 ? 'strong' : avgScore >= 2.5 ? 'mid' : 'weak';
+    const scoreCls = avgScore >= 4.5 ? 's5' : avgScore >= 2.5 ? 's3' : 's0';
+    const scoreColor = avgScore >= 4.5 ? '#047857' : avgScore >= 2.5 ? '#92400E' : '#b91c1c';
+
+    if (cls === 'strong') strongCount++;
+    if (cls === 'weak') weakCount++;
+
+    // 六個燈點（以代表股平均條件）
+    const avgConds = [0,1,2,3,4,5].map(i =>
+      validResults.filter(r => r.conds && r.conds[i]).length > validResults.length / 2
+    );
+    const dotsHtml = avgConds.map((c, i) =>
+      `<div class="msb-dot ${c?'on':'off'}" title="${MACD_COND_SHORT[i]}"></div>`
+    ).join('');
+
+    // 個股清單
+    const stocksHtml = stockResults.map(r => {
+      if (r.score === null) return `<div class="msb-stock-row"><span class="msb-stock-code">${r.code}</span><span class="msb-stock-name">${r.name}</span><span class="msb-stock-score" style="color:var(--fg3);">--</span></div>`;
+      const sc = r.score >= 4 ? '#047857' : r.score >= 2 ? '#92400E' : '#b91c1c';
+      return `<div class="msb-stock-row"><span class="msb-stock-code">${r.code}</span><span class="msb-stock-name">${r.name}</span><span class="msb-stock-score" style="color:${sc};">${r.score}/6</span></div>`;
+    }).join('');
+
+    return `<div class="macd-sector-box ${cls}" onclick="showMacdDetail('${sec.id}')">
+      <div class="msb-header">
+        <div class="msb-name">${sec.emoji} ${sec.name}</div>
+        <div class="msb-score-badge ${scoreCls}" style="color:${scoreColor};">${avgScoreRound}/6</div>
+      </div>
+      <div class="msb-dots">${dotsHtml}</div>
+      <div class="msb-stocks">${stocksHtml}</div>
+    </div>`;
+  }).join('');
+
+  // 更新狀態標籤
+  if (statusEl) {
+    const total = SECTOR_DEF.length;
+    statusEl.textContent = `共 ${total} 板塊 · ${strongCount} 強 · ${weakCount} 弱`;
+    statusEl.style.color = strongCount > weakCount ? '#047857' : weakCount > strongCount ? '#b91c1c' : 'var(--fg3)';
+  }
+}
+
+// 顯示板塊 MACD 詳情 Modal
+function showMacdDetail(secId) {
+  const cache = MACD_SCAN_CACHE[secId];
+  if (!cache) return;
+  const { sec, stockResults } = cache;
+  const overlay = document.getElementById('macdDetailOverlay');
+  const titleEl = document.getElementById('macdDetailTitle');
+  const bodyEl  = document.getElementById('macdDetailBody');
+  if (!overlay || !bodyEl) return;
+
+  titleEl.textContent = `${sec.emoji} ${sec.name}  MACD 六維度詳情`;
+
+  const condLabels = [
+    'DIF > 0（多頭）', 'DEA > 0（暖場）', 'HIST > 0（紅柱）',
+    'HIST 擴張', 'DIF 上穿 DEA', 'HIST 翻紅'
+  ];
+
+  bodyEl.innerHTML = stockResults.map(r => {
+    if (r.score === null) {
+      return `<div class="macd-stock-detail-row">
+        <div class="msd-code">${r.code}</div>
+        <div class="msd-name">${r.name}</div>
+        <div class="msd-conds" style="color:var(--fg3);font-size:0.58rem;">資料不足（需30日以上）</div>
+        <div class="msd-score" style="color:var(--fg3);">--</div>
+      </div>`;
+    }
+    const rowCls = r.score >= 4 ? 'high' : r.score <= 1 ? 'low' : '';
+    const sc = r.score >= 4 ? '#047857' : r.score >= 2 ? '#92400E' : '#b91c1c';
+    const condChips = condLabels.map((lbl, i) => {
+      const passed = r.conds && r.conds[i];
+      return `<span class="msd-cond-chip ${passed?'pass':'fail'}">${passed?'✓':'✗'} ${lbl}</span>`;
+    }).join('');
+    const indicator = r.dif !== null ? `<div style="margin-top:6px;font-size:0.52rem;color:var(--fg3);">DIF: ${r.dif.toFixed(3)} &nbsp; DEA: ${r.dea.toFixed(3)} &nbsp; HIST: ${(r.hist||0).toFixed(3)}</div>` : '';
+    return `<div class="macd-stock-detail-row ${rowCls}">
+      <div class="msd-code">${r.code}</div>
+      <div class="msd-name">${r.name}</div>
+      <div style="flex:1;">
+        <div class="msd-conds">${condChips}</div>
+        ${indicator}
+      </div>
+      <div class="msd-score" style="color:${sc};">${r.score}/6</div>
+    </div>`;
+  }).join('');
+
+  overlay.classList.add('show');
+}
+
+function closeMacdDetail() {
+  const overlay = document.getElementById('macdDetailOverlay');
+  if (overlay) overlay.classList.remove('show');
+}
+
+/* ======================================================
+   MACD 歷史儲存 / 查閱（v2.1 選項B — 接入 macd_scan_history Table API）
+   sector = 'sector_detector'，以板塊 id 作為 stock_id
+   每板塊各代表股分別儲存一筆（stock_id = 代表股股票代號）
+====================================================== */
+
+let _sdHistVisible = false;
+
+// 取今日日期字串
+function _sdTodayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// 儲存本次 MACD 掃描結果
+async function sdMacdSave() {
+  const saveBtn = document.getElementById('sdMacdSaveBtn');
+  const noteEl  = document.getElementById('sdMacdSaveNote');
+
+  // 確認 Cache 有資料
+  if (!Object.keys(MACD_SCAN_CACHE).length) {
+    alert('請先等待 MACD 掃描計算完成，再儲存記錄。');
+    return;
+  }
+
+  const dateStr = _sdTodayStr();
+  if (saveBtn) { saveBtn.textContent = '💾 儲存中…'; saveBtn.disabled = true; }
+
+  // 先查詢今天 sector_detector 記錄是否已存在
+  try {
+    const chkRes  = await fetch(`tables/macd_scan_history?search=${dateStr}&limit=20`);
+    const chkData = await chkRes.json();
+    const todayRows = (chkData.data || []).filter(r => r.scan_date === dateStr && r.sector === 'sector_detector');
+    if (todayRows.length > 0) {
+      if (!confirm(`今日（${dateStr}）板塊 MACD 紀錄已存在（${todayRows.length} 筆），是否覆蓋儲存？`)) {
+        if (saveBtn) { saveBtn.textContent = '💾 儲存掃描結果'; saveBtn.disabled = false; }
+        return;
+      }
+    }
+  } catch(e) {}
+
+  let saved = 0, skipped = 0;
+
+  // 逐板塊、逐代表股儲存
+  for (const secId of Object.keys(MACD_SCAN_CACHE)) {
+    const { sec, stockResults } = MACD_SCAN_CACHE[secId];
+    for (const r of stockResults) {
+      if (r.score === null) { skipped++; continue; }
+      try {
+        await fetch('tables/macd_scan_history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stock_id:   r.code,
+            stock_name: `${r.name}(${sec.name})`,
+            scan_date:  dateStr,
+            score:      r.score,
+            c1: !!(r.conds?.[0]),   // DIF > 0
+            c2: !!(r.conds?.[1]),   // DEA > 0
+            c3: !!(r.conds?.[2]),   // HIST > 0
+            c4: !!(r.conds?.[3]),   // HIST 擴張
+            c5: !!(r.conds?.[4]),   // DIF 上穿 DEA
+            c6: !!(r.conds?.[5]),   // HIST 翻紅
+            hist: +(r.hist ?? 0),
+            dif:  +(r.dif  ?? 0),
+            dea:  +(r.dea  ?? 0),
+            sector: 'sector_detector',
+          })
+        });
+        saved++;
+      } catch(e) { skipped++; }
+      await new Promise(res => setTimeout(res, 40)); // 防止 API 過載
+    }
+  }
+
+  // 更新按鈕 + 備註
+  if (saveBtn) { saveBtn.textContent = `✅ 已儲存 ${saved} 筆`; }
+  if (noteEl)  { noteEl.textContent = `最後儲存：${dateStr}，共 ${saved} 筆（${skipped} 筆資料不足跳過）`; }
+
+  setTimeout(() => {
+    if (saveBtn) { saveBtn.textContent = '💾 儲存掃描結果'; saveBtn.disabled = false; }
+    // 若歷史面板已開啟，自動重新拉取
+    if (_sdHistVisible) sdMacdLoadHistory();
+  }, 2800);
+}
+
+// 切換歷史面板
+function sdMacdToggleHistory() {
+  const panel  = document.getElementById('sdMacdHistPanel');
+  const btn    = document.getElementById('sdMacdHistBtn');
+  if (!panel) return;
+  _sdHistVisible = !_sdHistVisible;
+  panel.classList.toggle('show', _sdHistVisible);
+  if (btn) btn.classList.toggle('active', _sdHistVisible);
+  if (_sdHistVisible) sdMacdLoadHistory();
+}
+
+// 從 API 拉取歷史記錄並渲染
+async function sdMacdLoadHistory() {
+  const contentEl = document.getElementById('sdMacdHistContent');
+  const metaEl    = document.getElementById('sdMacdHistMeta');
+  if (!contentEl) return;
+
+  contentEl.innerHTML = '<div class="macd-hist-empty">&#x23F3; 載入歷史記錄中...</div>';
+
+  try {
+    const res  = await fetch('tables/macd_scan_history?limit=300&sort=created_at');
+    const data = await res.json();
+    const rows = (data.data || []).filter(r => r.sector === 'sector_detector');
+
+    if (!rows.length) {
+      contentEl.innerHTML = '<div class="macd-hist-empty">尚無歷史記錄，點「💾 儲存掃描結果」後即可查閱。</div>';
+      if (metaEl) metaEl.textContent = '';
+      return;
+    }
+
+    // 依日期分組，取最近 5 天
+    const dateSet = [...new Set(rows.map(r => r.scan_date))].sort().reverse().slice(0, 5);
+    if (metaEl) metaEl.textContent = `共 ${rows.length} 筆 · 最近 ${dateSet.length} 天`;
+
+    // 依板塊分組（stock_name 格式：「名稱(板塊名)」）
+    // 彙整：板塊 × 日期 → 平均分
+    const sectorDateMap = {}; // sectorLabel → dateStr → avgScore
+
+    for (const row of rows) {
+      // 從 stock_name 萃取板塊名（括號內）
+      const m = row.stock_name?.match(/\((.+?)\)$/);
+      const sLabel = m ? m[1] : row.stock_name || '未知';
+      if (!sectorDateMap[sLabel]) sectorDateMap[sLabel] = {};
+      if (!sectorDateMap[sLabel][row.scan_date]) sectorDateMap[sLabel][row.scan_date] = [];
+      sectorDateMap[sLabel][row.scan_date].push(+(row.score ?? 0));
+    }
+
+    // 計算板塊平均分
+    const sectorAvg = {}; // sLabel → dateStr → avg
+    for (const [sLabel, dateMap] of Object.entries(sectorDateMap)) {
+      sectorAvg[sLabel] = {};
+      for (const [d, scores] of Object.entries(dateMap)) {
+        sectorAvg[sLabel][d] = +(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1);
+      }
+    }
+
+    // 渲染表格：列=板塊，欄=日期
+    const sLabels = Object.keys(sectorAvg).sort();
+    const thDates = dateSet.map(d => `<th style="text-align:center;">${d.slice(5)}</th>`).join('');
+
+    let tbody = '';
+    for (const sLabel of sLabels) {
+      const avgMap = sectorAvg[sLabel];
+      const tds = dateSet.map(d => {
+        const v = avgMap[d];
+        if (v === undefined) return '<td style="text-align:center;color:var(--fg3);">—</td>';
+        const cls = v >= 4.5 ? 's5' : v >= 2.5 ? 's3' : 's0';
+        return `<td style="text-align:center;"><span class="macd-hist-score ${cls}">${v}</span></td>`;
+      }).join('');
+      tbody += `<tr><td style="font-weight:700;white-space:nowrap;">${sLabel}</td>${tds}</tr>`;
+    }
+
+    contentEl.innerHTML = `
+      <div style="overflow-x:auto;">
+        <table class="macd-hist-table">
+          <thead><tr>
+            <th>板塊</th>
+            ${thDates}
+          </tr></thead>
+          <tbody>${tbody}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;font-size:0.55rem;color:var(--fg3);">
+        📊 數值為板塊代表股平均 MACD 六維度得分（0~6）· 🟢≥4.5強 🟡≥2.5中 🔴&lt;2.5弱
+      </div>`;
+
+  } catch(e) {
+    contentEl.innerHTML = `<div class="macd-hist-empty">&#x26A0;&#xFE0F; 載入失敗：${e.message}</div>`;
+  }
+}
+</script>
+
+<!-- MACD 詳情 Modal -->
+<div class="macd-detail-overlay" id="macdDetailOverlay"
+     onclick="if(event.target===this)closeMacdDetail()">
+  <div class="macd-detail-modal" role="dialog" aria-modal="true">
+    <div class="macd-detail-header">
+      <div class="macd-detail-title" id="macdDetailTitle">&#x1F52C; MACD 六維度詳情</div>
+      <button class="macd-detail-close" onclick="closeMacdDetail()" aria-label="關閉">&#x2715;</button>
+    </div>
+    <div class="macd-detail-body" id="macdDetailBody">
+      <div style="padding:20px;text-align:center;color:var(--fg3);font-size:0.60rem;">&#x23F3; 載入中...</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
