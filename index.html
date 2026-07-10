@@ -19696,10 +19696,12 @@ a.module-nav-item.acc-active {
       <input  id="tlInPrice"      type="number" placeholder="建倉價" />
       <input  id="tlInShares"     type="number" placeholder="張數" min="1" />
       <select id="tlInPhase" class="tl-phase-sel">
-        <option value="吸籌期">吸籌期</option>
-        <option value="洗盤期">洗盤期</option>
-        <option value="確認突破">確認突破</option>
-        <option value="觀察中">觀察中</option>
+        <option value="吸籌期">🧲 吸籌期</option>
+        <option value="洗盤期">🌀 洗盤期</option>
+        <option value="啟動期">🎯 啟動期</option>
+        <option value="拉升期">🚀 拉升期</option>
+        <option value="出貨期">⚠️ 出貨期</option>
+        <option value="觀察中">👀 觀察中</option>
       </select>
       <button class="tl-ai-phase-btn" onclick="tlAutoPhase()" title="根據當前分析自動判斷週期">🤖 AI判斷</button>
       <input  id="tlInTarget"     type="number" placeholder="目標價" class="tl-target-inp" />
@@ -56742,8 +56744,8 @@ function tlAutoPhase() {
     return;
   }
   // phaseIdx 1=吸籌 2=洗盤 3=準備啟動(洗盤末) 4=拉升 5=出貨
-  const phaseMap = { 1:'吸籌期', 2:'洗盤期', 3:'洗盤期', 4:'確認突破', 5:'觀察中' };
-  const labelMap = { 1:'吸籌期 🧲', 2:'洗盤期 🌀', 3:'洗盤末期→準備啟動 🚀', 4:'拉升期（確認突破）📈', 5:'出貨期（謹慎觀察）⚠️' };
+  const phaseMap = { 1:'吸籌期', 2:'洗盤期', 3:'啟動期', 4:'拉升期', 5:'出貨期' };
+  const labelMap = { 1:'吸籌期 🧲', 2:'洗盤期 🌀', 3:'啟動期 🎯', 4:'拉升期 🚀', 5:'出貨期 ⚠️' };
   const val = phaseMap[d.phaseIdx];
   document.getElementById('tlInPhase').value = val;
   // 同步填入代號（如果還沒填）
