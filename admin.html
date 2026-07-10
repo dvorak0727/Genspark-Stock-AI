@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>台股AI分析器 · 授權管理後台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh}
+
+/* ── 登入遮罩 ── */
+#loginMask{position:fixed;inset:0;background:#1e293b;display:flex;align-items:center;justify-content:center;z-index:999}
+.login-box{background:#fff;border-radius:16px;padding:36px 32px;width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{font-size:2rem;margin-bottom:8px}
+.login-title{font-size:1.1rem;font-weight:800;color:#1e293b;margin-bottom:4px}
+.login-sub{font-size:.75rem;color:#64748b;margin-bottom:20px}
+.login-input{width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:.88rem;outline:none;margin-bottom:10px}
+.login-input:focus{border-color:#6366f1}
+.login-btn{width:100%;padding:10px;background:#6366f1;color:#fff;border:none;border-radius:9px;font-size:.88rem;font-weight:700;cursor:pointer}
+.login-btn:hover{background:#4f46e5}
+.login-err{font-size:.72rem;color:#dc2626;margin-top:8px;min-height:18px}
+
+/* ── 主頁面 ── */
+#app{display:none}
+.topbar{background:#1e293b;color:#fff;padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.topbar-title{font-size:1rem;font-weight:800}
+.topbar-right{font-size:.76rem;color:#94a3b8;display:flex;align-items:center;gap:16px}
+.logout-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:6px;font-size:.72rem;cursor:pointer}
+
+/* ── 儀表板 ── */
+.container{max-width:1100px;margin:0 auto;padding:24px 16px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.stat-label{font-size:.68rem;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.stat-val{font-size:1.6rem;font-weight:900;color:#1e293b;margin-top:4px}
+.stat-sub{font-size:.65rem;color:#94a3b8;margin-top:2px}
+.stat-card.vip .stat-val{color:#d97706}
+.stat-card.warn .stat-val{color:#dc2626}
+
+/* ── 工具列 ── */
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.search-input{flex:1;min-width:200px;padding:8px 14px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:.82rem;outline:none}
+.search-input:focus{border-color:#6366f1}
+.filter-select{padding:8px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:.8rem;outline:none;background:#fff;color:#1e293b}
+.btn-primary{padding:8px 18px;background:#6366f1;color:#fff;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-primary:hover{background:#4f46e5}
+.btn-outline{padding:8px 14px;background:#fff;border:1.5px solid #e2e8f0;border-radius:9px;font-size:.8rem;cursor:pointer;color:#475569}
+.btn-outline:hover{border-color:#6366f1;color:#6366f1}
+
+/* ── 表格 ── */
+.table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{background:#f8fafc;font-size:.7rem;font-weight:700;color:#64748b;text-transform:uppercase;padding:10px 14px;text-align:left;white-space:nowrap;border-bottom:1px solid #e2e8f0}
+tbody tr{border-bottom:1px solid #f1f5f9;transition:.15s}
+tbody tr:hover{background:#f8fafc}
+tbody td{padding:10px 14px;font-size:.8rem;color:#334155}
+.badge{display:inline-block;font-size:.62rem;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.badge-vip    {background:rgba(245,158,11,.12);color:#b45309}
+.badge-gen    {background:rgba(99,102,241,.1);color:#4f46e5}
+.badge-admin  {background:rgba(16,185,129,.12);color:#065f46;border:1px solid rgba(16,185,129,.3);}
+.badge-annual {background:rgba(16,185,129,.1);color:#059669}
+.badge-monthly{background:rgba(107,114,128,.1);color:#6b7280}
+.badge-active {background:rgba(16,185,129,.12);color:#059669}
+.badge-off    {background:rgba(239,68,68,.1);color:#dc2626}
+.badge-expiring{background:rgba(245,158,11,.15);color:#d97706}
+.action-btn{font-size:.68rem;padding:3px 9px;border-radius:6px;cursor:pointer;border:1px solid #e2e8f0;background:#fff;color:#475569;margin-right:4px}
+.action-btn:hover{border-color:#6366f1;color:#6366f1}
+.action-btn.danger:hover{border-color:#ef4444;color:#ef4444}
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal-box{background:#fff;border-radius:16px;padding:28px 24px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-title{font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em}
+.form-input,.form-select{padding:8px 11px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.82rem;outline:none;color:#1e293b;background:#fff}
+.form-input:focus,.form-select:focus{border-color:#6366f1}
+.form-input[readonly]{background:#f8fafc;color:#64748b}
+.modal-btns{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
+.btn-save{padding:9px 20px;background:#6366f1;color:#fff;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer}
+.btn-cancel{padding:9px 16px;background:#f1f5f9;border:none;border-radius:9px;font-size:.82rem;cursor:pointer;color:#475569}
+.key-display{font-size:.78rem;background:#f0fdf4;border:1.5px solid #86efac;border-radius:8px;padding:8px 12px;color:#166534;font-family:monospace;letter-spacing:.05em;flex:1;}
+.key-display-row{display:flex;align-items:center;gap:8px;margin-top:4px;}
+.key-regen-btn{padding:7px 12px;background:#dcfce7;border:1.5px solid #86efac;border-radius:8px;font-size:.75rem;font-weight:700;color:#166534;cursor:pointer;white-space:nowrap;}
+.key-regen-btn:hover{background:#bbf7d0;}
+.key-mode-tabs{display:flex;gap:6px;margin-top:6px;margin-bottom:8px;flex-wrap:wrap;}
+.key-mode-btn{padding:5px 12px;border:1.5px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:.72rem;font-weight:700;color:#64748b;cursor:pointer;}
+.key-mode-btn:hover{border-color:#6366f1;color:#6366f1;}
+.key-mode-btn.active{background:#6366f1;border-color:#6366f1;color:#fff;}
+.key-mode-btn.gold{border-color:#f59e0b;color:#b45309;}
+.key-mode-btn.gold.active{background:linear-gradient(135deg,#f59e0b,#d97706);border-color:#d97706;color:#fff;}
+.key-status-msg{font-size:.72rem;margin-top:5px;padding:4px 8px;border-radius:6px;min-height:24px;}
+.key-status-msg.ok{color:#166534;background:#f0fdf4;}
+.key-status-msg.err{color:#991b1b;background:#fef2f2;}
+.key-status-msg.warn{color:#92400e;background:#fffbeb;}
+
+/* ── 空狀態 ── */
+.empty{text-align:center;padding:48px;color:#94a3b8;font-size:.82rem}
+
+@media(max-width:640px){
+  .form-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  thead th:nth-child(4),thead th:nth-child(5),td:nth-child(4),td:nth-child(5){display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ── 登入遮罩 ── -->
+<div id="loginMask">
+  <div class="login-box">
+    <div class="login-logo">🔐</div>
+    <div class="login-title">授權管理後台</div>
+    <div class="login-sub">台股AI分析器 · 僅限管理員</div>
+    <input class="login-input" id="adminPwInput" type="password" placeholder="管理員密碼"
+           onkeydown="if(event.key==='Enter')adminLogin()">
+    <button class="login-btn" onclick="adminLogin()">登入</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ── 主頁面 ── -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-title">📊 台股AI分析器 · 授權管理後台</div>
+    <div class="topbar-right">
+      <span id="lastRefresh">—</span>
+      <button class="logout-btn" onclick="adminLogout()">登出</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- 儀表板 -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card"><div class="stat-label">總客戶數</div><div class="stat-val" id="sTotal">—</div></div>
+      <div class="stat-card vip"><div class="stat-label">👑 VIP ($399)</div><div class="stat-val" id="sVip">—</div></div>
+      <div class="stat-card"><div class="stat-label">一般 ($299)</div><div class="stat-val" id="sGen">—</div></div>
+      <div class="stat-card"><div class="stat-label">年付</div><div class="stat-val" id="sAnnual">—</div><div class="stat-sub">月付 <span id="sMonthly">—</span></div></div>
+      <div class="stat-card warn"><div class="stat-label">⚠️ 7天內到期</div><div class="stat-val" id="sExpiring">—</div></div>
+      <div class="stat-card"><div class="stat-label">已停用</div><div class="stat-val" id="sInactive">—</div></div>
+    </div>
+
+    <!-- 工具列 -->
+    <div class="toolbar">
+      <input class="search-input" id="searchInput" placeholder="🔍 搜尋姓名 / 序號 / Email…" oninput="renderTable()">
+      <select class="filter-select" id="filterTier" onchange="renderTable()">
+        <option value="">全部方案</option>
+        <option value="vip">👑 VIP</option>
+        <option value="general">一般</option>
+        <option value="admin">🛡️ 管理人</option>
+      </select>
+      <select class="filter-select" id="filterPay" onchange="renderTable()">
+        <option value="">全部付款</option>
+        <option value="annual">年付</option>
+        <option value="monthly">月付</option>
+      </select>
+      <select class="filter-select" id="filterStatus" onchange="renderTable()">
+        <option value="">全部狀態</option>
+        <option value="active">啟用中</option>
+        <option value="inactive">已停用</option>
+        <option value="expiring">即將到期</option>
+      </select>
+      <button class="btn-outline" onclick="loadAll()">🔄 重整</button>
+      <button class="btn-outline" onclick="exportCSV()">📤 匯出CSV</button>
+      <button class="btn-primary" onclick="openAddModal()">＋ 新增客戶</button>
+    </div>
+
+    <!-- 表格 -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>姓名</th>
+            <th>序號</th>
+            <th>方案</th>
+            <th>付款</th>
+            <th>下訂日</th>
+            <th>到期日</th>
+            <th>狀態</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr><td colspan="8" class="empty">載入中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── 新增/編輯 Modal ── -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <div class="modal-title">
+      <span id="modalTitle">新增客戶</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <div class="form-label">授權序號</div>
+        <!-- 三種模式 -->
+        <div class="key-mode-tabs">
+          <button class="key-mode-btn active" id="kTab_random" onclick="setKeyMode('random')">🎲 隨機產生</button>
+          <button class="key-mode-btn" id="kTab_reuse"  onclick="setKeyMode('reuse')">✏️ 手動輸入序號</button>
+          <button class="key-mode-btn gold" id="kTab_custom" onclick="setKeyMode('custom')">💎 超棒棒序號 +$1,000</button>
+        </div>
+        <!-- 模式1：隨機 -->
+        <div id="keyPanel_random">
+          <div class="key-display-row">
+            <div class="key-display" id="keyDisplay">— 將自動產生 —</div>
+            <button class="key-regen-btn" onclick="regenKey()" title="重新產生">🎲 換一組</button>
+          </div>
+        </div>
+        <!-- 模式2：延用 -->
+        <div id="keyPanel_reuse" style="display:none">
+          <input class="form-input" id="fReuseKey" placeholder="輸入客戶舊序號，例：TSAIU-ABC123DEF456"
+                 oninput="checkKeyExists()" style="font-family:monospace;letter-spacing:.05em;">
+          <div id="keyExistStatus" class="key-status-msg"></div>
+        </div>
+        <!-- 模式3：自訂超棒棒 -->
+        <div id="keyPanel_custom" style="display:none">
+          <div style="font-size:.7rem;color:#b45309;background:#fef3c7;border:1px solid #fcd34d;border-radius:7px;padding:6px 10px;margin-bottom:6px;">
+            💎 客戶付 NT$1,000 即可使用自訂序號，請在備註欄記錄已收款。<br>
+            格式：英數字＋數字，8–24字，不可有空白。
+          </div>
+          <input class="form-input" id="fCustomKey" placeholder="例：IwillbeRich88888"
+                 oninput="validateCustomKey()" style="font-family:monospace;letter-spacing:.05em;text-transform:uppercase;">
+          <div id="customKeyStatus" class="key-status-msg"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="form-label">姓名 *</div>
+        <input class="form-input" id="fName" placeholder="蕭亦婷">
+      </div>
+      <div class="form-group">
+        <div class="form-label">Email</div>
+        <input class="form-input" id="fEmail" placeholder="xxx@gmail.com">
+      </div>
+      <div class="form-group">
+        <div class="form-label">電話</div>
+        <input class="form-input" id="fPhone" placeholder="09xx-xxx-xxx">
+      </div>
+      <div class="form-group">
+        <div class="form-label">方案</div>
+        <select class="form-select" id="fTier" onchange="autoSetExpiry()">
+          <option value="vip">👑 VIP ($399)</option>
+          <option value="general">一般 ($299)</option>
+          <option value="admin">🛡️ 管理人</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">付款方式</div>
+        <select class="form-select" id="fPayment" onchange="autoSetExpiry()">
+          <option value="monthly">月付</option>
+          <option value="annual">年付</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">下訂日期</div>
+        <input class="form-input" id="fSubscribedAt" type="date" oninput="autoSetExpiry()">
+      </div>
+      <div class="form-group">
+        <div class="form-label">到期日</div>
+        <input class="form-input" id="fExpiry" type="date">
+      </div>
+      <div class="form-group full">
+        <div class="form-label">備註</div>
+        <input class="form-input" id="fNote" placeholder="選填">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-save" onclick="saveCustomer()">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Firestore REST API（直連具名資料庫 licenses，不需 SDK）──
+const _FS_PROJECT = 'genspark-ai-stock';
+const _FS_DB      = 'licenses';
+const _FS_KEY     = 'AIzaSyA16i5bWaK3mJyEBN0ATv9Dln-A3xtRoZY';
+const _FS_BASE    = `https://firestore.googleapis.com/v1/projects/${_FS_PROJECT}/databases/${_FS_DB}/documents`;
+const COL = 'licenses';
+
+function _fsParseDoc(raw) {
+  if (!raw?.fields) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(raw.fields)) {
+    if      ('stringValue'  in v) out[k] = v.stringValue;
+    else if ('booleanValue' in v) out[k] = v.booleanValue;
+    else if ('integerValue' in v) out[k] = parseInt(v.integerValue);
+    else if ('doubleValue'  in v) out[k] = v.doubleValue;
+    else                          out[k] = null;
+  }
+  return out;
+}
+function _fsToFields(data) {
+  const f = {};
+  for (const [k, v] of Object.entries(data)) {
+    if      (v === null || v === undefined) f[k] = { nullValue: null };
+    else if (typeof v === 'boolean')        f[k] = { booleanValue: v };
+    else if (typeof v === 'number')         f[k] = Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+    else                                    f[k] = { stringValue: String(v) };
+  }
+  return f;
+}
+function _makeDB() {
+  return {
+    collection(col) {
+      return {
+        async get() {
+          const r = await fetch(`${_FS_BASE}/${col}?pageSize=500&key=${_FS_KEY}`);
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error?.message || '讀取失敗');
+          const docs = (j.documents || []).map(raw => {
+            const id = raw.name.split('/').pop();
+            return { id, exists: true, data: () => _fsParseDoc(raw) };
+          });
+          return { docs };
+        },
+        doc(id) {
+          const enc = encodeURIComponent(id);
+          return {
+            async get() {
+              const r = await fetch(`${_FS_BASE}/${col}/${enc}?key=${_FS_KEY}`);
+              if (r.status === 404) return { exists: false, id, data: () => ({}) };
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error?.message || '讀取失敗');
+              return { exists: true, id, data: () => _fsParseDoc(j) };
+            },
+            async set(data) {
+              const r = await fetch(`${_FS_BASE}/${col}/${enc}?key=${_FS_KEY}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields: _fsToFields(data) })
+              });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error?.message || '寫入失敗');
+            },
+            async update(data) {
+              const fields = _fsToFields(data);
+              const mask = Object.keys(fields).map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+              const r = await fetch(`${_FS_BASE}/${col}/${enc}?${mask}&key=${_FS_KEY}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fields })
+              });
+              const j = await r.json();
+              if (!r.ok) throw new Error(j.error?.message || '更新失敗');
+            }
+          };
+        }
+      };
+    }
+  };
+}
+
+let db = null;
+async function _initDB() {
+  if (!db) db = _makeDB();
+  return db;
+}
+
+// ── 管理員密碼（可修改）──
+const ADMIN_PW = 'tsai@admin2026';
+const ADMIN_SESSION_KEY = 'tsai_admin_v1';
+
+// ── 登入 ──
+function adminLogin() {
+  const pw = document.getElementById('adminPwInput').value;
+  if (pw === ADMIN_PW) {
+    sessionStorage.setItem(ADMIN_SESSION_KEY, '1');
+    document.getElementById('loginMask').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadAll();
+  } else {
+    document.getElementById('loginErr').textContent = '密碼錯誤';
+  }
+}
+function adminLogout() {
+  sessionStorage.removeItem(ADMIN_SESSION_KEY);
+  location.reload();
+}
+if (sessionStorage.getItem(ADMIN_SESSION_KEY) === '1') {
+  document.getElementById('loginMask').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadAll();
+}
+
+// ── 資料 ──
+let _all = [];
+
+async function loadAll() {
+  try {
+    const fdb = await _initDB();
+    if (!fdb) return;
+    const snap = await fdb.collection(COL).get();
+    _all = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+    updateStats();
+    renderTable();
+    document.getElementById('lastRefresh').textContent =
+      '更新：' + new Date().toLocaleTimeString('zh-TW');
+  } catch(e) {
+    alert('Firestore 讀取失敗：' + e.message + '\n請確認 Firestore 安全性規則允許讀取。');
+  }
+}
+
+// ── 統計 ──
+function updateStats() {
+  const today = new Date().toISOString().slice(0,10);
+  const soon = new Date(); soon.setDate(soon.getDate()+7);
+  const soonStr = soon.toISOString().slice(0,10);
+  const active = _all.filter(r => r.active !== false);
+  document.getElementById('sTotal').textContent    = _all.length;
+  document.getElementById('sVip').textContent      = _all.filter(r=>r.tier==='vip').length;
+  document.getElementById('sGen').textContent      = _all.filter(r=>r.tier==='general').length;
+  document.getElementById('sAnnual').textContent   = _all.filter(r=>r.paymentType==='annual').length;
+  document.getElementById('sMonthly').textContent  = _all.filter(r=>r.paymentType==='monthly').length;
+  document.getElementById('sExpiring').textContent = active.filter(r=>r.expiry&&r.expiry<=soonStr&&r.expiry>=today).length;
+  document.getElementById('sInactive').textContent = _all.filter(r=>r.active===false).length;
+}
+
+// ── 渲染表格 ──
+function renderTable() {
+  const kw    = (document.getElementById('searchInput').value||'').toLowerCase();
+  const tier  = document.getElementById('filterTier').value;
+  const pay   = document.getElementById('filterPay').value;
+  const stat  = document.getElementById('filterStatus').value;
+  const today = new Date().toISOString().slice(0,10);
+  const soon  = new Date(); soon.setDate(soon.getDate()+7);
+  const soonStr = soon.toISOString().slice(0,10);
+
+  let list = _all.filter(r => {
+    if (kw && !( (r.user||'').toLowerCase().includes(kw) ||
+                 (r._id||'').toLowerCase().includes(kw) ||
+                 (r.email||'').toLowerCase().includes(kw) )) return false;
+    if (tier && r.tier !== tier) return false;
+    if (pay  && r.paymentType !== pay) return false;
+    if (stat === 'active'   && r.active === false) return false;
+    if (stat === 'inactive' && r.active !== false) return false;
+    if (stat === 'expiring' && !(r.expiry && r.expiry <= soonStr && r.expiry >= today && r.active !== false)) return false;
+    return true;
+  });
+
+  list.sort((a,b) => (b.subscribedAt||'').localeCompare(a.subscribedAt||''));
+
+  const tbody = document.getElementById('tableBody');
+  if (!list.length) { tbody.innerHTML='<tr><td colspan="8" class="empty">沒有符合的客戶</td></tr>'; return; }
+
+  tbody.innerHTML = list.map(r => {
+    const isActive  = r.active !== false;
+    const expiring  = isActive && r.expiry && r.expiry <= soonStr && r.expiry >= today;
+    const expired   = r.expiry && r.expiry < today;
+    const tierBadge = r.tier==='vip'
+      ? '<span class="badge badge-vip">👑 VIP</span>'
+      : r.tier==='admin'
+      ? '<span class="badge badge-admin">🛡️ 管理人</span>'
+      : '<span class="badge badge-gen">一般</span>';
+    const payBadge = r.paymentType==='annual'
+      ? '<span class="badge badge-annual">年付</span>'
+      : '<span class="badge badge-monthly">月付</span>';
+    const statBadge = !isActive
+      ? '<span class="badge badge-off">停用</span>'
+      : expiring
+        ? '<span class="badge badge-expiring">⚠️ 即將到期</span>'
+        : expired
+          ? '<span class="badge badge-off">已過期</span>'
+          : '<span class="badge badge-active">啟用中</span>';
+    return `<tr>
+      <td><b>${r.user||'—'}</b>${r.email?`<br><span style="color:#94a3b8;font-size:.68rem">${r.email}</span>`:''}</td>
+      <td style="font-family:monospace;font-size:.72rem">${r._id}</td>
+      <td>${tierBadge}</td>
+      <td>${payBadge}</td>
+      <td>${r.subscribedAt||'—'}</td>
+      <td style="${expired?'color:#dc2626':expiring?'color:#d97706':''}">${r.expiry||'—'}</td>
+      <td>${statBadge}</td>
+      <td>
+        <button class="action-btn" onclick='openEditModal(${JSON.stringify(r)})'>✏️ 編輯</button>
+        <button class="action-btn ${isActive?'danger':''}" onclick="toggleActive('${r._id}',${isActive})">
+          ${isActive?'⏸ 停用':'▶ 啟用'}
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── 啟用/停用 ──
+async function toggleActive(id, isActive) {
+  const msg = isActive ? `確定要停用序號 ${id} 嗎？` : `確定要重新啟用 ${id} 嗎？`;
+  if (!confirm(msg)) return;
+  const fdb = await _initDB(); if (!fdb) return;
+  await fdb.collection(COL).doc(id).update({ active: !isActive });
+  await loadAll();
+}
+
+// ── 產生序號 ──
+function genKey() {
+  const hex = () => Math.floor(Math.random()*0x100000000).toString(16).toUpperCase().padStart(8,'0');
+  return 'TSAIU-' + hex().slice(0,6) + hex().slice(0,6);
+}
+
+function regenKey() {
+  const key = genKey();
+  document.getElementById('keyDisplay').textContent = key;
+  document.getElementById('keyDisplay').dataset.key = key;
+}
+
+// ── 序號模式切換 ──
+let _keyMode = 'random';
+function setKeyMode(mode) {
+  _keyMode = mode;
+  ['random','reuse','custom'].forEach(m => {
+    document.getElementById(`keyPanel_${m}`).style.display = m === mode ? '' : 'none';
+    const btn = document.getElementById(`kTab_${m}`);
+    btn.classList.toggle('active', m === mode);
+  });
+}
+
+// ── 延用序號：查核是否已存在 ──
+let _checkTimer = null;
+async function checkKeyExists() {
+  const val = document.getElementById('fReuseKey').value.trim().toUpperCase();
+  const el  = document.getElementById('keyExistStatus');
+  el.className = 'key-status-msg';
+  el.textContent = '';
+  if (!val) return;
+  clearTimeout(_checkTimer);
+  el.textContent = '🔍 查核中…';
+  _checkTimer = setTimeout(async () => {
+    try {
+      const fdb = await _initDB(); if (!fdb) return;
+      const doc = await fdb.collection(COL).doc(val).get();
+      if (doc.exists) {
+        const d = doc.data();
+        el.className = 'key-status-msg err';
+        el.textContent = `❌ 此序號已被使用：${d.user || ''}（${d.tier || ''}），請換一組。`;
+      } else {
+        el.className = 'key-status-msg ok';
+        el.textContent = '✅ 序號可用，尚無人使用。';
+      }
+    } catch(e) { el.className='key-status-msg err'; el.textContent='查詢失敗：'+e.message; }
+  }, 600);
+}
+
+// ── 超棒棒序號：格式驗證 ──
+function validateCustomKey() {
+  const val = document.getElementById('fCustomKey').value.trim().toUpperCase();
+  const el  = document.getElementById('customKeyStatus');
+  document.getElementById('fCustomKey').value = val;
+  if (!val) { el.className='key-status-msg'; el.textContent=''; return; }
+  if (/\s/.test(val))         { el.className='key-status-msg err'; el.textContent='❌ 不可包含空白'; return; }
+  if (!/^[A-Z0-9]+$/.test(val)) { el.className='key-status-msg err'; el.textContent='❌ 只能使用英文大寫字母與數字'; return; }
+  if (val.length < 8)         { el.className='key-status-msg warn'; el.textContent=`⚠️ 太短了（${val.length} 字），建議至少 8 字`; return; }
+  if (val.length > 24)        { el.className='key-status-msg err';  el.textContent='❌ 最多 24 字'; return; }
+  el.className='key-status-msg ok';
+  el.textContent = `✅ 格式正確！序號將設為：${val}（記得在備註欄記錄已收 NT$1,000）`;
+}
+
+// ── 取得當前序號（依模式）──
+function getCurrentKey() {
+  if (_keyMode === 'random') return document.getElementById('keyDisplay').dataset.key || '';
+  if (_keyMode === 'reuse')  return document.getElementById('fReuseKey').value.trim().toUpperCase();
+  if (_keyMode === 'custom') return document.getElementById('fCustomKey').value.trim().toUpperCase();
+  return '';
+}
+
+// ── 自動計算到期日 ──
+function autoSetExpiry() {
+  const start = document.getElementById('fSubscribedAt').value;
+  const pay   = document.getElementById('fPayment').value;
+  if (!start) return;
+  const d = new Date(start);
+  if (pay === 'annual')  d.setFullYear(d.getFullYear()+1);
+  else                   d.setMonth(d.getMonth()+1);
+  document.getElementById('fExpiry').value = d.toISOString().slice(0,10);
+}
+
+// ── Modal ──
+let _editId = null;
+
+function openAddModal() {
+  _editId = null;
+  document.getElementById('modalTitle').textContent = '➕ 新增客戶';
+  // 重置序號模式
+  setKeyMode('random');
+  regenKey();
+  document.getElementById('fReuseKey').value = '';
+  document.getElementById('keyExistStatus').textContent = '';
+  document.getElementById('fCustomKey').value = '';
+  document.getElementById('customKeyStatus').textContent = '';
+  ['fName','fEmail','fPhone','fNote'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fTier').value = 'vip';
+  document.getElementById('fPayment').value = 'monthly';
+  document.getElementById('fSubscribedAt').value = new Date().toISOString().slice(0,10);
+  autoSetExpiry();
+  document.getElementById('editModal').classList.add('show');
+}
+
+function openEditModal(r) {
+  _editId = r._id;
+  document.getElementById('modalTitle').textContent = '✏️ 編輯客戶';
+  document.getElementById('keyDisplay').textContent = r._id;
+  document.getElementById('keyDisplay').dataset.key = r._id;
+  document.getElementById('fName').value        = r.user || '';
+  document.getElementById('fEmail').value       = r.email || '';
+  document.getElementById('fPhone').value       = r.phone || '';
+  document.getElementById('fTier').value        = r.tier || 'vip';
+  document.getElementById('fPayment').value     = r.paymentType || 'monthly';
+  document.getElementById('fSubscribedAt').value= r.subscribedAt || '';
+  document.getElementById('fExpiry').value      = r.expiry || '';
+  document.getElementById('fNote').value        = r.note || '';
+  document.getElementById('editModal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('editModal').classList.remove('show'); }
+
+async function saveCustomer() {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) { alert('請填入姓名'); return; }
+  const key = _editId
+    ? document.getElementById('keyDisplay').dataset.key
+    : getCurrentKey();
+  if (!key) { alert('請設定授權序號'); return; }
+  if (_keyMode === 'custom' && !/^[A-Z0-9]{8,24}$/.test(key))
+    { alert('超棒棒序號格式不正確，請重新確認'); return; }
+  if (_keyMode === 'reuse') {
+    try {
+      const fdb2 = await _initDB();
+      if (fdb2) {
+        const doc = await fdb2.collection(COL).doc(key).get();
+        if (doc.exists) { alert('❌ 此序號已被使用，請換一組'); return; }
+      }
+    } catch(e) { /* 離線時跳過重複檢查，直接存 */ }
+  }
+  const data = {
+    licenseKey:   key,
+    user:         name,
+    email:        document.getElementById('fEmail').value.trim(),
+    phone:        document.getElementById('fPhone').value.trim(),
+    tier:         document.getElementById('fTier').value,
+    paymentType:  document.getElementById('fPayment').value,
+    subscribedAt: document.getElementById('fSubscribedAt').value,
+    expiry:       document.getElementById('fExpiry').value,
+    note:         document.getElementById('fNote').value.trim(),
+    active:       true,
+  };
+  try {
+    const fdb = await _initDB(); if (!fdb) { alert('Firebase 未初始化'); return; }
+    await fdb.collection(COL).doc(key).set(data, { merge: true });
+    closeModal();
+    await loadAll();
+    alert(`✅ ${_editId ? '已更新' : '已新增'} ${name} 的授權\n序號：${key}`);
+  } catch(e) { alert('儲存失敗：' + e.message); }
+}
+
+// ── CSV 匯出 ──
+function exportCSV() {
+  const hdr = ['序號','姓名','Email','電話','方案','付款','下訂日','到期日','狀態','備註'];
+  const rows = _all.map(r => [
+    r._id, r.user||'', r.email||'', r.phone||'',
+    r.tier==='vip'?'VIP':'一般',
+    r.paymentType==='annual'?'年付':'月付',
+    r.subscribedAt||'', r.expiry||'',
+    r.active===false?'停用':'啟用',
+    r.note||''
+  ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(','));
+  const csv = '﻿' + [hdr.join(','), ...rows].join('\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})),
+    download: `授權清單_${new Date().toISOString().slice(0,10)}.csv`
+  });
+  a.click();
+}
+
+// 點背景關閉
+document.getElementById('editModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('editModal')) closeModal();
+});
+document.getElementById('adminPwInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') adminLogin();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>台股AI分析器 — 授權碼管理</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f172a; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; padding: 24px; }
+h1 { color: #f8fafc; font-size: 1.4rem; margin-bottom: 4px; }
+.sub { color: #64748b; font-size: 0.83rem; margin-bottom: 24px; }
+.card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.card h2 { font-size: 1rem; color: #94a3b8; margin-bottom: 14px; }
+label { display: block; font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px; margin-top: 10px; }
+input, select { width: 100%; padding: 9px 12px; border-radius: 7px; border: 1px solid #475569;
+  background: #0f172a; color: #f8fafc; font-size: 0.9rem; outline: none; }
+input:focus { border-color: #3b82f6; }
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; }
+button { padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 0.9rem; font-weight: 600; transition: opacity .15s; }
+button:hover { opacity: .85; }
+.btn-primary { background: #3b82f6; color: #fff; width: 100%; margin-top: 12px; }
+.btn-danger  { background: #ef4444; color: #fff; padding: 5px 10px; font-size: 0.78rem; }
+.btn-sm      { background: #334155; color: #94a3b8; padding: 5px 10px; font-size: 0.78rem; }
+.result { margin-top: 12px; padding: 12px; border-radius: 8px; background: #0f172a;
+  font-family: monospace; font-size: 0.85rem; word-break: break-all; display: none; }
+.result.ok  { border: 1px solid #22c55e; color: #86efac; }
+.result.err { border: 1px solid #ef4444; color: #fca5a5; }
+table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+th { text-align: left; padding: 8px 10px; color: #64748b; border-bottom: 1px solid #334155; }
+td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+.badge.active   { background: rgba(34,197,94,.15); color: #86efac; }
+.badge.expired  { background: rgba(245,158,11,.15); color: #fcd34d; }
+.badge.revoked  { background: rgba(239,68,68,.15);  color: #fca5a5; }
+.key-val { font-family: monospace; font-size: 0.8rem; color: #93c5fd; cursor: pointer; }
+.key-val:hover { text-decoration: underline; }
+#loginWall { position: fixed; inset: 0; background: #0f172a; display: flex;
+  align-items: center; justify-content: center; z-index: 99; }
+#loginBox { background: #1e293b; border: 1px solid #334155; border-radius: 14px;
+  padding: 36px; width: 320px; text-align: center; }
+#loginBox h2 { color: #f8fafc; margin-bottom: 8px; }
+#loginBox p  { color: #64748b; font-size: 0.82rem; margin-bottom: 20px; }
+#loginMsg { color: #f87171; font-size: 0.8rem; margin-top: 10px; min-height: 18px; }
+.notice { background: #1e3a5f; border: 1px solid #2563eb; border-radius: 8px;
+  padding: 12px 14px; font-size: 0.8rem; color: #93c5fd; margin-top: 12px; line-height: 1.6; }
+.notice code { background: #0f172a; padding: 1px 6px; border-radius: 4px; font-family: monospace; }
+</style>
+</head>
+<body>
+
+<!-- 登入牆 -->
+<div id="loginWall">
+  <div id="loginBox">
+    <div style="font-size:2rem;margin-bottom:10px;">🔐</div>
+    <h2>管理員登入</h2>
+    <p>台股AI分析器 授權碼管理後台</p>
+    <input id="adminPwInput" type="password" placeholder="管理員密碼" style="margin-bottom:10px;" />
+    <button class="btn-primary" onclick="adminLogin()" style="margin-top:0;">登入</button>
+    <div id="loginMsg"></div>
+  </div>
+</div>
+
+<h1>🔑 台股AI分析器 — 授權碼管理</h1>
+<p class="sub">管理員後台 · 個人授權碼發放與撤銷</p>
+
+<!-- 產生個人碼 -->
+<div class="card">
+  <h2>➕ 產生新授權碼</h2>
+  <div class="row">
+    <div>
+      <label>用戶姓名 / 備註</label>
+      <input id="genUser" type="text" placeholder="例：王小明" />
+    </div>
+    <div>
+      <label>有效期限</label>
+      <input id="genExpiry" type="date" />
+    </div>
+  </div>
+  <button class="btn-primary" onclick="generateKey()">產生授權碼</button>
+  <div id="genResult" class="result"></div>
+  <div class="notice" id="genNotice" style="display:none;">
+    <strong>⚠️ 新增到 Cloud Run 環境變數步驟：</strong><br/>
+    1. 前往 <strong>Cloud Run → stock-api → 編輯及部署新的修訂版本</strong><br/>
+    2. 找到「容器、磁碟區、網路、安全性」→「變數與密鑰」<br/>
+    3. 找到環境變數 <code>VALID_KEYS</code>，把下方這行加到末尾（用逗號分隔）：<br/>
+    <div id="genEntry" style="margin-top:8px;padding:8px;background:#0f172a;border-radius:6px;font-family:monospace;word-break:break-all;"></div>
+    4. 按「部署」，約30秒後生效。
+  </div>
+</div>
+
+<!-- 用戶清單 -->
+<div class="card">
+  <h2>👥 目前授權用戶</h2>
+  <button class="btn-sm" onclick="loadKeys()" style="margin-bottom:12px;">🔄 重新載入</button>
+  <div id="keyTable">載入中…</div>
+</div>
+
+<!-- 月份碼（共用） -->
+<div class="card">
+  <h2>📅 本月共用授權碼（管理員）</h2>
+  <div class="row">
+    <div>
+      <label>月份</label>
+      <input id="hmacMonth" type="month" />
+    </div>
+  </div>
+  <button class="btn-primary" onclick="genHmac()" style="margin-top:12px;">產生月份碼</button>
+  <div id="hmacResult" class="result"></div>
+</div>
+
+<script>
+const API = 'https://stock-api-214539875795.asia-east1.run.app';
+let ADMIN_SECRET = '';
+
+function adminLogin() {
+  const pw = document.getElementById('adminPwInput').value.trim();
+  if (!pw) return;
+  ADMIN_SECRET = pw;
+  // 測試是否正確
+  fetch(`${API}?action=list&admin_secret=${encodeURIComponent(pw)}`)
+    .then(r => r.json())
+    .then(j => {
+      if (Array.isArray(j.keys)) {
+        document.getElementById('loginWall').style.display = 'none';
+        loadKeys();
+        // 預設今天加一個月
+        const d = new Date(); d.setMonth(d.getMonth()+1); d.setDate(0);
+        document.getElementById('genExpiry').value = d.toISOString().slice(0,10);
+        document.getElementById('hmacMonth').value = new Date().toISOString().slice(0,7);
+      } else {
+        document.getElementById('loginMsg').textContent = '密碼錯誤';
+      }
+    })
+    .catch(() => { document.getElementById('loginMsg').textContent = '連線失敗'; });
+}
+
+document.getElementById('adminPwInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') adminLogin();
+});
+
+async function generateKey() {
+  const user   = document.getElementById('genUser').value.trim() || 'user';
+  const expiry = document.getElementById('genExpiry').value;
+  if (!expiry) { alert('請選擇有效期限'); return; }
+
+  const r = await fetch(`${API}?action=generate&admin_secret=${encodeURIComponent(ADMIN_SECRET)}&user=${encodeURIComponent(user)}&expiry=${expiry}`);
+  const j = await r.json();
+  const el = document.getElementById('genResult');
+  if (j.key) {
+    el.className = 'result ok';
+    el.style.display = 'block';
+    el.innerHTML = `✅ 授權碼：<strong>${j.key}</strong><br/>用戶：${j.user}　有效期：${j.expiry}<br/><br/>
+      <span style="color:#64748b;font-size:0.75rem;">點擊複製授權碼</span>`;
+    el.onclick = () => { navigator.clipboard.writeText(j.key); el.style.background='#1a2e1a'; setTimeout(()=>el.style.background='',800); };
+
+    document.getElementById('genNotice').style.display = 'block';
+    document.getElementById('genEntry').textContent = j.entry;
+  } else {
+    el.className = 'result err';
+    el.style.display = 'block';
+    el.textContent = '產生失敗：' + JSON.stringify(j);
+  }
+}
+
+async function loadKeys() {
+  const r = await fetch(`${API}?action=list&admin_secret=${encodeURIComponent(ADMIN_SECRET)}`);
+  const j = await r.json();
+  const el = document.getElementById('keyTable');
+  if (!j.keys || j.keys.length === 0) {
+    el.innerHTML = '<div style="color:#64748b;font-size:0.85rem;padding:8px 0;">目前沒有個人授權碼。</div>';
+    return;
+  }
+  const today = new Date().toISOString().slice(0,10);
+  const rows = j.keys.map(k => {
+    const expired = k.expiry < today;
+    const badge = expired ? '<span class="badge expired">已過期</span>' : '<span class="badge active">有效</span>';
+    return `<tr>
+      <td><span class="key-val" onclick="navigator.clipboard.writeText('${k.key}');this.style.color='#86efac';setTimeout(()=>this.style.color='',800)" title="點擊複製">${k.key}</span></td>
+      <td>${k.user || '—'}</td>
+      <td>${k.expiry}</td>
+      <td>${badge}</td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<table>
+    <thead><tr><th>授權碼</th><th>用戶</th><th>到期日</th><th>狀態</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+async function genHmac() {
+  const monthInput = document.getElementById('hmacMonth').value; // YYYY-MM
+  if (!monthInput) { alert('請選擇月份'); return; }
+  const month = monthInput.replace('-',''); // YYYYMM
+  const secret = 'tsai2026stock';
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret),
+    {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(month));
+  const hex = Array.from(new Uint8Array(sig)).map(b=>b.toString(16).padStart(2,'0')).join('').slice(0,8).toUpperCase();
+  const code = `TSAI-${month}-${hex}`;
+  const el = document.getElementById('hmacResult');
+  el.className = 'result ok';
+  el.style.display = 'block';
+  el.innerHTML = `月份碼：<strong>${code}</strong><br/><span style="color:#64748b;font-size:0.75rem;">點擊複製</span>`;
+  el.onclick = () => { navigator.clipboard.writeText(code); el.style.background='#1a2e1a'; setTimeout(()=>el.style.background='',800); };
+}
+</script>
+</body>
+</html>

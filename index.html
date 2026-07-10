@@ -817,6 +817,10 @@
     .tl-add-btn { font-size:.7rem; font-weight:700; padding:4px 12px;
                   background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer; white-space:nowrap; }
     .tl-add-btn:hover { background:#4f46e5; }
+    .tl-ai-phase-btn { font-size:.65rem; font-weight:700; padding:4px 8px;
+                       background:#0ea5e9; color:#fff; border:none; border-radius:6px;
+                       cursor:pointer; white-space:nowrap; flex-shrink:0; }
+    .tl-ai-phase-btn:hover { background:#0284c7; }
 
     /* 記錄列 */
     .tl-record { display:grid; grid-template-columns:1fr auto; gap:8px;
@@ -1113,49 +1117,62 @@
     }
     .wl-pnl-bar-fill.profit { background: #E8343A; }
     .wl-pnl-bar-fill.loss   { background: #16A34A; }
-    /* 買入記錄列表 */
+    /* 買入記錄表格 */
     .wl-lots-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 7px 10px 5px;
-      font-size: 0.68rem;
-      font-weight: 700;
-      color: var(--fg2);
-      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px; font-size: 0.65rem; font-weight: 700;
+      color: var(--fg2); border-bottom: 1px solid var(--border);
       background: var(--bg);
     }
-    .wl-lots-list {
-      max-height: 200px;
-      overflow-y: auto;
-    }
-    .wl-lot-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
+    .wl-lots-list { max-height: 240px; overflow-y: auto; }
+    /* 表頭列 */
+    .wl-lot-thead {
+      display: grid;
+      grid-template-columns: 44px 30px 62px 36px 62px 1fr 20px;
+      gap: 0; padding: 4px 10px;
+      background: var(--surface2);
       border-bottom: 1px solid var(--border);
-      font-size: 0.72rem;
+      font-size: 0.58rem; font-weight: 700;
+      color: var(--fg3); letter-spacing: 0.3px;
+    }
+    .wl-lot-thead span { text-align: right; }
+    .wl-lot-thead span:first-child { text-align: left; }
+    .wl-lot-thead span:nth-child(2) { text-align: center; }
+    /* 資料列 */
+    .wl-lot-row {
+      display: grid;
+      grid-template-columns: 44px 30px 62px 36px 62px 1fr 20px;
+      gap: 0; align-items: center;
+      padding: 5px 10px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.7rem;
     }
     .wl-lot-row:last-child { border-bottom: none; }
-    .wl-lot-date  { color: var(--fg3); width: 60px; flex-shrink: 0; font-size: 0.65rem; }
+    .wl-lot-row > span { text-align: right; }
+    .wl-lot-row.buy-row  { background: rgba(232,52,58,0.03); }
+    .wl-lot-row.sell-row { background: rgba(22,163,74,0.03); }
+    .wl-lot-date  { color: var(--fg3); font-size: 0.62rem; text-align: left !important; }
     .wl-lot-dir {
-      width: 28px; flex-shrink: 0;
-      font-size: 0.62rem; font-weight: 800;
-      border-radius: 4px; padding: 1px 4px;
-      text-align: center;
+      font-size: 0.58rem; font-weight: 800;
+      border-radius: 3px; padding: 1px 3px;
+      text-align: center !important;
     }
     .wl-lot-dir.buy  { background: #FEE2E2; color: #B91C1C; }
     .wl-lot-dir.sell { background: #DCFCE7; color: #15803D; }
-    .wl-lot-price { flex: 1; font-weight: 700; color: var(--fg); }
-    .wl-lot-qty   { width: 44px; text-align: right; color: var(--fg2); font-weight: 600; flex-shrink: 0; }
+    .wl-lot-price { font-weight: 700; color: var(--fg); }
+    .wl-lot-qty   { color: var(--fg2); font-weight: 600; font-size: 0.65rem; }
+    .wl-lot-curr  { color: var(--fg2); font-size: 0.65rem; }
+    .wl-lot-pnl   { font-weight: 800; font-size: 0.72rem; line-height: 1.2; }
+    .wl-lot-pnl.profit { color: #E8343A; }
+    .wl-lot-pnl.loss   { color: #16A34A; }
+    .wl-lot-pnl.neut   { color: var(--fg3); }
     .wl-lot-del {
-      width: 22px; height: 22px;
+      width: 18px; height: 18px;
       background: none; border: 1px solid var(--border2);
-      border-radius: 5px; color: var(--fg3);
-      cursor: pointer; font-size: 0.7rem;
+      border-radius: 4px; color: var(--fg3);
+      cursor: pointer; font-size: 0.65rem;
       display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; transition: 0.15s;
+      transition: 0.15s; justify-self: center;
     }
     .wl-lot-del:hover { border-color: var(--down); color: var(--down); background: #FEE2E2; }
     /* 新增買賣單輸入區 */
@@ -8128,6 +8145,65 @@
     .phase-ruler-step.p4 { background:rgba(245,158,11,0.1); color:#D97706; }
     .phase-ruler-step.p5 { background:rgba(220,38,38,0.1);  color:#DC2626; }
     .phase-ruler-step.inactive { background:var(--bg); color:var(--fg3); opacity:0.5; }
+
+    /* 週期生命線 */
+    #phaseLifeline { margin:6px 0 8px; }
+    .lifeline-wrap { }
+    .lifeline-label { font-size:0.62rem; color:var(--fg3); letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; display:flex; align-items:center; justify-content:space-between; }
+    .lifeline-label b { color:var(--fg2); font-size:0.68rem; }
+    .lifeline-track { display:flex; height:18px; border-radius:8px; overflow:hidden; gap:2px; }
+    .lifeline-seg {
+      display:flex; align-items:center; justify-content:center;
+      font-size:0.52rem; font-weight:700; letter-spacing:.3px;
+      border-radius:4px; transition:all .4s; position:relative; overflow:hidden;
+      white-space:nowrap;
+    }
+    .lifeline-seg .seg-fill {
+      position:absolute; left:0; top:0; bottom:0;
+      border-radius:4px 0 0 4px;
+      transition:width .6s ease;
+    }
+    .lifeline-seg .seg-text { position:relative; z-index:1; padding:0 4px; }
+    .lifeline-seg.inactive { opacity:0.28; }
+    .lifeline-seg.active   { opacity:1; box-shadow:0 0 0 2px currentColor; }
+    .lifeline-seg.done     { opacity:0.55; }
+    .ls1 { background:rgba(109,40,217,0.12); color:#6D28D9; }
+    .ls2 { background:rgba(37,99,235,0.12);  color:#1D4ED8; }
+    .ls3 { background:rgba(16,185,129,0.12); color:#059669; }
+    .ls4 { background:rgba(245,158,11,0.12); color:#D97706; }
+    .ls5 { background:rgba(220,38,38,0.12);  color:#DC2626; }
+    .ls1 .seg-fill { background:rgba(109,40,217,0.5); }
+    .ls2 .seg-fill { background:rgba(37,99,235,0.5);  }
+    .ls3 .seg-fill { background:rgba(16,185,129,0.5); }
+    .ls4 .seg-fill { background:rgba(245,158,11,0.5); }
+    .ls5 .seg-fill { background:rgba(220,38,38,0.55); }
+    .lifeline-footer { display:flex; align-items:center; justify-content:space-between; margin-top:5px; font-size:0.65rem; color:var(--fg3); }
+    .lifeline-ratio  { font-size:0.6rem; color:var(--fg3); opacity:.7; }
+    .lifeline-news-warn { margin-top:6px; font-size:0.7rem; padding:5px 10px; border-radius:7px;
+      background:rgba(220,38,38,0.07); border:1px solid rgba(220,38,38,0.25); color:#b91c1c;
+      display:flex; align-items:flex-start; gap:6px; line-height:1.5; }
+
+    /* 操盤教練提示框 */
+    #phaseCoachBox { margin:8px 0 4px; }
+    .phase-coach {
+      display:flex; align-items:flex-start; gap:10px;
+      border-radius:10px; padding:10px 13px;
+      font-size:0.75rem; line-height:1.65; border:1px solid transparent;
+    }
+    .phase-coach-icon { font-size:1.35rem; flex-shrink:0; margin-top:1px; }
+    .phase-coach-body {}
+    .phase-coach-title { font-weight:800; font-size:0.78rem; margin-bottom:3px; }
+    .phase-coach-text  { opacity:0.88; }
+    .phase-coach.c1 { background:rgba(109,40,217,0.09); border-color:rgba(109,40,217,0.25); color:#6D28D9; }
+    .phase-coach.c2 { background:rgba(37,99,235,0.09);  border-color:rgba(37,99,235,0.25);  color:#1D4ED8; }
+    .phase-coach.c3 { background:rgba(16,185,129,0.09); border-color:rgba(16,185,129,0.25); color:#059669; }
+    .phase-coach.c4 { background:rgba(245,158,11,0.09); border-color:rgba(245,158,11,0.25); color:#D97706; }
+    .phase-coach.c5 { background:rgba(220,38,38,0.09);  border-color:rgba(220,38,38,0.4);   color:#DC2626;
+                      animation:coachPulse5 1.4s infinite; }
+    @keyframes coachPulse5 {
+      0%,100%{ box-shadow:0 0 0 0 rgba(220,38,38,0.3); }
+      55%    { box-shadow:0 0 0 5px rgba(220,38,38,0); }
+    }
     .phase-ruler-emoji { font-size:0.88rem; line-height:1; }
     .phase-ruler-name  { font-size:0.56rem; font-weight:700; margin-top:2px; line-height:1.2; }
     @media(max-width:520px){ .phase-ruler-name{ display:none; } }
@@ -15555,12 +15631,15 @@ a.module-nav-item.acc-active {
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
-    <button class="ks-shortcut-btn" onclick="_openTeachPanel()" title="每日5股教學操盤" style="border:1.5px solid #10b981;color:#10b981;">
+    <button class="ks-shortcut-btn" onclick="if(!isVIP()){vipModalOpen('teachCard');return;}_openTeachPanel()" title="每日5股教學操盤 (👑 VIP)" style="border:1.5px solid #10b981;color:#10b981;">
       <span class="ks-sb-icon">📚</span> 教學操盤
     </button>
+    <button class="ks-shortcut-btn" onclick="openStockSim()" title="股市大富翁模擬操盤 (👑 VIP)" style="border:1.5px solid #f59e0b;color:#f59e0b;">
+      <span class="ks-sb-icon">🎲</span> 大富翁
+    </button>
     <a class="ks-shortcut-btn" href="#knowledgeStation"
-       onclick="setTimeout(()=>document.getElementById('knowledgeStation').scrollIntoView({behavior:'smooth'}),10);return false;"
-       title="跳至知識/技術補充站">
+       onclick="if(!isVIP()){vipModalOpen('knowledgeStation');return false;}setTimeout(()=>document.getElementById('knowledgeStation').scrollIntoView({behavior:'smooth'}),10);return false;"
+       title="跳至知識站 (👑 VIP)">
       <span class="ks-sb-icon">📖</span> 知識站
     </a>
     <!-- ★ v7.17 OnboardingGuide 重新開啟按鈕 -->
@@ -17500,6 +17579,12 @@ a.module-nav-item.acc-active {
           <div class="phase-ruler-name">出貨期</div>
         </div>
       </div>
+
+      <!-- 週期生命線 -->
+      <div id="phaseLifeline"></div>
+
+      <!-- 操盤教練提示 -->
+      <div id="phaseCoachBox"></div>
 
       <!-- ① TRT 力場橫幅（全寬） -->
       <div class="trt-banner axis1" id="trtBanner">
@@ -19605,6 +19690,7 @@ a.module-nav-item.acc-active {
         <option value="確認突破">確認突破</option>
         <option value="觀察中">觀察中</option>
       </select>
+      <button class="tl-ai-phase-btn" onclick="tlAutoPhase()" title="根據當前分析自動判斷週期">🤖 AI判斷</button>
       <input  id="tlInTarget"     type="number" placeholder="目標價" class="tl-target-inp" />
       <input  id="tlInStopLoss"   type="number" placeholder="停損價" class="tl-sl-inp" />
       <button class="tl-add-btn"  onclick="tlAddOrder()">＋ 加入</button>
@@ -43690,6 +43776,8 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
   const scores = [s1, s2, s3, s4, s5];
   const maxScore = Math.max(...scores);
   const phaseIdx = scores.indexOf(maxScore) + 1;  // 1~5
+  // 橋接給下單清單 AI 判斷用
+  window._teachData = Object.assign(window._teachData || {}, { phaseIdx, phaseScores: scores });
 
   // ── D. 上衝信心分數（Phase 3 最核心）──
   // 核心邏輯：籌碼乾淨度 × 洗盤完成度 × 技術確認
@@ -43975,6 +44063,83 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
   set('phaseConfNum',    conf);
   set('phaseConfAction', `${ph.emoji} ${ph.action}`);
   set('phaseConfDesc',   ph.desc);
+
+  // 操盤教練提示
+  const COACH = {
+    1: { icon:'🧲', title:'現在是吸籌期，不會漲的啦！',
+         text:'主力還在悄悄收貨，短期不會拉升。你可以分批建倉，但別期待立刻動——除非你要玩短線，另當別論。這時候最好的操作，就是買了放著，然後去喝咖啡。' },
+    2: { icon:'🚿', title:'洗盤期——主力在嚇你賣！',
+         text:'價格會回到均線，甚至把你的成本下移來洗掉你。這不是壞消息，這是主力在做最後的清倉動作。你的任務只有一個：不要被甩出去。' },
+    3: { icon:'🎯', title:'準備啟動！量能是關鍵。',
+         text:'洗盤接近尾聲，主力開始試拉。還沒進場的，等回踩確認；已有倉位的，繼續放。這段需要觀察量能是否同步放大，放量才是真突破。' },
+    4: { icon:'🚀', title:'拉升中——不要理它啦！',
+         text:'主升浪進行中。這時候最錯誤的事就是賣——讓它漲！手不要癢，不要因為「賺了一些」就跑掉。主力還沒倒貨，你跑什麼？' },
+    5: { icon:'⚠️', title:'倒貨初現——大家歡呼時，你可以收了。',
+         text:'市場還在 happy，新聞還在唱多，但主力已經在出貨了。你不需要等最高點，看到第一天倒貨訊號就開始分批出場。這波你賺到了，下一波再說。' },
+  };
+  const c = COACH[phaseIdx];
+  const coachEl = document.getElementById('phaseCoachBox');
+  if (coachEl && c) {
+    coachEl.innerHTML = `<div class="phase-coach c${phaseIdx}">
+      <div class="phase-coach-icon">${c.icon}</div>
+      <div class="phase-coach-body">
+        <div class="phase-coach-title">${c.title}</div>
+        <div class="phase-coach-text">${c.text}</div>
+      </div>
+    </div>`;
+  }
+
+  // ── 週期生命線 ──
+  // 各階段佔整個週期的時間比例（依 Wyckoff 實測：倒貨最長）
+  const SEGS = [
+    { label:'🧲 吸籌', cls:'ls1', w:14 },
+    { label:'🚿 洗盤', cls:'ls2', w:13 },
+    { label:'🎯 啟動', cls:'ls3', w:10 },
+    { label:'🚀 拉升', cls:'ls4', w:18 },
+    { label:'💰 倒貨', cls:'ls5', w:45 },
+  ];
+  // 估算在當前階段內走了多少%（用現有技術指標推估）
+  let phaseProg = 50; // 預設 50%
+  if (phaseIdx === 1) phaseProg = Math.min(90, Math.max(10, (45 - lRSI) / 25 * 100));          // RSI 越低 = 吸籌越深
+  if (phaseIdx === 2) phaseProg = Math.min(90, Math.max(10, Math.abs(scores[1]-scores[2]) / Math.max(scores[1],1) * 120)); // 2/3 分數差
+  if (phaseIdx === 3) phaseProg = Math.min(90, Math.max(10, (lRSI - 45) / 25 * 100));          // RSI 往上
+  if (phaseIdx === 4) phaseProg = Math.min(90, Math.max(10, (lRSI - 55) / 20 * 100));          // RSI 拉升
+  if (phaseIdx === 5) phaseProg = Math.min(95, Math.max(10, (lRSI > 70 ? (100 - lRSI) / 30 * 80 : 60)));  // RSI 下滑
+  phaseProg = Math.round(phaseProg);
+
+  const totalW = SEGS.reduce((s, g) => s + g.w, 0);
+  // 已走過的完整週期 % = 前幾個階段寬度 + 本階段已走部分
+  const doneW  = SEGS.slice(0, phaseIdx-1).reduce((s, g) => s + g.w, 0);
+  const curW   = SEGS[phaseIdx-1].w;
+  const overallPct = Math.round((doneW + curW * phaseProg / 100) / totalW * 100);
+
+  const segsHtml = SEGS.map((seg, i) => {
+    const idx = i + 1;
+    let stCls = idx < phaseIdx ? 'done' : idx === phaseIdx ? 'active' : 'inactive';
+    const fillW = idx === phaseIdx ? phaseProg : idx < phaseIdx ? 100 : 0;
+    return `<div class="lifeline-seg ${seg.cls} ${stCls}" style="flex:${seg.w}">
+      <div class="seg-fill" style="width:${fillW}%"></div>
+      <div class="seg-text">${seg.label}</div>
+    </div>`;
+  }).join('');
+
+  const newsWarn = phaseIdx >= 4
+    ? `<div class="lifeline-news-warn">📰 <span><b>媒體效應警示：</b>接近倒貨期前後，財經新聞往往最樂觀、法說會最漂亮——那是給散戶接盤用的。大家越 happy，越要準備收。</span></div>`
+    : '';
+
+  const lifeEl = document.getElementById('phaseLifeline');
+  if (lifeEl) lifeEl.innerHTML = `<div class="lifeline-wrap">
+    <div class="lifeline-label">
+      <span>📏 主力週期生命線</span>
+      <b>整體週期已走 ${overallPct}%（本階段 ${phaseProg}%）</b>
+    </div>
+    <div class="lifeline-track">${segsHtml}</div>
+    <div class="lifeline-footer">
+      <span class="lifeline-ratio">吸籌:倒貨 ≈ 1:3 時間比（倒貨期最長，散戶最晚知道）</span>
+      <span>${SEGS[phaseIdx-1].label} 進行中</span>
+    </div>
+    ${newsWarn}
+  </div>`;
 
   // 假跌破
   const fakeWrap = document.getElementById('phaseFakeWrap');
@@ -56193,6 +56358,9 @@ function ksSwitch(panelId) {
 
 // ── 通用知識庫跳轉：模組「📖 理論」按鈕使用 ──
 function goKsTab(tabId, anchorId) {
+  // VIP 門禁：知識站是 VIP 專屬
+  if (!isVIP()) { vipModalOpen('knowledgeStation'); return; }
+
   // 知識站手風琴可能是閉合的，先強制展開
   const ksWrap = document.getElementById('accWrap_knowledgeStation');
   if (ksWrap) ksWrap.classList.add('acc-open');
@@ -56404,31 +56572,20 @@ document.addEventListener('DOMContentLoaded', ()=>{ const e=document.getElementB
 // ==============================================================
 const VIP_KEY = 'vip_activated_v1';
 
-// ── Firebase SDK（Compat）──
-(function loadFirebaseSDK() {
-  const sdks = [
-    'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
-    'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js',
-  ];
-  sdks.forEach(src => {
-    const s = document.createElement('script'); s.src = src; document.head.appendChild(s);
-  });
-})();
-
-function _getFirestore() {
-  try {
-    if (!firebase.apps.length) {
-      firebase.initializeApp({
-        apiKey: "AIzaSyA16i5bWaK3mJyEBN0ATv9Dln-A3xtRoZY",
-        authDomain: "genspark-ai-stock.firebaseapp.com",
-        projectId: "genspark-ai-stock",
-        storageBucket: "genspark-ai-stock.firebasestorage.app",
-        messagingSenderId: "214539875795",
-        appId: "1:214539875795:web:319292bd3704f0b10d2b26",
-      });
-    }
-    return firebase.firestore();
-  } catch { return null; }
+// ── VIP 驗證：直接用 REST API 打 databases/licenses ──
+async function _vipFetchLicense(code) {
+  const base = 'https://firestore.googleapis.com/v1/projects/genspark-ai-stock/databases/licenses/documents';
+  const key  = 'AIzaSyA16i5bWaK3mJyEBN0ATv9Dln-A3xtRoZY';
+  const r    = await fetch(`${base}/licenses/${encodeURIComponent(code)}?key=${key}`);
+  if (r.status === 404) return null;
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error?.message || '驗證失敗');
+  // 解析 Firestore REST 格式
+  const f = j.fields || {};
+  const parse = v => 'stringValue' in v ? v.stringValue : 'booleanValue' in v ? v.booleanValue : null;
+  const out = {};
+  for (const [k, v] of Object.entries(f)) out[k] = parse(v);
+  return out;
 }
 
 // ── 本地快取驗證（避免每次都打 API）──
@@ -56436,6 +56593,7 @@ function isVIP() {
   try {
     const d = JSON.parse(localStorage.getItem(VIP_KEY)||'null');
     if (!d || !d.activated || !d.expiry) return false;
+    if (d.tier === 'admin') return true; // 管理人永久通過，不看到期日
     return d.expiry >= new Date().toISOString().slice(0,10);
   } catch { return false; }
 }
@@ -56462,11 +56620,8 @@ async function vipActivate() {
   errEl.textContent = '🔍 驗證中…';
 
   try {
-    const db = _getFirestore();
-    if (!db) throw new Error('Firebase 尚未載入，請稍後再試');
-    const doc = await db.collection('licenses').doc(code).get();
-    if (!doc.exists) { errEl.textContent = '❌ 序號不存在，請確認後再試'; return; }
-    const data = doc.data();
+    const data = await _vipFetchLicense(code);
+    if (!data) { errEl.textContent = '❌ 序號不存在，請確認後再試'; return; }
     if (data.active === false) { errEl.textContent = '⛔ 此序號已停用，請聯絡管理員'; return; }
     const today = new Date().toISOString().slice(0,10);
     if (data.expiry && data.expiry < today) {
@@ -56490,11 +56645,26 @@ async function vipActivate() {
 }
 
 function _vipUnlock() {
-  if (_vipPendingModId) {
-    const wrap = document.getElementById(`accWrap_${_vipPendingModId}`);
-    if (wrap) wrap.classList.add('acc-open');
-  }
   document.querySelectorAll('.mod-acc-wrap.vip-locked').forEach(w => w.classList.remove('vip-locked'));
+  if (!_vipPendingModId) return;
+  const pid = _vipPendingModId;
+  _vipPendingModId = null;
+  // 知識站是獨立 section，不是手風琴
+  if (pid === 'knowledgeStation') {
+    setTimeout(() => {
+      const sec = document.getElementById('knowledgeStation');
+      if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 400);
+    return;
+  }
+  // 股市大富翁：直接開啟
+  if (pid === 'stockSim') {
+    setTimeout(() => window.open('stock-sim.html', '_blank'), 300);
+    return;
+  }
+  // 一般手風琴模組：展開
+  const wrap = document.getElementById(`accWrap_${pid}`);
+  if (wrap) wrap.classList.add('acc-open');
 }
 
 // 點 modal 背景關閉
@@ -56526,6 +56696,23 @@ function tlSwitchTab(tab) {
 }
 
 // ── 新增建倉 ──
+function tlAutoPhase() {
+  const d = window._teachData;
+  if (!d || !d.phaseIdx) {
+    showEpicToast('請先查詢股票，再讓 AI 判斷週期', '#d97706');
+    return;
+  }
+  // phaseIdx 1=吸籌 2=洗盤 3=準備啟動(洗盤末) 4=拉升 5=出貨
+  const phaseMap = { 1:'吸籌期', 2:'洗盤期', 3:'洗盤期', 4:'確認突破', 5:'觀察中' };
+  const labelMap = { 1:'吸籌期 🧲', 2:'洗盤期 🌀', 3:'洗盤末期→準備啟動 🚀', 4:'拉升期（確認突破）📈', 5:'出貨期（謹慎觀察）⚠️' };
+  const val = phaseMap[d.phaseIdx];
+  document.getElementById('tlInPhase').value = val;
+  // 同步填入代號（如果還沒填）
+  const sidEl = document.getElementById('tlInStockId');
+  if (!sidEl.value && window.aData?.stockId) sidEl.value = window.aData.stockId;
+  showEpicToast(`AI 判斷：${labelMap[d.phaseIdx]}`, '#0ea5e9');
+}
+
 function tlAddOrder() {
   const id    = (document.getElementById('tlInStockId')?.value||'').trim().toUpperCase();
   const price = parseFloat(document.getElementById('tlInPrice')?.value||0);
@@ -57047,6 +57234,8 @@ function toggleWatchlist() {
 function openWatchlist() {
   document.getElementById('watchlistDrawer').classList.add('open');
   document.getElementById('wlOverlay').classList.add('show');
+  const fab = document.getElementById('fabWrap');
+  if (fab) fab.style.right = '358px';
   renderWatchlist();
   updateAlertBtnBadge();
   // 自動背景刷新股價（每次開啟清單時）
@@ -57101,6 +57290,8 @@ async function wlRefreshPrices() {
 function closeWatchlist() {
   document.getElementById('watchlistDrawer').classList.remove('open');
   document.getElementById('wlOverlay').classList.remove('show');
+  const fab = document.getElementById('fabWrap');
+  if (fab) fab.style.right = '18px';
 }
 
 // ============================================================
@@ -57502,23 +57693,41 @@ function renderWatchlist() {
     }
 
     // 買賣記錄列表 HTML
+    const currPx = parseFloat(w.price) || 0;
     let lotsHtml = '';
     if (lots.length > 0) {
       lotsHtml = `
         <div class="wl-lots-header">
           <span>📋 買賣記錄 (${lots.length}筆)</span>
-          <span style="color:var(--fg3);font-weight:400;">總買入 ${pos.totalBuyQty} 張　持有 ${pos.netQty > 0 ? pos.netQty : 0} 張</span>
+          <span style="color:var(--fg3);font-weight:400;">買入 ${pos.totalBuyQty} 張　持有 ${pos.netQty > 0 ? pos.netQty : '已出清'}</span>
         </div>
         <div class="wl-lots-list">
+          <div class="wl-lot-thead">
+            <span>日期</span><span>方向</span><span>成本價</span><span>張數</span><span>現價</span><span>損益 / 報酬</span><span></span>
+          </div>
           ${lots.map((lot, i) => {
             const ld = new Date(lot.date);
             const ldStr = `${ld.getMonth()+1}/${ld.getDate()}`;
-            return `<div class="wl-lot-row">
+            const lp = parseFloat(lot.price);
+            const lq = parseFloat(lot.qty);
+            let pnlHtml = '<span class="wl-lot-pnl neut">—</span>';
+            if (lot.dir === 'buy' && currPx > 0 && lp > 0) {
+              const pnl = (currPx - lp) * lq * 1000;
+              const pct = (currPx - lp) / lp * 100;
+              const cls = pnl > 0 ? 'profit' : pnl < 0 ? 'loss' : 'neut';
+              const sign = pnl > 0 ? '▲' : pnl < 0 ? '▼' : '';
+              pnlHtml = `<span class="wl-lot-pnl ${cls}">${sign}${Math.abs(pnl)>=10000?(Math.abs(pnl)/10000).toFixed(1)+'萬':Math.abs(pnl).toFixed(0)}<br><span style="font-size:0.58rem;font-weight:600;">${sign}${Math.abs(pct).toFixed(1)}%</span></span>`;
+            } else if (lot.dir === 'sell') {
+              pnlHtml = `<span class="wl-lot-pnl neut" style="font-size:0.6rem;">已出場</span>`;
+            }
+            return `<div class="wl-lot-row ${lot.dir}-row">
               <span class="wl-lot-date">${ldStr}</span>
-              <span class="wl-lot-dir ${lot.dir}">${lot.dir==='buy'?'買入':'賣出'}</span>
-              <span class="wl-lot-price">$${parseFloat(lot.price).toFixed(2)}</span>
-              <span class="wl-lot-qty">${parseFloat(lot.qty).toFixed(0)} 張</span>
-              <button class="wl-lot-del" onclick="wlDelLot('${w.id}',${i})" title="刪除此筆">×</button>
+              <span class="wl-lot-dir ${lot.dir}">${lot.dir==='buy'?'買':'賣'}</span>
+              <span class="wl-lot-price">$${lp.toFixed(2)}</span>
+              <span class="wl-lot-qty">${lq.toFixed(0)}張</span>
+              <span class="wl-lot-curr">${currPx > 0 ? '$'+currPx.toFixed(2) : '—'}</span>
+              ${pnlHtml}
+              <button class="wl-lot-del" onclick="wlDelLot('${w.id}',${i})" title="刪除">×</button>
             </div>`;
           }).join('')}
         </div>`;
@@ -67590,6 +67799,221 @@ function _tAiJudge(p, ind) {
   return { score, phase, phaseColor, action, actionColor, reasonTxt };
 }
 
+// ─── 威科夫週期偵測 ───
+function _tDetectWyckoff(ind) {
+  const rsi = ind.rsi || 50;
+  const pos  = (ind.ma20 && ind.lc) ? (ind.lc - ind.ma20) / ind.ma20 : 0;
+  const mom  = (ind.kSlope || 0) * 2 + (ind.histSlope || 0);
+  const fS   = ind.fStreak || 0;
+  const mgS  = ind.marginStreak || 0;
+
+  // 倒貨期：高RSI / 高位 + 外資賣
+  if (rsi > 68 || (rsi > 60 && pos > 0.08 && fS < 0)) {
+    const toDistrib = 0;
+    return { n:5, name:'倒貨期', emoji:'⚠️', col:'#ef4444',
+      tip:'主力正在出貨，大家歡呼時你應該收了。',
+      daysToLift: 0, daysToDist: 0,
+      daysLeft: Math.max(5, Math.round((80 - rsi) * 2 + 5)) };
+  }
+  // 拉升期：強動能 + 站上月線
+  if (rsi >= 55 && pos > 0.02 && mom > 0) {
+    const daysLeft = Math.max(5, Math.round((75 - rsi) * 1.5 + 8));
+    return { n:4, name:'拉升期', emoji:'🚀', col:'#10b981',
+      tip:'主力已建倉完成，正在拉升。持有為王，不要理雜訊。',
+      daysToLift: 0, daysToDist: daysLeft, daysLeft };
+  }
+  // 啟動期：動能轉正 + RSI回升
+  if (rsi >= 44 && rsi < 60 && mom > 0.3) {
+    const daysToLift = Math.max(3, Math.round((60 - rsi) * 0.8 + 3));
+    const daysToDist = daysToLift + Math.round(10 + (70 - rsi));
+    return { n:3, name:'啟動期', emoji:'🎯', col:'#6366f1',
+      tip:'量能是關鍵！啟動確認前等突破，不要急著衝。',
+      daysToLift, daysToDist, daysLeft: daysToLift };
+  }
+  // 洗盤期：RSI中段震盪 + 接近月線
+  if (rsi >= 34 && rsi < 52 && Math.abs(pos) < 0.05) {
+    const daysToLift = Math.max(8, Math.round((52 - rsi) * 1.2 + 12));
+    const daysToDist = daysToLift + Math.round(18 + (55 - rsi));
+    return { n:2, name:'洗盤期', emoji:'🚿', col:'#f59e0b',
+      tip:'主力在嚇你賣！假跌破是正常的，耐心拿住。',
+      daysToLift, daysToDist, daysLeft: daysToLift };
+  }
+  // 吸籌期：低RSI + 跌破月線
+  const daysToLift = Math.max(14, Math.round((50 - rsi) * 1.5 + 20));
+  const daysToDist = daysToLift + Math.round(20 + (50 - rsi));
+  return { n:1, name:'吸籌期', emoji:'🧲', col:'#60a5fa',
+    tip:'主力悄悄在建倉，不會漲的啦！但這是最好的佈局時機。',
+    daysToLift, daysToDist, daysLeft: daysToLift };
+}
+
+// ─── 持有X天模擬 ───
+window._tHoldSim = function(sid, days) {
+  const d = window._tPracticeData[sid];
+  if (!d) return;
+  const el = document.getElementById(`hs_${sid}`);
+  if (!el) return;
+  const ph = d.wyckoff;
+  const p  = d.p;
+  const sr = _teachSeededRand(sid.split('').reduce((a,c)=>a+c.charCodeAt(0),0) + days * 9973);
+  const rnd = () => sr() * 2 - 1; // -1 to +1
+  const pxFmt = v => v >= 100 ? v.toFixed(1) : v.toFixed(2);
+  const PCOL = { 1:'#60a5fa', 2:'#f59e0b', 3:'#6366f1', 4:'#10b981', 5:'#ef4444' };
+  const PNME = { 1:'🧲 吸籌期', 2:'🚿 洗盤期', 3:'🎯 啟動期', 4:'🚀 拉升期', 5:'⚠️ 倒貨期' };
+
+  let html = '';
+
+  if (days === 0) {
+    // 週期完整分析
+    const toLift = ph.daysToLift;
+    const toDist = ph.daysToDist;
+    const lifeSegs = [
+      { n:1, pct:14, label:'吸籌', col:'#60a5fa' },
+      { n:2, pct:13, label:'洗盤', col:'#f59e0b' },
+      { n:3, pct:10, label:'啟動', col:'#6366f1' },
+      { n:4, pct:18, label:'拉升', col:'#10b981' },
+      { n:5, pct:45, label:'倒貨', col:'#ef4444' },
+    ];
+    const lifeline = lifeSegs.map(sg => {
+      const active = sg.n === ph.n;
+      const bg = active ? sg.col : sg.col + '33';
+      const fw = active ? '700' : '400';
+      const txtCol = active ? '#fff' : sg.col + 'aa';
+      return `<div style="flex:${sg.pct}%;background:${bg};display:flex;align-items:center;justify-content:center;font-size:0.56rem;font-weight:${fw};color:${txtCol};padding:2px 0;">${sg.label}</div>`;
+    }).join('');
+
+    let adviceHtml = '';
+    if (ph.n === 1) {
+      adviceHtml = `<div>現在 <b style="color:#60a5fa">吸籌末端</b>，進入 🚀 拉升期還需約 <b>${toLift} 天</b>。</div>
+        <div style="margin-top:3px;">🏁 倒貨期開始約在 <b>${toDist} 天</b>後 → 那才是賣點。</div>
+        <div style="color:var(--fg3);margin-top:5px;">教學重點：在吸籌期買入，放到拉升期，倒貨第1～2天賣出——這才叫完整的週期操作。</div>`;
+    } else if (ph.n === 2) {
+      adviceHtml = `<div>現在 <b style="color:#f59e0b">洗盤震盪中</b>，約 <b>${toLift} 天</b>後進入啟動→拉升。</div>
+        <div style="margin-top:3px;">🏁 倒貨期約在 <b>${toDist} 天</b>後 → 賣點在那裡，不是現在。</div>
+        <div style="color:var(--fg3);margin-top:5px;">洗盤是主力清洗浮額的過程。現在恐慌賣出的人，會在拉升時後悔。</div>`;
+    } else if (ph.n === 3) {
+      adviceHtml = `<div>已進入 <b style="color:#6366f1">啟動期</b>，約 <b>${toLift} 天</b>後正式進入拉升。</div>
+        <div style="margin-top:3px;">🏁 倒貨期約在 <b>${toDist} 天</b>後 → 現在是最後上車機會！</div>
+        <div style="color:var(--fg3);margin-top:5px;">啟動量能是關鍵，突破確認後才是最安全的進場點。</div>`;
+    } else if (ph.n === 4) {
+      adviceHtml = `<div>🚀 <b style="color:#10b981">拉升期進行中</b>，預計還有 <b>${toDist} 天</b>進入倒貨。</div>
+        <div style="margin-top:3px;">🏁 賣點：進入倒貨期第 1～2 天見到大量時出清！</div>
+        <div style="color:var(--fg3);margin-top:5px;">拉升期最忌中途跑掉。小回調是洗盤，不是信號。放著就好。</div>`;
+    } else {
+      adviceHtml = `<div>⚠️ <b style="color:#ef4444">倒貨期已開始</b>，高點已過。</div>
+        <div style="color:var(--fg3);margin-top:5px;">沒進的：這一波先放棄，等下一個吸籌期。<br>持有的：看到量縮反彈就是賣點，不要留戀。</div>`;
+    }
+
+    html = `<div style="font-size:0.70rem;color:var(--fg2);line-height:1.8;">
+      <div style="font-size:0.62rem;font-weight:700;color:var(--fg3);margin-bottom:5px;">🔬 當前週期全貌</div>
+      <div style="display:flex;height:20px;border-radius:4px;overflow:hidden;margin-bottom:6px;">${lifeline}</div>
+      ${adviceHtml}
+    </div>`;
+
+  } else if (ph.n === 1) { // 吸籌期
+    const ret = rnd() * 0.8;
+    if (days === 1) {
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 1天後：<b>${ret>=0?'+':''}${ret.toFixed(1)}%</b>（約 $${pxFmt(p*(1+ret/100))}）</div>
+        <div style="color:#60a5fa;font-weight:600;margin-top:3px;">這叫雜訊，不叫訊號。</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          還在 🧲 吸籌期。主力每天製造噪音讓你猜不透。<br>
+          1天的漲跌沒有意義——你要等的是<b>期別轉換</b>，不是今日股價。
+        </div></div>`;
+    } else {
+      const ret5 = rnd() * 1.5 - 0.8;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 5天後：累計 <b>${ret5>=0?'+':''}${ret5.toFixed(1)}%</b></div>
+        <div style="color:#f59e0b;font-weight:600;margin-top:3px;">仍在吸籌末端，或剛進入洗盤…</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          吸籌期可能持續數週。進入 🚀 拉升期還需約 <b>${ph.daysToLift} 天</b>。<br>
+          不是你判斷錯，是時機未到。繼續等，或分批佈局。
+        </div></div>`;
+    }
+  } else if (ph.n === 2) { // 洗盤期
+    if (days === 1) {
+      const ret = rnd() * 1.2 - 0.4;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 1天後：<b>${ret>=0?'+':''}${ret.toFixed(1)}%</b></div>
+        <div style="color:#f59e0b;font-weight:600;margin-top:3px;">🚿 洗盤震盪，主力在嚇你！</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          跌了你就想賣，漲了你就想追——這就是洗盤的目的。<br>
+          進入 🚀 拉升期還需約 <b>${ph.daysToLift} 天</b>，現在跑掉你就輸了。
+        </div></div>`;
+    } else {
+      const ret5 = rnd() * 2 - 0.5;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 5天後：累計 <b>${ret5>=0?'+':''}${ret5.toFixed(1)}%</b></div>
+        <div style="color:#6366f1;font-weight:600;margin-top:3px;">
+          ${ret5 > 1 ? '已接近 🎯 啟動期！量能開始放大' : '仍在洗盤震盪，再忍一下'}
+        </div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          距離 🚀 拉升期約還有 <b>${Math.max(1,ph.daysToLift-5)} 天</b>。洗盤期的損失是「紙上損失」，賣出才是真損失。
+        </div></div>`;
+    }
+  } else if (ph.n === 3) { // 啟動期
+    if (days === 1) {
+      const ret = 0.3 + sr() * 1.5;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 1天後：<b>+${ret.toFixed(1)}%</b>（約 $${pxFmt(p*(1+ret/100))}）</div>
+        <div style="color:#6366f1;font-weight:600;margin-top:3px;">🎯 啟動訊號出現，量能開始放大！</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          約 <b>${ph.daysToLift} 天</b>後進入拉升期。現在是最後低點佈局機會——但要等突破確認。
+        </div></div>`;
+    } else {
+      const ret5 = 2 + sr() * 3;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 5天後：<b>+${ret5.toFixed(1)}%</b>（約 $${pxFmt(p*(1+ret5/100))}）</div>
+        <div style="color:#10b981;font-weight:600;margin-top:3px;">🚀 已進入拉升期！慶祝一下。</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          倒貨期約在 <b>${ph.daysToDist} 天</b>後開始，現在是持有最爽的階段。<br>
+          小回調不要跑——那是主力洗你，不是趨勢反轉。
+        </div></div>`;
+    }
+  } else if (ph.n === 4) { // 拉升期
+    if (days === 1) {
+      const ret = 0.8 + sr() * 1.5;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 1天後：<b>+${ret.toFixed(1)}%</b>（約 $${pxFmt(p*(1+ret/100))}）</div>
+        <div style="color:#10b981;font-weight:600;margin-top:3px;">🚀 拉升中，繼續持有！</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          倒貨期約在 <b>${ph.daysToDist} 天</b>後。賣點是進入倒貨期第1～2天見到大量——現在賣是最可惜的。
+        </div></div>`;
+    } else {
+      const ret5 = 4 + sr() * 5;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 5天後：<b>+${ret5.toFixed(1)}%</b>（約 $${pxFmt(p*(1+ret5/100))}）</div>
+        <div style="color:#10b981;font-weight:600;margin-top:3px;">🚀 拉升持續，漂亮！</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          倒貨期約在 <b>${Math.max(1,ph.daysToDist-5)} 天</b>後開始 → 那才是你的賣點。<br>
+          指示：看到<b>大量收黑K、外資連賣訊號</b>，就是 ⚠️ 倒貨第1天，立刻出清！
+        </div></div>`;
+    }
+  } else { // 倒貨期
+    if (days === 1) {
+      const ret = rnd() * 1.2 - 0.8;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 1天後：<b>${ret>=0?'+':''}${ret.toFixed(1)}%</b></div>
+        <div style="color:#ef4444;font-weight:600;margin-top:3px;">⚠️ 倒貨期——高點已過。</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          今天小漲是主力製造的誘多，讓散戶繼續買進。<br>
+          持有的：看到量縮反彈就出清。沒進的：等下一個吸籌期。
+        </div></div>`;
+    } else {
+      const ret5 = -2 - sr() * 4;
+      html = `<div style="font-size:0.71rem;color:var(--fg2);line-height:1.7;">
+        <div>📊 5天後：<b>${ret5.toFixed(1)}%</b>（約 $${pxFmt(p*(1+ret5/100))}）</div>
+        <div style="color:#ef4444;font-weight:600;margin-top:3px;">⚠️ 加速下跌，主力出貨中。</div>
+        <div style="color:var(--fg3);font-size:0.67rem;margin-top:3px;">
+          大家還在歡呼時，主力已經跑了。<br>
+          教訓：買在吸籌、賣在倒貨初期——不是現在才知道要賣。
+        </div></div>`;
+    }
+  }
+
+  el.innerHTML = html;
+  el.style.display = 'block';
+};
+
 // ─── 單檔渲染 HTML ───
 function _tRenderCard(s, ind, isSim) {
   const p   = ind.lc;
@@ -67605,6 +68029,7 @@ function _tRenderCard(s, ind, isSim) {
   const techColor=isBull?'#10b981':isBear?'#ef4444':'#f59e0b';
   const techText =isBull?'偏多':isBear?'偏空':'中性';
   const ai = _tAiJudge(p, ind);
+  const ph = _tDetectWyckoff(ind);
 
   // RSI 說明
   const rsiV=ind.rsi?ind.rsi.toFixed(0):'—';
@@ -67648,7 +68073,7 @@ function _tRenderCard(s, ind, isSim) {
   }
 
   // 練功資料存入（normalOrder/normalDesc 已設好）
-  window._tPracticeData[s.id] = { isBull, isBear, normalOrder, normalDesc, ai, p, ind, answered:false };
+  window._tPracticeData[s.id] = { isBull, isBear, normalOrder, normalDesc, ai, p, ind, wyckoff:ph, answered:false };
 
   // 條件單
   let condOrder='', condDesc='';
@@ -67740,6 +68165,35 @@ function _tRenderCard(s, ind, isSim) {
 
     ${btHtml}
 
+    <div style="background:rgba(99,102,241,0.07);border-radius:7px;padding:9px 11px;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px;">
+        <span style="font-size:0.61rem;font-weight:700;color:var(--fg3);">📅 籌碼週期</span>
+        <span style="background:${ph.col}22;color:${ph.col};border:1px solid ${ph.col}66;border-radius:10px;padding:1px 9px;font-size:0.65rem;font-weight:700;">${ph.emoji} ${ph.name}</span>
+      </div>
+      <div style="display:flex;height:16px;border-radius:4px;overflow:hidden;margin-bottom:7px;font-size:0;">
+        ${[{n:1,pct:14,lbl:'吸籌',col:'#60a5fa'},{n:2,pct:13,lbl:'洗盤',col:'#f59e0b'},{n:3,pct:10,lbl:'啟動',col:'#6366f1'},{n:4,pct:18,lbl:'拉升',col:'#10b981'},{n:5,pct:45,lbl:'倒貨',col:'#ef4444'}].map(sg=>{
+          const a=sg.n===ph.n;
+          return `<div style="flex:${sg.pct}%;background:${a?sg.col:sg.col+'33'};display:flex;align-items:center;justify-content:center;font-size:${a?'0.58':'0.55'}rem;font-weight:${a?'800':'400'};color:${a?'#fff':sg.col+'bb'};">${sg.lbl}</div>`;
+        }).join('')}
+      </div>
+      <div style="font-size:0.67rem;color:var(--fg3);margin-bottom:8px;">${ph.tip}</div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="window._tHoldSim('${s.id}',1)"
+          style="flex:1;padding:6px 2px;background:rgba(99,102,241,0.1);border:1px solid #6366f1;border-radius:7px;font-size:0.68rem;font-weight:700;color:#6366f1;cursor:pointer;">
+          ⏩ 放1天
+        </button>
+        <button onclick="window._tHoldSim('${s.id}',5)"
+          style="flex:1;padding:6px 2px;background:rgba(16,185,129,0.1);border:1px solid #10b981;border-radius:7px;font-size:0.68rem;font-weight:700;color:#10b981;cursor:pointer;">
+          ⏩⏩ 放5天
+        </button>
+        <button onclick="window._tHoldSim('${s.id}',0)"
+          style="flex:1;padding:6px 2px;background:rgba(239,68,68,0.08);border:1px solid #ef4444;border-radius:7px;font-size:0.68rem;font-weight:700;color:#ef4444;cursor:pointer;">
+          ❓ 放幾天？
+        </button>
+      </div>
+      <div id="hs_${s.id}" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);"></div>
+    </div>
+
     <div style="background:rgba(16,185,129,0.07);border-radius:7px;padding:10px 12px;margin-bottom:6px;font-size:0.75rem;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;">
         <span style="font-size:0.61rem;font-weight:700;color:var(--fg3);">📋 普通掛價 練功題</span>
@@ -67769,6 +68223,12 @@ function _tRenderCard(s, ind, isSim) {
       <div style="color:var(--fg3);font-size:0.68rem;">${condDesc}</div>
     </div>
   </div>`;
+}
+
+// ─── 股市大富翁 ───
+function openStockSim() {
+  if (!isVIP()) { vipModalOpen('stockSim'); return; }
+  window.open('stock-sim.html', '_blank');
 }
 
 // ─── 主函式 ───
@@ -68065,7 +68525,7 @@ if (typeof _origRenderSM === 'function') {
       const header = document.createElement('div');
       header.className = 'mod-acc-header';
       const ksBtn = mod.ksTab
-        ? `<button class="mod-ks-btn" onclick="event.stopPropagation();goKsTab('${mod.ksTab}'${mod.ksAnchor ? `,'${mod.ksAnchor}'` : ''})" title="跳到知識庫了解原理">📖 理論</button>`
+        ? `<button class="mod-ks-btn" onclick="event.stopPropagation();${mod.vip ? `if(!isVIP()){vipModalOpen('${mod.id}');return;}` : ''}goKsTab('${mod.ksTab}'${mod.ksAnchor ? `,'${mod.ksAnchor}'` : ''})" title="跳到知識庫了解原理">📖 理論</button>`
         : '';
       const vipBadge = mod.vip ? `<span class="mod-vip-badge">👑 VIP</span>` : '';
       header.innerHTML =
@@ -68131,6 +68591,11 @@ if (typeof _origRenderSM === 'function') {
   function toggleMod(id, isVipRequired) {
     if (isVipRequired && !isVIP()) {
       vipModalOpen(id);
+      return;
+    }
+    // 教學操盤：開啟每日5股浮動視窗，不展開手風琴
+    if (id === 'teachCard') {
+      _openTeachPanel();
       return;
     }
     const wrap = document.getElementById(`accWrap_${id}`);
