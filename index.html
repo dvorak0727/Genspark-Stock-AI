@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8" />
@@ -56601,6 +56601,12 @@ function isVIP() {
 let _vipPendingModId = null;
 
 function vipModalOpen(modId) {
+  // 已啟用就直接解鎖，不再彈 modal
+  if (isVIP()) {
+    _vipPendingModId = modId || null;
+    _vipUnlock();
+    return;
+  }
   _vipPendingModId = modId || null;
   document.getElementById('vipCodeInput').value = '';
   document.getElementById('vipModalErr').textContent = '';
