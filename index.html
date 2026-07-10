@@ -15703,6 +15703,7 @@ a.module-nav-item.acc-active {
           <option value="washout">🌀 籌碼週期階段 — 洗盤期</option>
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
+          <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
           <option value="broker">🏦 券商囤貨掃描</option>
         </select>
         <button class="screener-btn" id="screenerBtn" onclick="startScreener()">
@@ -15902,6 +15903,7 @@ a.module-nav-item.acc-active {
           <option value="washout">🌀 籌碼週期階段 — 洗盤期</option>
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
+          <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
           <option value="broker">🏦 券商囤貨掃描</option>
         </select>
       </div>
@@ -55064,6 +55066,28 @@ const MODE_GUIDE = {
     action: '📌 操作思路：先篩選 C1+C2+C3 同時成立（買量大、連買不斷、集中度高）的標的，再點擊卡片確認熱力圖——若近5日的紅色格子越來越深、且集中在相同幾家券商，代表囤貨仍在持續，是最佳候選。建議搭配底部探測模式確認技術面底部，囤貨+底部雙共振才是高勝算佈局點。',
   },
 
+
+  distribution: {
+    icon: '⚠️',
+    name: '出貨期（倒貨）',
+    tag:  '籌碼週期⑤',
+    summary: '主力在大漲後，趁散戶興奮、媒體看好時悄悄把籌碼賣給追高的散戶。股票表面還在漲，但大戶已在出場——這是最容易套牢的危險時刻。',
+    features: [
+      { icon: '📊', text: '<b>RSI 高檔（> 68）</b>：RSI 進入超買區，市場情緒極度亢奮，正是主力出貨的最佳掩護。' },
+      { icon: '📦', text: '<b>量價背離</b>：股價繼續創新高，但成交量萎縮或不規則放大，主力「邊漲邊出」。' },
+      { icon: '🏦', text: '<b>法人轉向賣超</b>：外資或投信開始淨賣出，散戶在追高接盤——籌碼從強手流向弱手。' },
+      { icon: '🕯️', text: '<b>高檔長上影線 / 倒錘頭</b>：K線上方長影線，代表有人在高點出貨後被打下來，典型「誘多出貨」。' },
+      { icon: '📉', text: '<b>MACD 高位頂背離</b>：股價繼續漲但 MACD 柱子縮短，上漲動能已悄悄衰減。' },
+    ],
+    warns: [
+      '出貨期最大特點是「市場情緒最好的時候」——朋友都在說要買，媒體標題一片看好，此時最危險。',
+      '不要因為「股票還在漲」繼續持有；主力出貨往往發生在最後一波上漲中。',
+      '若已持有，設好停利點（高點下方 5~8%）；一旦跌破立刻執行，不猶豫。',
+      '此階段不適合新買進；若要做空，需等確認頂部訊號（連續兩根長黑K）再操作。',
+    ],
+    action: '📌 操作思路：持有者設停利在高點下 5~8%，觸及立即賣出。未持有者不追高，等回落到吸籌區才重新評估。整個週期完成後，下一個吸籌期才是新的進場機會。',
+  },
+
 };  // END MODE_GUIDE
 
 // ── 打開說明面板 ──
@@ -55108,17 +55132,15 @@ function openModeGuide(forceMode) {
   // 填入模式快速切換 tab
   const tabsEl = document.getElementById('mgpModeTabs');
   const allModes = [
-    { k:'bottom', icon:'🔻', name:'底部探測' },
-    { k:'crush',  icon:'💀', name:'碎骨區' },
-    { k:'absorb', icon:'🧲', name:'吸籌期' },
-    { k:'washout',icon:'🌀', name:'洗盤期' },
-    { k:'launch', icon:'🚀', name:'啟動期' },
-    { k:'rise',   icon:'📈', name:'拉升期' },
-    { k:'prelaunch',icon:'🌙',name:'啟動前夜' },
-    { k:'silent',   icon:'🔇', name:'極致量縮' },
-    { k:'chippure',  icon:'📉', name:'資減人走' },
-    { k:'macdmatrix',icon:'📊', name:'MACD矩陣' },
-    { k:'broker',    icon:'🏦', name:'券商囤貨' },
+    { k:'bottom',       icon:'🔻', name:'底部探測' },
+    { k:'crush',        icon:'💀', name:'碎骨區' },
+    { k:'absorb',       icon:'🧲', name:'吸籌期' },
+    { k:'washout',      icon:'🌀', name:'洗盤期' },
+    { k:'launch',       icon:'🚀', name:'啟動期' },
+    { k:'rise',         icon:'📈', name:'拉升期' },
+    { k:'distribution', icon:'⚠️', name:'出貨期' },
+    { k:'macdmatrix',   icon:'📊', name:'MACD矩陣' },
+    { k:'broker',       icon:'🏦', name:'券商囤貨' },
   ];
   tabsEl.innerHTML = allModes.map(m => `
     <div class="mgp-mode-tab ${m.k === mode ? 'active' : ''}" onclick="openModeGuide('${m.k}')">
