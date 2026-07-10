@@ -15672,6 +15672,15 @@ a.module-nav-item.acc-active {
           <div class="screener-subtitle" id="screenerSubtitle">AI核心指標 · 自動批次掃描 · 評分4大底部條件</div>
         </div>
       </div>
+            <!-- 快捷掃描按鈕列 -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px 4px;border-bottom:1px solid var(--border,rgba(255,255,255,.06));">
+        <span style="font-size:.58rem;color:var(--fg3);align-self:center;font-weight:700;margin-right:2px;">快捷掃描：</span>
+        <button onclick="sgQuickScan('bottom')"  style="font-size:.6rem;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid #10b981;color:#10b981;background:rgba(16,185,129,.08);cursor:pointer;">🔻 查底部</button>
+        <button onclick="sgQuickScan('absorb')"  style="font-size:.6rem;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid #60a5fa;color:#60a5fa;background:rgba(96,165,250,.08);cursor:pointer;">🧲 查吸籌期</button>
+        <button onclick="sgQuickScan('macdmatrix')" style="font-size:.6rem;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid #a78bfa;color:#a78bfa;background:rgba(167,139,250,.08);cursor:pointer;">📊 查MACD多方</button>
+        <button onclick="sgQuickScan('crush')"   style="font-size:.6rem;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid #f59e0b;color:#f59e0b;background:rgba(245,158,11,.08);cursor:pointer;">💀 碎骨區</button>
+        <button onclick="sgQuickScan('launch')"  style="font-size:.6rem;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid #6366f1;color:#6366f1;background:rgba(99,102,241,.08);cursor:pointer;">🚀 查啟動期</button>
+      </div>
       <div class="screener-ctrl">
         <select class="screener-pool-select" id="screenerPool">
           <option value="core20">核心20檔（快速）</option>
@@ -68720,14 +68729,14 @@ if (typeof _origRenderSM === 'function') {
     <div class="sg-label">🔍 輸入個股<br><span style="font-size:.55rem;opacity:.7;">輸代號開始分析</span></div>
     <div class="sg-arrow">◀</div>
   </div>
-  <div class="sg-item" data-target="chipLogCard"  onclick="sgGo(this)" id="sg4">
+  <div class="sg-item" data-target="phaseCard"    onclick="sgGo(this)" id="sg4">
     <div class="sg-num">4</div>
-    <div class="sg-label">🏦 三大法人籌碼<br><span style="font-size:.55rem;opacity:.7;">主力在買還是跑</span></div>
+    <div class="sg-label">📅 籌碼週期<br><span style="font-size:.55rem;opacity:.7;">吸籌/拉升/倒貨？</span></div>
     <div class="sg-arrow">◀</div>
   </div>
-  <div class="sg-item" data-target="phaseCard"    onclick="sgGo(this)" id="sg5">
+  <div class="sg-item" data-target="chipLogCard"  onclick="sgGo(this)" id="sg5">
     <div class="sg-num">5</div>
-    <div class="sg-label">📅 籌碼週期<br><span style="font-size:.55rem;opacity:.7;">吸籌/拉升/倒貨？</span></div>
+    <div class="sg-label">🏦 三大法人籌碼<br><span style="font-size:.55rem;opacity:.7;">主力在買還是跑</span></div>
     <div class="sg-arrow">◀</div>
   </div>
   <div class="sg-item" data-target="techCard"     onclick="sgGo(this)" id="sg6">
@@ -68743,6 +68752,13 @@ if (typeof _origRenderSM === 'function') {
 </div>
 
 <script>
+function sgQuickScan(mode){
+  const mSel = document.getElementById('screenerMode');
+  if(mSel){ mSel.value = mode; if(typeof onScreenerModeChange==='function') onScreenerModeChange(); }
+  const sec = document.getElementById('screenerSection');
+  if(sec) sec.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(()=>{ if(typeof startScreener==='function') startScreener(); }, 600);
+}
 function sgGo(el){
   const id = el.dataset.target;
   const t = document.getElementById(id);
@@ -68755,7 +68771,7 @@ function sgGo(el){
 }
 
 // IntersectionObserver 自動高亮
-const _sgTargets = ['oppVerdict','gaugeScore','searchInput','chipLogCard','phaseCard','techCard','tradeLogCard'];
+const _sgTargets = ['oppVerdict','gaugeScore','searchInput','phaseCard','chipLogCard','techCard','tradeLogCard'];
 const _sgObs = new IntersectionObserver(entries=>{
   entries.forEach(e=>{
     if(e.isIntersecting){
