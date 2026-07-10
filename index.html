@@ -68786,7 +68786,7 @@ function sgGo(el){
   // 步驟4-7 需要先有分析結果，若還沒搜尋就先引導
   const needsResult = ['phaseCard','chipLogCard','techCard','tradeLogCard'];
   const ar = document.getElementById('analysisResult');
-  if(needsResult.includes(id) && ar && ar.style.display === 'none'){
+  if(needsResult.includes(id) && ar && getComputedStyle(ar).display === 'none'){
     const si = document.getElementById('searchInput');
     if(si){ const top = si.getBoundingClientRect().top + window.pageYOffset - 70; window.scrollTo({top:Math.max(0,top),behavior:'smooth'}); setTimeout(()=>si.focus(),400); }
     if(typeof showEpicToast==='function') showEpicToast('請先輸入個股代號，分析後即可跳到此區塊 ✏️','#6366f1');
