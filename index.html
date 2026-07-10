@@ -68784,10 +68784,10 @@ function sgQuickScan(mode){
 function sgGo(el){
   const id = el.dataset.target;
   const t = document.getElementById(id);
-  if(!t) return;
-  // 特別處理 searchInput：focus
-  if(id==='searchInput'){ t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>t.focus(),400); }
-  else { t.scrollIntoView({behavior:'smooth',block:'start'}); }
+  if(!t){ console.warn('[sgGo] not found:', id); return; }
+  const top = t.getBoundingClientRect().top + window.pageYOffset - 70;
+  window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  if(id==='searchInput') setTimeout(()=>t.focus(), 400);
   document.querySelectorAll('.sg-item').forEach(i=>i.classList.remove('active'));
   el.classList.add('active');
 }
