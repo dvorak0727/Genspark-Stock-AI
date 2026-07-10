@@ -68646,5 +68646,135 @@ if (typeof _origRenderSM === 'function') {
 })();
 </script>
 
+
+<!-- ══ 操盤導覽側邊箭頭 ══ -->
+<style>
+#stepGuide{
+  position:fixed;right:0;top:50%;transform:translateY(-50%);
+  z-index:8500;display:flex;flex-direction:column;gap:0;
+  filter:drop-shadow(0 4px 16px rgba(0,0,0,.35));
+}
+#stepGuideToggle{
+  position:fixed;right:0;top:calc(50% - 130px);transform:translateY(-50%);
+  z-index:8501;background:var(--accent,#10b981);color:#fff;
+  border:none;border-radius:8px 0 0 8px;padding:6px 5px;
+  font-size:.62rem;font-weight:800;cursor:pointer;letter-spacing:.04em;
+  writing-mode:vertical-rl;text-orientation:mixed;
+  box-shadow:-2px 0 10px rgba(0,0,0,.2);transition:background .2s;
+}
+#stepGuideToggle:hover{background:#059669;}
+.sg-item{
+  display:flex;align-items:center;gap:0;
+  background:var(--bg,#0d1117);border:1px solid var(--border,rgba(255,255,255,.08));
+  border-right:none;border-radius:10px 0 0 10px;
+  padding:6px 10px 6px 8px;cursor:pointer;
+  transition:all .18s;max-width:160px;min-width:140px;
+  margin-bottom:3px;
+  opacity:.78;
+}
+.sg-item:hover,.sg-item.active{
+  opacity:1;
+  background:rgba(16,185,129,.12);
+  border-color:rgba(16,185,129,.4);
+}
+.sg-item.active .sg-num{background:#10b981;color:#fff;}
+.sg-num{
+  width:20px;height:20px;border-radius:50%;
+  background:var(--surface2,rgba(128,128,128,.15));
+  color:var(--fg3,#6b7fa0);font-size:.6rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .18s;
+}
+.sg-label{
+  font-size:.6rem;color:var(--fg2,#a8bcd8);line-height:1.3;
+  margin:0 4px;flex:1;
+}
+.sg-item.active .sg-label{color:var(--fg1,#e8f0fe);font-weight:700;}
+.sg-arrow{
+  font-size:.7rem;color:#10b981;flex-shrink:0;
+  animation:sgPulse 1.4s ease-in-out infinite;
+}
+.sg-item:not(.active) .sg-arrow{color:var(--fg3,#6b7fa0);animation:none;}
+@keyframes sgPulse{
+  0%,100%{transform:translateX(0);opacity:.5;}
+  50%{transform:translateX(-4px);opacity:1;}
+}
+#stepGuide.collapsed .sg-item{display:none;}
+</style>
+
+<button id="stepGuideToggle" onclick="document.getElementById('stepGuide').classList.toggle('collapsed');this.textContent=document.getElementById('stepGuide').classList.contains('collapsed')?'▶ 操盤導覽':'✕ 收合'" title="操盤導覽">▶ 操盤導覽</button>
+
+<div id="stepGuide" class="collapsed">
+  <div class="sg-item" data-target="oppVerdict"   onclick="sgGo(this)" id="sg1">
+    <div class="sg-num">1</div>
+    <div class="sg-label">🌏 開盤壓力表<br><span style="font-size:.55rem;opacity:.7;">先看美股方向</span></div>
+    <div class="sg-arrow">◀</div>
+  </div>
+  <div class="sg-item" data-target="gaugeScore"   onclick="sgGo(this)" id="sg2">
+    <div class="sg-num">2</div>
+    <div class="sg-label">🤖 AI綜合建言<br><span style="font-size:.55rem;opacity:.7;">看不懂就看這</span></div>
+    <div class="sg-arrow">◀</div>
+  </div>
+  <div class="sg-item" data-target="searchInput"  onclick="sgGo(this)" id="sg3">
+    <div class="sg-num">3</div>
+    <div class="sg-label">🔍 輸入個股<br><span style="font-size:.55rem;opacity:.7;">輸代號開始分析</span></div>
+    <div class="sg-arrow">◀</div>
+  </div>
+  <div class="sg-item" data-target="chipLogCard"  onclick="sgGo(this)" id="sg4">
+    <div class="sg-num">4</div>
+    <div class="sg-label">🏦 三大法人籌碼<br><span style="font-size:.55rem;opacity:.7;">主力在買還是跑</span></div>
+    <div class="sg-arrow">◀</div>
+  </div>
+  <div class="sg-item" data-target="phaseCard"    onclick="sgGo(this)" id="sg5">
+    <div class="sg-num">5</div>
+    <div class="sg-label">📅 籌碼週期<br><span style="font-size:.55rem;opacity:.7;">吸籌/拉升/倒貨？</span></div>
+    <div class="sg-arrow">◀</div>
+  </div>
+  <div class="sg-item" data-target="techCard"     onclick="sgGo(this)" id="sg6">
+    <div class="sg-num">6</div>
+    <div class="sg-label">📐 技術指標<br><span style="font-size:.55rem;opacity:.7;">RSI/KD 確認時機</span></div>
+    <div class="sg-arrow">◀</div>
+  </div>
+  <div class="sg-item" data-target="tradeLogCard" onclick="sgGo(this)" id="sg7">
+    <div class="sg-num">7</div>
+    <div class="sg-label">⚡ 設條件單走人<br><span style="font-size:.55rem;opacity:.7;">掛好不用盯盤</span></div>
+    <div class="sg-arrow">◀</div>
+  </div>
+</div>
+
+<script>
+function sgGo(el){
+  const id = el.dataset.target;
+  const t = document.getElementById(id);
+  if(!t) return;
+  // 特別處理 searchInput：focus
+  if(id==='searchInput'){ t.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>t.focus(),400); }
+  else { t.scrollIntoView({behavior:'smooth',block:'start'}); }
+  document.querySelectorAll('.sg-item').forEach(i=>i.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// IntersectionObserver 自動高亮
+const _sgTargets = ['oppVerdict','gaugeScore','searchInput','chipLogCard','phaseCard','techCard','tradeLogCard'];
+const _sgObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const idx = _sgTargets.indexOf(e.target.id);
+      if(idx>=0){
+        document.querySelectorAll('.sg-item').forEach(i=>i.classList.remove('active'));
+        const sg = document.getElementById('sg'+(idx+1));
+        if(sg) sg.classList.add('active');
+      }
+    }
+  });
+},{threshold:.3});
+
+document.addEventListener('DOMContentLoaded',()=>{
+  _sgTargets.forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) _sgObs.observe(el);
+  });
+});
+</script>
 </body>
 </html>
