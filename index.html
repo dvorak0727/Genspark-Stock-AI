@@ -56857,19 +56857,14 @@ function tlRenderOrders() {
     {key:'出貨期', label:'出貨', col:'#f87171'},
   ];
   function _tlPhaseMini(phase) {
-    return `<div style="display:flex;flex-direction:column;gap:3px;min-width:160px;max-width:200px;">
-      <div style="display:flex;gap:2px;border-radius:4px;overflow:hidden;height:10px;">
-        ${_tlPhaseSegs.map(s=>{
-          const active = phase===s.key;
-          return `<div style="flex:1;background:${active?s.col:'rgba(128,128,128,0.15)'};transition:all .2s;${active?'box-shadow:0 0 6px '+s.col+'80;':''}" title="${s.label}"></div>`;
-        }).join('')}
-      </div>
-      <div style="display:flex;gap:2px;">
-        ${_tlPhaseSegs.map(s=>{
-          const active = phase===s.key;
-          return `<div style="flex:1;text-align:center;font-size:.48rem;color:${active?s.col:'var(--fg3)'};font-weight:${active?800:400};line-height:1.2;">${s.label}</div>`;
-        }).join('')}
-      </div>
+    return `<div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+      ${_tlPhaseSegs.map(s=>{
+        const active = phase===s.key;
+        return `<span style="font-size:.58rem;font-weight:${active?800:400};padding:2px 6px;border-radius:10px;white-space:nowrap;
+          background:${active?s.col:'rgba(128,128,128,0.1)'};
+          color:${active?'#fff':'var(--fg3)'};
+          ${active?'box-shadow:0 1px 6px '+s.col+'60;':''}">${s.label}</span>`;
+      }).join('')}
     </div>`;
   }
 
@@ -56887,7 +56882,6 @@ function tlRenderOrders() {
     return `<div class="tl-record">
       <div class="tl-record-main">
         <span class="tl-stock-name">${r.stockName} <span style="font-size:.68rem;color:var(--fg3)">${r.stockId}</span></span>
-        <span class="tl-record-tag">${r.phase}</span>
         <span class="tl-price-info">建倉 $${r.entryPrice} × ${r.shares}張</span>
         ${r.targetPrice?`<span class="tl-price-info" style="color:#059669">目標 $${r.targetPrice}</span>`:''}
         ${r.stopLoss?`<span class="tl-price-info" style="color:#dc2626">停損 $${r.stopLoss}</span>`:''}
