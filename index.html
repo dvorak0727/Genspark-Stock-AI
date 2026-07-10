@@ -15638,7 +15638,7 @@ a.module-nav-item.acc-active {
       <span class="ks-sb-icon">🎲</span> 大富翁
     </button>
     <a class="ks-shortcut-btn" href="#knowledgeStation"
-       onclick="if(!isVIP()){vipModalOpen('knowledgeStation');return false;}setTimeout(()=>document.getElementById('knowledgeStation').scrollIntoView({behavior:'smooth'}),10);return false;"
+       onclick="if(!isVIP()){vipModalOpen('knowledgeStation');return false;}setTimeout(()=>{const t=document.getElementById('knowledgeStation');if(t){window.scrollTo({top:t.getBoundingClientRect().top+window.pageYOffset-70,behavior:'smooth'});}},10);return false;"
        title="跳至知識站 (👑 VIP)">
       <span class="ks-sb-icon">📖</span> 知識站
     </a>
