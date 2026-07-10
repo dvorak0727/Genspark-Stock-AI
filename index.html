@@ -44048,6 +44048,8 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
   ];
 
   // ── G. 渲染 ──
+  // 快取週期結果供其他模組使用（如教學操盤 _tDetectWyckoff）
+  window._cachedPhaseIdx = phaseIdx;
 
   // 徽章
   const badgeEl = document.getElementById('phaseBadge');
@@ -67838,6 +67840,24 @@ function _tAiJudge(p, ind) {
 
 // ─── 威科夫週期偵測 ───
 function _tDetectWyckoff(ind) {
+  // 優先使用籌碼週期模組的計算結果（避免兩套算法不一致）
+  const cached = window._cachedPhaseIdx;
+  if (cached) {
+    const _phaseMap = {
+      1: { n:1, name:'吸籌期', emoji:'🧲', col:'#60a5fa', tip:'主力悄悄在建倉，最好的佈局時機。' },
+      2: { n:2, name:'洗盤期', emoji:'🚿', col:'#f59e0b', tip:'主力在嚇你賣！假跌破是正常的，耐心拿住。' },
+      3: { n:3, name:'啟動期', emoji:'🎯', col:'#6366f1', tip:'量能是關鍵！啟動確認前等突破，不要急著衝。' },
+      4: { n:4, name:'拉升期', emoji:'🚀', col:'#10b981', tip:'主力已建倉完成，正在拉升。持有為王，不要理雜訊。' },
+      5: { n:5, name:'倒貨期', emoji:'⚠️', col:'#ef4444', tip:'主力正在出貨，大家歡呼時你應該收了。' },
+    };
+    const base = _phaseMap[cached] || _phaseMap[1];
+    const rsi = ind.rsi || 50;
+    const daysToLift = cached <= 2 ? Math.max(5, Math.round((55 - rsi) * 1.2 + 10)) : 0;
+    const daysToDist = daysToLift + (cached <= 3 ? Math.round(15 + (70 - rsi)) : 0);
+    const daysLeft   = cached >= 4 ? Math.max(3, Math.round((80 - rsi) * 1.5)) : daysToLift;
+    return { ...base, daysToLift, daysToDist, daysLeft };
+  }
+
   const rsi = ind.rsi || 50;
   const pos  = (ind.ma20 && ind.lc) ? (ind.lc - ind.ma20) / ind.ma20 : 0;
   const mom  = (ind.kSlope || 0) * 2 + (ind.histSlope || 0);
