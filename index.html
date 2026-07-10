@@ -56849,6 +56849,30 @@ function tlRenderOrders() {
     el.innerHTML = '<div style="text-align:center;padding:20px;font-size:.72rem;color:var(--fg3);">尚無記錄 — 查詢股票後填入代號快速建倉</div>';
     return;
   }
+  const _tlPhaseSegs = [
+    {key:'吸籌期', label:'吸籌', col:'#a78bfa'},
+    {key:'洗盤期', label:'洗盤', col:'#60a5fa'},
+    {key:'啟動期', label:'啟動', col:'#34d399'},
+    {key:'拉升期', label:'拉升', col:'#10b981'},
+    {key:'出貨期', label:'出貨', col:'#f87171'},
+  ];
+  function _tlPhaseMini(phase) {
+    return `<div style="display:flex;flex-direction:column;gap:3px;min-width:160px;max-width:200px;">
+      <div style="display:flex;gap:2px;border-radius:4px;overflow:hidden;height:10px;">
+        ${_tlPhaseSegs.map(s=>{
+          const active = phase===s.key;
+          return `<div style="flex:1;background:${active?s.col:'rgba(128,128,128,0.15)'};transition:all .2s;${active?'box-shadow:0 0 6px '+s.col+'80;':''}" title="${s.label}"></div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:2px;">
+        ${_tlPhaseSegs.map(s=>{
+          const active = phase===s.key;
+          return `<div style="flex:1;text-align:center;font-size:.48rem;color:${active?s.col:'var(--fg3)'};font-weight:${active?800:400};line-height:1.2;">${s.label}</div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
   el.innerHTML = arr.map(r => {
     const sc = r.exitScore;
     let badgeCls = 'tl-exit-gray', badgeText = '待評分';
@@ -56872,6 +56896,7 @@ function tlRenderOrders() {
         <span style="font-size:.6rem;color:var(--fg2)">現價損益 ${pnl}</span>
         <div style="margin-top:3px;width:100%">${sigHtml}</div>
       </div>
+      ${_tlPhaseMini(r.phase)}
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <span class="tl-exit-badge ${badgeCls}">${badgeText}</span>
         <button class="tl-del-btn" onclick="tlRemoveOrder(${r.id})">✕ 移除</button>
