@@ -56995,7 +56995,7 @@ function tlRenderWatch() {
         else             badge = `<span style="font-size:.54rem;color:#10b981;font-weight:700">🟢 持倉${sc}</span>`;
       }
       return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;"
-        onclick="if(typeof searchAndAnalyze==='function')searchAndAnalyze('${r.stockId}')">
+        onclick="quickSearch('${r.stockId}')">
         <div style="flex:1;min-width:0;">
           <div style="font-size:.68rem;font-weight:700;color:var(--fg)">${r.stockName} <span style="font-size:.6rem;color:var(--fg3)">${r.stockId}</span>${badge?'  '+badge:''}</div>
           <div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px;">${_miniBar(r.phase, r.phaseProgress??null)}</div>
@@ -57016,7 +57016,7 @@ function tlRenderWatch() {
       const nm = r.name || r.stockName || id;
       const dt = r.ts ? new Date(r.ts).toISOString().slice(0,10) : '';
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-bottom:1px solid var(--border);cursor:pointer;"
-        onclick="if(typeof searchAndAnalyze==='function')searchAndAnalyze('${id}')">
+        onclick="quickSearch('${id}')">
         <span style="font-size:.66rem;font-weight:600;color:var(--fg)">${nm} <span style="font-size:.6rem;color:var(--fg3)">${id}</span></span>
         <span style="font-size:.56rem;color:var(--fg3)">${dt}</span>
       </div>`;
@@ -59981,8 +59981,7 @@ function clearAllWatchlist() {
   renderWatchlist();
 }
 function updateWlCount() {
-  const list = loadWatchlist();
-  const cnt = list.length;
+  const cnt = loadWatchlist().length + tlLoad().length;
   const el = document.querySelector('.watchlist-btn .wl-count');
   if (el) {
     el.textContent = cnt;
