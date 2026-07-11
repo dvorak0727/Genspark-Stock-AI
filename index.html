@@ -15725,6 +15725,7 @@ a.module-nav-item.acc-active {
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
           <option value="broker">🏦 券商囤貨掃描</option>
+          <option value="exdiv">🎯 除息填息候選雷達</option>
         </select>
         <button class="screener-btn" id="screenerBtn" onclick="startScreener()">
           🔭 開始海選
@@ -15925,6 +15926,7 @@ a.module-nav-item.acc-active {
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
           <option value="broker">🏦 券商囤貨掃描</option>
+          <option value="exdiv">🎯 除息填息候選雷達</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -50869,6 +50871,33 @@ async function startScreener() {
             if (simBase) { result.lc = simBase; result.chgPct = 0; }
           }
         }
+      } else if (modeKey === 'exdiv') {
+        // 除息填息雷達：額外抓除息資料（三支並行）
+        const _divStart = new Date(); _divStart.setFullYear(_divStart.getFullYear() - 1);
+        const _divEnd   = new Date(); _divEnd.setMonth(_divEnd.getMonth() + 3);
+        const [r1, r2, r3] = await Promise.allSettled([
+          _scrFetch(fetchInstFM(sid)),
+          _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd)),
+          _scrFetch(fetchFM('TaiwanStockDividend', sid, _divStart, _divEnd))
+        ]);
+        let instRaw  = r1.status === 'fulfilled' ? r1.value : [];
+        let priceRaw = r2.status === 'fulfilled' ? r2.value : [];
+        const divRaw = r3.status === 'fulfilled' ? r3.value : [];
+        if (priceRaw.length < 20) {
+          const sim = genSim(sid);
+          if (sim) { instRaw = sim.inst; priceRaw = sim.price; }
+          else {
+            _scrFailStreak++;
+            if (_scrFailStreak === 5 && typeof showEpicToast === 'function')
+              showEpicToast('⚠️ FinMind API 限速中，建議稍等 1 分鐘後重試', '#d97706');
+            _screenerResults.push({ stockId: sid, score: -1, checks: [], lc:0, chgPct:0, fCons:0, tCons:0, _apiMissing: true });
+            renderScreenerCards(); processed++; continue;
+          }
+        } else { _scrFailStreak = 0; }
+        result = calcExDivScore(sid, instRaw, priceRaw, divRaw);
+        if (result._noExDiv) { processed++; continue; } // 無近期除息，跳過不列入
+        result._instRaw = instRaw; result._priceRaw = priceRaw;
+
       } else {
         // 並行取兩支 API：海選用4秒超時（避免每支卡15秒）
         const [r1, r2] = await Promise.allSettled([
@@ -51962,6 +51991,7 @@ const SCREENER_MODE_META = {
   chippure:   { title:'資減人走·籌碼淨化',    subtitle:'融資減碼確認 · 散戶清洗完畢 · 法人悄悄集中 · 資減價揚底部質變', badge:'📉 淨化' },
   macdmatrix: { title:'MACD 多方結構掃瞄矩陣', subtitle:'C1 MACD柱翻紅擴張 · C2 DIF突破DEA · C3 零軸上方 · C4 法人買超 · C5 均線多排 · C6 KD多頭', badge:'📊 MACD矩陣' },
   broker:     { title:'券商囤貨掃描',           subtitle:'C1 累積淨買超 · C2 連買天數 · C3 籌碼集中度 · C4 近5日加速 · C5 主力成本低於現價', badge:'🏦 囤貨' },
+  exdiv:      { title:'除息填息候選雷達',        subtitle:'投信除息前佈局 · 外資製造恐懼換手 · 殖利率誘人 · 跌不下去確認 · 入場甜蜜點偵測', badge:'🎯 填息候選' },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -52397,6 +52427,108 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
   checks.push({ label:'均線死叉', hit:maDead, val:maDead?'MA5<MA20':'未死叉' });
 
   return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  🎯 除息填息候選雷達（ExDiv）
+//  核心邏輯：投信除息前悄悄佈局 + 外資製造恐懼換手 + 散戶出清後填息啟動
+//  5項評分：E1投信連買佈局 E2外資/投信背離 E3殖利率誘人 E4跌不下去 E5入場甜蜜點
+// ═══════════════════════════════════════════════════════════════
+function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  // ── 找近期除息日 ──
+  // FinMind TaiwanStockDividend 欄位：ExDividendTradingDate 或 ex_dividend_date 或 date
+  let exDivDateStr = null, cashDiv = 0;
+  if (divRaw && divRaw.length) {
+    const sorted = [...divRaw].sort((a,b) => {
+      const da = a.ExDividendTradingDate || a.ex_dividend_date || a.date || '';
+      const db = b.ExDividendTradingDate || b.ex_dividend_date || b.date || '';
+      return da.localeCompare(db);
+    });
+    for (const d of sorted) {
+      const exd = d.ExDividendTradingDate || d.ex_dividend_date || d.date;
+      if (!exd) continue;
+      const exDate = new Date(exd); exDate.setHours(0,0,0,0);
+      const diffDays = Math.round((exDate - today) / 86400000);
+      if (diffDays >= -5 && diffDays <= 30) {   // D-5 到 D+30 都納入觀察
+        exDivDateStr = exd;
+        cashDiv = +(d.cash_dividend || d.CashDividend || d.cashDividend || 0);
+        break;
+      }
+    }
+  }
+  // 無近期除息 → 標記跳過
+  if (!exDivDateStr) return { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _noExDiv:true };
+
+  const exDate = new Date(exDivDateStr); exDate.setHours(0,0,0,0);
+  const daysToExDiv = Math.round((exDate - today) / 86400000); // 負 = 已過除息
+
+  // ── 基本資料 ──
+  instRaw  = [...instRaw].sort((a,b)  => a.date.localeCompare(b.date));
+  priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+
+  const instMap  = buildInstMap(instRaw);
+  const allDays  = Object.keys(instMap).sort();
+  const instDays = allDays.slice(-21);
+  const fSeries  = instDays.map(d => (instMap[d]?.Foreign_Investor?.net||0)/1000);
+  const tSeries  = instDays.map(d => (instMap[d]?.Investment_Trust?.net||0)/1000);
+
+  const closes = priceRaw.map(d => +d.close);
+  const vols   = priceRaw.map(d => +d.Trading_Volume);
+  if (closes.length < 5) return { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _noExDiv:true };
+
+  const lc    = closes.at(-1) || 0;
+  const pc    = closes.at(-2) || lc;
+  const chgPct = pc ? (lc - pc) / pc * 100 : 0;
+
+  const fCons = fSeries.filter(v=>v>0).length;
+  const tCons = tSeries.filter(v=>v>0).length;
+
+  const checks = [];
+  let score = 0;
+
+  // E1: 投信連買佈局（21日內連買≥7日 或 10日淨買超正值）（1分）
+  const tBuyDays  = tSeries.filter(v=>v>0).length;
+  const t10sum    = tSeries.slice(-10).reduce((a,b)=>a+b,0);
+  const tConsRun  = (() => { let n=0; for(let i=tSeries.length-1;i>=0;i--){ if(tSeries[i]>0) n++; else break; } return n; })();
+  const e1 = tBuyDays >= 7 || t10sum > 0;
+  score += e1 ? 1 : 0;
+  checks.push({ label:'投信提前佈局', hit:e1, val:`連買${tConsRun}日 / 21日買${tBuyDays}次` });
+
+  // E2: 外資/投信背離（外資5日淨賣 + 投信5日淨買）（1分）
+  const f5  = fSeries.slice(-5).reduce((a,b)=>a+b,0);
+  const t5  = tSeries.slice(-5).reduce((a,b)=>a+b,0);
+  const e2  = f5 < 0 && t5 > 0;
+  score += e2 ? 1 : 0;
+  checks.push({ label:'外資/投信背離', hit:e2, val:`外${f5>0?'+':''}${f5.toFixed(0)} 投${t5>0?'+':''}${t5.toFixed(0)}張` });
+
+  // E3: 殖利率誘人（現金股利/現價 ≥ 3%）（1分）
+  const yieldPct = (cashDiv && lc) ? cashDiv / lc * 100 : 0;
+  const e3 = yieldPct >= 3;
+  score += e3 ? 1 : 0;
+  checks.push({ label:`殖利率${yieldPct.toFixed(1)}%`, hit:e3, val:cashDiv ? `配息$${cashDiv}` : '待確認' });
+
+  // E4: 「跌不下去」驗證（外資5日大賣，但近5日最大單日跌幅 < 2%）（1分）
+  const drops5 = closes.slice(-5).map((c,i,arr) => i===0 ? 0 : (c - arr[i-1])/arr[i-1]*100);
+  const maxDrop = Math.abs(Math.min(...drops5));
+  const e4 = f5 < -500 && maxDrop < 2;   // 外資大賣但股價硬撐
+  score += e4 ? 1 : 0;
+  checks.push({ label:'跌不下去硬撐', hit:e4, val:`近5日最大跌幅${maxDrop.toFixed(1)}%` });
+
+  // E5: 入場甜蜜點（距除息3~14天 = 最佳佈局窗口）（1分）
+  const inSweet = daysToExDiv >= 3 && daysToExDiv <= 14;
+  const afterEx = daysToExDiv < 0;
+  const e5label = afterEx ? `已過除息${Math.abs(daysToExDiv)}日` : `除息倒數${daysToExDiv}日`;
+  score += inSweet ? 1 : (afterEx ? 0.5 : 0);  // 除息後追填息給0.5分
+  checks.push({ label: afterEx ? '填息追蹤中' : '入場甜蜜點', hit: inSweet || afterEx, val: e5label });
+
+  return {
+    stockId, score, checks, lc, chgPct, fCons, tCons,
+    exDivDate: exDivDateStr, daysToExDiv, cashDiv, yieldPct,
+    _exDiv: true   // 標記這是除息雷達結果，供卡片渲染特殊顯示
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -55491,13 +55623,30 @@ function renderScreenerCards(showStats=false) {
     const verdictCls = r.score>=_th4?'strong':r.score>=_th2?'mid':'weak';
     const up = r.chgPct >= 0;
 
-    const _showVal = (_curMode === 'macdmatrix'); // MACD 矩陣模式才顯示數值
+    const _showVal = (_curMode === 'macdmatrix' || _curMode === 'exdiv'); // 這兩個模式顯示數值
     const checksHtml = r.checks.map(c => {
       const cls = c.hit?'hit':c.warn?'warn':'miss';
       const icon = c.hit?'✓':c.warn?'△':'×';
       const valHtml = (_showVal && c.val) ? `<span class="sc-check-val">${c.val}</span>` : '';
       return `<div class="sc-check-dot ${cls}">${icon} ${c.label}${valHtml}</div>`;
     }).join('');
+
+    // ── 除息雷達：專屬資訊列 ──
+    const exDivInfoHtml = (_curMode === 'exdiv' && r._exDiv) ? (() => {
+      const dD = r.daysToExDiv;
+      const phase = dD > 14 ? '📋 佈局觀察' : dD > 2 ? '🎯 入場甜蜜點' : dD >= 0 ? '⚡ 最後衝刺' : '📈 填息追蹤';
+      const dLabel = dD >= 0 ? `除息倒數 <b>${dD}</b> 日` : `已過除息 <b>${Math.abs(dD)}</b> 日`;
+      const yHtml = r.yieldPct >= 3
+        ? `<span style="color:#16a34a;font-weight:700">殖利率 ${r.yieldPct.toFixed(1)}%</span>`
+        : `<span style="color:var(--fg3)">殖利率 ${r.yieldPct.toFixed(1)}%</span>`;
+      return `<div style="margin:6px 0 2px;padding:6px 8px;background:rgba(99,102,241,.09);border-radius:6px;font-size:.67rem;line-height:1.8;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
+        <span style="font-weight:700;color:var(--fg1)">${phase}</span>
+        <span style="color:var(--fg2)">${dLabel}</span>
+        ${r.cashDiv ? `<span style="color:var(--fg2)">配息 $${r.cashDiv}</span>` : ''}
+        ${yHtml}
+        <span style="color:var(--fg3)">除息日 ${r.exDivDate}</span>
+      </div>`;
+    })() : '';
 
     // ── ETF 判斷 & 專屬標籤/說明 ──
     const isETF = info.industry === 'ETF';
@@ -55613,6 +55762,7 @@ function renderScreenerCards(showStats=false) {
       ${miniK ? `<div class="sc-minik">${miniK}</div>` : ''}
       <!-- ↓ 指標明細：預設隱藏，解鎖後才顯示 -->
       <div class="sc-checks">${checksHtml}</div>
+      ${exDivInfoHtml}
       ${etfNote}
       <div class="sc-verdict ${verdictCls}${verdictClickable}"${verdictTitle}${verdictClick}>${verdictFinal}${_macdDirTag}</div>
       <div class="sc-click-hint">▶ 點擊分數圈查看完整分析</div>
@@ -55674,7 +55824,7 @@ function renderScreenerCards(showStats=false) {
     `${poolName} ${modeMeta.title}結果${filterSuffix}`;
 
   // 情境說明：啟動/拉升/出貨期 顯示「與籌碼週期交叉確認」提示
-  const _phaseConflictModes = ['launch','markup','distribution'];
+  const _phaseConflictModes = ['launch','markup','distribution','exdiv'];
   let _scNote = document.getElementById('screenerPhaseNote');
   if (!_scNote) {
     _scNote = document.createElement('div');
@@ -55687,6 +55837,7 @@ function renderScreenerCards(showStats=false) {
       launch:       '📸 <b>短線技術快照（近5-10日）</b>：量能放大＋突破＋外資轉多＋MACD翻紅同步出現才算真啟動。若個股【籌碼週期】仍顯示吸籌/洗盤，高分結果可能是假突破，建議交叉確認再進場。',
       markup:       '📸 <b>短線技術快照（近5-10日）</b>：拉升期訊號需搭配【籌碼週期】確認已進入啟動/拉升段，否則可能只是短線反彈。衝突時以籌碼週期長線定位為主。',
       distribution: '📸 <b>短線技術快照（近5-10日）</b>：出貨訊號若出現在籌碼週期「吸籌/洗盤期」的個股上，通常是<b>洗盤雜訊</b>（主力壓價吸貨），不代表趨勢反轉。建議先查個股【籌碼週期】再判斷。',
+      exdiv:        '🎯 <b>除息填息候選雷達</b>：核心邏輯 — 投信除息前悄悄佈局 + 外資製造恐懼讓散戶出清 + 除息後籌碼集中填息啟動。<b>入場甜蜜點：除息前3~14日</b>，外資大賣但股價跌不下去 = 有人在默默接。除息後出現者為填息追蹤，觀察外資是否停手轉買。',
     };
     _scNote.innerHTML = _noteMap[modeKey2];
     _scNote.style.background = 'rgba(99,102,241,.08)';
