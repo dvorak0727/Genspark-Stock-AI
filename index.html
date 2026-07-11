@@ -52453,10 +52453,16 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
         ((+(d.cash_earnings_distribution||0)) + (+(d.cash_statutory_surplus_distribution||0))) ||
         d.cashDividend || 0);
 
-    // FinMind date = 停止過戶日（比除息交易日晚約4個交易日）→ 往前估算4天
+    // FinMind date = 停止過戶日（比除息交易日晚約3個交易日）
+    // 往前推3個交易日（跳過週六日）來估算實際除息交易日
     const _estExDiv = (dateStr) => {
       const d = new Date(dateStr); d.setHours(0,0,0,0);
-      d.setDate(d.getDate() - 4);   // 往前推4天 ≈ 除息交易日
+      let count = 0;
+      while (count < 3) {
+        d.setDate(d.getDate() - 1);
+        const dow = d.getDay();
+        if (dow !== 0 && dow !== 6) count++; // 跳過週末
+      }
       return d;
     };
     const _fmtDate = d => d.toISOString().slice(0,10);
