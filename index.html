@@ -52439,22 +52439,30 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
   today.setHours(0,0,0,0);
 
   // ── 找近期除息日 ──
-  // FinMind TaiwanStockDividend 欄位：ExDividendTradingDate 或 ex_dividend_date 或 date
   let exDivDateStr = null, cashDiv = 0;
   if (divRaw && divRaw.length) {
-    const sorted = [...divRaw].sort((a,b) => {
-      const da = a.ExDividendTradingDate || a.ex_dividend_date || a.date || '';
-      const db = b.ExDividendTradingDate || b.ex_dividend_date || b.date || '';
-      return da.localeCompare(db);
-    });
+    // 除錯：印出原始欄位結構（看 FinMind 實際回傳什麼）
+    if (stockId === '2382') console.log('[ExDiv debug] 廣達 divRaw:', JSON.stringify(divRaw.slice(0,3), null, 2));
+
+    // FinMind TaiwanStockDividend 可能的欄位名稱（依優先順序嘗試）
+    const _getExDate = d =>
+      d.ExDividendTradingDate || d.ex_dividend_date || d.ExDividendDate ||
+      d.dividend_date || d.date || '';
+    const _getCash = d =>
+      +(d.cash_dividend || d.CashDividend ||
+        ((+(d.cash_earnings_distribution||0)) + (+(d.cash_statutory_surplus_distribution||0))) ||
+        d.cashDividend || 0);
+
+    const sorted = [...divRaw].sort((a,b) => _getExDate(a).localeCompare(_getExDate(b)));
     for (const d of sorted) {
-      const exd = d.ExDividendTradingDate || d.ex_dividend_date || d.date;
+      const exd = _getExDate(d);
       if (!exd) continue;
       const exDate = new Date(exd); exDate.setHours(0,0,0,0);
       const diffDays = Math.round((exDate - today) / 86400000);
-      if (diffDays >= -5 && diffDays <= 30) {   // D-5 到 D+30 都納入觀察
+      if (diffDays >= -5 && diffDays <= 30) {
         exDivDateStr = exd;
-        cashDiv = +(d.cash_dividend || d.CashDividend || d.cashDividend || 0);
+        cashDiv = _getCash(d);
+        if (stockId === '2382') console.log('[ExDiv debug] 廣達 matched record:', d, 'cashDiv:', cashDiv);
         break;
       }
     }
