@@ -5035,7 +5035,7 @@
       transform: translateY(100%);
       transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
       max-height: 85vh;
-      overflow-y: auto;
+      display: flex; flex-direction: column;
     }
     .mgp-overlay.show .mgp-panel { transform: translateY(0); }
     /* 拖拉把手 */
@@ -5078,7 +5078,7 @@
       border-left: 4px solid #F59E0B;
     }
     /* 內容區塊 */
-    .mgp-body { padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+    .mgp-body { padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; }
     .mgp-section { }
     .mgp-section-title {
       font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em;
@@ -52349,6 +52349,17 @@ function calcLaunchScore(stockId, instRaw, priceRaw) {
   score += maOk ? 1.0 : 0;
   checks.push({ label:'均線多排', hit:maOk, val:maOk?'MA5>MA20':'待確認' });
 
+  // L6: 中關價連續上移（收盤在中關以上 + 中關連漲2日）（1.0分）
+  const midpoints = priceRaw.map(d => (+d.max + +d.min) / 2);
+  const mid0 = midpoints.at(-1) || 0;
+  const mid1 = midpoints.at(-2) || 0;
+  const mid2 = midpoints.at(-3) || 0;
+  const closeAboveMid = lc > mid0;
+  const midRising = mid0 > mid1 && mid1 > mid2;
+  const midOk = closeAboveMid && midRising;
+  score += midOk ? 1.0 : 0;
+  checks.push({ label:'中關上移', hit:midOk, val:midOk?`中關${mid0.toFixed(1)}↑`:`收${lc.toFixed(1)}/中關${mid0.toFixed(1)}` });
+
   return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, breakHigh };
 }
 
@@ -55352,6 +55363,47 @@ const MODE_GUIDE = {
   },
 
 
+  launch: {
+    icon: '🚀',
+    name: '啟動期',
+    tag:  '籌碼週期③',
+    summary: '吸籌、洗盤完成後，主力開始「踩油門」的階段。量能突然放大、突破前高、法人同步大買——三個訊號同時出現才算真啟動，缺一容易是假突破。',
+    features: [
+      { icon: '📊', text: '<b>量能放大 ≥ 1.5x</b>：近3日均量比近20日均量高出50%以上，代表有大資金湧入，不是散戶雜訊。' },
+      { icon: '📈', text: '<b>突破前高或月線（MA20）</b>：股價向上穿越最近一段時間的壓力區，突破代表上方賣壓已被吃掉。' },
+      { icon: '🏦', text: '<b>外資近5日轉多</b>：外資由賣轉買，代表大資金認同突破方向，不是只有散戶追。' },
+      { icon: '📉', text: '<b>MACD 柱翻紅</b>：DIF 穿越 DEA，MACD 直方柱由負轉正，動能指標確認多頭格局啟動。' },
+      { icon: '⚖️', text: '<b>中關價連續上移</b>：每日中關＝（最高＋最低）÷2，連續2日上移且收盤站上中關，代表價格重心真的在往上墊，不是假突破。' },
+    ],
+    warns: [
+      '啟動期是短線技術快照（近5~10日），若個股【籌碼週期】仍在吸籌/洗盤，高分可能是假突破，主力還沒準備好拉。',
+      '量能是最關鍵的確認：突破時如果量縮，幾乎可以確定是假突破，不要追。',
+      '啟動後不要追漲停，等第一次回測前高（壓力轉支撐）再進，風險更小。',
+      '如果同時間大盤大漲，個股啟動可信度下降——需排除「被大盤帶起」的因素。',
+    ],
+    action: '📌 操作思路：等「量能放大＋突破」同時出現，隔日開盤觀察是否回測前高支撐，確認不破再進場。停損設在突破點下方 2~3%。不要提前卡位，啟動才進。',
+  },
+
+  rise: {
+    icon: '📈',
+    name: '拉升期',
+    tag:  '籌碼週期④',
+    summary: '啟動確認後，主力開始拉高出貨的過程。量價齊揚、均線多頭排列、法人持續買超——這是最舒服卻也最容易貪心的階段，知道何時「夠了」比「何時進」更重要。',
+    features: [
+      { icon: '📈', text: '<b>量價齊揚</b>：股價持續創近期新高，成交量同步放大——量大漲高代表資金認同，是最健康的拉升型態。' },
+      { icon: '🏦', text: '<b>法人持續買超</b>：外資或投信近5日累計淨買為正，代表大資金還在加碼，主力尚未開始出貨。' },
+      { icon: '📏', text: '<b>站穩 MA5 / MA20</b>：每次回測均線都守住，均線呈多頭排列（MA5 > MA10 > MA20），是趨勢健康的最直接證據。' },
+      { icon: '📊', text: '<b>MACD 在零軸上方 / RSI 強勢區（50~75）</b>：動能在正值區持續擴張，RSI 不過熱（< 80）代表還有上升空間。' },
+    ],
+    warns: [
+      '拉升期同樣是短線技術快照，若籌碼週期分析顯示個股還在洗盤/吸籌期，海選高分可能只是短線反彈，非趨勢性拉升。',
+      '「量縮繼續漲」是危險訊號——代表賣壓雖少，但新買盤也少，容易一個大賣就崩。',
+      'RSI 超過 80 要開始注意，不是賣訊但是「不加碼」的訊號，持有者可設移動停利。',
+      '拉升期最大心理陷阱是「永遠覺得還會漲」。設好移動停利（高點下方 5~8%），自動執行不猶豫。',
+    ],
+    action: '📌 操作思路：持有者設移動停利在高點下方 5~8%，讓獲利奔跑。未持有者不追高，等回測 MA5 支撐後再補倉。目標是在「量縮+法人轉賣」時主動減倉，不要等到出貨期才發現。',
+  },
+
   distribution: {
     icon: '⚠️',
     name: '出貨期（倒貨）',
@@ -55371,6 +55423,27 @@ const MODE_GUIDE = {
       '此階段不適合新買進；若要做空，需等確認頂部訊號（連續兩根長黑K）再操作。',
     ],
     action: '📌 操作思路：持有者設停利在高點下 5~8%，觸及立即賣出。未持有者不追高，等回落到吸籌區才重新評估。整個週期完成後，下一個吸籌期才是新的進場機會。',
+  },
+
+  exdiv: {
+    icon: '🎯',
+    name: '除息填息候選雷達',
+    tag:  '填息候選',
+    summary: '除息季前，投信悄悄佈局、外資刻意製造恐懼讓散戶出清，殖利率誘人卻跌不下去——這是有人在默默接貨的訊號。找出「除息甜蜜點」個股，在法人換手完成後跟進。',
+    features: [
+      { icon: '🏦', text: '<b>E1 投信連買佈局</b>：投信在除息前2~4週連續買超，低調佈局不製造話題，籌碼從散戶手中轉移到強手。' },
+      { icon: '⚔️', text: '<b>E2 外資/投信背離（分歧）</b>：外資同期大賣製造恐懼，投信卻反向買進——兩者背道而馳，正是換手劇本的核心。' },
+      { icon: '💰', text: '<b>E3 殖利率 ≥ 3%</b>：現金股利換算殖利率夠高，提供填息空間與安全墊，機構願意持有等待填息。' },
+      { icon: '🛡️', text: '<b>E4 跌不下去</b>：外資連賣5日超過500張，但股價跌幅低於2% — 有隱形買盤在撐著，這才是最關鍵的確認訊號。' },
+      { icon: '⏱️', text: '<b>E5 入場甜蜜點（除息前3~14日）</b>：太早進容易被洗，太晚進成本高。除息前3~14日是換手接近尾聲、填息動能最強的區間。' },
+    ],
+    warns: [
+      '除息不等於填息——股價在除息日當天會直接跳水（除掉配息金額），之後才靠法人買盤填回來。',
+      '大盤重挫期間，填息可能拖延數月甚至放棄填息。先確認大盤環境再操作。',
+      '外資賣超有時純粹是借券放空套利，而非真實看空。需搭配「股價是否跌不下去」來判斷。',
+      '此模式篩選的是「即將除息」個股，時間窗口短，超過除息日仍未填息則策略調整為填息追蹤。',
+    ],
+    action: '📌 操作思路：E1+E2+E4 同時成立（投信連買＋外資大賣＋跌不下去）為黃金組合，評分 ≥ 4 才值得關注。除息前3~5日是甜蜜點，搭配殖利率 ≥ 4% 更佳。停損設在除息日收盤若跌幅遠超配息金額（未填息跡象）時出場。',
   },
 
 };  // END MODE_GUIDE
@@ -55426,6 +55499,7 @@ function openModeGuide(forceMode) {
     { k:'distribution', icon:'⚠️', name:'出貨期' },
     { k:'macdmatrix',   icon:'📊', name:'MACD矩陣' },
     { k:'broker',       icon:'🏦', name:'券商囤貨' },
+    { k:'exdiv',        icon:'🎯', name:'除息填息雷達' },
   ];
   tabsEl.innerHTML = allModes.map(m => `
     <div class="mgp-mode-tab ${m.k === mode ? 'active' : ''}" onclick="openModeGuide('${m.k}')">
@@ -55630,8 +55704,8 @@ function renderScreenerCards(showStats=false) {
     const _mMeta   = SCREENER_MODE_META[_curMode] || SCREENER_MODE_META.bottom;
     const _mBadge  = _mMeta.badge;
     // MACD矩陣最高6分，其餘模式最高5分 → 依比例換算閾值
-    const _maxScore = (_curMode === 'macdmatrix') ? 6 : 5;
-    const _scoreMax_label = (_curMode === 'macdmatrix') ? '/6' : '/5';
+    const _maxScore = (_curMode === 'macdmatrix' || _curMode === 'launch') ? 6 : 5;
+    const _scoreMax_label = (_curMode === 'macdmatrix' || _curMode === 'launch') ? '/6' : '/5';
     // 強訊號：≥ 滿分的67%；明確：≥50%；部分：≥33%；初現：≥17%
     const _th4 = _maxScore * 0.67;  // e.g. 4.0 (5分制) / 4.0 (6分制)
     const _th3 = _maxScore * 0.50;
@@ -55898,13 +55972,14 @@ function renderScreenerCards(showStats=false) {
     const mMeta3    = SCREENER_MODE_META[modeKey3] || SCREENER_MODE_META.bottom;
     const modeLabel = mMeta3.badge;
     // MACD 矩陣滿分 6，其餘 5 → 計算比例閾值
-    const _smx  = (modeKey3 === 'macdmatrix') ? 6 : 5;
+    const _smx  = (modeKey3 === 'macdmatrix' || modeKey3 === 'launch') ? 6 : 5;
     const _th4s = _smx * 0.67;  // 強烈
     const _th3s = _smx * 0.50;  // 明確
     const _th2s = _smx * 0.33;  // 部分
-    const _lbl4 = (modeKey3 === 'macdmatrix') ? `≥4/6` : `≥4`;
-    const _lbl3 = (modeKey3 === 'macdmatrix') ? `≥3/6` : `≥3`;
-    const _lbl2 = (modeKey3 === 'macdmatrix') ? `≥2/6` : `≥2`;
+    const _is6 = (modeKey3 === 'macdmatrix' || modeKey3 === 'launch');
+    const _lbl4 = _is6 ? `≥4/6` : `≥4`;
+    const _lbl3 = _is6 ? `≥3/6` : `≥3`;
+    const _lbl2 = _is6 ? `≥2/6` : `≥2`;
     const cnt4    = sorted.filter(r=>r.score>=_th4s).length;
     const cnt3    = sorted.filter(r=>r.score>=_th3s&&r.score<_th4s).length;
     const cnt2    = sorted.filter(r=>r.score>=_th2s&&r.score<_th3s).length;
