@@ -69607,15 +69607,8 @@ function openStockSim() {
 }
 
 // ─── 主函式 ───
-async function _openTeachPanel(mode='normal') {
+async function _openTeachPanel(mode='select') {
   const today=new Date();
-  const seed =today.getFullYear()*10000+(today.getMonth()+1)*100+today.getDate();
-  // 條件單模式用不同種子，確保選到不同股票
-  const rand =_teachSeededRand(mode==='cond' ? seed+3712 : seed);
-  const pool =[..._TEACH_POOL];
-  for(let i=pool.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
-  const five=pool.slice(0,5);
-
   const oppEl=document.getElementById('oppVerdict');
   const oppTxt=oppEl?.querySelector('.vd-main')?.textContent||oppEl?.textContent||'';
   const mktBull=/偏多|中性偏多|樂觀/.test(oppTxt);
@@ -69625,18 +69618,71 @@ async function _openTeachPanel(mode='normal') {
   const timeTip=hm<9*60?'⏰ 盤前：先看壓力表，再研究個股':hm<=9*60+30?'⚡ 09:00–09:30 先觀察，不追高':hm<=13*60+30?'📊 掛好條件單後可放心去做其他事':'✅ 收盤了，今日操作記錄下來明天對照';
   const dateStr=`${today.getFullYear()}/${String(today.getMonth()+1).padStart(2,'0')}/${String(today.getDate()).padStart(2,'0')}`;
 
-  // 顯示 loading modal
-  document.getElementById('teachPanelOverlay')?.remove();
-  const shell=`
-  <div id="teachPanelOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;"
-    onclick="if(event.target===this)this.remove()">
-    <div id="teachPanelBox" style="background:var(--bg);border-radius:16px;padding:20px 22px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+  // ── 選單畫面（第一層）──
+  if (mode === 'select') {
+    document.getElementById('teachPanelOverlay')?.remove();
+    const shell=`
+    <div id="teachPanelOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;"
+      onclick="if(event.target===this)this.remove()">
+      <div id="teachPanelBox" style="background:var(--bg);border-radius:16px;padding:24px 24px 28px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="font-size:1rem;font-weight:800;">📚 今日教學操盤</span>
+          <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">真實數據版</span>
+          <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
+        </div>
+        <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:14px;">${dateStr} · ${mktTxt}</div>
+
+        <div style="font-size:0.78rem;font-weight:700;color:var(--fg2);margin-bottom:12px;">選擇今天的練習模式：</div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button onclick="_openTeachPanel('normal')"
+            style="width:100%;padding:16px 18px;border-radius:12px;border:1.5px solid #10b981;background:rgba(16,185,129,0.06);cursor:pointer;text-align:left;transition:all .15s;"
+            onmouseover="this.style.background='rgba(16,185,129,0.14)'"
+            onmouseout="this.style.background='rgba(16,185,129,0.06)'">
+            <div style="font-size:0.85rem;font-weight:800;color:#10b981;">📋 普通掛單練習</div>
+            <div style="font-size:0.68rem;color:var(--fg3);margin-top:4px;">每日5檔・練習限價單、停損停利・明天自動換新一批</div>
+          </button>
+          <button onclick="_openTeachPanel('cond')"
+            style="width:100%;padding:16px 18px;border-radius:12px;border:1.5px solid #6366f1;background:rgba(99,102,241,0.06);cursor:pointer;text-align:left;transition:all .15s;"
+            onmouseover="this.style.background='rgba(99,102,241,0.14)'"
+            onmouseout="this.style.background='rgba(99,102,241,0.06)'">
+            <div style="font-size:0.85rem;font-weight:800;color:#6366f1;">⚡ 條件單練習</div>
+            <div style="font-size:0.68rem;color:var(--fg3);margin-top:4px;">依籌碼週期各選1檔・練習母單觸發＋子單執行・進階訓練</div>
+          </button>
+        </div>
+
+        <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:14px;">
+          💡 每日5檔・明天自動換新一批 ・ ⚠️ 教育模擬用途，非投資建議
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', shell);
+    return;
+  }
+
+  // ── 資料抓取畫面（第二層）──
+  const seed =today.getFullYear()*10000+(today.getMonth()+1)*100+today.getDate();
+  const rand =_teachSeededRand(mode==='cond' ? seed+3712 : seed);
+  const pool =[..._TEACH_POOL];
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  const five=pool.slice(0,5);
+
+  // 顯示 loading modal（保留 header，替換 body）
+  const existBox = document.getElementById('teachPanelBox');
+  const modeLabel = mode==='normal'?'📋 普通掛單練習':'⚡ 條件單練習';
+  const modeColor = mode==='normal'?'#10b981':'#6366f1';
+  if (existBox) {
+    existBox.innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
         <span style="font-size:1rem;font-weight:800;">📚 今日教學操盤</span>
         <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">真實數據版</span>
         <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
       </div>
       <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:10px;">${dateStr} · ${mktTxt}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <span style="font-size:0.75rem;font-weight:800;color:${modeColor};">${modeLabel}</span>
+        <button onclick="_openTeachPanel('select')" style="font-size:0.62rem;color:var(--fg3);background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer;">← 換模式</button>
+      </div>
       <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
         ${timeTip}<br><span style="font-size:0.63rem;">⚠️ 教育模擬用途，非投資建議</span>
       </div>
@@ -69645,25 +69691,39 @@ async function _openTeachPanel(mode='normal') {
           ⏳ 正在抓取真實K線數據（${five.map(s=>s.name).join('、')}）…<br>
           <span style="font-size:0.65rem;">需要 FinMind Token，約需 10–20 秒</span>
         </div>
+      </div>`;
+    existBox.style.maxWidth = '580px';
+    existBox.style.maxHeight = '90vh';
+    existBox.style.overflowY = 'auto';
+  } else {
+    document.getElementById('teachPanelOverlay')?.remove();
+    const shell=`
+    <div id="teachPanelOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;"
+      onclick="if(event.target===this)this.remove()">
+      <div id="teachPanelBox" style="background:var(--bg);border-radius:16px;padding:20px 22px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <span style="font-size:1rem;font-weight:800;">📚 今日教學操盤</span>
+          <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">真實數據版</span>
+          <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
+        </div>
+        <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:10px;">${dateStr} · ${mktTxt}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <span style="font-size:0.75rem;font-weight:800;color:${modeColor};">${modeLabel}</span>
+          <button onclick="_openTeachPanel('select')" style="font-size:0.62rem;color:var(--fg3);background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer;">← 換模式</button>
+        </div>
+        <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
+          ${timeTip}<br><span style="font-size:0.63rem;">⚠️ 教育模擬用途，非投資建議</span>
+        </div>
+        <div id="teachCards">
+          <div style="text-align:center;padding:30px;color:var(--fg3);">
+            ⏳ 正在抓取真實K線數據（${five.map(s=>s.name).join('、')}）…<br>
+            <span style="font-size:0.65rem;">需要 FinMind Token，約需 10–20 秒</span>
+          </div>
+        </div>
       </div>
-      <!-- 模式切換 Tab -->
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button onclick="_openTeachPanel('normal')"
-          style="flex:1;padding:8px 4px;border-radius:9px;font-size:0.72rem;font-weight:700;cursor:pointer;transition:all .15s;
-                 ${mode==='normal'?'background:#10b981;color:#fff;border:1.5px solid #10b981;':'background:var(--bg);color:#10b981;border:1.5px solid #10b981;'}">
-          📋 普通掛單練習
-        </button>
-        <button onclick="_openTeachPanel('cond')"
-          style="flex:1;padding:8px 4px;border-radius:9px;font-size:0.72rem;font-weight:700;cursor:pointer;transition:all .15s;
-                 ${mode==='cond'?'background:#6366f1;color:#fff;border:1.5px solid #6366f1;':'background:var(--bg);color:#6366f1;border:1.5px solid #6366f1;'}">
-          ⚡ 條件單練習
-        </button>
-      </div>
-      <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:6px;">
-        ${mode==='normal'?'💡 每日5檔・明天自動換新一批':'⚡ 每週期各一檔・練習設條件單掛單'}
-      </div>
-    </div>
-  </div>`;
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', shell);
+  }
   document.body.insertAdjacentHTML('beforeend', shell);
 
   // 取 token
