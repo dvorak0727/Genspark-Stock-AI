@@ -34951,6 +34951,12 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
   const isStale = () => gen !== _analysisGeneration; // 若已過期則不更新 DOM
   // ── v5.61：記錄當前股票代號供子函式使用 ──
   window._currentStockId = stockId;
+  // 存股名與板塊供 VIP 建議書讀取
+  try {
+    const _db = typeof STOCK_DB !== 'undefined' ? STOCK_DB : {};
+    window._vipStockName   = _db[stockId]?.name || stockId;
+    window._vipStockSector = srFindSector(stockId);
+  } catch(e) {}
   // v6.36g：更新 pin 按鈕狀態
   try { _updatePinBtn(stockId, isStockPinned(stockId)); } catch(e) {}
   // ── v5.21：重置全域橋接物件（各模組裁決存此，供 Signal Matrix 讀取）──
@@ -55905,7 +55911,16 @@ function openVipOrder() {
     </div>
   `;
 
-  document.getElementById('vipStockLabel').textContent = `${sid} · ${new Date().toLocaleDateString('zh-TW')} · 現價 $${lc||'—'}`;
+  const _sname  = window._vipStockName || sid;
+  const _ssec   = window._vipStockSector;
+  const _secTxt = _ssec ? `${_ssec.emoji||''}${_ssec.name}` : '';
+  document.getElementById('vipStockLabel').innerHTML =
+    `<span style="font-weight:800;color:#e5c97e;">${_sname}</span>`+
+    `<span style="color:#c9a22788;margin:0 5px;">·</span>`+
+    `<span>${sid}</span>`+
+    (_secTxt?`<span style="margin-left:6px;background:rgba(201,162,39,.15);color:#c9a227;padding:1px 7px;border-radius:99px;font-size:.6rem;">${_secTxt}</span>`:'')+
+    `<span style="color:#c9a22788;margin:0 5px;">·</span>`+
+    `現價 <b style="color:#e5c97e;">$${lc||'—'}</b>`;
 
   const ov = document.getElementById('vipOrderOverlay');
   const panel = document.getElementById('vipOrderPanel');
