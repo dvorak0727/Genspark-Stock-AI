@@ -55703,19 +55703,17 @@ function _dtreeShowEnd(endKey) {
   document.getElementById('dtreeProgress').style.width = '100%';
   document.getElementById('dtreeStepLabel').textContent = '完成';
   document.getElementById('dtreeSummary').textContent = '決策完成。';
-  document.getElementById('dtreeBody').innerHTML = '';
-  const r = document.getElementById('dtreeResult');
-  r.style.display = 'block';
-  r.style.background = end.bg;
-  r.style.border = `1.5px solid ${end.color}`;
-  r.style.borderRadius = '10px';
-  r.innerHTML = `
-    <div style="font-size:1.1rem;font-weight:800;color:${end.color};margin-bottom:6px;">${end.icon} ${end.title}</div>
-    <div style="color:var(--fg2);">${end.body}</div>
-    <button onclick="openDTree()" style="margin-top:12px;padding:6px 16px;border-radius:99px;
-      border:1.5px solid ${end.color};background:none;color:${end.color};font-size:.75rem;
-      cursor:pointer;font-weight:700;">🔄 重新評估</button>
-  `;
+  const body = document.getElementById('dtreeBody');
+  body.innerHTML = `
+    <div style="padding:4px 0 8px;">
+      <div style="background:${end.bg};border:1.5px solid ${end.color};border-radius:12px;padding:18px 16px;line-height:1.75;">
+        <div style="font-size:1.15rem;font-weight:800;color:${end.color};margin-bottom:8px;">${end.icon} ${end.title}</div>
+        <div style="font-size:0.82rem;color:var(--fg2);">${end.body}</div>
+        <button onclick="openDTree()" style="margin-top:14px;padding:7px 18px;border-radius:99px;
+          border:1.5px solid ${end.color};background:none;color:${end.color};font-size:.75rem;
+          cursor:pointer;font-weight:700;">🔄 重新評估</button>
+      </div>
+    </div>`;
 }
 
 /* ══════════════════════════════════════════════════════════════════
