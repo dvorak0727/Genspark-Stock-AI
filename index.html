@@ -15892,6 +15892,23 @@ a.module-nav-item.acc-active {
   </div>
 </div>
 
+<!-- 💎 VIP 掛單建議書 Modal -->
+<div id="vipOrderOverlay" onclick="closeVipOrder(event)" style="display:none;position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+  <div id="vipOrderPanel" style="width:calc(100% - 32px);max-width:560px;max-height:88vh;background:var(--surface);border-radius:18px;border:1.5px solid #7c3aed55;display:flex;flex-direction:column;overflow:hidden;transform:scale(0.92);opacity:0;transition:transform .25s cubic-bezier(.32,.72,0,1),opacity .22s;margin:0 16px;">
+    <!-- Header -->
+    <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(79,70,229,.04));">
+      <span style="font-size:1.4rem;">💎</span>
+      <div>
+        <div style="font-weight:800;font-size:1rem;color:var(--fg1);">VIP 掛單建議書</div>
+        <div id="vipStockLabel" style="font-size:.68rem;color:#7c3aed;font-weight:700;">載入中…</div>
+      </div>
+      <button onclick="closeVipOrder()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
+    </div>
+    <!-- Body -->
+    <div id="vipOrderBody" style="flex:1;overflow-y:auto;padding:16px 20px 20px;"></div>
+  </div>
+</div>
+
 <!-- 🌅 早安決策樹 Modal -->
 <div id="dtreeOverlay" onclick="closeDTree(event)" style="display:none;position:fixed;inset:0;z-index:1300;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;">
   <div id="dtreePanel" style="width:calc(100%-32px);max-width:520px;max-height:82vh;background:var(--surface);border-radius:18px;border:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transform:scale(0.92);opacity:0;transition:transform 0.25s cubic-bezier(0.32,0.72,0,1),opacity 0.22s;margin:0 16px;">
@@ -17204,6 +17221,17 @@ a.module-nav-item.acc-active {
             <span class="eb-sub">三軸慣性場</span>
           </button>
         </div>
+      </div>
+
+      <!-- 💎 VIP 掛單建議書 -->
+      <div style="padding:10px 0 4px;">
+        <button onclick="openVipOrder()" style="width:100%;padding:11px;border-radius:10px;
+          background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;
+          font-size:0.8rem;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
+          box-shadow:0 2px 12px rgba(99,102,241,0.35);letter-spacing:.02em;">
+          💎 <span>VIP 掛單建議書</span>
+          <span style="font-size:0.6rem;background:rgba(255,255,255,0.2);padding:1px 7px;border-radius:99px;font-weight:700;">頂級客戶專屬</span>
+        </button>
       </div>
 
       <!-- 💬 白話速覽（整併自白話解讀模組） -->
@@ -55762,6 +55790,203 @@ function _dtreeShowEnd(endKey) {
           cursor:pointer;font-weight:700;">🔄 重新評估</button>
       </div>
     </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   💎 VIP 掛單建議書
+══════════════════════════════════════════════════════════════════ */
+function openVipOrder() {
+  const sid = window._currentStockId;
+  if (!sid) { alert('請先輸入股票代號進行分析'); return; }
+
+  // 讀現有資料
+  const sm   = window._smData || {};
+  const ai   = sm.ai   || {};
+  const wash = sm.wash  || {};
+  const bd   = sm.bd    || {};
+  const cf   = sm.cf    || {};
+  const trt  = sm.trt   || {};
+  const ep   = window._dtreeEpicData || null;
+
+  // 價格與技術面 - 從 DOM 讀
+  const px  = v => v>=1000?v.toFixed(0):v>=100?v.toFixed(1):v.toFixed(2);
+  const priceEl = document.getElementById('priceMain') || document.getElementById('currentPrice');
+  const lc  = parseFloat(priceEl?.textContent?.replace(/[^0-9.]/g,'')) || 0;
+
+  // 中關價 — 從最高/最低讀
+  const hiEl = document.querySelector('.price-hi, #priceHi, [data-role="high"]');
+  const loEl = document.querySelector('.price-lo, #priceLo, [data-role="low"]');
+  const hi   = parseFloat(hiEl?.textContent?.replace(/[^0-9.]/g,'')) || lc*1.01;
+  const lo   = parseFloat(loEl?.textContent?.replace(/[^0-9.]/g,'')) || lc*0.99;
+  const midPrice = (hi + lo) / 2;
+  const aboveMid = lc > midPrice;
+
+  // 籌碼週期
+  const phaseMap = {1:'🧲 吸籌期',2:'🌀 洗盤期',3:'🚀 啟動期',4:'📈 拉升期',5:'⚠️ 出貨期'};
+  let phaseIdx = 0;
+  // 從 wash/bd 模組推斷
+  if (wash.confirmed) phaseIdx = 2;
+  else if (bd.score >= 4) phaseIdx = 1;
+  else if (ai.cls === 'bull' && ai.score >= 65) phaseIdx = 4;
+  else if (ai.cls === 'bull') phaseIdx = 3;
+  else if (ai.cls === 'bear') phaseIdx = 5;
+  // 嘗試讀 _teachData
+  if (window._teachData?.phaseIdx) phaseIdx = window._teachData.phaseIdx;
+  const phaseName = phaseMap[phaseIdx] || '❓ 未能判定';
+
+  // 法人方向
+  const fStreak = parseInt(document.querySelector('#csInstFStreak, .inst-f-streak')?.textContent?.match(/\d+/)?.[0]||'0');
+  const tStreak = parseInt(document.querySelector('#csInstTStreak, .inst-t-streak')?.textContent?.match(/\d+/)?.[0]||'0');
+  const fBull   = document.querySelector('#csInstForeign')?.textContent?.includes('買') ?? (fStreak > 0);
+  const tBull   = document.querySelector('#csInstTrust')?.textContent?.includes('買') ?? (tStreak > 0);
+  const chipStr = fBull && tBull ? '✅ 外資＋投信同向買' : fBull ? '⚠️ 外資買、投信賣' : tBull ? '⚠️ 投信買、外資賣' : '❌ 法人分歧/出貨';
+  const chipOk  = fBull && tBull;
+
+  // 震央板塊
+  const epicStr = ep ? `${ep.emoji}${ep.name}（${ep.change>=0?'+':''}${ep.change}%）` : '—（請先開啟板塊面板）';
+
+  // 掛單建議（依籌碼週期）
+  const orderRec = _vipOrderTemplate(phaseIdx, lc, midPrice, chipOk, px);
+
+  // AI 評分
+  const aiScore = ai.score || 0;
+  const aiCls   = ai.cls || 'warn';
+  const aiColor = aiCls==='bull'?'#16a34a':aiCls==='bear'?'#dc2626':'#d97706';
+
+  const body = document.getElementById('vipOrderBody');
+  body.innerHTML = `
+    <!-- 概況列 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:10px 12px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:3px;">AI 評分</div>
+        <div style="font-size:1.1rem;font-weight:800;color:${aiColor};">${aiScore} <span style="font-size:.65rem;">${ai.label||''}</span></div>
+      </div>
+      <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:10px 12px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:3px;">籌碼週期</div>
+        <div style="font-size:.85rem;font-weight:800;color:var(--fg1);">${phaseName}</div>
+      </div>
+      <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:10px 12px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:3px;">中關價</div>
+        <div style="font-size:.95rem;font-weight:800;color:var(--fg1);">$${px(midPrice)} <span style="font-size:.62rem;color:${aboveMid?'#16a34a':'#dc2626'};">${aboveMid?'▲收盤在上':'▼收盤在下'}</span></div>
+      </div>
+      <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:10px 12px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:3px;">法人籌碼</div>
+        <div style="font-size:.72rem;font-weight:700;color:var(--fg1);">${chipStr}</div>
+      </div>
+    </div>
+
+    <!-- 震央 -->
+    <div style="background:rgba(239,68,68,.06);border:1px solid #fca5a555;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:.72rem;">
+      🎯 今日震央：<b>${epicStr}</b>
+      ${ep?`<span style="margin-left:6px;color:#dc2626;">— 本股${ep.id==='other'?'非震央板塊✓':'請確認是否屬於此板塊'}</span>`:''}
+    </div>
+
+    <!-- 掛單建議 -->
+    ${orderRec}
+
+    <!-- 注意事項 -->
+    <div style="margin-top:12px;background:rgba(245,158,11,.07);border-radius:8px;padding:8px 12px;font-size:.65rem;color:#92400e;line-height:1.7;">
+      ⚠️ 本建議書依儀表板現有資料自動生成，僅供參考，不構成投資建議。<br>進場前請自行確認當日開盤壓力表與板塊方向。
+    </div>
+  `;
+
+  document.getElementById('vipStockLabel').textContent = `${sid} · ${new Date().toLocaleDateString('zh-TW')} · 現價 $${lc||'—'}`;
+
+  const ov = document.getElementById('vipOrderOverlay');
+  const panel = document.getElementById('vipOrderPanel');
+  ov.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  requestAnimationFrame(() => { panel.style.transform='scale(1)'; panel.style.opacity='1'; });
+}
+
+function _vipOrderTemplate(phaseIdx, lc, mid, chipOk, px) {
+  if (!lc) return '<div style="color:var(--fg3);font-size:.8rem;">⚠️ 請先完成個股分析</div>';
+  const p = lc;
+  const sl3 = p * 0.97, sl5 = p * 0.95;
+  const tgt5 = p * 1.05, tgt8 = p * 1.08, tgt10 = p * 1.10;
+  const mid1 = mid * 0.999;
+
+  const templates = {
+    1: { // 吸籌
+      title:'🧲 吸籌期掛單 — 低接佈局',
+      col:'#60a5fa',
+      items:[
+        `母單：股價 ≤ <b>$${px(mid1)}</b>（貼近中關）→ 市價買進 1 張`,
+        `子單（停損）：買進後，股價 ≤ <b>$${px(sl5)}</b>（-5%）→ 市價賣出`,
+        `子單（停利）：股價 ≥ <b>$${px(tgt10)}</b>（+10%）→ 市價賣出`,
+      ],
+      note:'吸籌期耐心等拉回，中關以下接貨是甜蜜點。不要追高。'
+    },
+    2: { // 洗盤
+      title:'🌀 洗盤期掛單 — 量縮接貨母子單',
+      col:'#f59e0b',
+      items:[
+        `母單：股價 ≤ <b>$${px(p*0.995)}</b>（今日低點附近）且量縮 → 市價買進`,
+        `子單（停損）：≤ <b>$${px(sl3)}</b>（-3%）→ 自動賣出（假跌破保護）`,
+        `子單（停利）：≥ <b>$${px(tgt8)}</b>（+8%，拉升初段）→ 自動賣出`,
+      ],
+      note:'洗盤期的跌是假的。量縮才是確認，量放大的跌要小心。'
+    },
+    3: { // 啟動
+      title:'🚀 啟動期掛單 — 突破確認買進',
+      col:'#6366f1',
+      items:[
+        `母單：股價 ≥ <b>$${px(p*1.015)}</b>（突破前高 +1.5%）→ 掛買 $${px(p*1.018)}`,
+        `子單（停損）：買進後跌回 ≤ <b>$${px(p*0.975)}</b>（-2.5%）→ 賣出`,
+        `子單（停利）：≥ <b>$${px(tgt8)}</b>（+8%）→ 賣出一半；剩一半移動停利`,
+      ],
+      note:'啟動不要在突破當天追漲停，等次日確認守住再進。量是關鍵。'
+    },
+    4: { // 拉升
+      title:'📈 拉升期掛單 — 回測 MA5 加碼',
+      col:'#10b981',
+      items:[
+        `母單：拉回至 <b>$${px(p*0.985)}</b>（MA5 附近）止跌收紅 → 加碼買進`,
+        `移動停利：每天上調停損至前日最低點 -1.5%（目前設 $${px(p*0.983)}）`,
+        `分批出場：漲幅達 +5% 出三分之一；達 +10% 再出三分之一；剩移動停利`,
+      ],
+      note:'拉升期最大陷阱是捨不得出。移動停利自動保護，不用情緒判斷。'
+    },
+    5: { // 出貨
+      title:'⚠️ 出貨期掛單 — 只設賣出保護',
+      col:'#ef4444',
+      items:[
+        `條件單：股價 ≤ <b>$${px(p*0.95)}</b>（-5%）→ 自動全賣（保護獲利）`,
+        `若已獲利：現價附近分批掛出，<b>不要再買進</b>`,
+        `若未持有：<b>今天不進場</b>，等下一個吸籌週期`,
+      ],
+      note:'出貨期的任務只有一個：把獲利帶回家。主力出貨，散戶接棒。'
+    },
+  };
+
+  const t = templates[phaseIdx];
+  if (!t) return `<div style="background:rgba(128,128,128,.07);border-radius:10px;padding:14px;font-size:.78rem;color:var(--fg2);">⚠️ 籌碼週期未能判定，請完成分析後再試。<br>建議先點「開始海選」或輸入股號分析。</div>`;
+
+  const chipWarn = !chipOk ? `<div style="margin-top:8px;font-size:.65rem;color:#d97706;background:rgba(245,158,11,.1);border-radius:6px;padding:5px 8px;">⚠️ 注意：法人未同向，建議等籌碼結構改善後再進場</div>` : '';
+
+  return `
+    <div style="background:${t.col}11;border:1.5px solid ${t.col}44;border-radius:12px;padding:14px 16px;">
+      <div style="font-size:.82rem;font-weight:800;color:${t.col};margin-bottom:10px;">${t.title}</div>
+      <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:10px;">
+        ${t.items.map((item,i)=>`
+          <div style="display:flex;gap:8px;align-items:flex-start;font-size:.73rem;color:var(--fg1);line-height:1.6;">
+            <span style="min-width:18px;height:18px;background:${t.col};color:#fff;border-radius:99px;font-size:.58rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px;">${i+1}</span>
+            <span>${item}</span>
+          </div>`).join('')}
+      </div>
+      <div style="font-size:.65rem;color:${t.col};background:${t.col}15;border-radius:6px;padding:6px 8px;line-height:1.6;">
+        💡 ${t.note}
+      </div>
+      ${chipWarn}
+    </div>`;
+}
+
+function closeVipOrder(e) {
+  if (e && e.target !== document.getElementById('vipOrderOverlay')) return;
+  const ov = document.getElementById('vipOrderOverlay');
+  const panel = document.getElementById('vipOrderPanel');
+  panel.style.transform = 'scale(0.92)'; panel.style.opacity = '0';
+  setTimeout(() => { ov.style.display='none'; document.body.style.overflow=''; panel.style.transform='scale(0.92)'; panel.style.opacity='0'; }, 220);
 }
 
 /* ══════════════════════════════════════════════════════════════════
