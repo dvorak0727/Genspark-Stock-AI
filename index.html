@@ -69686,12 +69686,7 @@ async function _openTeachPanel(mode='select') {
       <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
         ${timeTip}<br><span style="font-size:0.63rem;">⚠️ 教育模擬用途，非投資建議</span>
       </div>
-      <div id="teachCards">
-        <div style="text-align:center;padding:30px;color:var(--fg3);">
-          ⏳ 正在抓取真實K線數據（${five.map(s=>s.name).join('、')}）…<br>
-          <span style="font-size:0.65rem;">需要 FinMind Token，約需 10–20 秒</span>
-        </div>
-      </div>`;
+      <div id="teachCards"></div>`;
     existBox.style.maxWidth = '580px';
     existBox.style.maxHeight = '90vh';
     existBox.style.overflowY = 'auto';
@@ -69714,12 +69709,7 @@ async function _openTeachPanel(mode='select') {
         <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
           ${timeTip}<br><span style="font-size:0.63rem;">⚠️ 教育模擬用途，非投資建議</span>
         </div>
-        <div id="teachCards">
-          <div style="text-align:center;padding:30px;color:var(--fg3);">
-            ⏳ 正在抓取真實K線數據（${five.map(s=>s.name).join('、')}）…<br>
-            <span style="font-size:0.65rem;">需要 FinMind Token，約需 10–20 秒</span>
-          </div>
-        </div>
+        <div id="teachCards"></div>
       </div>
     </div>`;
     document.body.insertAdjacentHTML('beforeend', shell);
