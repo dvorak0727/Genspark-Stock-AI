@@ -55691,6 +55691,8 @@ function _renderDTree(stepNum) {
 function _dtreeAnswer(val, next, stepNum) {
   if (stepNum === 2) _dtreeEpicenter = val;
   _dtreeAnswers.push({ step: stepNum, val });
+  const nextNum = isNaN(Number(next)) ? next : Number(next);
+  next = nextNum;
 
   if (typeof next === 'number') {
     // 震央板塊提示
