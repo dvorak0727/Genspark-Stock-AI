@@ -3914,6 +3914,20 @@
     [data-theme="dark"] .ai-cfd-chip.neut  { background:rgba(107,114,128,0.12);border-color:rgba(107,114,128,0.3);color:#9CA3AF; }
     [data-theme="dark"] .ai-cfd-bar-label  { color:#818CF8; }
 
+    /* 吸籌期等待 — 琥珀閃爍提醒 */
+    @keyframes cfd-accum-pulse {
+      0%,100% { border-color: rgba(245,158,11,0.3); box-shadow: none; }
+      50%      { border-color: rgba(245,158,11,0.85); box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
+    }
+    .ai-cfd-bar.accum-alert {
+      background: linear-gradient(90deg,rgba(245,158,11,0.07) 0%,rgba(16,185,129,0.05) 100%);
+      border-color: rgba(245,158,11,0.45);
+      animation: cfd-accum-pulse 2s ease-in-out infinite;
+    }
+    [data-theme="dark"] .ai-cfd-bar.accum-alert {
+      background: linear-gradient(90deg,rgba(245,158,11,0.1) 0%,rgba(16,185,129,0.06) 100%);
+    }
+
     /* ======================================================
        ⚖️ 動態權重模式列 — v5.61
     ====================================================== */
@@ -43736,6 +43750,7 @@ function _updateAICFDBar({ phaseText, stateText, omegaLabel, omegaCls, gradP, Re
     const aiIsBull = aiScore >= 60;
     const aiIsBear = aiScore < 40;
 
+    bar.classList.remove('accum-alert');
     let verdict = '';
     if (phaseIsRally && aiIsBear) {
       // 典型矛盾：Phase 4 拉升 vs AI 賣出
@@ -43744,6 +43759,7 @@ function _updateAICFDBar({ phaseText, stateText, omegaLabel, omegaCls, gradP, Re
       verdict = `<b>✅ 雙軌共振</b>：CFD 拉升期 × AI 評分同向多頭，訊號一致性高，可積極執行。`;
     } else if (phaseIsAccum && aiIsBear) {
       verdict = `<b>🟡 吸籌期等待</b>：CFD 顯示籌碼暗中佈局，AI 評分偏低屬正常（底部價格壓分）。耐心持有或小量佈局。`;
+      bar.classList.add('accum-alert');
     } else if (phaseIsDist && aiIsBull) {
       verdict = `<b>⚠️ 注意頂部</b>：CFD 流場出貨訊號，但 AI 評分仍偏多，可能是滯後。建議逢高分批減碼。`;
     } else if (phaseIsDist && aiIsBear) {
