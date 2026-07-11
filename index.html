@@ -44173,6 +44173,9 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
       <span class="lifeline-ratio">吸籌:倒貨 ≈ 1:3 時間比（倒貨期最長，散戶最晚知道）</span>
       <span>${SEGS[phaseIdx-1].label} 進行中</span>
     </div>
+    <div style="font-size:.67rem;color:var(--fg3);margin-top:6px;padding:6px 8px;background:rgba(99,102,241,.07);border-radius:6px;line-height:1.6;">
+      🧭 <b style="color:var(--fg2)">主力週期 = 長線定位主判斷</b>，海選為短線技術快照。若海選出現「出貨訊號」但本模組顯示吸籌/洗盤，通常屬於<b>洗盤雜訊</b>，不代表趨勢反轉，以本模組為準。
+    </div>
     ${newsWarn}
   </div>`;
 
@@ -55669,6 +55672,29 @@ function renderScreenerCards(showStats=false) {
     ? `（篩選 ${filteredCount}/${totalCount} 檔）` : `（${totalCount} 檔）`;
   document.getElementById('screenerResultsTitle').textContent =
     `${poolName} ${modeMeta.title}結果${filterSuffix}`;
+
+  // 情境說明：啟動/拉升/出貨期 顯示「與籌碼週期交叉確認」提示
+  const _phaseConflictModes = ['launch','markup','distribution'];
+  let _scNote = document.getElementById('screenerPhaseNote');
+  if (!_scNote) {
+    _scNote = document.createElement('div');
+    _scNote.id = 'screenerPhaseNote';
+    _scNote.style.cssText = 'font-size:.68rem;line-height:1.65;margin:6px 0 2px;padding:7px 10px;border-radius:7px;';
+    document.getElementById('screenerResultsHeader').appendChild(_scNote);
+  }
+  if (_phaseConflictModes.includes(modeKey2)) {
+    const _noteMap = {
+      launch:       '📸 <b>短線技術快照（近5-10日）</b>：量能放大＋突破＋外資轉多＋MACD翻紅同步出現才算真啟動。若個股【籌碼週期】仍顯示吸籌/洗盤，高分結果可能是假突破，建議交叉確認再進場。',
+      markup:       '📸 <b>短線技術快照（近5-10日）</b>：拉升期訊號需搭配【籌碼週期】確認已進入啟動/拉升段，否則可能只是短線反彈。衝突時以籌碼週期長線定位為主。',
+      distribution: '📸 <b>短線技術快照（近5-10日）</b>：出貨訊號若出現在籌碼週期「吸籌/洗盤期」的個股上，通常是<b>洗盤雜訊</b>（主力壓價吸貨），不代表趨勢反轉。建議先查個股【籌碼週期】再判斷。',
+    };
+    _scNote.innerHTML = _noteMap[modeKey2];
+    _scNote.style.background = 'rgba(99,102,241,.08)';
+    _scNote.style.color = 'var(--fg2)';
+    _scNote.style.display = '';
+  } else {
+    _scNote.style.display = 'none';
+  }
 
   if(showStats) {
     const modeKey3  = document.getElementById('screenerMode')?.value || 'bottom';
