@@ -69673,53 +69673,40 @@ async function _openTeachPanel(mode='select') {
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
   const five=pool.slice(0,5);
 
-  // 顯示 loading modal（保留 header，替換 body）
-  const existBox = document.getElementById('teachPanelBox');
+  // 預建佔位格 HTML（直接嵌入模板，不靠動態 DOM 操作）
   const modeLabel = mode==='normal'?'📋 普通掛單練習':'⚡ 條件單練習';
   const modeColor = mode==='normal'?'#10b981':'#6366f1';
-  if (existBox) {
-    existBox.innerHTML = `
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-        <span style="font-size:1rem;font-weight:800;">📚 今日教學操盤</span>
-        <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">真實數據版</span>
-        <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
-      </div>
-      <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:10px;">${dateStr} · ${mktTxt}</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <span style="font-size:0.75rem;font-weight:800;color:${modeColor};">${modeLabel}</span>
-        <button onclick="_openTeachPanel('select')" style="font-size:0.62rem;color:var(--fg3);background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer;">← 換模式</button>
-      </div>
-      <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
-        ${timeTip}<br><span style="font-size:0.63rem;">⚠️ 教育模擬用途，非投資建議</span>
-      </div>
-      <div id="teachCards"></div>`;
-    existBox.style.maxWidth = '580px';
-    existBox.style.maxHeight = '90vh';
-    existBox.style.overflowY = 'auto';
-  } else {
-    document.getElementById('teachPanelOverlay')?.remove();
-    const shell=`
-    <div id="teachPanelOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;"
-      onclick="if(event.target===this)this.remove()">
-      <div id="teachPanelBox" style="background:var(--bg);border-radius:16px;padding:20px 22px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
-          <span style="font-size:1rem;font-weight:800;">📚 今日教學操盤</span>
-          <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">真實數據版</span>
-          <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
-        </div>
-        <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:10px;">${dateStr} · ${mktTxt}</div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <span style="font-size:0.75rem;font-weight:800;color:${modeColor};">${modeLabel}</span>
-          <button onclick="_openTeachPanel('select')" style="font-size:0.62rem;color:var(--fg3);background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer;">← 換模式</button>
-        </div>
-        <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
-          ${timeTip}<br><span style="font-size:0.63rem;">⚠️ 教育模擬用途，非投資建議</span>
-        </div>
-        <div id="teachCards"></div>
-      </div>
-    </div>`;
-    document.body.insertAdjacentHTML('beforeend', shell);
-  }
+  const phStyle = 'background:var(--surface2);border-radius:12px;padding:14px 16px;margin-bottom:10px;color:var(--fg3);font-size:.75rem;';
+  const placeholders = five.map((s,i)=>
+    `<div id="tcard_${i}" style="${phStyle}">⏳ ${s.name}（${s.id}）載入中…</div>`
+  ).join('');
+
+  const innerHtml = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+      <span style="font-size:1rem;font-weight:800;">📚 今日教學操盤</span>
+      <span style="font-size:0.62rem;background:linear-gradient(90deg,#10b981,#6366f1);color:#fff;padding:2px 8px;border-radius:20px;font-weight:700;">真實數據版</span>
+      <button onclick="document.getElementById('teachPanelOverlay').remove()" style="margin-left:auto;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--fg3);">✕</button>
+    </div>
+    <div style="font-size:0.68rem;color:var(--fg3);margin-bottom:10px;">${dateStr} · ${mktTxt}</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span style="font-size:0.75rem;font-weight:800;color:${modeColor};">${modeLabel}</span>
+      <button onclick="_openTeachPanel('select')" style="font-size:0.62rem;color:var(--fg3);background:none;border:1px solid var(--border);border-radius:6px;padding:2px 8px;cursor:pointer;">← 換模式</button>
+    </div>
+    <div style="font-size:0.7rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:7px 10px;margin-bottom:12px;color:#b45309;">
+      ${timeTip}<br><span style="font-size:0.63rem;">⚠️ 教育模擬用途，非投資建議</span>
+    </div>
+    <div id="teachCards">${placeholders}</div>`;
+
+  // 注入到現有 box 或建新 overlay
+  document.getElementById('teachPanelOverlay')?.remove();
+  const shell=`
+  <div id="teachPanelOverlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;"
+    onclick="if(event.target===this)this.remove()">
+    <div id="teachPanelBox" style="background:var(--bg);border-radius:16px;padding:20px 22px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      ${innerHtml}
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', shell);
 
   // 取 token（優先 localStorage，確保能抓到）
   const token=localStorage.getItem('tsai_finmind_token')||window._userToken||(typeof TOKEN!=='undefined'?TOKEN:'')||'';
@@ -69752,23 +69739,9 @@ async function _openTeachPanel(mode='select') {
      sl:'不要設買進條件單，這個階段只設賣出',
      note:'出貨期的任務只有一個：把獲利帶回家。不要再想加碼'},
   ];
-  // 逐檔抓取、抓到一檔立刻顯示一檔
-  const cardsEl=document.getElementById('teachCards');
-  if(cardsEl) cardsEl.innerHTML='';
-
-  for(let i=0;i<five.length;i++){
-    const s=five[i];
-    // 先插入 loading 佔位
-    const placeholderId=`tcard_${i}`;
-    if(cardsEl){
-      const ph=document.createElement('div');
-      ph.id=placeholderId;
-      ph.style.cssText='background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:10px;color:var(--fg3);font-size:.75rem;';
-      ph.textContent=`⏳ ${s.name}（${s.id}）載入中…`;
-      cardsEl.appendChild(ph);
-    }
-    // 非同步抓取、完成後替換佔位
-    (async(s,i)=>{
+  // 逐檔非同步抓取，完成後替換佔位格
+  five.forEach((s,i)=>{
+    (async()=>{
       let ind, isSim=false;
       try{
         const raw=await _tFetch(s.id,token);
@@ -69783,8 +69756,8 @@ async function _openTeachPanel(mode='select') {
       const html=mode==='cond'?_tRenderCondCard(s,ind,isSim,_condPhases[i]):_tRenderCard(s,ind,isSim);
       const ph=document.getElementById(`tcard_${i}`);
       if(ph) ph.outerHTML=html;
-    })(s,i);
-  }
+    })();
+  });
 }
 </script>
 
