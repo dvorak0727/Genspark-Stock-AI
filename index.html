@@ -55858,7 +55858,7 @@ function openVipOrder() {
   const aiColor = aiCls==='bull'?'#16a34a':aiCls==='bear'?'#dc2626':'#d97706';
 
   // 先存分析結果供 _vipShowOrder 用
-  window._vipCtx = { sid, lc, midPrice, aboveMid, phaseIdx, phaseName, chipStr, chipOk, epicStr, ep, aiScore, aiColor, ai, px };
+  window._vipCtx = { sid, lc, midPrice, aboveMid, phaseIdx, phaseName, chipStr, chipOk, epicStr, ep, aiScore, aiColor, ai, px, bd, sm, ctx: null };
 
   const body = document.getElementById('vipOrderBody');
   body.innerHTML = `
@@ -55887,26 +55887,35 @@ function openVipOrder() {
       🎯 今日震央：<b>${epicStr}</b>
     </div>
 
-    <!-- 目的選擇 -->
-    <div style="font-size:.78rem;font-weight:800;color:var(--fg2);margin-bottom:8px;">你今天的操作目的是？</div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;">
-      <button onclick="_vipShowOrder('hoard')"
-        style="text-align:left;padding:12px 16px;border-radius:11px;border:1.5px solid #60a5fa55;background:rgba(96,165,250,.06);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--fg1);transition:all .15s;"
-        onmouseover="this.style.borderColor='#60a5fa';this.style.background='rgba(96,165,250,.12)'"
-        onmouseout="this.style.borderColor='#60a5fa55';this.style.background='rgba(96,165,250,.06)'">
-        📦 屯貨（長線佈局）<span style="font-size:.65rem;color:#60a5fa;margin-left:8px;">等拉回接貨・停損寬・持有數週</span>
+    <!-- AI 視角提示 -->
+    ${_vipContextHint(ai, bd, sm)}
+
+    <!-- Step 1：視角選擇 -->
+    <div style="font-size:.72rem;font-weight:700;color:var(--fg3);letter-spacing:.05em;margin-bottom:6px;">STEP 1 · 選擇你的操作視角</div>
+    <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px;">
+      <button onclick="_vipSelectCtx('tech')"
+        style="text-align:left;padding:11px 14px;border-radius:10px;border:1.5px solid #6366f155;background:rgba(99,102,241,.06);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#6366f1';this.style.background='rgba(99,102,241,.12)'"
+        onmouseout="this.style.borderColor='#6366f155';this.style.background='rgba(99,102,241,.06)'">
+        📊 技術面操作
+        <span style="font-size:.62rem;color:#6366f1;margin-left:8px;">依 AI評分 + 籌碼週期・短中線進出</span>
+        <span style="float:right;font-size:.65rem;color:${aiColor};font-weight:800;">AI ${aiScore}分・${phaseName}</span>
       </button>
-      <button onclick="_vipShowOrder('daytrade')"
-        style="text-align:left;padding:12px 16px;border-radius:11px;border:1.5px solid #f59e0b55;background:rgba(245,158,11,.06);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--fg1);transition:all .15s;"
-        onmouseover="this.style.borderColor='#f59e0b';this.style.background='rgba(245,158,11,.12)'"
-        onmouseout="this.style.borderColor='#f59e0b55';this.style.background='rgba(245,158,11,.06)'">
-        ⚡ 當沖（今日進出）<span style="font-size:.65rem;color:#f59e0b;margin-left:8px;">開盤後確認方向・當天收盤前出</span>
+      <button onclick="_vipSelectCtx('bottom')"
+        style="text-align:left;padding:11px 14px;border-radius:10px;border:1.5px solid #10b98155;background:rgba(16,185,129,.05);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#10b981';this.style.background='rgba(16,185,129,.1)'"
+        onmouseout="this.style.borderColor='#10b98155';this.style.background='rgba(16,185,129,.05)'">
+        🔻 底部佈局
+        <span style="font-size:.62rem;color:#10b981;margin-left:8px;">依 底部探測分數・長線低接・等啟動</span>
+        <span style="float:right;font-size:.65rem;color:${bd.score>=4?'#16a34a':bd.score>=3?'#d97706':'#6b7280'};font-weight:800;">底部 ${bd.score||0}/5</span>
       </button>
-      <button onclick="_vipShowOrder('sell')"
-        style="text-align:left;padding:12px 16px;border-radius:11px;border:1.5px solid #ef444455;background:rgba(239,68,68,.05);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--fg1);transition:all .15s;"
-        onmouseover="this.style.borderColor='#ef4444';this.style.background='rgba(239,68,68,.1)'"
-        onmouseout="this.style.borderColor='#ef444455';this.style.background='rgba(239,68,68,.05)'">
-        🚪 賣出（減碼/出場）<span style="font-size:.65rem;color:#ef4444;margin-left:8px;">反彈賣・跌破出清・保護獲利</span>
+      <button onclick="_vipSelectCtx('exdiv')"
+        style="text-align:left;padding:11px 14px;border-radius:10px;border:1.5px solid #f59e0b55;background:rgba(245,158,11,.05);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#f59e0b';this.style.background='rgba(245,158,11,.1)'"
+        onmouseout="this.style.borderColor='#f59e0b55';this.style.background='rgba(245,158,11,.05)'">
+        🎯 除息套利
+        <span style="font-size:.62rem;color:#f59e0b;margin-left:8px;">依 填息候選分數 + 除息倒數・套息獲利</span>
+        <span style="float:right;font-size:.65rem;color:#d97706;font-weight:800;">${sm.exdiv ? `填息 ${sm.exdiv.score||0}/5` : '請先掃描除息雷達'}</span>
       </button>
     </div>
   `;
@@ -55927,6 +55936,96 @@ function openVipOrder() {
   ov.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   requestAnimationFrame(() => { panel.style.transform='scale(1)'; panel.style.opacity='1'; });
+}
+
+function _vipContextHint(ai, bd, sm) {
+  const aiScore = ai.score || 0;
+  const bdScore = bd.score || 0;
+  const exScore = sm.exdiv?.score || 0;
+  const scores = [
+    { label:'技術面', score: aiScore, max:100, color:'#6366f1', key:'tech' },
+    { label:'底部',   score: bdScore, max:5,   color:'#10b981', key:'bottom' },
+    { label:'除息',   score: exScore, max:5,   color:'#f59e0b', key:'exdiv' },
+  ];
+  const best = scores.reduce((a,b) => {
+    const aN = a.key==='tech' ? a.score/100*5 : a.score;
+    const bN = b.key==='tech' ? b.score/100*5 : b.score;
+    return bN > aN ? b : a;
+  });
+  const hints = {
+    tech:   aiScore >= 60 ? `AI評分 ${aiScore} 偏多，技術面訊號清晰，適合照技術操作。` : aiScore < 40 ? `AI評分 ${aiScore} 偏弱，技術面需謹慎，考慮其他視角。` : `AI評分 ${aiScore} 中性，可搭配底部或除息視角再確認。`,
+    bottom: bdScore >= 4 ? `底部探測 ${bdScore}/5，底部訊號強，適合長線低接佈局。` : `底部探測 ${bdScore}/5，底部訊號尚待確認。`,
+    exdiv:  exScore >= 4 ? `填息候選 ${exScore}/5，除息套利條件良好。` : '除息套利資料請先開啟「除息雷達」面板。',
+  };
+  return `<div style="background:rgba(201,162,39,.07);border:1px solid #c9a22733;border-radius:10px;padding:10px 13px;margin-bottom:12px;font-size:.74rem;color:var(--fg2);line-height:1.55;">
+    💡 <b style="color:#c9a227;">AI視角建議：</b>${hints[best.key]}
+    <span style="float:right;background:#c9a22722;color:#c9a227;padding:1px 7px;border-radius:99px;font-size:.65rem;font-weight:700;">建議 → ${best.label}</span>
+  </div>`;
+}
+
+function _vipSelectCtx(ctx) {
+  const c = window._vipCtx;
+  if (!c) return;
+  c.ctx = ctx;
+  const ctxMeta = {
+    tech:   { label:'📊 技術面操作', color:'#6366f1', desc:'依 AI評分 + 籌碼週期' },
+    bottom: { label:'🔻 底部佈局',   color:'#10b981', desc:'依 底部探測分數 + 等啟動訊號' },
+    exdiv:  { label:'🎯 除息套利',   color:'#f59e0b', desc:'依 填息候選分數 + 除息倒數' },
+  };
+  const meta = ctxMeta[ctx];
+  const body = document.getElementById('vipOrderBody');
+  const { lc, midPrice, aiScore, aiColor, phaseName, chipStr, epicStr, ai, bd, sm, px } = c;
+  const bdScore = (bd||{}).score || 0;
+  const exScore = (sm?.exdiv||{}).score || 0;
+  body.innerHTML = `
+    <!-- 已選視角 bar -->
+    <div style="display:flex;align-items:center;gap:8px;padding:9px 13px;border-radius:10px;border:1.5px solid ${meta.color}44;background:${meta.color}0d;margin-bottom:14px;">
+      <span style="font-size:.82rem;font-weight:800;color:${meta.color};">${meta.label}</span>
+      <span style="font-size:.68rem;color:var(--fg3);">${meta.desc}</span>
+      <button onclick="openVipOrder()" style="margin-left:auto;font-size:.62rem;background:transparent;border:1px solid ${meta.color}44;color:${meta.color};border-radius:99px;padding:1px 8px;cursor:pointer;">← 換視角</button>
+    </div>
+    <!-- 迷你概況 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px;font-size:.73rem;">
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 11px;">
+        <div style="color:var(--fg3);font-size:.62rem;">AI評分</div>
+        <div style="font-weight:800;color:${aiColor};">${aiScore} <span style="font-size:.6rem;">${ai?.label||''}</span></div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 11px;">
+        <div style="color:var(--fg3);font-size:.62rem;">底部探測</div>
+        <div style="font-weight:800;color:${bdScore>=4?'#16a34a':bdScore>=3?'#d97706':'#6b7280'};">${bdScore}/5</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 11px;">
+        <div style="color:var(--fg3);font-size:.62rem;">中關價</div>
+        <div style="font-weight:800;color:var(--fg1);">$${midPrice?px(midPrice):'—'}</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:8px 11px;">
+        <div style="color:var(--fg3);font-size:.62rem;">填息候選</div>
+        <div style="font-weight:800;color:${exScore>=4?'#16a34a':exScore>=3?'#d97706':'#6b7280'};">${exScore?exScore+'/5':'—'}</div>
+      </div>
+    </div>
+    <!-- Step 2：目的選擇 -->
+    <div style="font-size:.72rem;font-weight:700;color:var(--fg3);letter-spacing:.05em;margin-bottom:6px;">STEP 2 · 你今天的操作目的是？</div>
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <button onclick="_vipShowOrder('hoard')"
+        style="text-align:left;padding:11px 14px;border-radius:10px;border:1.5px solid #60a5fa55;background:rgba(96,165,250,.06);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#60a5fa';this.style.background='rgba(96,165,250,.12)'"
+        onmouseout="this.style.borderColor='#60a5fa55';this.style.background='rgba(96,165,250,.06)'">
+        📦 屯貨（長線佈局）<span style="font-size:.62rem;color:#60a5fa;margin-left:8px;">等拉回接貨・停損寬・持有數週</span>
+      </button>
+      <button onclick="_vipShowOrder('daytrade')"
+        style="text-align:left;padding:11px 14px;border-radius:10px;border:1.5px solid #f59e0b55;background:rgba(245,158,11,.06);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#f59e0b';this.style.background='rgba(245,158,11,.12)'"
+        onmouseout="this.style.borderColor='#f59e0b55';this.style.background='rgba(245,158,11,.06)'">
+        ⚡ 當沖（今日進出）<span style="font-size:.62rem;color:#f59e0b;margin-left:8px;">開盤後確認方向・當天收盤前出</span>
+      </button>
+      <button onclick="_vipShowOrder('sell')"
+        style="text-align:left;padding:11px 14px;border-radius:10px;border:1.5px solid #ef444455;background:rgba(239,68,68,.05);cursor:pointer;font-size:.8rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#ef4444';this.style.background='rgba(239,68,68,.1)'"
+        onmouseout="this.style.borderColor='#ef444455';this.style.background='rgba(239,68,68,.05)'">
+        🚪 賣出（減碼/出場）<span style="font-size:.62rem;color:#ef4444;margin-left:8px;">反彈賣・跌破出清・保護獲利</span>
+      </button>
+    </div>
+  `;
 }
 
 function _vipShowOrder(purpose) {
@@ -55963,10 +56062,11 @@ function _vipShowOrder(purpose) {
     </div>
     </div>
 
-    <!-- 目的標籤 + 換目的按鈕 -->
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-      <span style="font-size:.78rem;font-weight:800;color:var(--fg1);">目的：${pLabel}</span>
-      <button onclick="openVipOrder()" style="font-size:.65rem;color:#6366f1;background:none;border:1px solid #6366f155;border-radius:6px;padding:2px 8px;cursor:pointer;">← 換目的</button>
+    <!-- 視角 + 目的標籤 + 換按鈕 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      ${c.ctx?`<span style="font-size:.7rem;background:#6366f122;color:#6366f1;border-radius:99px;padding:2px 8px;">${{tech:'📊 技術面',bottom:'🔻 底部佈局',exdiv:'🎯 除息套利'}[c.ctx]||''}</span>`:''}
+      <span style="font-size:.78rem;font-weight:800;color:var(--fg1);">→ ${pLabel}</span>
+      <button onclick="${c.ctx?`_vipSelectCtx('${c.ctx}')`:'openVipOrder()'}" style="margin-left:auto;font-size:.62rem;color:#6366f1;background:none;border:1px solid #6366f155;border-radius:6px;padding:2px 8px;cursor:pointer;">← 換目的</button>
     </div>
 
     <!-- 條件單建議 -->
