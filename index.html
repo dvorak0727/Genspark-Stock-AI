@@ -55859,7 +55859,30 @@ function renderScreenerCards(showStats=false) {
       launch:       '📸 <b>短線技術快照（近5-10日）</b>：量能放大＋突破＋外資轉多＋MACD翻紅同步出現才算真啟動。若個股【籌碼週期】仍顯示吸籌/洗盤，高分結果可能是假突破，建議交叉確認再進場。',
       markup:       '📸 <b>短線技術快照（近5-10日）</b>：拉升期訊號需搭配【籌碼週期】確認已進入啟動/拉升段，否則可能只是短線反彈。衝突時以籌碼週期長線定位為主。',
       distribution: '📸 <b>短線技術快照（近5-10日）</b>：出貨訊號若出現在籌碼週期「吸籌/洗盤期」的個股上，通常是<b>洗盤雜訊</b>（主力壓價吸貨），不代表趨勢反轉。建議先查個股【籌碼週期】再判斷。',
-      exdiv:        '🎯 <b>除息填息候選雷達</b>：核心邏輯 — 投信除息前悄悄佈局 + 外資製造恐懼讓散戶出清 + 除息後籌碼集中填息啟動。<b>入場甜蜜點：除息前3~14日</b>，外資大賣但股價跌不下去 = 有人在默默接。除息後出現者為填息追蹤，觀察外資是否停手轉買。',
+      exdiv:        `🎯 <b>除息填息候選雷達</b>：核心邏輯 — 投信除息前悄悄佈局 + 外資製造恐懼讓散戶出清 + 除息後籌碼集中填息啟動。<b>入場甜蜜點：除息前3~14日</b>，外資大賣但股價跌不下去 = 有人在默默接。<br>
+<span id="_exdivStratToggle" style="cursor:pointer;color:var(--accent);font-size:.68rem;text-decoration:underline;" onclick="(function(){var el=document.getElementById('_exdivStratList');el.style.display=el.style.display==='none'?'block':'none';document.getElementById('_exdivStratToggle').textContent=el.style.display==='none'?'▶ 展開：機構10種套利手法':'▼ 收起'})()">▶ 展開：機構10種套利手法</span>
+<div id="_exdivStratList" style="display:none;margin-top:8px;line-height:2;font-size:.67rem;">
+  <b>①投信提前佈局法</b>｜除息前2-4週連續買超，外資同步賣出嚇跑散戶，低位拿籌碼，填息後慢慢出給追漲散戶。<br>
+  　<span style="opacity:.7">信號：投信連買≥10日 ＋ 外資同期大賣</span><br>
+  <b>②外資借券放空法</b>｜向大股東借股票賣出，配合除息跌幅雙重壓低，回補空單賺差價，不需持股就能收割。<br>
+  　<span style="opacity:.7">信號：外資大賣 ＋ 融券餘額增加 ＋ 股價跌幅異常</span><br>
+  <b>③接棒填息法</b>｜除息後才進場，押注填息行情，抱到完全填息出場，風險相對低。<br>
+  　<span style="opacity:.7">信號：除息隔天外資突然轉買 ＋ 成交量放大</span><br>
+  <b>④逃息法（散戶版）</b>｜除息前賣掉「避免跌」，把籌碼拱手讓給法人，除息後追回成本更高。<br>
+  　<span style="opacity:.7">這是被設計好的劇本，散戶是流動性提供者</span><br>
+  <b>⑤指數被動調整法</b>｜ETF定期再平衡，股利自動再投入，製造穩定可預測買盤，不是主動策略。<br>
+  　<span style="opacity:.7">信號：元大台灣50、0056等季度換股期</span><br>
+  <b>⑥自營避稅法</b>｜持股領息要繳稅，除息前賣出規避，除息後立刻買回，帳面不課息。<br>
+  　<span style="opacity:.7">信號：自營除息前連賣3-5日 → 除息後立刻回補</span><br>
+  <b>⑦除息高頻輪動法</b>｜5-8月台股除息季，每週換一批除息前2週個股，靠勝率累積，不押單一標的。<br>
+  　<span style="opacity:.7">信號：法人持股天數短，進出快，不留倉</span><br>
+  <b>⑧融資斷頭收割法</b>｜刻意打壓融資比例高的股票，觸發散戶追繳斷頭，在最低點大量接貨。<br>
+  　<span style="opacity:.7">信號：融資餘額高 ＋ 突然大量賣超 ＋ 量大但反彈無力</span><br>
+  <b>⑨期現套利法</b>｜持有現貨同時放空期貨鎖住部位，除息填息後解開套利，兩邊同時獲利。<br>
+  　<span style="opacity:.7">信號：外資期貨空單增加 ＋ 現貨卻在買進</span><br>
+  <b>⑩除息季輪轉換股法</b>｜A股填息後換B股除息前佈局 → 填息後再換C股，全年跑10-15輪接力賽。<br>
+  　<span style="opacity:.7">信號：特定法人每次都在不同股票的除息前2週現身</span>
+</div>`,
     };
     _scNote.innerHTML = _noteMap[modeKey2];
     _scNote.style.background = 'rgba(99,102,241,.08)';
