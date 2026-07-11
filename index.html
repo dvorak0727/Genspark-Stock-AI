@@ -55851,10 +55851,13 @@ function openVipOrder() {
   const aiCls   = ai.cls || 'warn';
   const aiColor = aiCls==='bull'?'#16a34a':aiCls==='bear'?'#dc2626':'#d97706';
 
+  // 先存分析結果供 _vipShowOrder 用
+  window._vipCtx = { sid, lc, midPrice, aboveMid, phaseIdx, phaseName, chipStr, chipOk, epicStr, ep, aiScore, aiColor, ai, px };
+
   const body = document.getElementById('vipOrderBody');
   body.innerHTML = `
     <!-- 概況列 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
       <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:10px 12px;">
         <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:3px;">AI 評分</div>
         <div style="font-size:1.1rem;font-weight:800;color:${aiColor};">${aiScore} <span style="font-size:.65rem;">${ai.label||''}</span></div>
@@ -55874,17 +55877,31 @@ function openVipOrder() {
     </div>
 
     <!-- 震央 -->
-    <div style="background:rgba(239,68,68,.06);border:1px solid #fca5a555;border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:.72rem;">
+    <div style="background:rgba(239,68,68,.06);border:1px solid #fca5a555;border-radius:8px;padding:8px 12px;margin-bottom:16px;font-size:.72rem;">
       🎯 今日震央：<b>${epicStr}</b>
-      ${ep?`<span style="margin-left:6px;color:#dc2626;">— 本股${ep.id==='other'?'非震央板塊✓':'請確認是否屬於此板塊'}</span>`:''}
     </div>
 
-    <!-- 掛單建議 -->
-    ${orderRec}
-
-    <!-- 注意事項 -->
-    <div style="margin-top:12px;background:rgba(245,158,11,.07);border-radius:8px;padding:8px 12px;font-size:.65rem;color:#92400e;line-height:1.7;">
-      ⚠️ 本建議書依儀表板現有資料自動生成，僅供參考，不構成投資建議。<br>進場前請自行確認當日開盤壓力表與板塊方向。
+    <!-- 目的選擇 -->
+    <div style="font-size:.78rem;font-weight:800;color:var(--fg2);margin-bottom:8px;">你今天的操作目的是？</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;">
+      <button onclick="_vipShowOrder('hoard')"
+        style="text-align:left;padding:12px 16px;border-radius:11px;border:1.5px solid #60a5fa55;background:rgba(96,165,250,.06);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#60a5fa';this.style.background='rgba(96,165,250,.12)'"
+        onmouseout="this.style.borderColor='#60a5fa55';this.style.background='rgba(96,165,250,.06)'">
+        📦 屯貨（長線佈局）<span style="font-size:.65rem;color:#60a5fa;margin-left:8px;">等拉回接貨・停損寬・持有數週</span>
+      </button>
+      <button onclick="_vipShowOrder('daytrade')"
+        style="text-align:left;padding:12px 16px;border-radius:11px;border:1.5px solid #f59e0b55;background:rgba(245,158,11,.06);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#f59e0b';this.style.background='rgba(245,158,11,.12)'"
+        onmouseout="this.style.borderColor='#f59e0b55';this.style.background='rgba(245,158,11,.06)'">
+        ⚡ 當沖（今日進出）<span style="font-size:.65rem;color:#f59e0b;margin-left:8px;">開盤後確認方向・當天收盤前出</span>
+      </button>
+      <button onclick="_vipShowOrder('sell')"
+        style="text-align:left;padding:12px 16px;border-radius:11px;border:1.5px solid #ef444455;background:rgba(239,68,68,.05);cursor:pointer;font-size:.82rem;font-weight:600;color:var(--fg1);transition:all .15s;"
+        onmouseover="this.style.borderColor='#ef4444';this.style.background='rgba(239,68,68,.1)'"
+        onmouseout="this.style.borderColor='#ef444455';this.style.background='rgba(239,68,68,.05)'">
+        🚪 賣出（減碼/出場）<span style="font-size:.65rem;color:#ef4444;margin-left:8px;">反彈賣・跌破出清・保護獲利</span>
+      </button>
     </div>
   `;
 
@@ -55897,85 +55914,171 @@ function openVipOrder() {
   requestAnimationFrame(() => { panel.style.transform='scale(1)'; panel.style.opacity='1'; });
 }
 
-function _vipOrderTemplate(phaseIdx, lc, mid, chipOk, px) {
-  if (!lc) return '<div style="color:var(--fg3);font-size:.8rem;">⚠️ 請先完成個股分析</div>';
+function _vipShowOrder(purpose) {
+  const c = window._vipCtx;
+  if (!c) return;
+  const { lc, midPrice, aboveMid, phaseIdx, phaseName, chipStr, chipOk, epicStr, aiScore, aiColor, ai, px } = c;
+  const rec = _vipOrderTemplate(purpose, phaseIdx, lc, midPrice, chipOk, px);
+  const purposeLabel = purpose==='hoard'?'📦 屯貨':'purpose'==='daytrade'?'⚡ 當沖':'🚪 賣出';
+  const pLabel = purpose==='hoard'?'📦 屯貨':purpose==='daytrade'?'⚡ 當沖':'🚪 賣出';
+
+  const body = document.getElementById('vipOrderBody');
+  // 保留概況，替換目的區
+  const existing = body.querySelector('.vip-summary');
+  body.innerHTML = `
+    <div class="vip-summary">
+    <!-- 概況列 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:8px 12px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:2px;">AI 評分</div>
+        <div style="font-size:1rem;font-weight:800;color:${aiColor};">${aiScore} <span style="font-size:.6rem;">${ai.label||''}</span></div>
+      </div>
+      <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:8px 12px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:2px;">籌碼週期</div>
+        <div style="font-size:.8rem;font-weight:800;color:var(--fg1);">${phaseName}</div>
+      </div>
+      <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:8px 12px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:2px;">中關價</div>
+        <div style="font-size:.9rem;font-weight:800;color:var(--fg1);">$${px(midPrice)} <span style="font-size:.58rem;color:${aboveMid?'#16a34a':'#dc2626'};">${aboveMid?'▲在上':'▼在下'}</span></div>
+      </div>
+      <div style="background:rgba(99,102,241,.07);border:1px solid #a5b4fc55;border-radius:10px;padding:8px 12px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:2px;">法人籌碼</div>
+        <div style="font-size:.68rem;font-weight:700;color:var(--fg1);">${chipStr}</div>
+      </div>
+    </div>
+    </div>
+
+    <!-- 目的標籤 + 換目的按鈕 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="font-size:.78rem;font-weight:800;color:var(--fg1);">目的：${pLabel}</span>
+      <button onclick="openVipOrder()" style="font-size:.65rem;color:#6366f1;background:none;border:1px solid #6366f155;border-radius:6px;padding:2px 8px;cursor:pointer;">← 換目的</button>
+    </div>
+
+    <!-- 條件單建議 -->
+    ${rec}
+
+    <div style="margin-top:12px;background:rgba(245,158,11,.07);border-radius:8px;padding:8px 12px;font-size:.63rem;color:#92400e;line-height:1.7;">
+      ⚠️ 本建議書依儀表板現有資料自動生成，僅供參考，不構成投資建議。
+    </div>
+  `;
+}
+
+function _vipOrderTemplate(purpose, phaseIdx, lc, mid, chipOk, px) {
+  if (!lc) return '<div style="color:var(--fg3);font-size:.8rem;padding:12px;">⚠️ 請先輸入股號完成分析，再開啟建議書。</div>';
   const p = lc;
-  const sl3 = p * 0.97, sl5 = p * 0.95;
-  const tgt5 = p * 1.05, tgt8 = p * 1.08, tgt10 = p * 1.10;
-  const mid1 = mid * 0.999;
+  const chipWarn = !chipOk && purpose!=='sell'
+    ? `<div style="margin-top:8px;font-size:.65rem;color:#d97706;background:rgba(245,158,11,.1);border-radius:6px;padding:5px 8px;">⚠️ 法人尚未同向，建議等籌碼結構確認後再進場</div>` : '';
 
-  const templates = {
-    1: { // 吸籌
-      title:'🧲 吸籌期掛單 — 低接佈局',
-      col:'#60a5fa',
-      items:[
-        `母單：股價 ≤ <b>$${px(mid1)}</b>（貼近中關）→ 市價買進 1 張`,
-        `子單（停損）：買進後，股價 ≤ <b>$${px(sl5)}</b>（-5%）→ 市價賣出`,
-        `子單（停利）：股價 ≥ <b>$${px(tgt10)}</b>（+10%）→ 市價賣出`,
-      ],
-      note:'吸籌期耐心等拉回，中關以下接貨是甜蜜點。不要追高。'
-    },
-    2: { // 洗盤
-      title:'🌀 洗盤期掛單 — 量縮接貨母子單',
+  // ── 屯貨（長線佈局）──
+  if (purpose === 'hoard') {
+    const phaseHoard = {
+      1: { col:'#60a5fa', title:'🧲 吸籌期 × 屯貨條件單',
+        items:[
+          `觸發條件：股價 ≤ <b>$${px(mid*0.998)}</b>（中關以下）→ 自動買進`,
+          `停損：買進後股價 ≤ <b>$${px(p*0.95)}</b>（-5%）→ 自動賣出`,
+          `停利：不設固定停利，改用移動停利：從買入價上漲 8% 後，每跌 3% 自動賣`,
+        ],
+        note:'吸籌期時間長，不急，中關以下都是好價位。分批買比一次買更好。' },
+      2: { col:'#f59e0b', title:'🌀 洗盤期 × 屯貨條件單',
+        items:[
+          `觸發條件：股價 ≤ <b>$${px(p*0.993)}</b>（今日低點）且成交量 ≤ 均量 → 自動買進`,
+          `停損：≤ <b>$${px(p*0.97)}</b>（-3%）→ 自動賣出（這樣的跌是真跌，不是洗）`,
+          `停利：≥ <b>$${px(p*1.10)}</b>（+10%，拉升啟動後）→ 賣出一半，剩一半移動停利`,
+        ],
+        note:'洗盤期是屯貨黃金時段。量縮 + 假跌破 = 主力清洗浮籌，忍住就對。' },
+      3: { col:'#6366f1', title:'🚀 啟動期 × 屯貨條件單',
+        items:[
+          `觸發條件：股價 ≥ <b>$${px(p*1.012)}</b>（放量突破）→ 追進（啟動確認再買）`,
+          `停損：≤ <b>$${px(p*0.978)}</b>（突破點下方 -2.2%）→ 自動賣出`,
+          `停利：分批出，+6% 出三分之一 / +12% 出三分之一 / 剩移動停利`,
+        ],
+        note:'啟動期屯貨代價較高，但確定性最高。量是靈魂，沒有放量就不追。' },
+      4: { col:'#10b981', title:'📈 拉升期 × 屯貨條件單',
+        items:[
+          `觸發條件：拉回至 <b>$${px(p*0.985)}</b>（MA5 附近止跌）→ 加碼買進`,
+          `移動停利：每日上調停損至前日最低 -1.5%（現設 <b>$${px(p*0.983)}</b>）`,
+          `不再新開倉，管理現有部位為主`,
+        ],
+        note:'拉升期屯貨要記住：目的是持有等噴出，不是當沖短進短出。' },
+      5: { col:'#ef4444', title:'⚠️ 出貨期 × 屯貨警示',
+        items:[
+          `⛔ 出貨期不建議新增屯貨部位`,
+          `若已持有：設移動停利 <b>$${px(p*0.95)}</b>（從高點 -5%）自動賣出`,
+          `等下一個吸籌週期再重新佈局`,
+        ],
+        note:'出貨期主力在出，散戶在接。這時屯貨是接最後一棒。忍住。' },
+    };
+    const t = phaseHoard[phaseIdx] || phaseHoard[1];
+    return _vipCard(t, chipWarn);
+  }
+
+  // ── 當沖（日內進出）──
+  if (purpose === 'daytrade') {
+    const aboveMid = lc > mid;
+    const t = {
       col:'#f59e0b',
-      items:[
-        `母單：股價 ≤ <b>$${px(p*0.995)}</b>（今日低點附近）且量縮 → 市價買進`,
-        `子單（停損）：≤ <b>$${px(sl3)}</b>（-3%）→ 自動賣出（假跌破保護）`,
-        `子單（停利）：≥ <b>$${px(tgt8)}</b>（+8%，拉升初段）→ 自動賣出`,
+      title:'⚡ 當沖條件單 — 開盤方向確認後進',
+      items: aboveMid ? [
+        `多方當沖：開盤後股價站穩 <b>$${px(mid)}</b>（中關）→ 市價買進`,
+        `停損：跌破 <b>$${px(mid*0.997)}</b> → 立刻市價出清（不等）`,
+        `停利：漲到 <b>$${px(p*1.015)}</b>（+1.5%）出一半；<b>$${px(p*1.025)}</b>（+2.5%）全出`,
+        `⚠️ 無論輸贏，<b>今日收盤前全部出清</b>，不留過夜`,
+      ] : [
+        `空方當沖（融券/反向）：開盤後跌破中關 <b>$${px(mid)}</b> → 確認空方`,
+        `若無融券：觀望為主，不逆勢做多`,
+        `等反彈至 <b>$${px(mid*0.998)}</b> 反彈受壓再進空，停損 <b>$${px(mid*1.003)}</b>`,
+        `⚠️ 當沖只做有把握的方向，今收在中關以下偏空，慎做多`,
       ],
-      note:'洗盤期的跌是假的。量縮才是確認，量放大的跌要小心。'
-    },
-    3: { // 啟動
-      title:'🚀 啟動期掛單 — 突破確認買進',
-      col:'#6366f1',
-      items:[
-        `母單：股價 ≥ <b>$${px(p*1.015)}</b>（突破前高 +1.5%）→ 掛買 $${px(p*1.018)}`,
-        `子單（停損）：買進後跌回 ≤ <b>$${px(p*0.975)}</b>（-2.5%）→ 賣出`,
-        `子單（停利）：≥ <b>$${px(tgt8)}</b>（+8%）→ 賣出一半；剩一半移動停利`,
-      ],
-      note:'啟動不要在突破當天追漲停，等次日確認守住再進。量是關鍵。'
-    },
-    4: { // 拉升
-      title:'📈 拉升期掛單 — 回測 MA5 加碼',
-      col:'#10b981',
-      items:[
-        `母單：拉回至 <b>$${px(p*0.985)}</b>（MA5 附近）止跌收紅 → 加碼買進`,
-        `移動停利：每天上調停損至前日最低點 -1.5%（目前設 $${px(p*0.983)}）`,
-        `分批出場：漲幅達 +5% 出三分之一；達 +10% 再出三分之一；剩移動停利`,
-      ],
-      note:'拉升期最大陷阱是捨不得出。移動停利自動保護，不用情緒判斷。'
-    },
-    5: { // 出貨
-      title:'⚠️ 出貨期掛單 — 只設賣出保護',
-      col:'#ef4444',
-      items:[
-        `條件單：股價 ≤ <b>$${px(p*0.95)}</b>（-5%）→ 自動全賣（保護獲利）`,
-        `若已獲利：現價附近分批掛出，<b>不要再買進</b>`,
-        `若未持有：<b>今天不進場</b>，等下一個吸籌週期`,
-      ],
-      note:'出貨期的任務只有一個：把獲利帶回家。主力出貨，散戶接棒。'
-    },
-  };
+      note: aboveMid
+        ? '中關以上偏多，當沖跟多方方向。速度快，停損紀律比停利更重要。'
+        : '中關以下偏空，當沖不做逆勢多。等確認方向再進，不搶反彈。',
+    };
+    return _vipCard(t, chipWarn);
+  }
 
-  const t = templates[phaseIdx];
-  if (!t) return `<div style="background:rgba(128,128,128,.07);border-radius:10px;padding:14px;font-size:.78rem;color:var(--fg2);">⚠️ 籌碼週期未能判定，請完成分析後再試。<br>建議先點「開始海選」或輸入股號分析。</div>`;
+  // ── 賣出（減碼/出場）──
+  if (purpose === 'sell') {
+    const phasesSell = {
+      1: { note:'吸籌期持有中，現在不是最好的賣點，除非有緊急狀況。',
+        items:[`若要停損：跌破 <b>$${px(p*0.95)}</b> 再出，不要在吸籌期中間被洗出去`,`若要減碼：等反彈至 <b>$${px(p*1.02)}</b> 附近分批出`] },
+      2: { note:'洗盤期是最容易在錯誤時間點賣出的階段，主力就是要你在這裡賣。',
+        items:[`停損保護：跌破 <b>$${px(p*0.97)}</b>（-3%）→ 確認真跌才出`,`量縮的跌不要賣，量放大的跌才出`] },
+      3: { note:'啟動期賣出要謹慎，可能只是拉升前的回測。',
+        items:[`減碼出場：設 <b>$${px(p*0.978)}</b> 跌破停損出，反彈到 <b>$${px(p*1.03)}</b> 減半倉`] },
+      4: { note:'拉升期是最佳出場窗口，用移動停利保護獲利。',
+        items:[
+          `移動停利：設從高點 -5%（若最高 $${px(p*1.05)} 則停利觸發 <b>$${px(p*1.05*0.95)}</b>）`,
+          `分批出：+5% 出三分之一 / +10% 出三分之一 / 剩移動停利`,
+          `觸發條件：股價 ≤ <b>$${px(p*0.95)}</b> → 自動全出`,
+        ] },
+      5: { note:'出貨期立刻設好賣出條件單，不要猶豫。',
+        items:[
+          `立即掛出：現價 <b>$${px(p)}</b> 附近分批掛出（別等更高）`,
+          `保護停損：跌破 <b>$${px(p*0.95)}</b>（-5%）→ 市價全出（保住本金）`,
+          `⚠️ 出貨期每一天都可能是最後的機會`,
+        ] },
+    };
+    const d = phasesSell[phaseIdx] || phasesSell[4];
+    const t = { col:'#ef4444', title:`🚪 ${['','吸籌','洗盤','啟動','拉升','出貨'][phaseIdx]||''}期 × 賣出條件單`, items: d.items, note: d.note };
+    return _vipCard(t, '');
+  }
 
-  const chipWarn = !chipOk ? `<div style="margin-top:8px;font-size:.65rem;color:#d97706;background:rgba(245,158,11,.1);border-radius:6px;padding:5px 8px;">⚠️ 注意：法人未同向，建議等籌碼結構改善後再進場</div>` : '';
+  return '<div style="color:var(--fg3);padding:12px;">請選擇操作目的</div>';
+}
 
+function _vipCard(t, extra='') {
   return `
     <div style="background:${t.col}11;border:1.5px solid ${t.col}44;border-radius:12px;padding:14px 16px;">
       <div style="font-size:.82rem;font-weight:800;color:${t.col};margin-bottom:10px;">${t.title}</div>
       <div style="display:flex;flex-direction:column;gap:7px;margin-bottom:10px;">
         ${t.items.map((item,i)=>`
-          <div style="display:flex;gap:8px;align-items:flex-start;font-size:.73rem;color:var(--fg1);line-height:1.6;">
-            <span style="min-width:18px;height:18px;background:${t.col};color:#fff;border-radius:99px;font-size:.58rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px;">${i+1}</span>
+          <div style="display:flex;gap:8px;align-items:flex-start;font-size:.73rem;color:var(--fg1);line-height:1.65;">
+            <span style="min-width:18px;height:18px;background:${t.col};color:#fff;border-radius:99px;font-size:.58rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">${i+1}</span>
             <span>${item}</span>
           </div>`).join('')}
       </div>
-      <div style="font-size:.65rem;color:${t.col};background:${t.col}15;border-radius:6px;padding:6px 8px;line-height:1.6;">
-        💡 ${t.note}
-      </div>
-      ${chipWarn}
+      <div style="font-size:.65rem;color:${t.col};background:${t.col}15;border-radius:6px;padding:6px 8px;line-height:1.6;">💡 ${t.note}</div>
+      ${extra}
     </div>`;
 }
 
