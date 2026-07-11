@@ -15893,8 +15893,8 @@ a.module-nav-item.acc-active {
 </div>
 
 <!-- 🌅 早安決策樹 Modal -->
-<div class="mgp-overlay" id="dtreeOverlay" onclick="closeDTree(event)" style="z-index:1300;">
-  <div class="mgp-panel" id="dtreePanel" style="max-width:520px;">
+<div class="mgp-overlay" id="dtreeOverlay" onclick="closeDTree(event)" style="z-index:1300;align-items:center;justify-content:center;">
+  <div class="mgp-panel" id="dtreePanel" style="max-width:520px;border-radius:18px;transform:scale(0.92);opacity:0;transition:transform 0.25s cubic-bezier(0.32,0.72,0,1),opacity 0.25s;max-height:80vh;">
     <div class="mgp-handle"></div>
     <div class="mgp-header">
       <div class="mgp-mode-icon">🌅</div>
@@ -55637,16 +55637,27 @@ function openDTree() {
   _dtreeAnswers = [];
   _dtreeCurStep = 1;
   _dtreeEpicenter = '';
-  document.getElementById('dtreeResult').style.display = 'none';
   _renderDTree(1);
-  document.getElementById('dtreeOverlay').classList.add('show');
+  const ov = document.getElementById('dtreeOverlay');
+  const panel = document.getElementById('dtreePanel');
+  ov.classList.add('show');
   document.body.style.overflow = 'hidden';
+  requestAnimationFrame(() => {
+    panel.style.transform = 'scale(1)';
+    panel.style.opacity = '1';
+  });
 }
 
 function closeDTree(e) {
   if (e && e.target !== document.getElementById('dtreeOverlay')) return;
-  document.getElementById('dtreeOverlay').classList.remove('show');
-  document.body.style.overflow = '';
+  const ov = document.getElementById('dtreeOverlay');
+  const panel = document.getElementById('dtreePanel');
+  panel.style.transform = 'scale(0.92)';
+  panel.style.opacity = '0';
+  setTimeout(() => {
+    ov.classList.remove('show');
+    document.body.style.overflow = '';
+  }, 220);
 }
 
 function _renderDTree(stepNum) {
@@ -55656,7 +55667,6 @@ function _renderDTree(stepNum) {
   document.getElementById('dtreeStepLabel').textContent = `Step ${stepNum} / 5`;
   document.getElementById('dtreeSummary').textContent = step.hint;
   document.getElementById('dtreeProgress').style.width = `${(stepNum-1)/5*100}%`;
-  document.getElementById('dtreeResult').style.display = 'none';
 
   const body = document.getElementById('dtreeBody');
   body.innerHTML = `
