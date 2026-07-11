@@ -50825,6 +50825,13 @@ async function startScreener() {
   const _scrStart = new Date(); _scrStart.setDate(_scrEnd.getDate() - 65); // 價格仍用65天（夠算技術指標）
   let processed = 0;
 
+  // 海選專用：4秒超時（比 fetchFM 的15秒短，避免每支股票都卡15秒）
+  const _scrFetch = (p) => Promise.race([
+    p,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('scrTimeout')), 4000))
+  ]);
+  let _scrFailStreak = 0;   // 連續 API 失敗計數
+
   for (const sid of ids) {
     if (_screenerStop) break;
 
@@ -50860,21 +50867,28 @@ async function startScreener() {
           }
         }
       } else {
-        // 並行取兩支 API：籌碼固定90天(fetchInstFM)，價格65天
+        // 並行取兩支 API：海選用4秒超時（避免每支卡15秒）
         const [r1, r2] = await Promise.allSettled([
-          fetchInstFM(sid),                                           // ← 固定90天，命中主分析cache
-          fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd)
+          _scrFetch(fetchInstFM(sid)),
+          _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd))
         ]);
 
         let instRaw  = r1.status==='fulfilled' ? r1.value : [];
         let priceRaw = r2.status==='fulfilled' ? r2.value : [];
 
-        // 若資料不足（< 20），用模擬備援；仍不足則放 score=0 佔位，讓使用者知道 API 受限
+        // 若資料不足（< 20），用模擬備援；仍不足則標記 API 限速
         if (priceRaw.length < 20) {
           const sim = genSim(sid);
-          if (sim) { instRaw = sim.inst; priceRaw = sim.price; }
-          else {
-            // API 限速但仍計入結果，讓骨架卡片可以被替換，顯示「資料待取」
+          if (sim) {
+            instRaw = sim.inst; priceRaw = sim.price;
+            _scrFailStreak = 0;
+          } else {
+            _scrFailStreak++;
+            // 連續5支失敗 → 顯示限速提示，但繼續跑（不中斷，讓有快取的股票繼續出來）
+            if (_scrFailStreak === 5) {
+              if (typeof showEpicToast === 'function')
+                showEpicToast('⚠️ FinMind API 限速中，有快取的個股仍會繼續顯示，建議稍等 1 分鐘後重試', '#d97706');
+            }
             _screenerResults.push({
               stockId: sid, score: -1, checks: [],
               lc: 0, chgPct: 0, fCons: 0, tCons: 0,
@@ -50884,6 +50898,8 @@ async function startScreener() {
             processed++;
             continue;
           }
+        } else {
+          _scrFailStreak = 0;  // 有資料 → 重置連續失敗計數
         }
 
         // 依偵測模式計算分數
