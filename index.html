@@ -68815,6 +68815,65 @@ window._tHoldSim = function(sid, days) {
 };
 
 // ─── 單檔渲染 HTML ───
+function _tRenderCondCard(s, ind, isSim, phase) {
+  const p = ind.lc;
+  const px = v => v>=1000?v.toFixed(0):v>=100?v.toFixed(1):v.toFixed(2);
+  const simBadge = isSim?'<span style="font-size:0.58rem;color:#f59e0b;margin-left:4px;">模擬</span>':'';
+
+  // 計算觸發價（依據階段）
+  let triggerPrice, triggerDesc;
+  if(phase.n===1){       // 吸籌：等拉回買
+    triggerPrice = p*0.995;
+    triggerDesc = `觸發：≤ $${px(triggerPrice)}（拉回0.5%）→ 市價買`;
+  } else if(phase.n===2){ // 洗盤：量縮確認才進
+    triggerPrice = p*0.992;
+    triggerDesc = `觸發：≤ $${px(triggerPrice)}（回測 MA20）→ 市價買`;
+  } else if(phase.n===3){ // 啟動：突破前高
+    triggerPrice = p*1.015;
+    triggerDesc = `觸發：≥ $${px(triggerPrice)}（突破前高 +1.5%）→ 市價買`;
+  } else if(phase.n===4){ // 拉升：回測MA5加碼
+    triggerPrice = p*0.985;
+    triggerDesc = `觸發：≤ $${px(triggerPrice)}（拉回 MA5）→ 加碼買`;
+  } else {               // 出貨：只設出場
+    triggerPrice = p*0.95;
+    triggerDesc = `觸發：≤ $${px(triggerPrice)}（下跌 -5%）→ 自動賣出（停利）`;
+  }
+  const slPrice = phase.n<=2 ? p*0.97 : phase.n===3 ? p*0.975 : phase.n===4 ? p*0.97 : null;
+
+  return `
+  <div style="border:2px solid ${phase.col}55;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+      <span style="font-weight:800;font-size:0.88rem;">${s.name}</span>
+      <span style="font-size:0.63rem;color:var(--fg3);background:var(--tag-bg,rgba(128,128,128,0.1));padding:1px 6px;border-radius:10px;">${s.id}</span>
+      ${simBadge}
+      <span style="margin-left:auto;font-size:0.82rem;font-weight:800;color:var(--fg1);">$${p.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:1})}</span>
+    </div>
+
+    <!-- 階段標籤 -->
+    <div style="background:${phase.col}18;border:1.5px solid ${phase.col}55;border-radius:8px;padding:10px 12px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="font-size:1.1rem;">${phase.emoji}</span>
+        <span style="font-weight:800;font-size:0.85rem;color:${phase.col};">${phase.name}</span>
+        <span style="font-size:0.6rem;color:var(--fg3);margin-left:auto;">階段 ${phase.n}/5</span>
+      </div>
+      <div style="font-size:0.68rem;color:var(--fg2);line-height:1.6;">${phase.logic}</div>
+    </div>
+
+    <!-- 條件單設定 -->
+    <div style="background:rgba(99,102,241,0.07);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+      <div style="font-size:0.61rem;font-weight:700;color:var(--fg3);margin-bottom:6px;">⚡ 條件單練習題</div>
+      <div style="font-size:0.73rem;font-weight:600;color:var(--fg1);margin-bottom:4px;">${phase.cond}</div>
+      <div style="font-size:0.65rem;color:#6366f1;margin-bottom:6px;">📌 ${triggerDesc}</div>
+      ${slPrice?`<div style="font-size:0.65rem;color:#ef4444;">🛡 ${phase.sl}（$${px(slPrice)}）</div>`:`<div style="font-size:0.65rem;color:#ef4444;">🛡 ${phase.sl}</div>`}
+    </div>
+
+    <!-- 老師提示 -->
+    <div style="background:rgba(245,158,11,0.07);border-radius:7px;padding:8px 11px;font-size:0.67rem;color:var(--fg2);line-height:1.65;">
+      💡 <b>操盤提示：</b>${phase.note}
+    </div>
+  </div>`;
+}
+
 function _tRenderCard(s, ind, isSim) {
   const p   = ind.lc;
   const px  = v => v>=1000?v.toFixed(0):v>=100?v.toFixed(1):v.toFixed(2);
@@ -69045,10 +69104,11 @@ function openStockSim() {
 }
 
 // ─── 主函式 ───
-async function _openTeachPanel() {
+async function _openTeachPanel(mode='normal') {
   const today=new Date();
   const seed =today.getFullYear()*10000+(today.getMonth()+1)*100+today.getDate();
-  const rand =_teachSeededRand(seed);
+  // 條件單模式用不同種子，確保選到不同股票
+  const rand =_teachSeededRand(mode==='cond' ? seed+3712 : seed);
   const pool =[..._TEACH_POOL];
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
   const five=pool.slice(0,5);
@@ -69083,7 +69143,22 @@ async function _openTeachPanel() {
           <span style="font-size:0.65rem;">需要 FinMind Token，約需 10–20 秒</span>
         </div>
       </div>
-      <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:8px;">💡 每日5檔固定・明天自動換新一批</div>
+      <!-- 模式切換 Tab -->
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button onclick="_openTeachPanel('normal')"
+          style="flex:1;padding:8px 4px;border-radius:9px;font-size:0.72rem;font-weight:700;cursor:pointer;transition:all .15s;
+                 ${mode==='normal'?'background:#10b981;color:#fff;border:1.5px solid #10b981;':'background:var(--bg);color:#10b981;border:1.5px solid #10b981;'}">
+          📋 普通掛單練習
+        </button>
+        <button onclick="_openTeachPanel('cond')"
+          style="flex:1;padding:8px 4px;border-radius:9px;font-size:0.72rem;font-weight:700;cursor:pointer;transition:all .15s;
+                 ${mode==='cond'?'background:#6366f1;color:#fff;border:1.5px solid #6366f1;':'background:var(--bg);color:#6366f1;border:1.5px solid #6366f1;'}">
+          ⚡ 條件單練習
+        </button>
+      </div>
+      <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:6px;">
+        ${mode==='normal'?'💡 每日5檔・明天自動換新一批':'⚡ 每週期各一檔・練習設條件單掛單'}
+      </div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', shell);
@@ -69095,6 +69170,33 @@ async function _openTeachPanel() {
   const fetches=await Promise.allSettled(five.map(s=>_tFetch(s.id,token)));
 
   // 計算指標 + 渲染
+  const _condPhases=[
+    {n:1,name:'吸籌期',emoji:'🧲',col:'#60a5fa',
+     logic:'主力悄悄建倉，股價橫盤低波動。',
+     cond:'條件單：股價 ≤ 今日低點-0.5% 時自動買進（趁洗盤繼續壓低時接貨）',
+     sl:'停損：買進價下方 -3%（確認不是真跌）',
+     note:'吸籌期不急，可以設低一點的觸發價，等主力繼續壓低送你'},
+    {n:2,name:'洗盤期',emoji:'🌀',col:'#f59e0b',
+     logic:'主力製造恐慌假跌破，量縮是關鍵確認。',
+     cond:'條件單：股價跌至 MA20附近（-1%以內）且當日量 ≤ 20日均量×0.7 時買進',
+     sl:'停損：跌破 MA20 下方 -2%（代表是真跌，不是洗盤）',
+     note:'洗盤期的跌是假的，量縮才是確認。量放大的跌要小心'},
+    {n:3,name:'啟動期',emoji:'🚀',col:'#6366f1',
+     logic:'量能放大突破前高，不追漲停，等第一根量縮回測。',
+     cond:'條件單：突破前高（股價 ≥ 近20日最高×100.5%）且成交量 ≥ 均量×1.5x 時掛買',
+     sl:'停損：跌回突破點下方 -2%（假突破確認）',
+     note:'啟動期不要在突破當天追，等隔天開盤確認守住才進'},
+    {n:4,name:'拉升期',emoji:'📈',col:'#10b981',
+     logic:'量價齊揚，回測MA5是加碼點，不是賣點。',
+     cond:'條件單：回測 MA5 附近（跌至 MA5×101%以內）且當天止跌收紅時加碼',
+     sl:'停損（移動）：每天上調至前一天最低點下方 -1.5%（移動停利）',
+     note:'拉升期最大陷阱是捨不得出。設移動停利，高點下方5%觸發就走'},
+    {n:5,name:'出貨期',emoji:'⚠️',col:'#ef4444',
+     logic:'主力在高點邊拉邊出，量大但股價漲幅縮小是警訊。',
+     cond:'條件單：股價從近期高點下跌 -5% 時自動賣出（停利保護）',
+     sl:'不要設買進條件單，這個階段只設賣出',
+     note:'出貨期的任務只有一個：把獲利帶回家。不要再想加碼'},
+  ];
   const cards=fetches.map((r,i)=>{
     const s=five[i];
     let ind, isSim=false;
@@ -69109,6 +69211,7 @@ async function _openTeachPanel() {
       const hist=(sr()-0.5)*2, ma20=s.price*(0.96+sr()*0.08);
       ind={lc:s.price,rsi,k,d,kSlope:sr()*1-0.5,dSlope:sr()*0.6-0.3,hist,histSlope:sr()*0.5-0.25,ma20,daysToCrossKD:null,daysToCrossMACD:null,bt:null};
     }
+    if(mode==='cond') return _tRenderCondCard(s, ind, isSim, _condPhases[i]);
     return _tRenderCard(s,ind,isSim);
   }).join('');
 
