@@ -52269,7 +52269,7 @@ function calcLaunchScore(stockId, instRaw, priceRaw) {
 
   // MACD
   const macdData = calcMACD(closes);
-  const histArr  = macdData.histogram;
+  const histArr  = macdData.Hist;
   const lHist    = histArr.at(-1) || 0;
   const pHist    = histArr.at(-2) || 0;
 
@@ -52348,7 +52348,7 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
 
   // MACD 背離：股價創近高但 MACD 柱縮小
   const macdData = calcMACD(closes);
-  const histArr  = macdData.histogram;
+  const histArr  = macdData.Hist;
   const lHist = histArr.at(-1) || 0;
   const pHist = histArr.at(-2) || 0;
 
