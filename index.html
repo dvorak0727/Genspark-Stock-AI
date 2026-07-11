@@ -52288,14 +52288,14 @@ function calcLaunchScore(stockId, instRaw, priceRaw) {
   // L1: 量能放大（今日成交量 ≥ 20日均量 1.5x）（1.0分）
   const volOk = volRatio >= 1.5;
   score += volOk ? 1.0 : 0;
-  checks.push({ name:'量能放大', pass:volOk, val:`${volRatio.toFixed(1)}x`, detail:`今日量 ${volRatio.toFixed(1)} 倍均量${volOk?'，放量確認':'，量能不足'}` });
+  checks.push({ label:'量能放大', hit:volOk, val:`${volRatio.toFixed(1)}x` });
 
   // L2: 突破前高或站上月線（1.0分）
   const breakHigh = lc >= high20 * 0.99;
   const aboveMA20 = lc >= lMA20;
   const breakOk = breakHigh || (aboveMA20 && chgPct > 1.5);
   score += breakOk ? 1.0 : 0;
-  checks.push({ name:'突破關鍵位', pass:breakOk, val:breakHigh?'破前高':aboveMA20?'站月線':'未突破', detail:`MA20=${lMA20.toFixed(1)} 近20高=${high20.toFixed(1)}` });
+  checks.push({ label:'突破關鍵位', hit:breakOk, val:breakHigh?'破前高':aboveMA20?'站月線':'未突破' });
 
   // L3: 外資5日轉多（1.0分）
   const f5 = fSeries.slice(-5).reduce((a,b)=>a+b,0);
@@ -52304,17 +52304,17 @@ function calcLaunchScore(stockId, instRaw, priceRaw) {
   score += fOk ? 1.0 : 0;
   const fCons = fSeries.filter(v=>v>0).length;
   const tCons = tSeries.filter(v=>v>0).length;
-  checks.push({ name:'外資轉多', pass:fOk, val:`5日${f5>0?'+':''}${f5.toFixed(0)}張`, detail:`5日淨買 ${f5>0?'+':''}${f5.toFixed(0)} 張${fOk?'，外資站多方':'，外資尚未明確'}` });
+  checks.push({ label:'外資轉多', hit:fOk, val:`5日${f5>0?'+':''}${f5.toFixed(0)}張` });
 
   // L4: MACD柱翻紅且擴張（1.0分）
   const macdOk = lHist > 0 && lHist > pHist;
   score += macdOk ? 1.0 : 0;
-  checks.push({ name:'MACD柱翻紅', pass:macdOk, val:`柱=${lHist.toFixed(2)}`, detail:`柱${lHist>0?'正值':'負值'}${macdOk?'且擴張，動能確認':'，動能未到'}` });
+  checks.push({ label:'MACD柱翻紅', hit:macdOk, val:`柱=${lHist.toFixed(2)}` });
 
   // L5: MA5 站穩 MA20 上（1.0分）
   const maOk = lMA5 > lMA20 && lc > lMA5;
   score += maOk ? 1.0 : 0;
-  checks.push({ name:'均線多排', pass:maOk, val:maOk?'MA5>MA20':'待確認', detail:`MA5=${lMA5.toFixed(1)} MA20=${lMA20.toFixed(1)} 收=${lc}` });
+  checks.push({ label:'均線多排', hit:maOk, val:maOk?'MA5>MA20':'待確認' });
 
   return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, breakHigh };
 }
@@ -52367,7 +52367,7 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
   // D1: 高檔量縮（今量 < 均量 0.8x，上漲乏力）
   const volShrink = volRatio < 0.8 && nearHigh;
   score += volShrink ? 1 : 0;
-  checks.push({ name:'高位量縮', pass:volShrink, val:`${volRatio.toFixed(1)}x`, detail:`量比${volRatio.toFixed(1)}x${nearHigh?' 且在高位區':''}，${volShrink?'量縮出貨':'量能尚可'}` });
+  checks.push({ label:'高位量縮', hit:volShrink, val:`${volRatio.toFixed(1)}x` });
 
   // D2: 外資 5 日轉賣
   const f5 = fSeries.slice(-5).reduce((a,b)=>a+b,0);
@@ -52376,22 +52376,22 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
   score += fSell ? 1 : 0;
   const fCons = fSeries.filter(v=>v>0).length;
   const tCons = tSeries.filter(v=>v>0).length;
-  checks.push({ name:'外資轉賣', pass:fSell, val:`5日${f5>0?'+':''}${f5.toFixed(0)}張`, detail:`外資5日${f5>0?'仍買超':'賣超'}，${fSell?'出貨訊號':'外資未退出'}` });
+  checks.push({ label:'外資轉賣', hit:fSell, val:`5日${f5>0?'+':''}${f5.toFixed(0)}張` });
 
   // D3: MACD 柱縮小（動能遞減）
   const macdWeak = lHist < pHist && lHist < 0.5;
   score += macdWeak ? 1 : 0;
-  checks.push({ name:'MACD動能遞減', pass:macdWeak, val:`柱${lHist.toFixed(2)}`, detail:`MACD柱${lHist<pHist?'持續縮小':'尚未遞減'}，${macdWeak?'動能衰退':'動能維持'}` });
+  checks.push({ label:'MACD動能遞減', hit:macdWeak, val:`柱${lHist.toFixed(2)}` });
 
   // D4: 股價壓回月線下方
   const belowMA20 = lc < ma20;
   score += belowMA20 ? 1 : 0;
-  checks.push({ name:'跌破月線', pass:belowMA20, val:`MA20=${ma20.toFixed(1)}`, detail:`收盤${lc} ${belowMA20?'跌破':'仍在'} MA20(${ma20.toFixed(1)})以${belowMA20?'下':'上'}` });
+  checks.push({ label:'跌破月線', hit:belowMA20, val:`MA20=${ma20.toFixed(1)}` });
 
   // D5: MA5 跌破 MA20（均線死叉）
   const maDead = ma5 < ma20 && lc < ma5;
   score += maDead ? 1 : 0;
-  checks.push({ name:'均線死叉', pass:maDead, val:maDead?'MA5<MA20':'未死叉', detail:`MA5=${ma5.toFixed(1)} MA20=${ma20.toFixed(1)}，${maDead?'均線空頭排列':'尚未死叉'}` });
+  checks.push({ label:'均線死叉', hit:maDead, val:maDead?'MA5<MA20':'未死叉' });
 
   return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio };
 }
@@ -52428,9 +52428,9 @@ function calcMarkupScore(stockId, instRaw, priceRaw) {
   const rsi   = calcRSI(closes, 14);
   const lRSI  = rsi.at(-1) || 50;
 
-  // MACD
+  // MACD（DIF = MACD line）
   const macdData = calcMACD(closes);
-  const difArr   = macdData.dif;
+  const difArr   = macdData.MACD;
   const lDif     = difArr.at(-1) || 0;
 
   // 量能
@@ -52453,27 +52453,27 @@ function calcMarkupScore(stockId, instRaw, priceRaw) {
   // M1: 量價齊揚（今日收漲 + 量能 ≥ 均量 1.2x）（1.0分）
   const vpOk = chgPct > 0.5 && volRatio >= 1.2;
   score += vpOk ? 1.0 : 0;
-  checks.push({ name:'量價齊揚', pass:vpOk, val:`+${chgPct.toFixed(1)}% ${volRatio.toFixed(1)}x量`, detail:`漲${chgPct.toFixed(1)}% 量${volRatio.toFixed(1)}x${vpOk?'，量價確認':'，量價未齊'}` });
+  checks.push({ label:'量價齊揚', hit:vpOk, val:`+${chgPct.toFixed(1)}% ${volRatio.toFixed(1)}x量` });
 
   // M2: 法人持續買超（外資+投信10日合計>0，且≥6日買）（1.0分）
   const instOk = (f10 + t10) > 0 && (fCons + tCons) >= 8;
   score += instOk ? 1.0 : 0;
-  checks.push({ name:'法人持續買', pass:instOk, val:`外${f10>0?'+':''}${f10.toFixed(0)}張`, detail:`外資${fCons}/10日買 投信${tCons}/10日買${instOk?'，法人站多方':'，法人尚未共振'}` });
+  checks.push({ label:'法人持續買', hit:instOk, val:`外${f10>0?'+':''}${f10.toFixed(0)}張` });
 
   // M3: RSI 強勢區（RSI 55~80）（1.0分）
   const rsiOk = lRSI >= 55 && lRSI <= 80;
   score += rsiOk ? 1.0 : 0;
-  checks.push({ name:'RSI強勢區', pass:rsiOk, val:`RSI=${lRSI.toFixed(0)}`, detail:`RSI ${lRSI.toFixed(1)}${rsiOk?'，強勢區間（55~80）':'，區間外（過熱或轉弱）'}` });
+  checks.push({ label:'RSI強勢區', hit:rsiOk, val:`RSI=${lRSI.toFixed(0)}` });
 
   // M4: MACD 零軸上方（1.0分）
   const macdOk = lDif > 0;
   score += macdOk ? 1.0 : 0;
-  checks.push({ name:'MACD零軸上', pass:macdOk, val:`DIF=${lDif.toFixed(2)}`, detail:`DIF ${lDif>0?'零軸上方':'零軸下方'}${macdOk?'，主升段確認':'，尚未站上'}` });
+  checks.push({ label:'MACD零軸上', hit:macdOk, val:`DIF=${lDif.toFixed(2)}` });
 
   // M5: MA5 持續上揚（均線斜率 > 0.3%）且收在MA5之上（1.0分）
   const maOk = ma5slope > 0.3 && lc > lMA5;
   score += maOk ? 1.0 : 0;
-  checks.push({ name:'MA5強勢上揚', pass:maOk, val:`斜率${ma5slope.toFixed(1)}%`, detail:`MA5 5日斜率 ${ma5slope.toFixed(1)}%${maOk?'，主升段特徵':'，斜率不足'}` });
+  checks.push({ label:'MA5強勢上揚', hit:maOk, val:`斜率${ma5slope.toFixed(1)}%` });
 
   return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio };
 }
