@@ -50869,26 +50869,35 @@ async function startScreener() {
         let instRaw  = r1.status==='fulfilled' ? r1.value : [];
         let priceRaw = r2.status==='fulfilled' ? r2.value : [];
 
-        // 若資料不足（< 20），用模擬備援
-        // v7.35 fix: FinMind 限速時僅回傳 ~6 筆，原門檻 < 5 不足以觸發 fallback
-        // 各評分函數最嚴格要求 26 筆（MACD矩陣）；< 20 作為通用 fallback 門檻
+        // 若資料不足（< 20），用模擬備援；仍不足則放 score=0 佔位，讓使用者知道 API 受限
         if (priceRaw.length < 20) {
           const sim = genSim(sid);
           if (sim) { instRaw = sim.inst; priceRaw = sim.price; }
-          else { processed++; continue; }
+          else {
+            // API 限速但仍計入結果，讓骨架卡片可以被替換，顯示「資料待取」
+            _screenerResults.push({
+              stockId: sid, score: -1, checks: [],
+              lc: 0, chgPct: 0, fCons: 0, tCons: 0,
+              _apiMissing: true
+            });
+            renderScreenerCards();
+            processed++;
+            continue;
+          }
         }
 
         // 依偵測模式計算分數
         switch(modeKey) {
-          case 'crush':      result = calcCrushScore(sid, instRaw, priceRaw);          break;
-          case 'absorb':     result = calcAbsorbScore(sid, instRaw, priceRaw);         break;
-          case 'washout':    result = calcWashoutScore(sid, instRaw, priceRaw);        break;
-          case 'prelaunch':  result = calcSecretAccumScore(sid, instRaw, priceRaw);    break;
-          case 'launch':     result = calcLaunchScore(sid, instRaw, priceRaw);         break;
-          case 'markup':     result = calcMarkupScore(sid, instRaw, priceRaw);         break;
-          case 'chippure':   result = calcChipPurifyScore(sid, instRaw, priceRaw);     break;
-          case 'macdmatrix': result = calcMacdMatrixScore(sid, instRaw, priceRaw);    break;
-          default:           result = calcBottomScore(sid, instRaw, priceRaw);        break;
+          case 'crush':        result = calcCrushScore(sid, instRaw, priceRaw);        break;
+          case 'absorb':       result = calcAbsorbScore(sid, instRaw, priceRaw);       break;
+          case 'washout':      result = calcWashoutScore(sid, instRaw, priceRaw);      break;
+          case 'prelaunch':    result = calcSecretAccumScore(sid, instRaw, priceRaw);  break;
+          case 'launch':       result = calcLaunchScore(sid, instRaw, priceRaw);       break;
+          case 'markup':       result = calcMarkupScore(sid, instRaw, priceRaw);       break;
+          case 'distribution': result = calcDistributionScore(sid, instRaw, priceRaw);break;
+          case 'chippure':     result = calcChipPurifyScore(sid, instRaw, priceRaw);  break;
+          case 'macdmatrix':   result = calcMacdMatrixScore(sid, instRaw, priceRaw);  break;
+          default:             result = calcBottomScore(sid, instRaw, priceRaw);       break;
         }
         // 快取原始資料供卡片快速展開面板使用（法人面板 + MACD面板）
         result._instRaw  = instRaw;
@@ -51928,8 +51937,9 @@ const SCREENER_MODE_META = {
   absorb:  { title:'籌碼週期階段 — 吸籌期', subtitle:'法人靜悄悄買進 · 低波動盤整 · 量能溫和 · 均線走平', badge:'🧲 吸籌期' },
   washout: { title:'籌碼週期階段 — 洗盤期', subtitle:'量縮回測 · 回測MA20未破 · KD洗盤區 · 法人交錯撐盤', badge:'🌀 洗盤期' },
   prelaunch:  { title:'籌碼週期階段 — 秘密佈局', subtitle:'窒息量≤50% · 外資靜悄悄小量買 · 買賣家數差斜率持續轉負 · 股價橫盤不動 · 外資尚未大舉進場', badge:'🔍 秘密佈局' },
-  launch:     { title:'籌碼週期階段 — 啟動期', subtitle:'量能放大≥1.5x · 突破前高/月線 · 外資5日轉多 · MACD柱翻紅 · 多方條件共振確認', badge:'🚀 啟動期' },
-  markup:     { title:'籌碼週期階段 — 拉升期', subtitle:'量價齊揚 · 法人持續買超 · 站穩MA20/MA5 · MACD零軸上方 · RSI強勢區', badge:'📈 拉升期' },
+  launch:       { title:'籌碼週期階段 — 啟動期', subtitle:'量能放大≥1.5x · 突破前高/月線 · 外資5日轉多 · MACD柱翻紅 · 多方條件共振確認', badge:'🚀 啟動期' },
+  markup:       { title:'籌碼週期階段 — 拉升期', subtitle:'量價齊揚 · 法人持續買超 · 站穩MA20/MA5 · MACD零軸上方 · RSI強勢區', badge:'📈 拉升期' },
+  distribution: { title:'籌碼週期階段 — 出貨期', subtitle:'高位量縮 · 外資轉賣 · MACD動能遞減 · 跌破月線 · 均線死叉確認', badge:'⚠️ 出貨期' },
   chippure:   { title:'資減人走·籌碼淨化',    subtitle:'融資減碼確認 · 散戶清洗完畢 · 法人悄悄集中 · 資減價揚底部質變', badge:'📉 淨化' },
   macdmatrix: { title:'MACD 多方結構掃瞄矩陣', subtitle:'C1 MACD柱翻紅擴張 · C2 DIF突破DEA · C3 零軸上方 · C4 法人買超 · C5 均線多排 · C6 KD多頭', badge:'📊 MACD矩陣' },
   broker:     { title:'券商囤貨掃描',           subtitle:'C1 累積淨買超 · C2 連買天數 · C3 籌碼集中度 · C4 近5日加速 · C5 主力成本低於現價', badge:'🏦 囤貨' },
@@ -52291,6 +52301,83 @@ function calcLaunchScore(stockId, instRaw, priceRaw) {
   checks.push({ name:'均線多排', pass:maOk, val:maOk?'MA5>MA20':'待確認', detail:`MA5=${lMA5.toFixed(1)} MA20=${lMA20.toFixed(1)} 收=${lc}` });
 
   return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, breakHigh };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ⚠️ 出貨期偵測（Distribution）
+//  核心邏輯：量縮高檔 · 外資轉賣 · MACD背離 · 股價壓回均線 · KD高檔死叉
+//  5 項評分，總分 0~5 分，≥3.0 = 出貨訊號，≥4.0 = 強烈出貨
+// ═══════════════════════════════════════════════════════════════
+function calcDistributionScore(stockId, instRaw, priceRaw) {
+  instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+
+  const instMap  = buildInstMap(instRaw);
+  const allDays  = Object.keys(instMap).sort();
+  const instDays = allDays.slice(-10);
+  const fSeries  = instDays.map(d => (instMap[d]?.Foreign_Investor?.net||0)/1000);
+  const tSeries  = instDays.map(d => (instMap[d]?.Investment_Trust?.net||0)/1000);
+
+  const closes = priceRaw.map(d => +d.close);
+  const highs  = priceRaw.map(d => +d.max);
+  const vols   = priceRaw.map(d => +d.Trading_Volume);
+  if (closes.length < 20) { const _lc=closes.at(-1)||0,_pc=closes.at(-2)||_lc; return { stockId, score:0, checks:[], lc:_lc, chgPct:_pc?(_lc-_pc)/_pc*100:0, fCons:0, tCons:0 }; }
+
+  const lc  = closes.at(-1);
+  const pc  = closes.at(-2) || lc;
+  const chgPct = pc ? (lc - pc) / pc * 100 : 0;
+
+  const ma5  = calcMA(closes, 5).at(-1)  || 0;
+  const ma20 = calcMA(closes, 20).at(-1) || 0;
+
+  // MACD 背離：股價創近高但 MACD 柱縮小
+  const macdData = calcMACD(closes);
+  const histArr  = macdData.histogram;
+  const lHist = histArr.at(-1) || 0;
+  const pHist = histArr.at(-2) || 0;
+
+  // 量能在高位縮手
+  const vol10avg = vols.slice(-11,-1).reduce((a,b)=>a+b,0)/10 || 1;
+  const lVol     = vols.at(-1) || 0;
+  const volRatio = lVol / vol10avg;
+
+  // 近 20 日最高
+  const high20 = Math.max(...highs.slice(-20));
+  const nearHigh = lc >= high20 * 0.92; // 在高位區
+
+  const checks = [];
+  let score = 0;
+
+  // D1: 高檔量縮（今量 < 均量 0.8x，上漲乏力）
+  const volShrink = volRatio < 0.8 && nearHigh;
+  score += volShrink ? 1 : 0;
+  checks.push({ name:'高位量縮', pass:volShrink, val:`${volRatio.toFixed(1)}x`, detail:`量比${volRatio.toFixed(1)}x${nearHigh?' 且在高位區':''}，${volShrink?'量縮出貨':'量能尚可'}` });
+
+  // D2: 外資 5 日轉賣
+  const f5 = fSeries.slice(-5).reduce((a,b)=>a+b,0);
+  const f3Sell = fSeries.slice(-3).filter(v=>v<0).length;
+  const fSell = f5 < 0 && f3Sell >= 2;
+  score += fSell ? 1 : 0;
+  const fCons = fSeries.filter(v=>v>0).length;
+  const tCons = tSeries.filter(v=>v>0).length;
+  checks.push({ name:'外資轉賣', pass:fSell, val:`5日${f5>0?'+':''}${f5.toFixed(0)}張`, detail:`外資5日${f5>0?'仍買超':'賣超'}，${fSell?'出貨訊號':'外資未退出'}` });
+
+  // D3: MACD 柱縮小（動能遞減）
+  const macdWeak = lHist < pHist && lHist < 0.5;
+  score += macdWeak ? 1 : 0;
+  checks.push({ name:'MACD動能遞減', pass:macdWeak, val:`柱${lHist.toFixed(2)}`, detail:`MACD柱${lHist<pHist?'持續縮小':'尚未遞減'}，${macdWeak?'動能衰退':'動能維持'}` });
+
+  // D4: 股價壓回月線下方
+  const belowMA20 = lc < ma20;
+  score += belowMA20 ? 1 : 0;
+  checks.push({ name:'跌破月線', pass:belowMA20, val:`MA20=${ma20.toFixed(1)}`, detail:`收盤${lc} ${belowMA20?'跌破':'仍在'} MA20(${ma20.toFixed(1)})以${belowMA20?'下':'上'}` });
+
+  // D5: MA5 跌破 MA20（均線死叉）
+  const maDead = ma5 < ma20 && lc < ma5;
+  score += maDead ? 1 : 0;
+  checks.push({ name:'均線死叉', pass:maDead, val:maDead?'MA5<MA20':'未死叉', detail:`MA5=${ma5.toFixed(1)} MA20=${ma20.toFixed(1)}，${maDead?'均線空頭排列':'尚未死叉'}` });
+
+  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -55336,8 +55423,12 @@ function _screenerRankFilter(minScore, btnEl) {
 function renderScreenerCards(showStats=false) {
   if (!_screenerResults.length) return;
 
+  // API 待取卡片：單獨處理，排在最後
+  const apiMissing = _screenerResults.filter(r => r._apiMissing);
+  const validResults = _screenerResults.filter(r => !r._apiMissing);
+
   // ✨ v7.15 先排序，再套用篩選
-  const sorted = [..._screenerResults].sort((a,b)=>{
+  const sorted = [...validResults].sort((a,b)=>{
     if(_screenerSort==='score')  return b.score - a.score;
     if(_screenerSort==='name')   return (STOCK_DB[a.stockId]?.name||a.stockId).localeCompare(STOCK_DB[b.stockId]?.name||b.stockId);
     if(_screenerSort==='inst')   return (b.fCons+b.tCons) - (a.fCons+a.tCons);
@@ -55525,7 +55616,18 @@ function renderScreenerCards(showStats=false) {
     </div>`;
   }).join('');
 
-  document.getElementById('screenerCards').innerHTML = cards;
+  // 補上 API 待取卡片（灰色佔位，說明資料尚未取得）
+  const missingHtml = apiMissing.length
+    ? apiMissing.map(r => {
+        const nm = STOCK_DB[r.stockId]?.name || r.stockId;
+        return `<div class="sc-card score0" style="opacity:.45;border:1px dashed var(--border);">
+          <div style="font-size:.72rem;font-weight:700;color:var(--fg2)">${nm} <span style="font-size:.62rem;color:var(--fg3)">${r.stockId}</span></div>
+          <div style="font-size:.6rem;color:var(--fg3);margin-top:4px">⏳ API 限速中，資料待取</div>
+        </div>`;
+      }).join('')
+    : '';
+
+  document.getElementById('screenerCards').innerHTML = cards + missingHtml;
 
   // ✨ v7.09 渲染持倉監控面板
   renderPositionMonitor();
