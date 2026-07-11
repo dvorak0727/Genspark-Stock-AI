@@ -5038,6 +5038,18 @@
       display: flex; flex-direction: column;
     }
     .mgp-overlay.show .mgp-panel { transform: translateY(0); }
+    /* 早安決策樹：置中彈窗 */
+    #dtreeOverlay { align-items: center; justify-content: center; }
+    #dtreeOverlay #dtreePanel {
+      border-radius: 18px !important;
+      border-bottom: 1.5px solid var(--border) !important;
+      transform: scale(0.92);
+      opacity: 0;
+      transition: transform 0.25s cubic-bezier(0.32,0.72,0,1), opacity 0.22s;
+      max-height: 80vh;
+      width: calc(100% - 32px);
+    }
+    #dtreeOverlay.show #dtreePanel { transform: scale(1); opacity: 1; }
     /* 拖拉把手 */
     .mgp-handle {
       width: 40px; height: 5px; border-radius: 99px;
