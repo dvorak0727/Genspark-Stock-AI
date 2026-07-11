@@ -69720,7 +69720,6 @@ async function _openTeachPanel(mode='select') {
     </div>`;
     document.body.insertAdjacentHTML('beforeend', shell);
   }
-  document.body.insertAdjacentHTML('beforeend', shell);
 
   // 取 token（優先 localStorage，確保能抓到）
   const token=localStorage.getItem('tsai_finmind_token')||window._userToken||(typeof TOKEN!=='undefined'?TOKEN:'')||'';
