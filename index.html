@@ -52448,10 +52448,19 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
     const _getExDate = d =>
       d.ExDividendTradingDate || d.ex_dividend_date || d.ExDividendDate ||
       d.dividend_date || d.date || '';
-    const _getCash = d =>
-      +(d.cash_dividend || d.CashDividend ||
-        ((+(d.cash_earnings_distribution||0)) + (+(d.cash_statutory_surplus_distribution||0))) ||
-        d.cashDividend || 0);
+    const _getCash = d => {
+      // 嘗試所有已知 FinMind 欄位名稱
+      const v =
+        +(d.cash_dividend||0) ||
+        +(d.CashDividend||0) ||
+        +(d.cashDividend||0) ||
+        (+(d.cash_earnings_distribution||0) + +(d.cash_statutory_surplus_distribution||0)) ||
+        (+(d.CashEarningsDistribution||0) + +(d.CashStatutorySurplusDistribution||0)) ||
+        +(d.dividend||0) || 0;
+      // debug：若全部是0，把所有key印出來供排查
+      if (!v && stockId === '2382') console.log('[ExDiv cashDiv debug] 廣達 dividend record keys:', Object.keys(d), 'values:', d);
+      return v;
+    };
 
     // FinMind date = 停止過戶日（比除息交易日晚約3個交易日）
     // 往前推3個交易日（跳過週六日）來估算實際除息交易日
