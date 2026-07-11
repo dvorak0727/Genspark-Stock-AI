@@ -5038,18 +5038,6 @@
       display: flex; flex-direction: column;
     }
     .mgp-overlay.show .mgp-panel { transform: translateY(0); }
-    /* 早安決策樹：置中彈窗 */
-    #dtreeOverlay { align-items: center; justify-content: center; }
-    #dtreeOverlay #dtreePanel {
-      border-radius: 18px !important;
-      border-bottom: 1.5px solid var(--border) !important;
-      transform: scale(0.92);
-      opacity: 0;
-      transition: transform 0.25s cubic-bezier(0.32,0.72,0,1), opacity 0.22s;
-      max-height: 80vh;
-      width: calc(100% - 32px);
-    }
-    #dtreeOverlay.show #dtreePanel { transform: scale(1); opacity: 1; }
     /* 拖拉把手 */
     .mgp-handle {
       width: 40px; height: 5px; border-radius: 99px;
@@ -15905,8 +15893,8 @@ a.module-nav-item.acc-active {
 </div>
 
 <!-- 🌅 早安決策樹 Modal -->
-<div class="mgp-overlay" id="dtreeOverlay" onclick="closeDTree(event)" style="z-index:1300;align-items:center;justify-content:center;">
-  <div class="mgp-panel" id="dtreePanel" style="max-width:520px;border-radius:18px;transform:scale(0.92);opacity:0;transition:transform 0.25s cubic-bezier(0.32,0.72,0,1),opacity 0.25s;max-height:80vh;">
+<div id="dtreeOverlay" onclick="closeDTree(event)" style="display:none;position:fixed;inset:0;z-index:1300;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;">
+  <div id="dtreePanel" style="width:calc(100%-32px);max-width:520px;max-height:82vh;background:var(--surface);border-radius:18px;border:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transform:scale(0.92);opacity:0;transition:transform 0.25s cubic-bezier(0.32,0.72,0,1),opacity 0.22s;margin:0 16px;">
     <div class="mgp-handle"></div>
     <div class="mgp-header">
       <div class="mgp-mode-icon">🌅</div>
@@ -55652,7 +55640,7 @@ function openDTree() {
   _renderDTree(1);
   const ov = document.getElementById('dtreeOverlay');
   const panel = document.getElementById('dtreePanel');
-  ov.classList.add('show');
+  ov.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   requestAnimationFrame(() => {
     panel.style.transform = 'scale(1)';
@@ -55667,8 +55655,10 @@ function closeDTree(e) {
   panel.style.transform = 'scale(0.92)';
   panel.style.opacity = '0';
   setTimeout(() => {
-    ov.classList.remove('show');
+    ov.style.display = 'none';
     document.body.style.overflow = '';
+    panel.style.transform = 'scale(0.92)';
+    panel.style.opacity = '0';
   }, 220);
 }
 
