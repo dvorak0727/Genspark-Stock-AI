@@ -52453,16 +52453,24 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
         ((+(d.cash_earnings_distribution||0)) + (+(d.cash_statutory_surplus_distribution||0))) ||
         d.cashDividend || 0);
 
+    // FinMind date = 停止過戶日（比除息交易日晚約4個交易日）→ 往前估算4天
+    const _estExDiv = (dateStr) => {
+      const d = new Date(dateStr); d.setHours(0,0,0,0);
+      d.setDate(d.getDate() - 4);   // 往前推4天 ≈ 除息交易日
+      return d;
+    };
+    const _fmtDate = d => d.toISOString().slice(0,10);
+
     const sorted = [...divRaw].sort((a,b) => _getExDate(a).localeCompare(_getExDate(b)));
     for (const d of sorted) {
-      const exd = _getExDate(d);
-      if (!exd) continue;
-      const exDate = new Date(exd); exDate.setHours(0,0,0,0);
+      const rawDateStr = _getExDate(d);
+      if (!rawDateStr) continue;
+      const exDate   = _estExDiv(rawDateStr);  // 估算除息交易日
       const diffDays = Math.round((exDate - today) / 86400000);
-      if (diffDays >= -5 && diffDays <= 30) {
-        exDivDateStr = exd;
+      if (diffDays >= -10 && diffDays <= 30) {
+        exDivDateStr = _fmtDate(exDate);       // 顯示估算後的除息日
         cashDiv = _getCash(d);
-        if (stockId === '2382') console.log('[ExDiv debug] 廣達 matched record:', d, 'cashDiv:', cashDiv);
+        if (stockId === '2382') console.log('[ExDiv debug] 廣達 rawDate:', rawDateStr, '→ estExDiv:', exDivDateStr, 'cashDiv:', cashDiv, 'record:', d);
         break;
       }
     }
