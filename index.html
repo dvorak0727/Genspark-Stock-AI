@@ -33821,6 +33821,8 @@ async function renderSectorRotation(stockId) {
 
   const { sectorData, epicId, safeHavens, rotDay, isLive } = result;
   const epicSec  = SR_SECTOR_DEF.find(s=>s.id===epicId);
+  // 存到 window 供決策樹讀取
+  window._dtreeEpicData = { id: epicId, name: epicSec?.name||epicId, change: sectorData[epicId]?.change??0, emoji: epicSec?.emoji||'🎯' };
   const stockSec = srFindSector(stockId);
   const stockD   = sectorData[stockSec.id];
   const epicD    = sectorData[epicId];
@@ -55562,13 +55564,12 @@ const _DTREE_STEPS = [
   },
   {
     step: 2,
-    q: '今天台股震央板塊？',
+    q: '你的候選個股，屬於今天的震央板塊嗎？',
     hint: '震央板塊的個股今天不碰，板塊壓力會蓋過個股籌碼訊號。',
+    dynamic: 'epicenter',
     options: [
-      { label:'⚡ 科技/半導體', val:'tech',    next: 3 },
-      { label:'🚢 航運/傳產',   val:'trad',    next: 3 },
-      { label:'🏦 金融/保險',   val:'fin',     next: 3 },
-      { label:'🌿 無明顯震央', val:'none',    next: 3 },
+      { label:'✅ 不在震央板塊，繼續評估', val:'none', next: 3 },
+      { label:'❌ 在震央板塊，今天跳開',  val:'epic', next:'warn_chip' },
     ]
   },
   {
@@ -55678,7 +55679,33 @@ function _renderDTree(stepNum) {
   document.getElementById('dtreeProgress').style.width = `${(stepNum-1)/5*100}%`;
 
   const body = document.getElementById('dtreeBody');
+
+  // 動態資料卡
+  let dataCard = '';
+  if (step.dynamic === 'epicenter') {
+    const ep = window._dtreeEpicData;
+    if (ep) {
+      const chg = ep.change >= 0 ? `+${ep.change}%` : `${ep.change}%`;
+      dataCard = `<div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.3rem;">${ep.emoji}</span>
+        <div>
+          <div style="font-size:.72rem;color:#991b1b;font-weight:700;">今日震央板塊</div>
+          <div style="font-size:.95rem;font-weight:800;color:#b91c1c;">${ep.name} <span style="font-size:.75rem;">${chg}</span></div>
+        </div>
+        <span style="margin-left:auto;font-size:.65rem;background:#fee2e2;color:#b91c1c;padding:2px 8px;border-radius:99px;font-weight:700;">⚠️ 今天迴避</span>
+      </div>`;
+    } else {
+      dataCard = `<div style="background:rgba(245,158,11,0.1);border:1px solid #fcd34d;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:.72rem;color:#92400e;">⚠️ 板塊資料未載入，請先開啟「板塊」面板再回來。</div>`;
+    }
+  } else if (step.dynamic === 'chip') {
+    const si = window._currentStockId ? (window._teachData || null) : null;
+    if (si) {
+      dataCard = `<div style="background:rgba(99,102,241,0.07);border:1px solid #a5b4fc;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:.72rem;color:var(--fg2);">📊 儀表板已偵測到：${window._currentStockId} 籌碼週期 ${['','吸籌','洗盤','啟動','拉升','出貨'][si.phaseIdx]||'未知'}</div>`;
+    }
+  }
+
   body.innerHTML = `
+    ${dataCard}
     <div style="font-size:.9rem;font-weight:700;color:var(--fg);margin-bottom:14px;">${step.q}</div>
     <div style="display:flex;flex-direction:column;gap:8px;">
       ${step.options.map(o => `
