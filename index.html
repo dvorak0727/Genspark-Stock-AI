@@ -69729,9 +69729,6 @@ async function _openTeachPanel(mode='select') {
   // 取 token
   const token=window._userToken||(typeof TOKEN!=='undefined'?TOKEN:'')||'';
 
-  // 並行抓取5檔
-  const fetches=await Promise.allSettled(five.map(s=>_tFetch(s.id,token)));
-
   // 計算指標 + 渲染
   const _condPhases=[
     {n:1,name:'吸籌期',emoji:'🧲',col:'#60a5fa',
@@ -69760,26 +69757,39 @@ async function _openTeachPanel(mode='select') {
      sl:'不要設買進條件單，這個階段只設賣出',
      note:'出貨期的任務只有一個：把獲利帶回家。不要再想加碼'},
   ];
-  const cards=fetches.map((r,i)=>{
-    const s=five[i];
-    let ind, isSim=false;
-    if(r.status==='fulfilled'){
-      try{ ind=_tAnalyze(r.value); } catch(e){ isSim=true; }
-    } else { isSim=true; }
-
-    if(isSim){
-      // fallback 模擬
-      const sr=_teachSeededRand(seed+i*7919);
-      const rsi=35+sr()*45, k=20+sr()*55, d=Math.max(10,k-5+sr()*14-7);
-      const hist=(sr()-0.5)*2, ma20=s.price*(0.96+sr()*0.08);
-      ind={lc:s.price,rsi,k,d,kSlope:sr()*1-0.5,dSlope:sr()*0.6-0.3,hist,histSlope:sr()*0.5-0.25,ma20,daysToCrossKD:null,daysToCrossMACD:null,bt:null};
-    }
-    if(mode==='cond') return _tRenderCondCard(s, ind, isSim, _condPhases[i]);
-    return _tRenderCard(s,ind,isSim);
-  }).join('');
-
+  // 逐檔抓取、抓到一檔立刻顯示一檔
   const cardsEl=document.getElementById('teachCards');
-  if(cardsEl) cardsEl.innerHTML=cards;
+  if(cardsEl) cardsEl.innerHTML='';
+
+  for(let i=0;i<five.length;i++){
+    const s=five[i];
+    // 先插入 loading 佔位
+    const placeholderId=`tcard_${i}`;
+    if(cardsEl){
+      const ph=document.createElement('div');
+      ph.id=placeholderId;
+      ph.style.cssText='background:var(--surface2);border-radius:12px;padding:16px;margin-bottom:10px;color:var(--fg3);font-size:.75rem;';
+      ph.textContent=`⏳ ${s.name}（${s.id}）載入中…`;
+      cardsEl.appendChild(ph);
+    }
+    // 非同步抓取、完成後替換佔位
+    (async(s,i)=>{
+      let ind, isSim=false;
+      try{
+        const raw=await _tFetch(s.id,token);
+        try{ ind=_tAnalyze(raw); } catch(e){ isSim=true; }
+      } catch(e){ isSim=true; }
+      if(isSim){
+        const sr=_teachSeededRand(seed+i*7919);
+        const rsi=35+sr()*45, k=20+sr()*55, d=Math.max(10,k-5+sr()*14-7);
+        const hist=(sr()-0.5)*2, ma20=s.price*(0.96+sr()*0.08);
+        ind={lc:s.price,rsi,k,d,kSlope:sr()*1-0.5,dSlope:sr()*0.6-0.3,hist,histSlope:sr()*0.5-0.25,ma20,daysToCrossKD:null,daysToCrossMACD:null,bt:null};
+      }
+      const html=mode==='cond'?_tRenderCondCard(s,ind,isSim,_condPhases[i]):_tRenderCard(s,ind,isSim);
+      const ph=document.getElementById(`tcard_${i}`);
+      if(ph) ph.outerHTML=html;
+    })(s,i);
+  }
 }
 </script>
 
