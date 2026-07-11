@@ -15743,6 +15743,9 @@ a.module-nav-item.acc-active {
         <button class="screener-guide-btn" id="screenerGuideBtn" onclick="openModeGuide()" title="看懂這個模式在偵測什麼">
           ❓ 模式說明
         </button>
+        <button class="screener-guide-btn" onclick="openDTree()" title="早安決策樹：5步驟判斷今天要不要進場" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#16a34a;color:#15803d;">
+          🌅 早安決策
+        </button>
       </div>
 
       <!-- 進度條 -->
@@ -15886,6 +15889,30 @@ a.module-nav-item.acc-active {
 
     <!-- 快速切換其他模式 -->
     <div class="mgp-mode-tabs" id="mgpModeTabs"></div>
+  </div>
+</div>
+
+<!-- 🌅 早安決策樹 Modal -->
+<div class="mgp-overlay" id="dtreeOverlay" onclick="closeDTree(event)" style="z-index:1300;">
+  <div class="mgp-panel" id="dtreePanel" style="max-width:520px;">
+    <div class="mgp-handle"></div>
+    <div class="mgp-header">
+      <div class="mgp-mode-icon">🌅</div>
+      <div class="mgp-title-wrap">
+        <div class="mgp-mode-name">早安決策樹</div>
+        <span class="mgp-mode-tag" id="dtreeStepLabel">Step 1 / 5</span>
+      </div>
+      <button class="mgp-close-btn" onclick="closeDTree()">✕</button>
+    </div>
+    <div class="mgp-summary" id="dtreeSummary">每天早上5分鐘，走完5步，決定今天要不要進場。</div>
+    <div id="dtreeBody" style="padding:16px 20px 8px;flex:1;overflow-y:auto;"></div>
+    <!-- 進度條 -->
+    <div style="padding:0 20px 20px;">
+      <div style="height:4px;background:var(--border);border-radius:99px;margin-bottom:12px;">
+        <div id="dtreeProgress" style="height:4px;background:#16a34a;border-radius:99px;transition:width .3s;width:0%"></div>
+      </div>
+      <div id="dtreeResult" style="display:none;padding:14px;border-radius:10px;font-size:.82rem;line-height:1.7;"></div>
+    </div>
   </div>
 </div>
 
@@ -55517,6 +55544,178 @@ function closeModeGuide(e) {
   if (e && e.target !== document.getElementById('mgpOverlay')) return;
   document.getElementById('mgpOverlay').classList.remove('show');
   document.body.style.overflow = '';
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   🌅 早安決策樹
+══════════════════════════════════════════════════════════════════ */
+const _DTREE_STEPS = [
+  {
+    step: 1,
+    q: '今天美股收盤方向？',
+    hint: '大盤環境過濾：美股大跌時台股系統性風險高，今天保守。',
+    options: [
+      { label:'📈 漲（+0.5%以上）', val:'up',   next: 2 },
+      { label:'➡️ 平盤（±0.5%內）', val:'flat', next: 2 },
+      { label:'📉 跌（-0.5%以上）', val:'down',  next:'warn_us' },
+    ]
+  },
+  {
+    step: 2,
+    q: '今天台股震央板塊？',
+    hint: '震央板塊的個股今天不碰，板塊壓力會蓋過個股籌碼訊號。',
+    options: [
+      { label:'⚡ 科技/半導體', val:'tech',    next: 3 },
+      { label:'🚢 航運/傳產',   val:'trad',    next: 3 },
+      { label:'🏦 金融/保險',   val:'fin',     next: 3 },
+      { label:'🌿 無明顯震央', val:'none',    next: 3 },
+    ]
+  },
+  {
+    step: 3,
+    q: '候選個股的籌碼結構？',
+    hint: '外資投信同向 + 集中度高 = 大盤回檔時最抗跌的結構。',
+    options: [
+      { label:'✅ 外資＋投信同向買，集中度高', val:'strong', next: 4 },
+      { label:'⚠️ 只有一方在買',               val:'weak',   next:'warn_chip' },
+      { label:'❌ 法人分歧或都在賣',           val:'bad',    next:'warn_chip' },
+    ]
+  },
+  {
+    step: 4,
+    q: '目前股價在哪個區間？',
+    hint: '中關＝（今日最高＋最低）÷2，是多空分界的重心。',
+    options: [
+      { label:'📈 中關以上（強勢）',     val:'above', next: 5 },
+      { label:'⚖️ 中關附近（±1%內）',   val:'mid',   next:'go' },
+      { label:'📉 下關附近（接近支撐）', val:'below', next: 5 },
+    ]
+  },
+  {
+    step: 5,
+    q: '洗盤確認：拉回時法人有沒有出貨？',
+    hint: '拉回＋法人繼續買＝洗盤。拉回＋法人也在賣＝結構改變，不進。',
+    options: [
+      { label:'✅ 法人繼續買（或小量中性）', val:'hold', next:'go' },
+      { label:'❌ 法人也在賣',               val:'sell', next:'warn_sell' },
+    ]
+  },
+];
+
+const _DTREE_ENDS = {
+  go: {
+    color:'#16a34a', bg:'#f0fdf4',
+    icon:'✅',
+    title:'可以掛母子單',
+    body:'籌碼結構乾淨、法人持續佈局、價位在甜蜜點。<br>建議：<b>母單設在中關附近自動買進，子單同時設停損（中關下方3%）</b>。進場後不用盯盤。'
+  },
+  warn_us: {
+    color:'#dc2626', bg:'#fef2f2',
+    icon:'⛔',
+    title:'今天保守，不進新單',
+    body:'美股明顯下跌，台股系統性風險高。<br>今天的個股籌碼訊號可信度降低，建議觀望，明天再評估。'
+  },
+  warn_chip: {
+    color:'#d97706', bg:'#fffbeb',
+    icon:'⚠️',
+    title:'籌碼結構不夠乾淨，暫時跳過',
+    body:'法人分歧或單邊買進，大盤回檔時這支個股缺乏保護。<br>建議等待籌碼集中訊號再觀察，不急著進場。'
+  },
+  warn_sell: {
+    color:'#dc2626', bg:'#fef2f2',
+    icon:'🚨',
+    title:'結構改變，不進場',
+    body:'拉回時法人也在出貨，代表這不是洗盤，是真的在跌。<br>原有的進場計畫取消，重新觀察籌碼是否重新集中。'
+  },
+};
+
+let _dtreeAnswers = [];
+let _dtreeCurStep = 1;
+let _dtreeEpicenter = '';
+
+function openDTree() {
+  _dtreeAnswers = [];
+  _dtreeCurStep = 1;
+  _dtreeEpicenter = '';
+  document.getElementById('dtreeResult').style.display = 'none';
+  _renderDTree(1);
+  document.getElementById('dtreeOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDTree(e) {
+  if (e && e.target !== document.getElementById('dtreeOverlay')) return;
+  document.getElementById('dtreeOverlay').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function _renderDTree(stepNum) {
+  const step = _DTREE_STEPS.find(s => s.step === stepNum);
+  if (!step) return;
+  _dtreeCurStep = stepNum;
+  document.getElementById('dtreeStepLabel').textContent = `Step ${stepNum} / 5`;
+  document.getElementById('dtreeSummary').textContent = step.hint;
+  document.getElementById('dtreeProgress').style.width = `${(stepNum-1)/5*100}%`;
+  document.getElementById('dtreeResult').style.display = 'none';
+
+  const body = document.getElementById('dtreeBody');
+  body.innerHTML = `
+    <div style="font-size:.9rem;font-weight:700;color:var(--fg);margin-bottom:14px;">${step.q}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${step.options.map(o => `
+        <button onclick="_dtreeAnswer('${o.val}','${o.next}',${stepNum})"
+          style="text-align:left;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);
+                 background:var(--bg);color:var(--fg);font-size:.82rem;cursor:pointer;
+                 transition:all .15s;font-weight:500;"
+          onmouseover="this.style.borderColor='#16a34a';this.style.background='#f0fdf4'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--bg)'">
+          ${o.label}
+        </button>`).join('')}
+    </div>
+    ${stepNum > 1 ? `<div style="margin-top:14px;"><button onclick="_dtreeBack()" style="font-size:.72rem;color:var(--fg3);background:none;border:none;cursor:pointer;">← 上一步</button></div>` : ''}
+  `;
+}
+
+function _dtreeAnswer(val, next, stepNum) {
+  if (stepNum === 2) _dtreeEpicenter = val;
+  _dtreeAnswers.push({ step: stepNum, val });
+
+  if (typeof next === 'number') {
+    // 震央板塊提示
+    if (stepNum === 2 && val !== 'none') {
+      const labels = { tech:'科技/半導體', trad:'航運/傳產', fin:'金融/保險' };
+      document.getElementById('dtreeSummary').textContent = `⚠️ 今天 ${labels[val]} 板塊個股不碰，其他板塊繼續評估。`;
+    }
+    _renderDTree(next);
+  } else {
+    _dtreeShowEnd(next);
+  }
+}
+
+function _dtreeBack() {
+  _dtreeAnswers.pop();
+  const prev = _dtreeAnswers.length > 0 ? _dtreeAnswers[_dtreeAnswers.length-1].step + 1 : 1;
+  _renderDTree(prev > 1 ? _dtreeCurStep - 1 : 1);
+}
+
+function _dtreeShowEnd(endKey) {
+  const end = _DTREE_ENDS[endKey];
+  document.getElementById('dtreeProgress').style.width = '100%';
+  document.getElementById('dtreeStepLabel').textContent = '完成';
+  document.getElementById('dtreeSummary').textContent = '決策完成。';
+  document.getElementById('dtreeBody').innerHTML = '';
+  const r = document.getElementById('dtreeResult');
+  r.style.display = 'block';
+  r.style.background = end.bg;
+  r.style.border = `1.5px solid ${end.color}`;
+  r.style.borderRadius = '10px';
+  r.innerHTML = `
+    <div style="font-size:1.1rem;font-weight:800;color:${end.color};margin-bottom:6px;">${end.icon} ${end.title}</div>
+    <div style="color:var(--fg2);">${end.body}</div>
+    <button onclick="openDTree()" style="margin-top:12px;padding:6px 16px;border-radius:99px;
+      border:1.5px solid ${end.color};background:none;color:${end.color};font-size:.75rem;
+      cursor:pointer;font-weight:700;">🔄 重新評估</button>
+  `;
 }
 
 /* ══════════════════════════════════════════════════════════════════
