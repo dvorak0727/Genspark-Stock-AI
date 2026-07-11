@@ -68862,14 +68862,15 @@ function _tStreakN(series) {
 }
 
 async function _tFetch(id, token) {
+  if (!token) throw new Error('no token');
   const end=new Date(), start=new Date(); start.setDate(start.getDate()-130);
   const s30=new Date(); s30.setDate(s30.getDate()-40);
   const fmt=d=>d.toISOString().slice(0,10);
   const base=`https://stock-api-214539875795.asia-east1.run.app`;
   const [priceRes,instRes,marginRes]=await Promise.allSettled([
-    fetch(`${base}?dataset=TaiwanStockPrice&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(13000)}).then(r=>r.json()),
-    fetch(`${base}?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${id}&start_date=${fmt(s30)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(10000)}).then(r=>r.json()),
-    fetch(`${base}?dataset=TaiwanStockMarginPurchaseShortSale&data_id=${id}&start_date=${fmt(s30)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(10000)}).then(r=>r.json()),
+    fetch(`${base}?dataset=TaiwanStockPrice&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(7000)}).then(r=>r.json()),
+    fetch(`${base}?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${id}&start_date=${fmt(s30)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(6000)}).then(r=>r.json()),
+    fetch(`${base}?dataset=TaiwanStockMarginPurchaseShortSale&data_id=${id}&start_date=${fmt(s30)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(6000)}).then(r=>r.json()),
   ]);
   const js=priceRes.status==='fulfilled'?priceRes.value:{};
   if(js.status!==200||!Array.isArray(js.data)||js.data.length<30) throw new Error('no data');
@@ -69654,6 +69655,11 @@ async function _openTeachPanel(mode='select') {
         <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:14px;">
           💡 每日5檔・明天自動換新一批 ・ ⚠️ 教育模擬用途，非投資建議
         </div>
+        ${!(localStorage.getItem('tsai_finmind_token')||window._userToken)?`
+        <div style="margin-top:10px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:7px 12px;font-size:0.65rem;color:#b91c1c;">
+          ⚠️ 未偵測到 FinMind Token，將顯示模擬數據。<br>請在右上角「設定」填入 Token 以獲取真實K線。
+        </div>`:''}
+
       </div>
     </div>`;
     document.body.insertAdjacentHTML('beforeend', shell);
@@ -69716,8 +69722,8 @@ async function _openTeachPanel(mode='select') {
   }
   document.body.insertAdjacentHTML('beforeend', shell);
 
-  // 取 token
-  const token=window._userToken||(typeof TOKEN!=='undefined'?TOKEN:'')||'';
+  // 取 token（優先 localStorage，確保能抓到）
+  const token=localStorage.getItem('tsai_finmind_token')||window._userToken||(typeof TOKEN!=='undefined'?TOKEN:'')||'';
 
   // 計算指標 + 渲染
   const _condPhases=[
