@@ -55637,6 +55637,13 @@ function openDTree() {
   _dtreeAnswers = [];
   _dtreeCurStep = 1;
   _dtreeEpicenter = '';
+  // 強制重置 header 狀態
+  const lbl = document.getElementById('dtreeStepLabel');
+  if (lbl) lbl.textContent = 'Step 1 / 5';
+  const smry = document.getElementById('dtreeSummary');
+  if (smry) smry.textContent = '每天早上5分鐘，走完5步，決定今天要不要進場。';
+  const prog = document.getElementById('dtreeProgress');
+  if (prog) prog.style.width = '0%';
   _renderDTree(1);
   const ov = document.getElementById('dtreeOverlay');
   const panel = document.getElementById('dtreePanel');
@@ -55675,7 +55682,7 @@ function _renderDTree(stepNum) {
     <div style="font-size:.9rem;font-weight:700;color:var(--fg);margin-bottom:14px;">${step.q}</div>
     <div style="display:flex;flex-direction:column;gap:8px;">
       ${step.options.map(o => `
-        <button onclick="_dtreeAnswer('${o.val}','${o.next}',${stepNum})"
+        <button onclick="_dtreeAnswer('${o.val}',${typeof o.next==='number'?o.next:`'${o.next}'`},${stepNum})"
           style="text-align:left;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);
                  background:var(--bg);color:var(--fg);font-size:.82rem;cursor:pointer;
                  transition:all .15s;font-weight:500;"
