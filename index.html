@@ -34965,6 +34965,8 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
   const opens   = priceRaw.map(d => +d.open);
   const highs   = priceRaw.map(d => +d.max);
   const lows    = priceRaw.map(d => +d.min);
+  // 存最新價格供 VIP 建議書讀取
+  window._vipPrice = { lc: closes.at(-1)||0, hi: highs.at(-1)||0, lo: lows.at(-1)||0 };
   const vols    = priceRaw.map(d => +d.Trading_Volume);
   const dates   = priceRaw.map(d => d.date);
 
@@ -55809,29 +55811,24 @@ function openVipOrder() {
   const trt  = sm.trt   || {};
   const ep   = window._dtreeEpicData || null;
 
-  // 價格與技術面 - 從 DOM 讀
   const px  = v => v>=1000?v.toFixed(0):v>=100?v.toFixed(1):v.toFixed(2);
-  const priceEl = document.getElementById('priceMain') || document.getElementById('currentPrice');
-  const lc  = parseFloat(priceEl?.textContent?.replace(/[^0-9.]/g,'')) || 0;
-
-  // 中關價 — 從最高/最低讀
-  const hiEl = document.querySelector('.price-hi, #priceHi, [data-role="high"]');
-  const loEl = document.querySelector('.price-lo, #priceLo, [data-role="low"]');
-  const hi   = parseFloat(hiEl?.textContent?.replace(/[^0-9.]/g,'')) || lc*1.01;
-  const lo   = parseFloat(loEl?.textContent?.replace(/[^0-9.]/g,'')) || lc*0.99;
-  const midPrice = (hi + lo) / 2;
+  const vp  = window._vipPrice || {};
+  const lc  = vp.lc || 0;
+  const hi  = vp.hi || lc*1.01;
+  const lo  = vp.lo || lc*0.99;
+  const midPrice = hi && lo ? (hi + lo) / 2 : 0;
   const aboveMid = lc > midPrice;
 
   // 籌碼週期
   const phaseMap = {1:'🧲 吸籌期',2:'🌀 洗盤期',3:'🚀 啟動期',4:'📈 拉升期',5:'⚠️ 出貨期'};
   let phaseIdx = 0;
-  // 從 wash/bd 模組推斷
-  if (wash.confirmed) phaseIdx = 2;
+  // 優先讀 _smData.trt（籌碼週期模組）
+  if (trt.phaseIdx) phaseIdx = trt.phaseIdx;
+  else if (wash.confirmed) phaseIdx = 2;
   else if (bd.score >= 4) phaseIdx = 1;
   else if (ai.cls === 'bull' && ai.score >= 65) phaseIdx = 4;
   else if (ai.cls === 'bull') phaseIdx = 3;
   else if (ai.cls === 'bear') phaseIdx = 5;
-  // 嘗試讀 _teachData
   if (window._teachData?.phaseIdx) phaseIdx = window._teachData.phaseIdx;
   const phaseName = phaseMap[phaseIdx] || '❓ 未能判定';
 
