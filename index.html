@@ -50975,6 +50975,9 @@ async function startScreener() {
   const _scrStart = new Date(); _scrStart.setDate(_scrEnd.getDate() - 65); // 價格仍用65天（夠算技術指標）
   let processed = 0;
 
+  // 除息模式：先一次性抓 TWSE 官方除息預告表（最準確，每日更新）
+  if (modeKey === 'exdiv') await fetchTWSEExDivMap();
+
   // 海選專用：4秒超時（比 fetchFM 的15秒短，避免每支股票都卡15秒）
   const _scrFetch = (p) => Promise.race([
     p,
@@ -52585,6 +52588,36 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
   return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio };
 }
 
+// ── TWSE 官方除息預告表（一次抓，全部股票共用）──
+let _twseExDivCache = null;
+async function fetchTWSEExDivMap() {
+  if (_twseExDivCache) return _twseExDivCache;
+  try {
+    const res = await fetch('https://www.twse.com.tw/rwd/zh/exRight/TWT48U?response=json', { signal: AbortSignal.timeout(8000) });
+    const json = await res.json();
+    const map = {};
+    if (json.stat === 'OK' && Array.isArray(json.data)) {
+      for (const row of json.data) {
+        const sid      = (row[0] || '').trim();
+        const rocDate  = (row[2] || '').trim(); // 除息交易日，格式：115/07/16
+        if (!sid || !rocDate || rocDate === '-') continue;
+        const parts = rocDate.split('/');
+        if (parts.length === 3) {
+          const adYear = parseInt(parts[0]) + 1911;
+          map[sid] = `${adYear}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+        }
+      }
+    }
+    console.log(`[TWSE ExDiv] 載入 ${Object.keys(map).length} 筆官方除息日`);
+    _twseExDivCache = map;
+    return map;
+  } catch(e) {
+    console.warn('[TWSE ExDiv] 抓取失敗，改用 FinMind：', e.message);
+    _twseExDivCache = {};
+    return {};
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  🎯 除息填息候選雷達（ExDiv）
 //  核心邏輯：投信除息前悄悄佈局 + 外資製造恐懼換手 + 散戶出清後填息啟動
@@ -52594,11 +52627,9 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  // ── 找近期除息日 ──
-  let exDivDateStr = null, cashDiv = 0;
+  // ── 找近期除息日：TWSE官方 > FinMind（TWSE每日更新，最準確）──
+  let exDivDateStr = (_twseExDivCache && _twseExDivCache[stockId]) || null, cashDiv = 0;
   if (divRaw && divRaw.length) {
-    // 除錯：印出原始欄位結構（看 FinMind 實際回傳什麼）
-    if (stockId === '2382') console.log('[ExDiv debug] 廣達 divRaw:', JSON.stringify(divRaw.slice(0,3), null, 2));
 
     const _fmtDate = d => d.toISOString().slice(0,10);
 
@@ -52631,9 +52662,9 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
       const exDate   = new Date(exdStr); exDate.setHours(0,0,0,0);
       const diffDays = Math.round((exDate - today) / 86400000);
       if (diffDays >= -10 && diffDays <= 30) {
-        exDivDateStr = exdStr;          // 直接用，不需再扣天數
+        if (!exDivDateStr) exDivDateStr = exdStr;  // TWSE已有日期時不覆蓋
         cashDiv = _getCash(d);
-        console.log(`[ExDiv] ${stockId} exDiv:${exdStr} cash:${cashDiv}`, d);
+        console.log(`[ExDiv] ${stockId} exDiv:${exDivDateStr} cash:${cashDiv} src:${exDivDateStr===exdStr?'FinMind':'TWSE'}`);
         break;
       }
     }
@@ -58105,8 +58136,10 @@ function tlRenderOrders() {
       else               { badgeCls='tl-exit-green';  badgeText=`🟢 持倉 ${sc}分`; }
     }
     const sigHtml = (r.signals||[]).map(s=>`<span class="tl-signal">${s}</span>`).join('');
-    const pnl = r.entryPrice && window._tlExitData?.stockId===r.stockId && window._tlExitData?.recentCloses?.at(-1)
-      ? ((window._tlExitData.recentCloses.at(-1) - r.entryPrice)/r.entryPrice*100).toFixed(1)+'%' : '—';
+    const _curPrice = window._tlExitData?.stockId===r.stockId ? (window._tlExitData?.recentCloses?.at(-1) ?? null) : null;
+    const pnl = r.entryPrice && _curPrice != null
+      ? (((_curPrice - r.entryPrice)/r.entryPrice)*100).toFixed(1)+'%' : '—';
+    const pnlColor = pnl!=='—' ? (parseFloat(pnl)>=0?'#dc2626':'#059669') : 'var(--fg2)';
     return `<div class="tl-record">
       <div class="tl-record-main">
         <span class="tl-stock-name">${r.stockName} <span style="font-size:.68rem;color:var(--fg3)">${r.stockId}</span></span>
@@ -58115,7 +58148,8 @@ function tlRenderOrders() {
         ${r.stopLoss?`<span class="tl-price-info" style="color:#dc2626">停損 $${r.stopLoss}</span>`:''}
         <span class="tl-price-info">${r.entryDate}</span>
         ${r.lastChecked?`<span class="tl-price-info" style="color:var(--fg3)">評分日 ${r.lastChecked}</span>`:''}
-        <span style="font-size:.6rem;color:var(--fg2)">現價損益 ${pnl}</span>
+        ${_curPrice!=null?`<span style="font-size:.6rem;font-weight:600;color:#f59e0b">現價 $${_curPrice}</span>`:''}
+        <span style="font-size:.6rem;color:${pnlColor}">損益 ${pnl}</span>
         <div style="margin-top:3px;width:100%">${sigHtml}</div>
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:auto;">
