@@ -33775,12 +33775,12 @@ async function srFetchSectorData() {
   const start = new Date(); start.setDate(end.getDate() - 7);
   const fmtD  = d => d.toISOString().slice(0,10);
 
-  // 只拉每個板塊第一支代表股（10支，比 sector-detector 的30支輕量）
-  const repCodes = SR_SECTOR_DEF.map(s => s.stocks[0]);
+  // 拉每個板塊所有代表股（精確版，與 sector-detector.html 對齊）
+  const allCodes = [...new Set(SR_SECTOR_DEF.flatMap(s => s.stocks))];
   const priceMap = {};
   let fetchOK = 0;
 
-  for (const code of repCodes) {
+  for (const code of allCodes) {
     try {
       const rows = await fetchFM('TaiwanStockPrice', code, start, end);
       if (rows.length > 0) {
@@ -33788,7 +33788,6 @@ async function srFetchSectorData() {
         const lastDate = rows.at(-1).date;
         if (!SR_LAST_DATE || lastDate > SR_LAST_DATE) SR_LAST_DATE = lastDate;
         fetchOK++;
-        // v6.36a：板塊拉取成功 → 同步寫入 sessionStorage 動態 base
         const lastP = parseFloat(rows.at(-1).close);
         if (lastP > 0 && window._simBaseWrite) window._simBaseWrite(code, lastP);
       }
@@ -33798,21 +33797,25 @@ async function srFetchSectorData() {
     }
   }
 
-  // 計算板塊漲跌
+  // 計算板塊漲跌（多股平均，與 sector-detector 邏輯對齊）
   const sectorData = {};
   for (const sec of SR_SECTOR_DEF) {
-    const code = sec.stocks[0];
-    const rows = priceMap[code];
-    if (rows && rows.length >= 2) {
+    const validResults = [];
+    for (const code of sec.stocks) {
+      const rows = priceMap[code];
+      if (!rows || rows.length < 2) continue;
       const last = rows.at(-1), prev = rows.at(-2);
       const chg = prev.close > 0 ? ((+last.close - +prev.close) / +prev.close * 100) : 0;
       const avgVol5 = rows.slice(-6,-1).reduce((a,r)=>a+(+r.Trading_Volume||0),0)/5;
       const volRatio = avgVol5 > 0 ? (+last.Trading_Volume / avgVol5) : 1;
+      validResults.push({ chg, volRatio });
+    }
+    if (validResults.length > 0) {
+      const chg = validResults.reduce((a,r)=>a+r.chg,0) / validResults.length;
+      const volRatio = validResults.reduce((a,r)=>a+r.volRatio,0) / validResults.length;
       let state = 'neut';
-      // 與 sector-detector.html 對齊：flee 需同時滿足跌幅 + 量比放大（量大殺跌才算真逃）
-      // 若無法人資料，以量比 > 1.2 作為資金外逃的輔助確認
-      if (chg <= -1.5 && volRatio >= 1.2) state = 'flee';      // 量大殺跌 = 資金外逃
-      else if (chg <= -1.5) state = 'warn';                    // 跌幅大但量縮 = 走弱非崩
+      if (chg <= -1.5 && volRatio >= 1.2) state = 'flee';
+      else if (chg <= -1.5) state = 'warn';
       else if (chg <= -0.5) state = 'warn';
       else if (chg >= 0.5)  state = 'flow';
       else if (chg >= 0)    state = 'cold';
