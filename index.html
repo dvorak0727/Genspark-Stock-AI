@@ -15669,16 +15669,19 @@ a.module-nav-item.acc-active {
       <span class="ks-sb-icon">👑</span> VIP
       <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:0.48rem;font-weight:800;padding:1px 5px;border-radius:99px;border:1px solid #f59e0b88;letter-spacing:.04em;white-space:nowrap;">升級</span>
     </button>
-    <button class="ks-shortcut-btn" onclick="if(!isVIP()){vipModalOpen('teachCard');return;}_openTeachPanel()" title="每日5股教學操盤 (👑 VIP)" style="border:1.5px solid #10b981;color:#10b981;">
+    <button class="ks-shortcut-btn" onclick="if(!isVIP()){vipModalOpen('teachCard');return;}_openTeachPanel()" title="每日5股教學操盤 (👑 VIP)" style="position:relative;border:1.5px solid #10b981;color:#10b981;">
       <span class="ks-sb-icon">📚</span> 教學操盤
+      <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff;font-size:0.45rem;font-weight:800;padding:1px 4px;border-radius:99px;letter-spacing:.03em;white-space:nowrap;">VIP</span>
     </button>
-    <button class="ks-shortcut-btn" onclick="openStockSim()" title="股市大富翁模擬操盤 (👑 VIP)" style="border:1.5px solid #f59e0b;color:#f59e0b;">
+    <button class="ks-shortcut-btn" onclick="openStockSim()" title="股市大富翁模擬操盤 (👑 VIP)" style="position:relative;border:1.5px solid #f59e0b;color:#f59e0b;">
       <span class="ks-sb-icon">🎲</span> 大富翁
+      <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff;font-size:0.45rem;font-weight:800;padding:1px 4px;border-radius:99px;letter-spacing:.03em;white-space:nowrap;">VIP</span>
     </button>
     <a class="ks-shortcut-btn" href="#knowledgeStation"
        onclick="if(!isVIP()){vipModalOpen('knowledgeStation');return false;}setTimeout(()=>{const t=document.getElementById('knowledgeStation');if(t){window.scrollTo({top:t.getBoundingClientRect().top+window.pageYOffset-70,behavior:'smooth'});}},10);return false;"
-       title="跳至知識站 (👑 VIP)">
+       title="跳至知識站 (👑 VIP)" style="position:relative;">
       <span class="ks-sb-icon">📖</span> 知識站
+      <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff;font-size:0.45rem;font-weight:800;padding:1px 4px;border-radius:99px;letter-spacing:.03em;white-space:nowrap;">VIP</span>
     </a>
     <!-- ★ v7.17 OnboardingGuide 重新開啟按鈕 -->
     <button class="og-reopen-btn" onclick="ogOpen()" title="新手引導 / 操作說明">
@@ -19815,18 +19818,65 @@ a.module-nav-item.acc-active {
 
 <!-- ══ VIP 啟用 Modal ══ -->
 <div id="vipModal">
-  <div id="vipModalBox">
-    <div class="vip-modal-title">👑 商務會員專屬功能</div>
-    <div class="vip-modal-sub">
-      此模組為 <b>$399 商務會員</b> 專屬。<br>
-      請輸入您的啟用序號以解鎖完整功能。
+  <div id="vipModalBox" style="max-width:420px;">
+    <div class="vip-modal-title" style="font-size:1.05rem;margin-bottom:14px;">👑 會員方案與權限</div>
+
+    <!-- 方案比較表 -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;">
+
+      <!-- 尊爵 -->
+      <div style="border:1.5px solid #e5c97e;border-radius:12px;padding:10px 13px;background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(253,224,71,0.05));">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <span style="font-weight:900;font-size:.88rem;color:#b45309;">👑 尊爵</span>
+          <span style="font-size:.8rem;font-weight:800;color:#92400e;">$499 <span style="font-weight:400;font-size:.68rem;">元/月</span></span>
+        </div>
+        <div style="font-size:.68rem;color:var(--fg2);line-height:1.7;">
+          ✅ 早安決策　✅ AI掛單建議書<br>
+          ✅ 教學操盤　✅ 知識站　✅ 大富翁<br>
+          ✅ 所有功能全開放
+        </div>
+      </div>
+
+      <!-- VIP -->
+      <div style="border:1.5px solid #a78bfa;border-radius:12px;padding:10px 13px;background:linear-gradient(135deg,rgba(139,92,246,0.06),rgba(167,139,250,0.04));">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <span style="font-weight:900;font-size:.88rem;color:#6d28d9;">⭐ VIP</span>
+          <span style="font-size:.8rem;font-weight:800;color:#5b21b6;">$399 <span style="font-weight:400;font-size:.68rem;">元/月</span></span>
+        </div>
+        <div style="font-size:.68rem;color:var(--fg2);line-height:1.7;">
+          ✅ 教學操盤　✅ 知識站　✅ 大富翁<br>
+          ❌ 早安決策　❌ AI掛單建議書
+        </div>
+      </div>
+
+      <!-- 一般 -->
+      <div style="border:1.5px solid var(--border);border-radius:12px;padding:10px 13px;background:var(--bg2);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+          <span style="font-weight:900;font-size:.88rem;color:var(--fg);">📊 一般</span>
+          <span style="font-size:.8rem;font-weight:800;color:var(--fg2);">$299 <span style="font-weight:400;font-size:.68rem;">元/月</span></span>
+        </div>
+        <div style="font-size:.68rem;color:var(--fg2);line-height:1.7;">
+          ✅ 基本台股儀表板功能<br>
+          ❌ 早安決策　❌ AI掛單建議書<br>
+          ❌ 教學操盤　❌ 知識站　❌ 大富翁
+        </div>
+      </div>
     </div>
+
+    <!-- 備註 -->
+    <div style="font-size:.63rem;color:var(--fg2);line-height:1.7;margin-bottom:14px;padding:8px 10px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+      📌 程式目前試營運中，暫不提供季繳及年繳。<br>
+      🔧 欲更改方案，請聯絡管理人：<a href="mailto:dvorak0727@gmail.com" style="color:#6366f1;">dvorak0727@gmail.com</a>
+    </div>
+
+    <!-- 啟用序號 -->
+    <div style="font-size:.72rem;color:var(--fg2);margin-bottom:6px;">已有序號？輸入啟用：</div>
     <input class="vip-modal-input" id="vipCodeInput" placeholder="TSAIU-XXXXXXXXXXXX" maxlength="32"
            onkeydown="if(event.key==='Enter')vipActivate()" />
     <div id="vipModalErr" style="font-size:.68rem;color:#dc2626;margin:-6px 0 10px;min-height:16px;"></div>
     <div class="vip-modal-btns">
-      <button class="vip-modal-ok"     onclick="vipActivate()">🔓 啟用</button>
-      <button class="vip-modal-cancel" onclick="vipModalClose()">取消</button>
+      <button class="vip-modal-ok"     onclick="vipActivate()">🔓 啟用序號</button>
+      <button class="vip-modal-cancel" onclick="vipModalClose()">關閉</button>
     </div>
   </div>
 </div>
