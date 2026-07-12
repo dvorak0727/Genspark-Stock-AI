@@ -52595,7 +52595,7 @@ async function fetchTWSEExDivMap() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const res = await fetch('https://www.twse.com.tw/rwd/zh/exRight/TWT48U?response=json', { signal: controller.signal });
+    const res = await fetch('https://license-worker.dvorak0727.workers.dev/twse-exdiv', { signal: controller.signal });
     clearTimeout(timer);
     const json = await res.json();
     const map = {};
