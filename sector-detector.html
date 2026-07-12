@@ -1110,9 +1110,11 @@ function hideLoader(){
    FinMind API
 ────────────────────────────────────────────────────── */
 const FM_BASE = 'https://api.finmindtrade.com/api/v4/data';
+const FM_TOKEN = (() => { try { return localStorage.getItem('tsai_finmind_token') || ''; } catch(e) { return ''; } })();
 
 async function fmFetch(dataset, stockId, startDate){
-  const url = `${FM_BASE}?dataset=${dataset}&data_id=${stockId}&start_date=${startDate}`;
+  const tokenPart = FM_TOKEN ? `&token=${FM_TOKEN}` : '';
+  const url = `${FM_BASE}?dataset=${dataset}&data_id=${stockId}&start_date=${startDate}${tokenPart}`;
   const r = await fetch(url);
   if(!r.ok) throw new Error(`HTTP ${r.status}`);
   const j = await r.json();
