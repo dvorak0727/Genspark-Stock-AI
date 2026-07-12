@@ -52601,13 +52601,15 @@ async function fetchTWSEExDivMap() {
     const map = {};
     if (json.stat === 'OK' && Array.isArray(json.data)) {
       for (const row of json.data) {
-        const sid     = (row[0] || '').trim();
-        const rocDate = (row[2] || '').trim(); // 除息交易日，格式 115/07/16（民國）
-        if (!sid || !rocDate || rocDate === '-' || rocDate === '') continue;
-        const parts = rocDate.split('/');
-        if (parts.length === 3) {
-          const adYear = parseInt(parts[0], 10) + 1911;
-          map[sid] = `${adYear}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+        // 實際欄位：row[0]=日期(115年07月09日) row[1]=代號 row[2]=名稱 row[3]=息/權
+        const sid     = (row[1] || '').trim();
+        const rocDate = (row[0] || '').trim(); // 格式：115年07月09日
+        if (!sid || !rocDate) continue;
+        // 解析民國年月日
+        const m = rocDate.match(/(\d+)年(\d+)月(\d+)日/);
+        if (m) {
+          const adYear = parseInt(m[1], 10) + 1911;
+          map[sid] = `${adYear}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
         }
       }
       console.log('[TWSE ExDiv] 載入', Object.keys(map).length, '筆官方除息日，範例:', JSON.stringify(Object.entries(map).slice(0,3)));
