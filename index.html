@@ -52635,8 +52635,13 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
   const today = new Date();
   today.setHours(0,0,0,0);
 
-  // ── 找近期除息日：TWSE官方 > FinMind（TWSE每日更新，最準確）──
-  let exDivDateStr = (_twseExDivCache && _twseExDivCache[stockId]) || null, cashDiv = 0;
+  // ── 颱風順延 patch（TWSE預告表更新前暫用）──
+  const _TYPHOON_PATCH = {
+    '2891': '2026-07-13',  // 中信金 原7/10因颱風順延至7/13
+  };
+
+  // ── 找近期除息日：typhoon patch > TWSE官方 > FinMind ──
+  let exDivDateStr = _TYPHOON_PATCH[stockId] || (_twseExDivCache && _twseExDivCache[stockId]) || null, cashDiv = 0;
   if (divRaw && divRaw.length) {
 
     const _fmtDate = d => d.toISOString().slice(0,10);
