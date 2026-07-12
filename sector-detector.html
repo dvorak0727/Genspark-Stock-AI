@@ -757,7 +757,20 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--fg);min-hei
     <div class="macd-action-row">
       <button class="macd-save-btn" id="sdMacdSaveBtn" onclick="sdMacdSave()">&#x1F4BE; 儲存掃描結果</button>
       <button class="macd-hist-btn" id="sdMacdHistBtn" onclick="sdMacdToggleHistory()">&#x1F4CA; 查看歷史紀錄</button>
+      <button class="macd-hist-btn" onclick="openMacdAiPanel()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;">🤖 AI解讀</button>
       <span id="sdMacdSaveNote" style="font-size:0.55rem;color:var(--fg3);">&#x2139;&#xFE0F; 儲存各板塊代表股 MACD 六維度得分至 Table API</span>
+    </div>
+
+    <!-- AI解讀面板 -->
+    <div id="macdAiPanel" style="display:none;margin-top:14px;border:1.5px solid #6366f1;border-radius:12px;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#4c1d95,#1e1b4b);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:0.78rem;font-weight:800;color:#c4b5fd;">🤖 AI 板塊 MACD 解讀</span>
+        <div style="display:flex;gap:8px;">
+          <button onclick="copyMacdAiText()" style="font-size:0.6rem;padding:3px 8px;background:#6366f1;color:#fff;border:none;border-radius:6px;cursor:pointer;">📋 複製</button>
+          <button onclick="document.getElementById('macdAiPanel').style.display='none'" style="font-size:0.6rem;padding:3px 8px;background:#374151;color:#9ca3af;border:none;border-radius:6px;cursor:pointer;">✕ 關閉</button>
+        </div>
+      </div>
+      <div id="macdAiContent" style="padding:14px;background:#0f0f1a;font-size:0.72rem;line-height:1.9;color:#e2e8f0;white-space:pre-wrap;max-height:480px;overflow-y:auto;"></div>
     </div>
     <!-- 歷史面板 -->
     <div class="macd-history-panel" id="sdMacdHistPanel">
@@ -2424,6 +2437,129 @@ function renderMacdScan() {
     statusEl.textContent = `共 ${total} 板塊 · ${strongCount} 強 · ${weakCount} 弱`;
     statusEl.style.color = strongCount > weakCount ? '#047857' : weakCount > strongCount ? '#b91c1c' : 'var(--fg3)';
   }
+}
+
+// ── AI 解讀面板 ──
+function openMacdAiPanel() {
+  const panel = document.getElementById('macdAiPanel');
+  const content = document.getElementById('macdAiContent');
+  if (!panel || !content) return;
+
+  if (Object.keys(MACD_SCAN_CACHE).length === 0) {
+    content.textContent = '⚠️ 掃描資料尚未就緒，請等待股價載入後再試。';
+    panel.style.display = 'block';
+    return;
+  }
+
+  // 整理各板塊分數
+  const sectors = SECTOR_DEF.map(sec => {
+    const cache = MACD_SCAN_CACHE[sec.id];
+    if (!cache) return null;
+    const valid = cache.stockResults.filter(r => r.score !== null);
+    if (!valid.length) return null;
+    const avg = valid.reduce((a, r) => a + r.score, 0) / valid.length;
+    const avgR = Math.round(avg * 10) / 10;
+    const conds = [0,1,2,3,4,5].map(i =>
+      valid.filter(r => r.conds && r.conds[i]).length > valid.length / 2
+    );
+    return { id: sec.id, name: sec.name, emoji: sec.emoji, avg: avgR, conds,
+             stocks: cache.stockResults.filter(r => r.score !== null).map(r => `${r.name}(${r.score}/6)`) };
+  }).filter(Boolean);
+
+  const strong = sectors.filter(s => s.avg >= 4).sort((a,b) => b.avg - a.avg);
+  const mid    = sectors.filter(s => s.avg >= 2 && s.avg < 4).sort((a,b) => b.avg - a.avg);
+  const weak   = sectors.filter(s => s.avg < 2).sort((a,b) => a.avg - b.avg);
+
+  const condNames = ['DIF>0','DEA>0','HIST>0','HIST擴張','黃金交叉','HIST翻紅'];
+  const today = new Date().toLocaleDateString('zh-TW');
+
+  let txt = `📊 MACD 六維度板塊掃描 AI 解讀\n`;
+  txt += `📅 ${today}　共 ${sectors.length} 板塊\n`;
+  txt += `${'─'.repeat(42)}\n\n`;
+
+  // 強勢板塊
+  txt += `🟢 強勢板塊（平均 ≥ 4/6）\n`;
+  if (strong.length === 0) {
+    txt += `   目前無板塊進入強勢區\n`;
+  } else {
+    strong.forEach(s => {
+      const hit = s.conds.map((c,i) => c ? condNames[i] : null).filter(Boolean);
+      txt += `\n  ${s.emoji} ${s.name}　${s.avg}/6\n`;
+      txt += `  ✅ 滿足條件：${hit.join('、') || '無'}\n`;
+      txt += `  代表股：${s.stocks.join('、')}\n`;
+    });
+  }
+
+  txt += `\n🟡 中性板塊（2~4/6）\n`;
+  if (mid.length === 0) {
+    txt += `   目前無板塊在中性區\n`;
+  } else {
+    mid.forEach(s => {
+      txt += `  ${s.emoji} ${s.name}　${s.avg}/6　${s.stocks.join('、')}\n`;
+    });
+  }
+
+  txt += `\n🔴 弱勢板塊（< 2/6）\n`;
+  if (weak.length === 0) {
+    txt += `   目前無弱勢板塊\n`;
+  } else {
+    weak.forEach(s => {
+      txt += `  ${s.emoji} ${s.name}　${s.avg}/6　${s.stocks.join('、')}\n`;
+    });
+  }
+
+  txt += `\n${'─'.repeat(42)}\n`;
+  txt += `🔍 AI 研判摘要\n\n`;
+
+  // 動態研判
+  if (strong.length >= 3) {
+    txt += `目前市場多頭動能廣泛，有 ${strong.length} 個板塊同步進入強勢區，`;
+    txt += `顯示資金正在全面展開輪動，整體偏多看待。\n\n`;
+  } else if (strong.length >= 1) {
+    txt += `市場呈現選擇性輪動，強勢板塊集中於 ${strong.map(s=>s.name).join('、')}，`;
+    txt += `資金尚未全面展開，建議聚焦強勢主軸個股。\n\n`;
+  } else {
+    txt += `目前無板塊進入強勢區，市場整體動能偏弱，建議以觀察為主，避免追高。\n\n`;
+  }
+
+  if (strong.length > 0) {
+    const top = strong[0];
+    const hasGolden = top.conds[4]; // DIF上穿DEA
+    const hasFlip   = top.conds[5]; // HIST翻紅
+    txt += `最強板塊【${top.emoji} ${top.name}】得分 ${top.avg}/6`;
+    if (hasGolden) txt += `，已觸發黃金交叉（DIF上穿DEA）`;
+    if (hasFlip)   txt += `，HIST 由負轉正（動能初啟）`;
+    txt += `，為本次掃描首選觀察板塊。\n\n`;
+  }
+
+  if (weak.length >= 3) {
+    txt += `⚠️ 弱勢板塊眾多（${weak.length} 個），包含 ${weak.slice(0,3).map(s=>s.name).join('、')} 等，`;
+    txt += `若持有相關股票需留意動能轉弱風險。\n`;
+  }
+
+  txt += `\n${'─'.repeat(42)}\n`;
+  txt += `📌 六維度條件說明\n`;
+  txt += `① DIF>0：多頭趨勢確立\n`;
+  txt += `② DEA>0：中期均線多頭\n`;
+  txt += `③ HIST>0：短期動能為正（紅柱）\n`;
+  txt += `④ HIST擴張：動能加速中\n`;
+  txt += `⑤ 黃金交叉：DIF剛上穿DEA，啟動訊號\n`;
+  txt += `⑥ HIST翻紅：由空翻多，初期訊號最強\n`;
+
+  content.textContent = txt;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function copyMacdAiText() {
+  const content = document.getElementById('macdAiContent');
+  if (!content) return;
+  navigator.clipboard.writeText(content.textContent).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✅ 已複製';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
 }
 
 // 顯示板塊 MACD 詳情 Modal
