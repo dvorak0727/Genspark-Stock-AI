@@ -1609,6 +1609,18 @@ function renderMainBanner(){
         <div class="banner-t">AI研判：進入 Day ${S.rotationDay} 輪動期 — ${S.rotationDay<=1?'觀察等待':S.rotationDay<=2?'準備進場':'最佳卡位窗口'}</div>
         <div class="banner-d">目標板塊：${safeNames||'尚在評估'} · 篩選依據：相關係數 < 0.3 + 法人買超 + 量能放大</div>
       </div>
+      <button onclick="openEpicReasonPanel()" style="flex-shrink:0;padding:5px 12px;font-size:0.65rem;font-weight:800;background:rgba(139,92,246,0.25);color:#c4b5fd;border:1px solid #7c3aed;border-radius:8px;cursor:pointer;white-space:nowrap;">🔍 查原因</button>
+    </div>
+    <!-- 震央原因分析面板 -->
+    <div id="epicReasonPanel" style="display:none;margin-top:10px;border:1.5px solid #7c3aed;border-radius:12px;overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#2e1065,#1e1b4b);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:0.78rem;font-weight:800;color:#c4b5fd;">🔍 震央地震原因分析</span>
+        <div style="display:flex;gap:8px;">
+          <button onclick="copyEpicReason()" style="font-size:0.6rem;padding:3px 8px;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;">📋 複製</button>
+          <button onclick="document.getElementById('epicReasonPanel').style.display='none'" style="font-size:0.6rem;padding:3px 8px;background:#374151;color:#9ca3af;border:none;border-radius:6px;cursor:pointer;">✕ 關閉</button>
+        </div>
+      </div>
+      <div id="epicReasonContent" style="padding:14px 16px;background:#0d0d1a;font-size:0.72rem;line-height:2;color:#e2e8f0;max-height:520px;overflow-y:auto;"></div>
     </div>`;
   } else if(chg < 0){
     el.innerHTML = `<div class="banner yellow banner-pulse">
@@ -2437,6 +2449,222 @@ function renderMacdScan() {
     statusEl.textContent = `共 ${total} 板塊 · ${strongCount} 強 · ${weakCount} 弱`;
     statusEl.style.color = strongCount > weakCount ? '#047857' : weakCount > strongCount ? '#b91c1c' : 'var(--fg3)';
   }
+}
+
+// ── 震央原因分析 ──
+const EPIC_REASON_DB = {
+  semi: {
+    title: '半導體 下跌原因分析',
+    causes: [
+      { icon:'📦', label:'庫存週期', body:'半導體具有明顯的庫存循環（通常 18~24 個月一輪）。當終端需求（手機/PC/車用）成長放緩，客戶降低拉貨頻率，晶圓廠訂單能見度下降，股價提前反映利空。' },
+      { icon:'💵', label:'美元升值壓力', body:'台股半導體以美元計價出口，當 Fed 維持高利率或釋放鷹派訊號，美元走強使企業未來獲利換算縮水，外資提前賣台幣資產、回流美元。' },
+      { icon:'🔄', label:'AI 需求能否接棒', body:'傳統消費型半導體（手機/PC）需求疲弱；AI 伺服器用 HBM、CoWoS 封裝需求雖強，但若市場擔心 AI 資本支出過熱、ROI 尚未兌現，整體板塊評價就會被壓縮。' },
+      { icon:'🇨🇳', label:'中國競爭與地緣風險', body:'中國在成熟製程（28nm 以上）快速擴產，壓縮台廠毛利；同時美中科技戰擴大出口管制範圍，使部分台廠訂單存在不確定性。' },
+      { icon:'📉', label:'本益比收縮（Valuation De-rating）', body:'當市場利率上升，高本益比的科技股本質上更不值錢（未來現金流折現率提高）。半導體通常以 25~40 倍 PE 交易，利率敏感度高於傳產。' },
+    ],
+    hedge: '📌 避險邏輯：資金從高本益比半導體流向低估值的金融、電信、民生消費，等待庫存去化完畢或 Fed 轉鴿訊號確認再回補。',
+    watch: '🔭 回升觀察：月度 Book-to-Bill ratio > 1、晶圓廠法說上調展望、記憶體現貨價止跌回升。',
+  },
+  ai_server: {
+    title: 'AI伺服器 下跌原因分析',
+    causes: [
+      { icon:'💰', label:'資本支出過熱擔憂', body:'Google、Microsoft、Amazon、Meta 等雲端巨頭大幅提升 AI 基礎建設預算，市場擔心「AI 投資過熱、需求兌現時間拉長」，提前獲利了結。' },
+      { icon:'⚡', label:'GPU 供應鏈瓶頸鬆動', body:'若 NVIDIA H100/H200 供給改善，下游 ODM 毛利率承壓；台廠在 AI 伺服器供應鏈的議價空間縮小，估值調整。' },
+      { icon:'🌡️', label:'散熱/電源基礎設施限制', body:'AI 伺服器耗電量是傳統伺服器 5~10 倍，資料中心電力與散熱基礎建設瓶頸造成交期延遲，影響短期出貨動能預期。' },
+      { icon:'🏆', label:'競爭格局改變', body:'AMD MI300、Google TPU、AWS Trainium 等自研晶片崛起，對 NVIDIA 生態的依賴降低，供應鏈結構可能重組。' },
+    ],
+    hedge: '📌 避險邏輯：獲利了結潮中，資金流向需求穩定、股息率高的金融電信；待 AI 訂單能見度再度提升再進場。',
+    watch: '🔭 回升觀察：NVIDIA 季度法說展望、雲端業者資本支出指引上修、CoWoS/HBM 供不應求訊號。',
+  },
+  pcb: {
+    title: 'PCB/電子 下跌原因分析',
+    causes: [
+      { icon:'📱', label:'消費電子需求疲弱', body:'手機與 PC 出貨量下滑使 PCB 傳統需求承壓；客戶庫存去化未完，下單保守。' },
+      { icon:'🏭', label:'中國低價競爭', body:'中國 PCB 廠商規模擴張快速，在標準板規格上進行殺價競爭，台廠毛利率持續受壓。' },
+      { icon:'🔌', label:'ABF 載板供需反轉', body:'AI 伺服器帶動 ABF 載板需求，但若 AI 伺服器出貨低於預期，ABF 供需從短缺轉向過剩，股價劇烈修正。' },
+    ],
+    hedge: '📌 避險邏輯：資金轉向毛利率穩定的電信及防禦性金融股。',
+    watch: '🔭 回升觀察：手機出貨月增率轉正、AI 伺服器 ABF 訂單確認、客戶庫存去化完成。',
+  },
+  finance: {
+    title: '金融/銀行 下跌原因分析',
+    causes: [
+      { icon:'📉', label:'降息循環壓縮利差', body:'央行降息使銀行淨利差（NIM）縮小，放款業務獲利下降；台灣銀行獲利對利率高度敏感。' },
+      { icon:'💳', label:'信用風險升溫', body:'經濟走弱時企業逾放比上升，金融股需提列更多壞帳準備，侵蝕獲利。' },
+      { icon:'🌏', label:'壽險業匯損', body:'台幣升值時，壽險公司持有大量美元債券出現匯損，直接衝擊淨值與股價。' },
+      { icon:'📊', label:'股市走弱連帶效應', body:'大盤下跌時，金融股管理的資產縮水；證券子公司手續費收入同步下滑。' },
+    ],
+    hedge: '📌 避險邏輯：資金轉向電信（高股息）、民生消費（防禦）或直接持現。',
+    watch: '🔭 回升觀察：央行釋放升息訊號、台幣貶值止穩、銀行逾放比數據改善。',
+  },
+  telecom: {
+    title: '電信/網通 下跌原因分析',
+    causes: [
+      { icon:'📡', label:'5G 資本支出高峰已過', body:'5G 基地台建設高峰期已過，電信商資本支出下降，網通設備廠訂單能見度下滑。' },
+      { icon:'🔄', label:'殺價競爭激烈', body:'台灣三大電信商（中華電、台灣大、遠傳）在月租費與吃到飽市場競爭激烈，ARPU 難以提升。' },
+      { icon:'💡', label:'股息吸引力相對下降', body:'當市場利率升高，電信股高股息的吸引力相對降低（與定存利率差縮小），資金外流。' },
+    ],
+    hedge: '📌 避險邏輯：電信股本身常是避風港；若電信也跌，通常是市場整體流動性收縮，應持現觀望。',
+    watch: '🔭 回升觀察：AI 資料中心帶動光纖/頻寬需求、衛星通訊新應用落地、降息環境重新強化股息吸引力。',
+  },
+  pharma: {
+    title: '生技醫療 下跌原因分析',
+    causes: [
+      { icon:'🧬', label:'新藥臨床試驗失敗風險', body:'生技股估值高度依賴未來新藥上市預期；臨床二三期失敗時，個股可能單日跌停，拖累整個板塊。' },
+      { icon:'💊', label:'健保藥價砍價壓力', body:'衛福部定期調整健保給付價格，仿製藥（學名藥）廠毛利直接受壓。' },
+      { icon:'🇺🇸', label:'FDA 審查不確定性', body:'美國 FDA 審查時程拉長或要求補件，使新藥上市時間推遲，影響法人評價。' },
+      { icon:'💵', label:'高估值遇升息壓縮', body:'生技醫療常以 PS（本銷比）或 DCF 模型估值，對利率極度敏感，升息環境下估值修正幅度大。' },
+    ],
+    hedge: '📌 避險邏輯：資金轉向獲利穩定的電信、金融、民生消費等低波動板塊。',
+    watch: '🔭 回升觀察：重大臨床試驗正面結果、FDA 快速審查認定、老齡化政策利多落地。',
+  },
+  energy: {
+    title: '能源/原物料 下跌原因分析',
+    causes: [
+      { icon:'🛢️', label:'油價下跌', body:'國際油價由 OPEC+ 減產政策、美國頁岩油產量、全球需求預期共同決定。若中國經濟復甦不如預期（需求側）或美國大幅增產（供給側），油價走弱直接衝擊能源類股。' },
+      { icon:'🌍', label:'全球景氣衰退預期', body:'景氣下行時，工業用金屬（銅、鐵礦砂）需求萎縮；中國地產業低迷使鋼鐵、煤炭需求持續承壓，原物料整體報價下滑。' },
+      { icon:'🇺🇸', label:'美元走強壓制大宗商品', body:'大宗商品以美元計價，美元升值使其他貨幣購買力下降，壓制需求面，造成原物料報價下跌。' },
+      { icon:'☀️', label:'綠能轉型加速', body:'長期來看，再生能源快速發展壓縮傳統化石能源的市佔率；投資人對能源股的長期展望保守，給予較低估值倍數。' },
+      { icon:'📦', label:'台廠特性：電力/石化下游', body:'台灣能源板塊以台電（電力）、台塑（石化）為主，受到原料成本上漲同時下游售價受管制雙重夾擊，毛利空間壓縮。' },
+    ],
+    hedge: '📌 避險邏輯：能源板塊跌勢通常伴隨景氣憂慮，資金流向防禦型板塊（金融、電信、民生消費）或直接減碼持現，等待油價止跌或 OPEC+ 緊急減產訊號。',
+    watch: '🔭 回升觀察：WTI 原油站回 $75 以上、中國製造業 PMI 連續兩個月 >50、銅價止跌、OPEC+ 宣布額外減產。',
+  },
+  transport: {
+    title: '航運 下跌原因分析',
+    causes: [
+      { icon:'🚢', label:'運費指數下跌', body:'波羅的海乾散貨指數（BDI）或上海出口集裝箱運費指數（SCFI）下滑，直接反映運價下跌，航運公司獲利承壓。' },
+      { icon:'🏭', label:'供給過剩', body:'疫情期間大量新船訂單在 2023~2025 年集中交船，市場運力增加速度快於需求成長，運費被壓低。' },
+      { icon:'🌍', label:'全球貿易量縮水', body:'美國進口放緩、歐洲需求疲弱，加上美中貿易關稅影響跨太平洋航線量能，拖累整體航運需求。' },
+      { icon:'⛽', label:'油價成本壓力', body:'若油價走高而運費無法同步上漲，航運公司燃油成本上升壓縮獲利。' },
+    ],
+    hedge: '📌 避險邏輯：航運為景氣循環高 Beta 板塊，大跌時應先觀望，避免接刀；資金轉向低波動的電信或金融。',
+    watch: '🔭 回升觀察：SCFI/BDI 指數止跌回升、紅海危機升溫拉長繞行距離、中國出口訂單增加。',
+  },
+  consumer: {
+    title: '民生消費 下跌原因分析',
+    causes: [
+      { icon:'💸', label:'通膨擠壓消費力', body:'物價持續偏高使消費者可支配所得下降，非必要消費優先被削減，即便民生消費也受到影響。' },
+      { icon:'📊', label:'獲利成長速度趨緩', body:'民生消費類股雖然防禦性強，但若整體消費市場飽和，營收成長趨緩，高估值難以維繫。' },
+      { icon:'🏪', label:'電商競爭分食市佔', body:'網路電商及跨境平台持續搶佔傳統零售市場，實體通路面臨客流下滑與毛利壓縮雙重壓力。' },
+    ],
+    hedge: '📌 避險邏輯：民生消費通常是避風港；若此板塊也跌，市場恐慌程度較高，建議提高現金比重。',
+    watch: '🔭 回升觀察：消費者信心指數回升、薪資成長率超過通膨率、零售業月銷售額年增率轉正。',
+  },
+  memory: {
+    title: '記憶體/面板 下跌原因分析',
+    causes: [
+      { icon:'💾', label:'記憶體報價週期下行', body:'DRAM、NAND 現貨價格受供需主導，當三星、美光、SK 海力士擴產速度快於需求，報價進入下行週期，台廠封測和模組廠毛利直接受壓。' },
+      { icon:'📺', label:'面板價格下跌', body:'TV 面板與 IT 面板需求受終端買氣影響，若面板廠（友達、群創）持續降價搶單，獲利能見度低。' },
+      { icon:'⚙️', label:'供給過剩難去化', body:'中國面板廠（BOE、CSOT）持續提高自給率，壓縮台廠出貨量；記憶體市場若三星恢復正常產能，供給過剩恐延續。' },
+    ],
+    hedge: '📌 避險邏輯：等待記憶體現貨報價月增率轉正再卡位；面板廠需等到月報顯示出貨量及均價雙雙回升。',
+    watch: '🔭 回升觀察：DRAMeXchange DRAM 報價止跌、AI HBM 需求拉動三星/海力士 DRAM 整體稼動率、面板廠利用率回升。',
+  },
+  leo_sat: {
+    title: '低軌衛星 下跌原因分析',
+    causes: [
+      { icon:'🚀', label:'商業化時程延遲', body:'低軌衛星（LEO）題材屬於長期趨勢，但商業服務落地時程拉長，市場耐心有限，主力趁高出貨。' },
+      { icon:'💰', label:'資本密集、現金流薄弱', body:'衛星製造與發射成本極高，短期難以獲利，估值完全依賴未來想像空間，利率上升時殺傷力大。' },
+      { icon:'🏆', label:'SpaceX Starlink 競爭', body:'Starlink 已形成先行者優勢，台灣相關廠商多為零組件供應，若 Starlink 縮減採購，影響個股獲利能見度。' },
+    ],
+    hedge: '📌 避險邏輯：低軌衛星為高 Beta 主題股，跌勢中應優先減碼，等待具體訂單消息再重新佈局。',
+    watch: '🔭 回升觀察：SpaceX 或 AST SpaceMobile 發射計劃確認、台灣廠商拿到具體衛星元件大單、法人持股比例增加。',
+  },
+  ar_glass: {
+    title: 'AI智慧眼鏡 下跌原因分析',
+    causes: [
+      { icon:'👓', label:'出貨時程不確定', body:'智慧眼鏡產品尚在早期商業化階段，蘋果 Vision Pro 出貨量不如預期，市場對整體 AR/VR 需求時程重新評估。' },
+      { icon:'🔋', label:'技術瓶頸尚未突破', body:'電池續航、重量、散熱與顯示解析度等痛點未完全解決，大規模消費市場滲透率依然偏低。' },
+      { icon:'💵', label:'高單價限制普及速度', body:'售價偏高限制消費者購買意願，難以快速放量，法人下修出貨預測，股價修正。' },
+    ],
+    hedge: '📌 避險邏輯：此板塊為早期主題股，獲利了結時跌幅較大，建議等待具體出貨數據再進場。',
+    watch: '🔭 回升觀察：Meta Ray-Ban 月銷售量突破、Apple Vision Pro 降價版確認、供應鏈接到量產大單。',
+  },
+  quantum: {
+    title: '量子計算 下跌原因分析',
+    causes: [
+      { icon:'⚛️', label:'商業落地遙遠', body:'量子計算目前處於科研階段（NISQ 時代），距離真正取代傳統運算仍需數十年，純題材炒作退燒。' },
+      { icon:'💰', label:'估值無法用傳統指標衡量', body:'相關公司幾乎無獲利，完全以未來潛力定價，升息環境或市場風險偏好下降時，最先被棄。' },
+      { icon:'🏆', label:'Google/IBM/Microsoft 主導', body:'量子計算主要由美國科技巨頭投資，台廠供應鏈受益有限，炒作退潮後缺乏基本面支撐。' },
+    ],
+    hedge: '📌 避險邏輯：量子計算為純概念股，建議保留至市場確認具體量子優越應用落地再入場。',
+    watch: '🔭 回升觀察：學術突破論文發表、科技巨頭量子部門重大招標、量子誤差率大幅下降消息。',
+  },
+  ai_pc: {
+    title: 'AI PC/Edge AI 下跌原因分析',
+    causes: [
+      { icon:'💻', label:'換機需求不如預期', body:'AI PC 標榜 NPU 晶片可在本地執行 AI 任務，但殺手級應用尚不明確，消費者換機動力不足，出貨量低於原先預測。' },
+      { icon:'📉', label:'PC 整體市場疲弱', body:'後疫情時代 PC 需求回落，即便有 AI PC 題材支撐，整體出貨量成長有限。' },
+      { icon:'🔄', label:'AI 軟體生態尚未成熟', body:'Edge AI 應用（本地 LLM、即時翻譯、影像處理）仍在快速演進中，硬體規格需求未定案，供應鏈能見度受限。' },
+    ],
+    hedge: '📌 避險邏輯：等待 Windows AI PC 普及率超過 30% 或微軟/Apple 正式發布 AI 殺手應用再入場。',
+    watch: '🔭 回升觀察：Intel/AMD/Qualcomm AI PC 晶片出貨量月增、微軟 Copilot+ PC 應用發布、企業採購 AI PC 採購大單。',
+  },
+};
+
+function openEpicReasonPanel() {
+  const panel   = document.getElementById('epicReasonPanel');
+  const content = document.getElementById('epicReasonContent');
+  if (!panel || !content) return;
+
+  const epicId  = S.epicenter;
+  const epicSec = SECTOR_DEF.find(s => s.id === epicId);
+  const d       = S.sectorData[epicId] || {};
+  const db      = EPIC_REASON_DB[epicId];
+
+  if (!epicSec) { content.innerHTML = '<span style="color:#f87171;">⚠️ 尚未偵測到震央板塊，請等待資料載入完成。</span>'; panel.style.display='block'; return; }
+  if (!db)      { content.innerHTML = `<span style="color:#fbbf24;">📌 【${epicSec.name}】板塊原因資料庫建置中，請稍後更新。</span>`; panel.style.display='block'; return; }
+
+  const chg  = d.change ?? 0;
+  const fi   = d.fi ?? 0;
+  const str  = d.strength ?? 0;
+  const date = S.dataDate || '';
+
+  let html = '';
+  // 標題列
+  html += `<div style="margin-bottom:14px;">
+    <div style="font-size:1rem;font-weight:900;color:#c4b5fd;margin-bottom:4px;">${epicSec.emoji} ${db.title}</div>
+    <div style="font-size:0.65rem;color:#94a3b8;">資料日期：${date}　漲跌：<span style="color:#f87171;font-weight:700;">${chg>0?'+':''}${chg}%</span>　法人淨賣：<span style="color:#f87171;">${fi}億</span>　震波強度：${str}分</div>
+  </div>`;
+
+  // 原因列表
+  html += `<div style="margin-bottom:16px;"><div style="font-size:0.68rem;font-weight:800;color:#a78bfa;margin-bottom:8px;letter-spacing:.5px;">📋 可能的下跌原因（由近期市場邏輯歸納）</div>`;
+  db.causes.forEach((c, i) => {
+    html += `<div style="margin-bottom:10px;padding:10px 12px;background:rgba(139,92,246,0.08);border-left:3px solid #7c3aed;border-radius:0 8px 8px 0;">
+      <div style="font-size:0.7rem;font-weight:800;color:#ddd6fe;margin-bottom:3px;">${c.icon} ${String(i+1).padStart(2,'0')}. ${c.label}</div>
+      <div style="font-size:0.67rem;color:#cbd5e1;line-height:1.8;">${c.body}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // 避險邏輯
+  html += `<div style="padding:10px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;margin-bottom:10px;">
+    <div style="font-size:0.68rem;color:#fca5a5;line-height:1.8;">${db.hedge}</div>
+  </div>`;
+
+  // 回升觀察
+  html += `<div style="padding:10px 12px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;">
+    <div style="font-size:0.68rem;color:#6ee7b7;line-height:1.8;">${db.watch}</div>
+  </div>`;
+
+  html += `<div style="margin-top:12px;font-size:0.58rem;color:#475569;border-top:1px solid #1e293b;padding-top:8px;">⚠️ 以上為常見基本面框架分析，非投資建議。實際原因請結合當日新聞與法人報告交叉驗證。</div>`;
+
+  content.innerHTML = html;
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function copyEpicReason() {
+  const el = document.getElementById('epicReasonContent');
+  if (!el) return;
+  const text = el.innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '✅ 已複製';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
 }
 
 // ── AI 解讀面板 ──
