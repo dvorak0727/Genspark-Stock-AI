@@ -18125,15 +18125,6 @@ a.module-nav-item.acc-active {
         </div>
       </div>
 
-      <!-- 法人籌碼橫列 -->
-      <div style="background:var(--bg2);border-radius:10px;padding:8px 12px;margin-bottom:8px;">
-        <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🏦 大盤法人籌碼（近5日）</div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:.68rem;text-align:center;">
-          <div>外資<br><span id="twseForeign5" style="font-weight:900;color:var(--fg);">—</span></div>
-          <div>投信<br><span id="twseTrust5" style="font-weight:900;color:var(--fg);">—</span></div>
-          <div>自營<br><span id="twseDealer5" style="font-weight:900;color:var(--fg);">—</span></div>
-        </div>
-      </div>
 
       <!-- 結論 -->
       <div id="twseVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #1e3a8a;">
@@ -48351,25 +48342,7 @@ window._simBaseWrite = function(id, price) {
   } catch(e) {}
 };
 
-// ── 選項F v6.99：收盤價過期偵測 ──────────────────────────────
-// BASE_DATE = 最後一次 hardcoded 更新日，超過 STALE_DAYS 日曆天顯示提示
-(function() {
-  const BASE_DATE_STR = '2026-07-06'; // ★ 每次更新 genSim cfgs 時同步修改此值
-  const STALE_DAYS = 7;               // 超過 7 天（≈5 交易日）觸發
-  try {
-    const base = new Date(BASE_DATE_STR);
-    const now  = new Date();
-    const diffDays = Math.floor((now - base) / 86400000);
-    if (diffDays > STALE_DAYS) {
-      const badge = document.getElementById('staleBaseBadge');
-      if (badge) {
-        badge.classList.add('show');
-        badge.title = `定錨收盤價（${BASE_DATE_STR}）已過 ${diffDays} 天，建議更新 genSim cfgs`;
-        badge.innerHTML = `⚠️ 收盤已逾 ${diffDays} 天`;
-      }
-    }
-  } catch(e) {}
-})();
+// ── 選項F v6.99：收盤價過期偵測（已停用）──
 window._simBaseRead = function(id) {
   try {
     const today = new Date();
