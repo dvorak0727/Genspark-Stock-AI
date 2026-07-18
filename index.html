@@ -18126,6 +18126,19 @@ a.module-nav-item.acc-active {
       </div>
 
 
+      <!-- 法人籌碼（台積電代理）-->
+      <div style="background:var(--bg2);border-radius:10px;padding:8px 12px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+          <span style="font-size:.62rem;color:var(--fg3);font-weight:700;">🏦 大盤法人籌碼（近5日）</span>
+          <span style="font-size:.55rem;padding:2px 6px;background:rgba(234,179,8,.15);color:#ca8a04;border-radius:10px;border:1px solid rgba(234,179,8,.3);">⚠️ 以台積電(2330)代理——台積電佔加權指數逾30%，外資買賣台積電近似買賣大盤</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:.68rem;text-align:center;">
+          <div>外資<br><span id="twseForeign5" style="font-weight:900;color:var(--fg);">—</span></div>
+          <div>投信<br><span id="twseTrust5" style="font-weight:900;color:var(--fg);">—</span></div>
+          <div>自營<br><span id="twseDealer5" style="font-weight:900;color:var(--fg);">—</span></div>
+        </div>
+      </div>
+
       <!-- 結論 -->
       <div id="twseVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #1e3a8a;">
         載入中…
@@ -61420,6 +61433,28 @@ async function fetchTWSEIndex() {
     setHtml('twseVerdict', verdictTxt);
     _twseIndexCache = { closes, kd, dif, macdLine, osc };
     window._twiiSeries = closes;
+
+    // 台積電法人代理（免token公開資料）
+    try {
+      const instRes = await fetch(
+        `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=2330&start_date=${fmt(start)}&token=`
+      );
+      const instJson = await instRes.json();
+      const instRows = (instJson.data || []).sort((a,b) => a.date > b.date ? 1 : -1);
+      const last5dates = [...new Set(instRows.map(r=>r.date))].slice(-5);
+      const filter5 = instRows.filter(r => last5dates.includes(r.date));
+      const sum = (name) => filter5.filter(r=>r.name===name).reduce((s,r)=>s+(+r.buy - +r.sell),0);
+      const fNet = sum('Foreign_Investor');
+      const tNet = sum('Investment_Trust');
+      const dNet = sum('Dealer_self') + sum('Dealer_Hedging');
+      const fmt3 = v => (v>=0?'+':'')+Math.round(Math.abs(v)/1000)+'K張';
+      const fColor = fNet>=0?'#dc2626':'#059669';
+      const tColor = tNet>=0?'#dc2626':'#059669';
+      const dColor = dNet>=0?'#dc2626':'#059669';
+      setHtml('twseForeign5', `<span style="color:${fColor};font-weight:900;">${fmt3(fNet)}</span>`);
+      setHtml('twseTrust5',   `<span style="color:${tColor};font-weight:900;">${fmt3(tNet)}</span>`);
+      setHtml('twseDealer5',  `<span style="color:${dColor};font-weight:900;">${fmt3(dNet)}</span>`);
+    } catch(e) {}
 
   } catch(e) {
     document.getElementById('twseVerdict').textContent = '載入失敗：' + e.message;
