@@ -18232,7 +18232,276 @@ a.module-nav-item.acc-active {
     <!-- ══════════════════════════════════════════════════
          13. 🎯 洗盤空間估算器
     ══════════════════════════════════════════════════ -->
-    <div class="wash-card" id="washCard">
+    
+
+<div class="ctrl14-card" id="ctrl14Card">
+      <span id="ctrl14Anchor" style="position:relative;top:-60px;"></span>
+      <div class="ctrl14-header">
+        <div class="ctrl14-icon">📊</div>
+        <div style="flex:1;min-width:0;">
+          <div class="ctrl14-title">1:4 控盤節律與主力吸籌矩陣</div>
+          <div class="ctrl14-sub">法人買4張→賣1張的規律吸籌特徵偵測・動態掃描各板塊控盤狀態</div>
+        </div>
+        <div class="ctrl14-header-btns">
+          <button onclick="openRoleGuide('hyper')" id="ctrl14RoleGuideBtn"
+            style="background:linear-gradient(135deg,#FEF2F2,#EFF6FF);color:#1D4ED8;border:1px solid #BFDBFE;border-radius:8px;padding:6px 12px;font-size:0.63rem;font-weight:700;cursor:pointer;white-space:nowrap;"
+            title="了解各角色定義、量縮意義與操股建議">
+            🎭 角色說明
+          </button>
+          <button onclick="ctrl14OpenCustomModal()" id="ctrl14CustomBtn"
+            style="background:var(--bg);color:var(--fg2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.63rem;font-weight:700;cursor:pointer;white-space:nowrap;">
+            ✏️ 自訂標的
+          </button>
+          <button onclick="ctrl14Scan()" id="ctrl14ScanBtn"
+            style="background:linear-gradient(135deg,#7C3AED,#4F46E5);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:0.65rem;font-weight:800;cursor:pointer;white-space:nowrap;">
+            🔍 掃描
+          </button>
+        </div>
+      </div>
+
+      <!-- v5.96 快取資訊列 -->
+      <div id="ctrl14CacheBar" style="display:none;font-size:0.58rem;color:var(--fg3);
+        padding:4px 12px;background:rgba(124,58,237,0.05);border-bottom:1px solid rgba(124,58,237,0.1);
+        align-items:center;gap:8px;flex-wrap:wrap;">
+        <span>📦 快取結果</span>
+        <span id="ctrl14CacheTime" style="color:#7C3AED;font-weight:700;"></span>
+        <span id="ctrl14CacheExpire" style="color:var(--fg3);"></span>
+        <button onclick="ctrl14ClearCache()"
+          style="margin-left:auto;font-size:0.57rem;padding:2px 8px;border-radius:6px;
+          border:1px solid rgba(220,38,38,0.3);color:#DC2626;background:rgba(220,38,38,0.05);cursor:pointer;">
+          🗑️ 清除快取，重新掃描
+        </button>
+      </div>
+
+      <!-- 1:4 概念說明 -->
+      <div class="ctrl14-concept">
+        <span>📌 1:4 概念：</span>
+        <span class="ctrl14-pill buy">買</span>
+        <span class="ctrl14-pill buy">買</span>
+        <span class="ctrl14-pill buy">買</span>
+        <span class="ctrl14-pill buy">買</span>
+        <span style="color:var(--fg3);">→</span>
+        <span class="ctrl14-pill sell">賣</span>
+        <span style="color:var(--fg3);">→</span>
+        <span class="ctrl14-pill net">淨買 1</span>
+        <span style="margin-left:8px;">大戶有計劃囤貨，避免驚動市場，拉高成本，吸乾散戶浮額</span>
+
+        <!-- 雙模式交叉驗證開關 -->
+        <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.6rem;white-space:nowrap;">
+          <input type="checkbox" id="ctrl14CrossCheck" style="cursor:pointer;" onchange="ctrl14ToggleCross()">
+          🔀 顯示雙模式交叉驗證
+        </label>
+      </div>
+
+      <!-- 空狀態 -->
+      <div id="ctrl14Empty" style="text-align:center;padding:24px;color:var(--fg3);font-size:0.68rem;">
+        📥 點擊「🔍 掃描」自動依各板塊代入 FinMind 近期法人資料，計算 1:4 控盤比例
+      </div>
+
+      <!-- 掃描結果 -->
+      <div id="ctrl14Body" style="display:none;">
+        <!-- AI 伺服器板塊 -->
+        <div class="ctrl14-group-title" id="ctrl14GrpAI">🖥️ AI 伺服器 & 權值老將 <span class="ctrl14-sort-badge">↓ 控盤排序</span></div>
+        <div class="ctrl14-grid" id="ctrl14GridAI"></div>
+        <!-- 半導體封裝 -->
+        <div class="ctrl14-group-title" id="ctrl14GrpSemi">💾 半導體 & 先進封裝 <span class="ctrl14-sort-badge">↓ 控盤排序</span></div>
+        <div class="ctrl14-grid" id="ctrl14GridSemi"></div>
+        <!-- 金融 -->
+        <div class="ctrl14-group-title" id="ctrl14GrpFin">🏦 金融股 <span class="ctrl14-sort-badge">↓ 控盤排序</span></div>
+        <div class="ctrl14-grid" id="ctrl14GridFin"></div>
+        <!-- 航運傳產 -->
+        <div class="ctrl14-group-title" id="ctrl14GrpShip">🚢 航運 & 傳產 <span class="ctrl14-sort-badge">↓ 控盤排序</span></div>
+        <div class="ctrl14-grid" id="ctrl14GridShip"></div>
+        <!-- 自訂追蹤板塊（v5.91） -->
+        <div id="ctrl14GrpCustom" class="ctrl14-group-title" style="display:none;">⭐ 我的自訂追蹤</div>
+        <div class="ctrl14-grid" id="ctrl14GridCustom"></div>
+        <!-- 板塊概覽 -->
+        <div id="ctrl14SectorRow" class="ctrl14-sector-row"></div>
+      </div>
+
+      <!-- v5.95 進度條（升級版） -->
+      <div id="ctrl14Progress" style="display:none;padding:10px 0;">
+        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.1);">
+          <div id="ctrl14Fill" style="height:100%;background:linear-gradient(90deg,#7C3AED,#4F46E5,#0EA5E9);border-radius:3px;width:0%;transition:width .25s ease;"></div>
+        </div>
+        <div id="ctrl14ProgressText" style="font-size:0.6rem;color:var(--fg3);margin-top:5px;text-align:center;"></div>
+        <div id="ctrl14ProgressPct" style="font-size:0.55rem;color:#7C3AED;font-weight:800;text-align:right;margin-top:2px;">0%</div>
+      </div>
+
+      <!-- 雙模式交叉驗證面板（預設隱藏）-->
+      <div id="ctrl14CrossPanel" style="display:none;">
+        <div class="cross-valid-wrap">
+          <div class="cross-valid-title">
+            🔀 雙模式交叉驗證：資減人走 × 極致量縮
+            <span style="font-size:0.58rem;font-weight:600;color:var(--fg3);margin-left:8px;">同時通過兩個模式 = 爆發前最強共振訊號</span>
+          </div>
+          <!-- v5.91 批次加入追蹤清單 -->
+          <div id="crossValidBatchRow" style="display:none;margin-bottom:6px;">
+            <button class="cross-valid-batch-btn" onclick="ctrl14BatchAddWatchlist()">
+              ⭐ 一鍵加入雙共振股至追蹤清單
+            </button>
+            <span id="crossValidBatchCount" style="font-size:0.6rem;color:var(--fg3);"></span>
+          </div>
+          <div id="crossValidEmpty" style="font-size:0.63rem;color:var(--fg3);padding:8px 0;">
+            請先執行「掃描」取得資料後，勾選上方選項查看交叉驗證結果
+          </div>
+          <div class="cross-valid-grid" id="crossValidGrid" style="display:none;"></div>
+        </div>
+      </div>
+    </div><!-- /.ctrl14-card -->
+
+    <!-- ══════════════════════════════════════════════
+         [v6.39] MACD 多方掃瞄模組
+         位置：ctrl14-card 下方・多股掃描
+         ══════════════════════════════════════════════ -->
+    <div class="macd-scan-wrap" id="macdScanWrap">
+
+      <!-- 標題列 -->
+      <div class="macd-scan-header">
+        <div class="macd-scan-icon">📈</div>
+        <div style="flex:1;min-width:0;">
+          <div class="macd-scan-title">MACD 多方結構掃瞄矩陣</div>
+          <div class="macd-scan-sub">六大條件評分・自動掃描各板塊 MACD 多方訊號強度</div>
+        </div>
+        <button id="macdClearCacheBtn" onclick="macdClearCache()"
+          style="display:none;margin-right:6px;">🗑️ 清除快取</button>
+        <button id="macdScanAllBtn" onclick="macdScanAll()">🔍 掃描</button>
+      </div>
+
+      <!-- 快取資訊列 -->
+      <div id="macdCacheBar">
+        <span>📦 快取結果</span>
+        <span id="macdCacheTime" style="color:#059669;font-weight:700;"></span>
+        <span id="macdCacheExpire" style="color:var(--fg3);"></span>
+        <button onclick="macdClearCache()" id="macdCacheBarClearBtn"
+          style="margin-left:auto;font-size:0.57rem;padding:2px 8px;border-radius:6px;
+          border:1px solid rgba(220,38,38,0.3);color:#DC2626;background:rgba(220,38,38,0.05);cursor:pointer;">
+          🗑️ 清除快取，重新掃描
+        </button>
+      </div>
+
+      <!-- 六條件說明列 -->
+      <div style="display:flex;flex-wrap:wrap;gap:5px;padding:8px 14px 6px;
+        border-bottom:1px solid var(--border);background:rgba(5,150,105,0.025);">
+        <span style="font-size:0.58rem;font-weight:700;color:var(--fg3);margin-right:4px;">六大條件 <span style="font-size:0.50rem;opacity:.7;">（點擊查說明）</span>：</span>
+        <span class="macd-cond-tag" onclick="_macdShowCondition(1)">C1 Histogram &gt; 0</span>
+        <span class="macd-cond-tag" onclick="_macdShowCondition(2)">C2 DIF+DEA 零軸上</span>
+        <span class="macd-cond-tag" onclick="_macdShowCondition(3)">C3 Histogram 擴張</span>
+        <span class="macd-cond-tag" onclick="_macdShowCondition(4)">C4 DIF&gt;DEA 金叉</span>
+        <span class="macd-cond-tag" onclick="_macdShowCondition(5)">C5 法人5日淨買</span>
+        <span class="macd-cond-tag" onclick="_macdShowCondition(6)">C6 站穩月線</span>
+        <span style="font-size:0.56rem;color:var(--fg3);margin-left:auto;align-self:center;">
+          6/6=滿分多方・4~5=多方偏強・2~3=中性・≤1=偏空
+        </span>
+      </div>
+
+      <!-- 空狀態 -->
+      <div id="macdScanEmpty">
+        📥 點擊「🔍 掃描」自動拉取各板塊近期股價與法人資料，計算 MACD 多方結構分數
+      </div>
+
+      <!-- 進度列 -->
+      <div id="macdScanProgress">
+        <div class="macd-prog-bar">
+          <div class="macd-prog-fill" id="macdProgFill"></div>
+        </div>
+        <div class="macd-prog-text" id="macdProgText">掃描中…</div>
+      </div>
+
+      <!-- 掃描結果體 -->
+      <div id="macdScanBody" style="display:none;">
+
+        <!-- 🏆 全板塊 Top3 熱榜橫幅（v6.86） -->
+        <div class="macd-top3-banner" id="macdTop3Banner">
+          <div class="macd-top3-label">
+            🏆 全板塊最強訊號 Top3
+            <span style="font-size:0.48rem;font-weight:400;color:var(--fg3);">點擊任一個股查看放大詳情</span>
+          </div>
+          <div class="macd-top3-list" id="macdTop3List"></div>
+        </div>
+
+        <!-- AI 伺服器板塊 -->
+        <div class="macd-group-title" id="macdGrpAI">🖥️ AI 伺服器 &amp; 權值老將 <span class="macd-sort-badge">↑ 分數排序</span></div>
+        <div class="macd-scan-grid" id="macdGridAI"></div>
+        <!-- 半導體封裝 -->
+        <div class="macd-group-title" id="macdGrpSemi">💾 半導體 &amp; 先進封裝 <span class="macd-sort-badge">↑ 分數排序</span></div>
+        <div class="macd-scan-grid" id="macdGridSemi"></div>
+        <!-- 金融 -->
+        <div class="macd-group-title" id="macdGrpFin">🏦 金融股 <span class="macd-sort-badge">↑ 分數排序</span></div>
+        <div class="macd-scan-grid" id="macdGridFin"></div>
+        <!-- 航運傳產 -->
+        <div class="macd-group-title" id="macdGrpShip">🚢 航運 &amp; 傳產 <span class="macd-sort-badge">↑ 分數排序</span></div>
+        <div class="macd-scan-grid" id="macdGridShip"></div>
+        <!-- 板塊概覽 -->
+        <div class="macd-sector-summary" id="macdSectorSummary"></div>
+
+        <!-- ══ v6.90 MACD 歷史回測模式面板 ══ -->
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0 4px;flex-wrap:wrap;">
+          <button class="macd-history-toggle" id="macdHistoryToggleBtn"
+                  onclick="_macdToggleHistory()"
+                  title="查看近5次掃描各個股的C1~C6分數變化趨勢">
+            📈 歷史趨勢模式
+          </button>
+          <span style="font-size:0.52rem;color:var(--fg3);">每次掃描自動記錄 · 最多保留30筆 · 查看分數變化趨勢</span>
+        </div>
+        <div class="macd-history-panel" id="macdHistoryPanel">
+          <div class="macd-hist-header">
+            <div>
+              <div class="macd-hist-title">📈 C1~C6 分數歷史趨勢</div>
+              <div class="macd-hist-sub">點擊個股分數格可查看放大詳情 · 色深=分數高</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <span style="font-size:0.50rem;color:var(--fg3);" id="macdHistRecordCount">載入中…</span>
+              <button class="macd-hist-clear-btn" id="macdClearTodayBtn"
+                      onclick="_macdClearToday()" title="刪除今日所有掃描紀錄">
+                🗑️ 清空今日
+              </button>
+              <button class="macd-hist-save-btn" onclick="_macdSaveCurrentScan()"
+                      title="把今日掃描結果存入資料庫">
+                💾 儲存本次掃描
+              </button>
+            </div>
+          </div>
+          <!-- 🔀 歷史來源切換列（v6.97）-->
+          <div id="macdHistSourceRow" style="display:none;display:flex;gap:6px;padding:6px 0 2px;flex-wrap:wrap;">
+            <span style="font-size:0.56rem;color:var(--fg3);align-self:center;">顯示來源：</span>
+            <button class="macd-hist-source-btn active" id="histSrcAll" onclick="_macdHistSetSource('all')">全部</button>
+            <button class="macd-hist-source-btn" id="histSrcScan" onclick="_macdHistSetSource('scan')">板塊掃描</button>
+            <button class="macd-hist-source-btn" id="histSrcScreener" onclick="_macdHistSetSource('screener')">📊 海選矩陣</button>
+          </div>
+          <div class="macd-hist-grid" id="macdHistGrid">
+            <div style="padding:20px;text-align:center;color:var(--fg3);font-size:0.62rem;">
+              ⏳ 請先執行板塊掃描，再點擊「歷史趨勢模式」
+            </div>
+          </div>
+          <!-- ✅ 選項 C：Chart.js 趨勢折線圖容器（v6.97）-->
+          <div id="macdHistChartWrap" style="display:none;margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
+              <div style="font-size:0.65rem;font-weight:800;color:var(--fg);">📈 MACD 分數趨勢折線圖（近5次掃描）</div>
+              <div style="display:flex;gap:5px;flex-wrap:wrap;" id="macdChartFilterRow"></div>
+            </div>
+            <div style="position:relative;height:260px;">
+              <canvas id="macdHistChart"></canvas>
+            </div>
+            <div style="font-size:0.52rem;color:var(--fg3);margin-top:5px;">每條折線代表一檔個股近5次掃描的 MACD 分數變化；滑鼠懸停可查看詳情</div>
+          </div>
+          <!-- ✅ 選項 H：分數分布直方圖容器（v6.97）-->
+          <div id="macdHistDistWrap" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div style="font-size:0.65rem;font-weight:800;color:var(--fg);">📊 最新掃描分數分布</div>
+              <div style="font-size:0.50rem;color:var(--fg3);" id="macdDistDateLabel"></div>
+            </div>
+            <div style="position:relative;height:140px;">
+              <canvas id="macdHistDistChart"></canvas>
+            </div>
+            <div style="font-size:0.50rem;color:var(--fg3);margin-top:5px;">最新一次掃描各分數（0~6分）的個股分布數量</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.macd-scan-wrap -->
+
+<div class="wash-card" id="washCard">
       <div class="wash-header">
         <div class="wash-header-icon">🎯</div>
         <div>
@@ -18442,29 +18711,37 @@ a.module-nav-item.acc-active {
           </div>
         </div>
 
-        <!-- 三燈交叉驗證 -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;" id="wallisLights">
+        <!-- 五燈交叉驗證 -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:10px;" id="wallisLights">
           <div style="background:var(--bg2);border-radius:8px;padding:7px;text-align:center;">
             <div id="wallisL1Icon" style="font-size:1.1rem;">⬜</div>
-            <div style="font-size:.6rem;color:var(--fg3);margin-top:2px;">振幅收斂<br><span id="wallisL1Val" style="color:var(--fg);font-weight:700;">—</span></div>
+            <div style="font-size:.58rem;color:var(--fg3);margin-top:2px;">振幅收斂<br><span id="wallisL1Val" style="color:var(--fg);font-weight:700;">—</span></div>
           </div>
           <div style="background:var(--bg2);border-radius:8px;padding:7px;text-align:center;">
             <div id="wallisL2Icon" style="font-size:1.1rem;">⬜</div>
-            <div style="font-size:.6rem;color:var(--fg3);margin-top:2px;">量能收縮<br><span id="wallisL2Val" style="color:var(--fg);font-weight:700;">—</span></div>
+            <div style="font-size:.58rem;color:var(--fg3);margin-top:2px;">法人方向<br><span id="wallisL2Val" style="color:var(--fg);font-weight:700;">—</span></div>
           </div>
           <div style="background:var(--bg2);border-radius:8px;padding:7px;text-align:center;">
             <div id="wallisL3Icon" style="font-size:1.1rem;">⬜</div>
-            <div style="font-size:.6rem;color:var(--fg3);margin-top:2px;">法人轉向<br><span id="wallisL3Val" style="color:var(--fg);font-weight:700;">—</span></div>
+            <div style="font-size:.58rem;color:var(--fg3);margin-top:2px;">價格位置<br><span id="wallisL3Val" style="color:var(--fg);font-weight:700;">—</span></div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:7px;text-align:center;">
+            <div id="wallisL4Icon" style="font-size:1.1rem;">⬜</div>
+            <div style="font-size:.58rem;color:var(--fg3);margin-top:2px;">大盤環境<br><span id="wallisL4Val" style="color:var(--fg);font-weight:700;">—</span></div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:7px;text-align:center;">
+            <div id="wallisL5Icon" style="font-size:1.1rem;">⬜</div>
+            <div style="font-size:.58rem;color:var(--fg3);margin-top:2px;">籌碼連縮<br><span id="wallisL5Val" style="color:var(--fg);font-weight:700;">—</span></div>
           </div>
         </div>
 
-        <!-- 三燈顏色說明 -->
-        <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:8px;padding:5px 8px;background:var(--bg2);border-radius:6px;font-size:.62rem;color:var(--fg3);">
+        <!-- 五燈顏色說明 -->
+        <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px;padding:5px 8px;background:var(--bg2);border-radius:6px;font-size:.62rem;color:var(--fg3);flex-wrap:wrap;">
           <span>燈號說明：</span>
           <span>🟢 <b style="color:var(--fg);">條件達標</b></span>
           <span>🟡 <b style="color:var(--fg);">部分達標</b></span>
           <span>🔴 <b style="color:var(--fg);">未達標</b></span>
-          <span style="margin-left:4px;padding:2px 8px;background:rgba(16,185,129,.15);border:1px solid #10b981;border-radius:10px;color:#10b981;font-weight:700;">三燈全🟢 = 啟動前夕</span>
+          <span style="margin-left:4px;padding:2px 8px;background:rgba(16,185,129,.15);border:1px solid #10b981;border-radius:10px;color:#10b981;font-weight:700;">五燈全🟢 = 啟動前夕</span>
         </div>
 
         <!-- 波形圖：各波振幅條 -->
@@ -18508,8 +18785,10 @@ a.module-nav-item.acc-active {
                   <th style="padding:5px 6px;text-align:left;white-space:nowrap;">日期時間</th>
                   <th style="padding:5px 6px;text-align:left;">股票</th>
                   <th style="padding:5px 6px;text-align:center;">燈1<br><span style="font-weight:400;">振幅</span></th>
-                  <th style="padding:5px 6px;text-align:center;">燈2<br><span style="font-weight:400;">量能</span></th>
-                  <th style="padding:5px 6px;text-align:center;">燈3<br><span style="font-weight:400;">法人</span></th>
+                  <th style="padding:5px 6px;text-align:center;">燈2<br><span style="font-weight:400;">法人</span></th>
+                  <th style="padding:5px 6px;text-align:center;">燈3<br><span style="font-weight:400;">位置</span></th>
+                  <th style="padding:5px 6px;text-align:center;">燈4<br><span style="font-weight:400;">大盤</span></th>
+                  <th style="padding:5px 6px;text-align:center;">燈5<br><span style="font-weight:400;">連縮</span></th>
                   <th style="padding:5px 6px;text-align:right;">收斂%</th>
                   <th style="padding:5px 6px;text-align:left;min-width:80px;">狀態</th>
                   <th style="padding:5px 6px;text-align:right;">+隔日%</th>
@@ -18992,6 +19271,7 @@ a.module-nav-item.acc-active {
         </div>
         <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
           <button class="etfcal-add-btn" onclick="etfCalToggleForm()">＋ 新增換檔事件</button>
+          <button class="etfcal-add-btn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);" onclick="etfCalTogglePaste()">📋 貼公告解析</button>
         </div>
       </div>
 
@@ -18999,6 +19279,17 @@ a.module-nav-item.acc-active {
       <div class="ob-concept-bar" style="margin-bottom:14px;">
         📌 <b>主要 ETF 換檔週期</b>：0050/006208（每季：3/6/9/12月）· 00919（每季：2/5/8/11月）· 00878/00713（每半年）· 公告後約 5~15 個交易日生效。
         <br>⚡ <b>策略核心</b>：被踢出成分股 → 機械性賣壓（ETF必須賣）→ 外資低接 → 賣壓結束後反彈。公告日即是套利起點。
+      </div>
+
+      <!-- 貼公告解析面板 -->
+      <div class="etfcal-form-wrap" id="etfCalPastePanel" style="display:none;margin-bottom:12px;">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">📋 貼入投信公告文字，自動解析換檔事件</div>
+        <textarea id="etfCalPasteText" placeholder="例如：本基金自115年8月1日起調整成分股，納入台積電(2330)，剔除聯電(2303)..." style="width:100%;height:120px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--fg);padding:10px;font-size:0.82rem;resize:vertical;box-sizing:border-box;"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="etfcal-form-save" onclick="etfCalParseAnnouncement()">🔍 解析並填入表單</button>
+          <button class="etfcal-form-cancel" onclick="etfCalTogglePaste()">取消</button>
+        </div>
+        <div id="etfCalParseResult" style="margin-top:8px;font-size:0.78rem;color:var(--text-muted);"></div>
       </div>
 
       <!-- 新增表單（預設折疊）-->
@@ -19444,273 +19735,7 @@ a.module-nav-item.acc-active {
     </div><!-- /#chipLogCard -->
 
 
-    <div class="ctrl14-card" id="ctrl14Card">
-      <span id="ctrl14Anchor" style="position:relative;top:-60px;"></span>
-      <div class="ctrl14-header">
-        <div class="ctrl14-icon">📊</div>
-        <div style="flex:1;min-width:0;">
-          <div class="ctrl14-title">1:4 控盤節律與主力吸籌矩陣</div>
-          <div class="ctrl14-sub">法人買4張→賣1張的規律吸籌特徵偵測・動態掃描各板塊控盤狀態</div>
-        </div>
-        <div class="ctrl14-header-btns">
-          <button onclick="openRoleGuide('hyper')" id="ctrl14RoleGuideBtn"
-            style="background:linear-gradient(135deg,#FEF2F2,#EFF6FF);color:#1D4ED8;border:1px solid #BFDBFE;border-radius:8px;padding:6px 12px;font-size:0.63rem;font-weight:700;cursor:pointer;white-space:nowrap;"
-            title="了解各角色定義、量縮意義與操股建議">
-            🎭 角色說明
-          </button>
-          <button onclick="ctrl14OpenCustomModal()" id="ctrl14CustomBtn"
-            style="background:var(--bg);color:var(--fg2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.63rem;font-weight:700;cursor:pointer;white-space:nowrap;">
-            ✏️ 自訂標的
-          </button>
-          <button onclick="ctrl14Scan()" id="ctrl14ScanBtn"
-            style="background:linear-gradient(135deg,#7C3AED,#4F46E5);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:0.65rem;font-weight:800;cursor:pointer;white-space:nowrap;">
-            🔍 掃描
-          </button>
-        </div>
-      </div>
-
-      <!-- v5.96 快取資訊列 -->
-      <div id="ctrl14CacheBar" style="display:none;font-size:0.58rem;color:var(--fg3);
-        padding:4px 12px;background:rgba(124,58,237,0.05);border-bottom:1px solid rgba(124,58,237,0.1);
-        align-items:center;gap:8px;flex-wrap:wrap;">
-        <span>📦 快取結果</span>
-        <span id="ctrl14CacheTime" style="color:#7C3AED;font-weight:700;"></span>
-        <span id="ctrl14CacheExpire" style="color:var(--fg3);"></span>
-        <button onclick="ctrl14ClearCache()"
-          style="margin-left:auto;font-size:0.57rem;padding:2px 8px;border-radius:6px;
-          border:1px solid rgba(220,38,38,0.3);color:#DC2626;background:rgba(220,38,38,0.05);cursor:pointer;">
-          🗑️ 清除快取，重新掃描
-        </button>
-      </div>
-
-      <!-- 1:4 概念說明 -->
-      <div class="ctrl14-concept">
-        <span>📌 1:4 概念：</span>
-        <span class="ctrl14-pill buy">買</span>
-        <span class="ctrl14-pill buy">買</span>
-        <span class="ctrl14-pill buy">買</span>
-        <span class="ctrl14-pill buy">買</span>
-        <span style="color:var(--fg3);">→</span>
-        <span class="ctrl14-pill sell">賣</span>
-        <span style="color:var(--fg3);">→</span>
-        <span class="ctrl14-pill net">淨買 1</span>
-        <span style="margin-left:8px;">大戶有計劃囤貨，避免驚動市場，拉高成本，吸乾散戶浮額</span>
-
-        <!-- 雙模式交叉驗證開關 -->
-        <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.6rem;white-space:nowrap;">
-          <input type="checkbox" id="ctrl14CrossCheck" style="cursor:pointer;" onchange="ctrl14ToggleCross()">
-          🔀 顯示雙模式交叉驗證
-        </label>
-      </div>
-
-      <!-- 空狀態 -->
-      <div id="ctrl14Empty" style="text-align:center;padding:24px;color:var(--fg3);font-size:0.68rem;">
-        📥 點擊「🔍 掃描」自動依各板塊代入 FinMind 近期法人資料，計算 1:4 控盤比例
-      </div>
-
-      <!-- 掃描結果 -->
-      <div id="ctrl14Body" style="display:none;">
-        <!-- AI 伺服器板塊 -->
-        <div class="ctrl14-group-title" id="ctrl14GrpAI">🖥️ AI 伺服器 & 權值老將 <span class="ctrl14-sort-badge">↓ 控盤排序</span></div>
-        <div class="ctrl14-grid" id="ctrl14GridAI"></div>
-        <!-- 半導體封裝 -->
-        <div class="ctrl14-group-title" id="ctrl14GrpSemi">💾 半導體 & 先進封裝 <span class="ctrl14-sort-badge">↓ 控盤排序</span></div>
-        <div class="ctrl14-grid" id="ctrl14GridSemi"></div>
-        <!-- 金融 -->
-        <div class="ctrl14-group-title" id="ctrl14GrpFin">🏦 金融股 <span class="ctrl14-sort-badge">↓ 控盤排序</span></div>
-        <div class="ctrl14-grid" id="ctrl14GridFin"></div>
-        <!-- 航運傳產 -->
-        <div class="ctrl14-group-title" id="ctrl14GrpShip">🚢 航運 & 傳產 <span class="ctrl14-sort-badge">↓ 控盤排序</span></div>
-        <div class="ctrl14-grid" id="ctrl14GridShip"></div>
-        <!-- 自訂追蹤板塊（v5.91） -->
-        <div id="ctrl14GrpCustom" class="ctrl14-group-title" style="display:none;">⭐ 我的自訂追蹤</div>
-        <div class="ctrl14-grid" id="ctrl14GridCustom"></div>
-        <!-- 板塊概覽 -->
-        <div id="ctrl14SectorRow" class="ctrl14-sector-row"></div>
-      </div>
-
-      <!-- v5.95 進度條（升級版） -->
-      <div id="ctrl14Progress" style="display:none;padding:10px 0;">
-        <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.1);">
-          <div id="ctrl14Fill" style="height:100%;background:linear-gradient(90deg,#7C3AED,#4F46E5,#0EA5E9);border-radius:3px;width:0%;transition:width .25s ease;"></div>
-        </div>
-        <div id="ctrl14ProgressText" style="font-size:0.6rem;color:var(--fg3);margin-top:5px;text-align:center;"></div>
-        <div id="ctrl14ProgressPct" style="font-size:0.55rem;color:#7C3AED;font-weight:800;text-align:right;margin-top:2px;">0%</div>
-      </div>
-
-      <!-- 雙模式交叉驗證面板（預設隱藏）-->
-      <div id="ctrl14CrossPanel" style="display:none;">
-        <div class="cross-valid-wrap">
-          <div class="cross-valid-title">
-            🔀 雙模式交叉驗證：資減人走 × 極致量縮
-            <span style="font-size:0.58rem;font-weight:600;color:var(--fg3);margin-left:8px;">同時通過兩個模式 = 爆發前最強共振訊號</span>
-          </div>
-          <!-- v5.91 批次加入追蹤清單 -->
-          <div id="crossValidBatchRow" style="display:none;margin-bottom:6px;">
-            <button class="cross-valid-batch-btn" onclick="ctrl14BatchAddWatchlist()">
-              ⭐ 一鍵加入雙共振股至追蹤清單
-            </button>
-            <span id="crossValidBatchCount" style="font-size:0.6rem;color:var(--fg3);"></span>
-          </div>
-          <div id="crossValidEmpty" style="font-size:0.63rem;color:var(--fg3);padding:8px 0;">
-            請先執行「掃描」取得資料後，勾選上方選項查看交叉驗證結果
-          </div>
-          <div class="cross-valid-grid" id="crossValidGrid" style="display:none;"></div>
-        </div>
-      </div>
-    </div><!-- /.ctrl14-card -->
-
-    <!-- ══════════════════════════════════════════════
-         [v6.39] MACD 多方掃瞄模組
-         位置：ctrl14-card 下方・多股掃描
-         ══════════════════════════════════════════════ -->
-    <div class="macd-scan-wrap" id="macdScanWrap">
-
-      <!-- 標題列 -->
-      <div class="macd-scan-header">
-        <div class="macd-scan-icon">📈</div>
-        <div style="flex:1;min-width:0;">
-          <div class="macd-scan-title">MACD 多方結構掃瞄矩陣</div>
-          <div class="macd-scan-sub">六大條件評分・自動掃描各板塊 MACD 多方訊號強度</div>
-        </div>
-        <button id="macdClearCacheBtn" onclick="macdClearCache()"
-          style="display:none;margin-right:6px;">🗑️ 清除快取</button>
-        <button id="macdScanAllBtn" onclick="macdScanAll()">🔍 掃描</button>
-      </div>
-
-      <!-- 快取資訊列 -->
-      <div id="macdCacheBar">
-        <span>📦 快取結果</span>
-        <span id="macdCacheTime" style="color:#059669;font-weight:700;"></span>
-        <span id="macdCacheExpire" style="color:var(--fg3);"></span>
-        <button onclick="macdClearCache()" id="macdCacheBarClearBtn"
-          style="margin-left:auto;font-size:0.57rem;padding:2px 8px;border-radius:6px;
-          border:1px solid rgba(220,38,38,0.3);color:#DC2626;background:rgba(220,38,38,0.05);cursor:pointer;">
-          🗑️ 清除快取，重新掃描
-        </button>
-      </div>
-
-      <!-- 六條件說明列 -->
-      <div style="display:flex;flex-wrap:wrap;gap:5px;padding:8px 14px 6px;
-        border-bottom:1px solid var(--border);background:rgba(5,150,105,0.025);">
-        <span style="font-size:0.58rem;font-weight:700;color:var(--fg3);margin-right:4px;">六大條件 <span style="font-size:0.50rem;opacity:.7;">（點擊查說明）</span>：</span>
-        <span class="macd-cond-tag" onclick="_macdShowCondition(1)">C1 Histogram &gt; 0</span>
-        <span class="macd-cond-tag" onclick="_macdShowCondition(2)">C2 DIF+DEA 零軸上</span>
-        <span class="macd-cond-tag" onclick="_macdShowCondition(3)">C3 Histogram 擴張</span>
-        <span class="macd-cond-tag" onclick="_macdShowCondition(4)">C4 DIF&gt;DEA 金叉</span>
-        <span class="macd-cond-tag" onclick="_macdShowCondition(5)">C5 法人5日淨買</span>
-        <span class="macd-cond-tag" onclick="_macdShowCondition(6)">C6 站穩月線</span>
-        <span style="font-size:0.56rem;color:var(--fg3);margin-left:auto;align-self:center;">
-          6/6=滿分多方・4~5=多方偏強・2~3=中性・≤1=偏空
-        </span>
-      </div>
-
-      <!-- 空狀態 -->
-      <div id="macdScanEmpty">
-        📥 點擊「🔍 掃描」自動拉取各板塊近期股價與法人資料，計算 MACD 多方結構分數
-      </div>
-
-      <!-- 進度列 -->
-      <div id="macdScanProgress">
-        <div class="macd-prog-bar">
-          <div class="macd-prog-fill" id="macdProgFill"></div>
-        </div>
-        <div class="macd-prog-text" id="macdProgText">掃描中…</div>
-      </div>
-
-      <!-- 掃描結果體 -->
-      <div id="macdScanBody" style="display:none;">
-
-        <!-- 🏆 全板塊 Top3 熱榜橫幅（v6.86） -->
-        <div class="macd-top3-banner" id="macdTop3Banner">
-          <div class="macd-top3-label">
-            🏆 全板塊最強訊號 Top3
-            <span style="font-size:0.48rem;font-weight:400;color:var(--fg3);">點擊任一個股查看放大詳情</span>
-          </div>
-          <div class="macd-top3-list" id="macdTop3List"></div>
-        </div>
-
-        <!-- AI 伺服器板塊 -->
-        <div class="macd-group-title" id="macdGrpAI">🖥️ AI 伺服器 &amp; 權值老將 <span class="macd-sort-badge">↑ 分數排序</span></div>
-        <div class="macd-scan-grid" id="macdGridAI"></div>
-        <!-- 半導體封裝 -->
-        <div class="macd-group-title" id="macdGrpSemi">💾 半導體 &amp; 先進封裝 <span class="macd-sort-badge">↑ 分數排序</span></div>
-        <div class="macd-scan-grid" id="macdGridSemi"></div>
-        <!-- 金融 -->
-        <div class="macd-group-title" id="macdGrpFin">🏦 金融股 <span class="macd-sort-badge">↑ 分數排序</span></div>
-        <div class="macd-scan-grid" id="macdGridFin"></div>
-        <!-- 航運傳產 -->
-        <div class="macd-group-title" id="macdGrpShip">🚢 航運 &amp; 傳產 <span class="macd-sort-badge">↑ 分數排序</span></div>
-        <div class="macd-scan-grid" id="macdGridShip"></div>
-        <!-- 板塊概覽 -->
-        <div class="macd-sector-summary" id="macdSectorSummary"></div>
-
-        <!-- ══ v6.90 MACD 歷史回測模式面板 ══ -->
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 0 4px;flex-wrap:wrap;">
-          <button class="macd-history-toggle" id="macdHistoryToggleBtn"
-                  onclick="_macdToggleHistory()"
-                  title="查看近5次掃描各個股的C1~C6分數變化趨勢">
-            📈 歷史趨勢模式
-          </button>
-          <span style="font-size:0.52rem;color:var(--fg3);">每次掃描自動記錄 · 最多保留30筆 · 查看分數變化趨勢</span>
-        </div>
-        <div class="macd-history-panel" id="macdHistoryPanel">
-          <div class="macd-hist-header">
-            <div>
-              <div class="macd-hist-title">📈 C1~C6 分數歷史趨勢</div>
-              <div class="macd-hist-sub">點擊個股分數格可查看放大詳情 · 色深=分數高</div>
-            </div>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-              <span style="font-size:0.50rem;color:var(--fg3);" id="macdHistRecordCount">載入中…</span>
-              <button class="macd-hist-clear-btn" id="macdClearTodayBtn"
-                      onclick="_macdClearToday()" title="刪除今日所有掃描紀錄">
-                🗑️ 清空今日
-              </button>
-              <button class="macd-hist-save-btn" onclick="_macdSaveCurrentScan()"
-                      title="把今日掃描結果存入資料庫">
-                💾 儲存本次掃描
-              </button>
-            </div>
-          </div>
-          <!-- 🔀 歷史來源切換列（v6.97）-->
-          <div id="macdHistSourceRow" style="display:none;display:flex;gap:6px;padding:6px 0 2px;flex-wrap:wrap;">
-            <span style="font-size:0.56rem;color:var(--fg3);align-self:center;">顯示來源：</span>
-            <button class="macd-hist-source-btn active" id="histSrcAll" onclick="_macdHistSetSource('all')">全部</button>
-            <button class="macd-hist-source-btn" id="histSrcScan" onclick="_macdHistSetSource('scan')">板塊掃描</button>
-            <button class="macd-hist-source-btn" id="histSrcScreener" onclick="_macdHistSetSource('screener')">📊 海選矩陣</button>
-          </div>
-          <div class="macd-hist-grid" id="macdHistGrid">
-            <div style="padding:20px;text-align:center;color:var(--fg3);font-size:0.62rem;">
-              ⏳ 請先執行板塊掃描，再點擊「歷史趨勢模式」
-            </div>
-          </div>
-          <!-- ✅ 選項 C：Chart.js 趨勢折線圖容器（v6.97）-->
-          <div id="macdHistChartWrap" style="display:none;margin-top:12px;padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-              <div style="font-size:0.65rem;font-weight:800;color:var(--fg);">📈 MACD 分數趨勢折線圖（近5次掃描）</div>
-              <div style="display:flex;gap:5px;flex-wrap:wrap;" id="macdChartFilterRow"></div>
-            </div>
-            <div style="position:relative;height:260px;">
-              <canvas id="macdHistChart"></canvas>
-            </div>
-            <div style="font-size:0.52rem;color:var(--fg3);margin-top:5px;">每條折線代表一檔個股近5次掃描的 MACD 分數變化；滑鼠懸停可查看詳情</div>
-          </div>
-          <!-- ✅ 選項 H：分數分布直方圖容器（v6.97）-->
-          <div id="macdHistDistWrap" style="display:none;margin-top:8px;padding:10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-              <div style="font-size:0.65rem;font-weight:800;color:var(--fg);">📊 最新掃描分數分布</div>
-              <div style="font-size:0.50rem;color:var(--fg3);" id="macdDistDateLabel"></div>
-            </div>
-            <div style="position:relative;height:140px;">
-              <canvas id="macdHistDistChart"></canvas>
-            </div>
-            <div style="font-size:0.50rem;color:var(--fg3);margin-top:5px;">最新一次掃描各分數（0~6分）的個股分布數量</div>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /.macd-scan-wrap -->
-
+    
 
     <!-- 💹 績效回測模擬器 -->
     <div class="backtest-card" id="backtestCard" style="display:none;">
@@ -50334,21 +50359,49 @@ function renderWashDetect(closes, opens, highs, lows, vols, dates,
     const lastBonus = last3ok ? 0.2 : 0;
     const wallisScore = Math.min(100, Math.round((pairRatio * 0.55 + slopeBonus + lastBonus) * 100));
 
-    // Step 4：量能收縮（近5日平均 vs 近20日平均）
-    const vol5  = V.slice(-5).reduce((s,v)=>s+v,0)/5 || 1;
-    const vol20 = V.slice(-20).reduce((s,v)=>s+v,0)/20 || 1;
-    const volShrink = vol5 / vol20;  // < 0.75 = 明顯縮量
-
-    // Step 5：法人轉向（外資+投信近5日合計 vs 前5日合計）
+    // Step 4：燈2 法人方向（外資+投信近5日合計 vs 前5日合計）— 獨立維度：籌碼意圖
     const instR5  = (fSeries.slice(-5).reduce((s,v)=>s+v,0) + tSeries.slice(-5).reduce((s,v)=>s+v,0));
     const instR10 = (fSeries.slice(-10,-5).reduce((s,v)=>s+v,0) + tSeries.slice(-10,-5).reduce((s,v)=>s+v,0));
-    const instTurning = instR5 > instR10;  // 由賣轉買
+    const instNet5 = instR5;
+    const instTurning = instR5 > instR10;
 
-    // Step 6：三燈判斷
-    const l1ok = wallisScore >= 60;
-    const l2ok = volShrink < 0.80;
-    const l3ok = instTurning;
-    const litCount = [l1ok, l2ok, l3ok].filter(Boolean).length;
+    // Step 5：燈3 價格位置（現價 vs MA20）— 獨立維度：空間結構
+    const ma20 = C.slice(-20).reduce((s,v)=>s+v,0) / Math.min(20, C.length) || 1;
+    const priceAboveMa20 = C.at(-1) >= ma20;
+    const pricePosPct = ((C.at(-1) - ma20) / ma20 * 100);
+
+    // Step 6：燈4 大盤環境（加權指數近5日方向）— 獨立維度：系統性風險
+    // 用 window._twiiSeries 若有，否則用大盤代理（外資整體方向）
+    let marketOk = false, marketVal = '無資料';
+    if (window._twiiSeries && window._twiiSeries.length >= 6) {
+      const tw = window._twiiSeries;
+      const twRet5 = (tw.at(-1) - tw.at(-6)) / tw.at(-6) * 100;
+      marketOk = twRet5 > 0;
+      marketVal = (twRet5 >= 0 ? '+' : '') + twRet5.toFixed(1) + '%';
+    } else {
+      // 無大盤資料時，用外資整體近10日方向代理
+      const fTotal10 = fSeries.slice(-10).reduce((s,v)=>s+v,0);
+      marketOk = fTotal10 > 0;
+      marketVal = fTotal10 > 0 ? '外資買超' : '外資賣超';
+    }
+
+    // Step 7：燈5 籌碼連縮（量能連續收縮波數）— 獨立維度：時間累積
+    let volShrinkStreak = 0;
+    for (let i = V.length - 1; i >= 1; i--) {
+      if (V[i] < V[i-1]) volShrinkStreak++;
+      else break;
+    }
+    const vol5  = V.slice(-5).reduce((s,v)=>s+v,0)/5 || 1;
+    const vol20 = V.slice(-20).reduce((s,v)=>s+v,0)/20 || 1;
+    const volRatio = vol5 / vol20;
+
+    // Step 8：五燈判斷（五個獨立維度）
+    const l1ok = wallisScore >= 60;                          // 波動維度
+    const l2ok = instTurning;                                // 籌碼意圖維度
+    const l3ok = priceAboveMa20;                             // 空間結構維度
+    const l4ok = marketOk;                                   // 系統環境維度
+    const l5ok = volShrinkStreak >= 3 || volRatio < 0.75;   // 時間累積維度
+    const litCount = [l1ok, l2ok, l3ok, l4ok, l5ok].filter(Boolean).length;
 
     // 更新 UI
     const setEl = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
@@ -50358,17 +50411,22 @@ function renderWashDetect(closes, opens, highs, lows, vols, dates,
     document.getElementById('wallisFill').style.width = wallisScore + '%';
 
     const l1icon = l1ok ? '🟢' : wallisScore >= 35 ? '🟡' : '🔴';
-    const l2icon = l2ok ? '🟢' : volShrink < 0.95 ? '🟡' : '🔴';
-    const l3icon = l3ok ? '🟢' : '🔴';
+    const l2icon = l2ok ? '🟢' : instNet5 > -500 ? '🟡' : '🔴';
+    const l3icon = l3ok ? '🟢' : pricePosPct > -2 ? '🟡' : '🔴';
+    const l4icon = l4ok ? '🟢' : '🔴';
+    const l5icon = l5ok ? '🟢' : volShrinkStreak >= 1 ? '🟡' : '🔴';
+
     setTx('wallisL1Icon', l1icon); setTx('wallisL1Val', wallisScore + '%');
-    setTx('wallisL2Icon', l2icon); setTx('wallisL2Val', (volShrink*100).toFixed(0) + '%量比');
-    setTx('wallisL3Icon', l3icon); setTx('wallisL3Val', instTurning ? '轉買超' : '仍賣超');
+    setTx('wallisL2Icon', l2icon); setTx('wallisL2Val', instTurning ? '轉買超' : '仍賣超');
+    setTx('wallisL3Icon', l3icon); setTx('wallisL3Val', (pricePosPct>=0?'+':'') + pricePosPct.toFixed(1) + '%均線');
+    setTx('wallisL4Icon', l4icon); setTx('wallisL4Val', marketVal);
+    setTx('wallisL5Icon', l5icon); setTx('wallisL5Val', volShrinkStreak + '日連縮');
 
     // Badge
     const badge = document.getElementById('wallisBadge');
     if (badge) {
-      if (litCount === 3)      { badge.textContent='🚀 洗盤尾聲'; badge.style.background='rgba(16,185,129,.15)'; badge.style.color='#10b981'; }
-      else if (litCount === 2) { badge.textContent='⚡ 收斂中';   badge.style.background='rgba(234,179,8,.12)';  badge.style.color='#ca8a04'; }
+      if (litCount === 5)      { badge.textContent='🚀 洗盤尾聲'; badge.style.background='rgba(16,185,129,.15)'; badge.style.color='#10b981'; }
+      else if (litCount >= 3)  { badge.textContent='⚡ 收斂中';   badge.style.background='rgba(234,179,8,.12)';  badge.style.color='#ca8a04'; }
       else                     { badge.textContent='🌊 洗盤進行'; badge.style.background='rgba(100,116,139,.12)';badge.style.color='var(--fg3)'; }
     }
 
@@ -50406,11 +50464,11 @@ function renderWashDetect(closes, opens, highs, lows, vols, dates,
       }
     }
 
-    // ── 法人轉向提醒（第三燈剛從紅轉綠）────────────────────
+    // ── 法人轉向提醒（燈2剛從紅轉綠）────────────────────
     const prevInstKey = `wallis_inst_${(window._currentStockId||'x')}`;
     const prevInstState = sessionStorage.getItem(prevInstKey);
-    const instJustTurned = l3ok && prevInstState === 'sell';
-    sessionStorage.setItem(prevInstKey, l3ok ? 'buy' : 'sell');
+    const instJustTurned = l2ok && prevInstState === 'sell';
+    sessionStorage.setItem(prevInstKey, l2ok ? 'buy' : 'sell');
 
     // 結論
     const verdictEl = document.getElementById('wallisVerdict');
@@ -50420,33 +50478,33 @@ function renderWashDetect(closes, opens, highs, lows, vols, dates,
         ? `<div style="margin-bottom:8px;padding:8px 12px;background:linear-gradient(90deg,rgba(16,185,129,.15),rgba(16,185,129,.05));border:1.5px solid #10b981;border-radius:8px;display:flex;align-items:center;gap:8px;">
              <span style="font-size:1.2rem;">🚨</span>
              <div><b style="color:#10b981;">法人剛轉向買超！</b>
-             <span style="font-size:.62rem;color:var(--fg2);display:block;">第三燈今日由紅轉綠——這是洗盤進入尾聲的關鍵訊號，留意明後日啟動 K 棒。</span></div>
+             <span style="font-size:.62rem;color:var(--fg2);display:block;">燈2今日由紅轉綠——這是洗盤進入尾聲的關鍵訊號，留意明後日啟動 K 棒。</span></div>
            </div>` : '';
 
       // 波數提示
       const waveHint = remainWaves === 0
         ? `<div style="margin-top:7px;padding:6px 10px;background:rgba(16,185,129,.08);border-radius:6px;border-left:3px solid #10b981;font-size:.66rem;">
-             📐 振幅已趨近收斂閾值，<b>隨時可能啟動</b>——三燈全亮即可佈局
+             📐 振幅已趨近收斂閾值，<b>隨時可能啟動</b>——五燈全亮即可佈局
            </div>`
         : remainWaves !== null
         ? `<div style="margin-top:7px;padding:6px 10px;background:rgba(124,58,237,.08);border-radius:6px;border-left:3px solid #7c3aed;font-size:.66rem;">
              📐 依目前收斂速率，預估還需 <b>${remainWaves} 波</b>震盪才能完成洗盤<br>
-             <span style="color:var(--fg3);font-size:.58rem;">⚠️ 關鍵仍是三燈全亮，波數僅供參考</span>
+             <span style="color:var(--fg3);font-size:.58rem;">⚠️ 關鍵仍是五燈全亮，波數僅供參考</span>
            </div>` : '';
 
       // 主結論
       let txt = '';
-      if (litCount === 3) {
-        txt = `${instAlert}✅ <b>三燈全亮！</b>振幅收斂 ${waves.at(-1)?.amp||'—'}%，量縮，法人轉買。<br>
+      if (litCount === 5) {
+        txt = `${instAlert}✅ <b>五燈全亮！</b>振幅收斂 ${waves.at(-1)?.amp||'—'}%，法人轉買，均線上方，大盤順風，量能連縮。<br>
                🚀 洗盤尾聲——明確出現<b>量增長紅 K</b>時，即為啟動訊號。${waveHint}`;
-      } else if (litCount === 2) {
-        const missing = [!l1ok&&'振幅收斂不足',!l2ok&&'量能未萎縮',!l3ok&&'法人仍賣超'].filter(Boolean).join('、');
-        txt = `${instAlert}⚡ 收斂進行中，尚缺：<b>${missing}</b>。<br>
-               現在只有 2 燈亮，<b>法人還沒轉向就別急</b>——等第三燈從紅變綠的那天，才是啟動前夕。${waveHint}`;
+      } else if (litCount >= 3) {
+        const missing = [!l1ok&&'振幅收斂不足',!l2ok&&'法人仍賣超',!l3ok&&'均線下方',!l4ok&&'大盤逆風',!l5ok&&'量能未連縮'].filter(Boolean).join('、');
+        txt = `${instAlert}⚡ 收斂進行中（${litCount}/5 燈），尚缺：<b>${missing}</b>。<br>
+               條件逐步到位，<b>耐心等五燈全綠</b>再行動。${waveHint}`;
       } else {
         const trend = waves.length>=2 && waves.at(-1).amp < waves.at(-2).amp ? '開始縮小' : '仍在震盪';
-        txt = `${instAlert}🌊 洗盤進行中，近 ${waves.length} 波振幅${trend}。<br>
-               持續觀察三燈狀態，勿在震盪中追漲殺跌。${waveHint}`;
+        txt = `${instAlert}🌊 洗盤進行中（${litCount}/5 燈），近 ${waves.length} 波振幅${trend}。<br>
+               持續觀察五燈狀態，勿在震盪中追漲殺跌。${waveHint}`;
       }
       verdictEl.innerHTML = txt;
     }
@@ -57684,12 +57742,16 @@ function wallisSnapshot() {
   const l1Icon    = document.getElementById('wallisL1Icon')?.textContent?.trim() || '⬜';
   const l2Icon    = document.getElementById('wallisL2Icon')?.textContent?.trim() || '⬜';
   const l3Icon    = document.getElementById('wallisL3Icon')?.textContent?.trim() || '⬜';
+  const l4Icon    = document.getElementById('wallisL4Icon')?.textContent?.trim() || '⬜';
+  const l5Icon    = document.getElementById('wallisL5Icon')?.textContent?.trim() || '⬜';
   const l1Val     = document.getElementById('wallisL1Val')?.textContent?.trim() || '—';
   const l2Val     = document.getElementById('wallisL2Val')?.textContent?.trim() || '—';
   const l3Val     = document.getElementById('wallisL3Val')?.textContent?.trim() || '—';
+  const l4Val     = document.getElementById('wallisL4Val')?.textContent?.trim() || '—';
+  const l5Val     = document.getElementById('wallisL5Val')?.textContent?.trim() || '—';
   const badge     = document.getElementById('wallisBadge')?.textContent?.trim() || '—';
   const verdict   = (document.getElementById('wallisVerdict')?.textContent || '').replace(/\s+/g,' ').trim().slice(0,80);
-  const greenCount = [l1Icon,l2Icon,l3Icon].filter(i=>i==='🟢').length;
+  const greenCount = [l1Icon,l2Icon,l3Icon,l4Icon,l5Icon].filter(i=>i==='🟢').length;
 
   const now = new Date();
   const pad = n => String(n).padStart(2,'0');
@@ -57699,6 +57761,7 @@ function wallisSnapshot() {
     time: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
     stockId, stockName, score,
     l1: l1Icon, l1Val, l2: l2Icon, l2Val, l3: l3Icon, l3Val,
+    l4: l4Icon, l4Val, l5: l5Icon, l5Val,
     greenCount, badge, verdict, nextDayPct: ''
   };
 
@@ -62472,6 +62535,76 @@ function _etfHunterChecklist(ev, isKick, days) {
 }
 
 /* ── 新增表單控制 ── */
+function etfCalTogglePaste() {
+  const panel = document.getElementById('etfCalPastePanel');
+  if (!panel) return;
+  const isShow = panel.style.display !== 'none';
+  panel.style.display = isShow ? 'none' : 'block';
+  if (!isShow) {
+    document.getElementById('etfCalPasteText').value = '';
+    document.getElementById('etfCalParseResult').textContent = '';
+  }
+}
+
+function etfCalParseAnnouncement() {
+  const text = (document.getElementById('etfCalPasteText')?.value || '').trim();
+  const result = document.getElementById('etfCalParseResult');
+  if (!text) { result.textContent = '請先貼入公告文字。'; return; }
+
+  // 解析ETF代號
+  const etfMatch = text.match(/(\d{5}[A-Z]?)[（(]?([^）)，,\s]{2,10})?[）)]?/);
+  const etfId = etfMatch ? etfMatch[1] : '';
+
+  // 解析股票（納入/剔除）
+  const entries = [];
+  const addRe  = /納入[：:、\s]*([^\n，,；;。]+)/g;
+  const delRe  = /剔除[：:、\s]*([^\n，,；;。]+)/g;
+  let m;
+  while ((m = addRe.exec(text)) !== null) {
+    const stocks = [...m[1].matchAll(/([^\d\s（(]+)[（(]?(\d{4}[A-Z]?)[）)]?/g)];
+    stocks.forEach(s => entries.push({ name: s[1].trim(), id: s[2], action: '納入' }));
+  }
+  while ((m = delRe.exec(text)) !== null) {
+    const stocks = [...m[1].matchAll(/([^\d\s（(]+)[（(]?(\d{4}[A-Z]?)[）)]?/g)];
+    stocks.forEach(s => entries.push({ name: s[1].trim(), id: s[2], action: '踢出' }));
+  }
+
+  // 解析日期（民國或西元）
+  let announceDate = '', effectiveDate = '';
+  const rocRe = /(\d{3})年\s*(\d{1,2})月\s*(\d{1,2})日/g;
+  const adRe  = /(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/g;
+  const dates = [];
+  while ((m = rocRe.exec(text)) !== null)
+    dates.push(`${+m[1]+1911}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`);
+  while ((m = adRe.exec(text)) !== null)
+    dates.push(`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`);
+  if (dates[0]) announceDate = dates[0];
+  if (dates[1]) effectiveDate = dates[1];
+  else if (dates[0]) effectiveDate = dates[0];
+
+  if (entries.length === 0) {
+    result.innerHTML = '⚠️ 未偵測到納入/剔除股票，請確認公告含「納入」「剔除」關鍵字。';
+    return;
+  }
+
+  // 填入第一筆，顯示其餘
+  const first = entries[0];
+  document.getElementById('ecfEtfId').value    = etfId;
+  document.getElementById('ecfStockId').value  = first.id || '';
+  document.getElementById('ecfStockName').value = first.name || '';
+  document.getElementById('ecfAction').value   = first.action;
+  if (announceDate)  document.getElementById('ecfAnnounce').value  = announceDate;
+  if (effectiveDate) document.getElementById('ecfEffective').value = effectiveDate;
+
+  // 開啟表單
+  const form = document.getElementById('etfCalForm');
+  if (form && !form.classList.contains('show')) form.classList.add('show');
+
+  const extra = entries.slice(1).map(e => `${e.action} ${e.name}(${e.id})`).join('、');
+  result.innerHTML = `✅ 解析完成，已填入 <b>${first.action} ${first.name}(${first.id})</b>。`
+    + (extra ? `<br>其餘：${extra}（請手動新增）` : '');
+}
+
 function etfCalToggleForm() {
   const form = document.getElementById('etfCalForm');
   if (!form) return;
