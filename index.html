@@ -18103,8 +18103,8 @@ a.module-nav-item.acc-active {
         </div>
 
         <!-- MACD -->
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">📊 大盤 MACD</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;cursor:pointer;" onclick="twseToggleChart('macd')" title="點擊查看MACD柱狀圖">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">📊 大盤 MACD <span style="font-size:.5rem;opacity:.6;">▼ 點擊看圖</span></div>
           <div style="font-size:.72rem;font-weight:700;" id="twseMacdStatus">—</div>
           <div style="font-size:.6rem;color:var(--fg3);margin-top:4px;">
             DIF <span id="twseDif" style="font-weight:700;color:var(--fg);">—</span> ·
@@ -18114,8 +18114,8 @@ a.module-nav-item.acc-active {
         </div>
 
         <!-- KD -->
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🎯 大盤 KD</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;cursor:pointer;" onclick="twseToggleChart('kd')" title="點擊查看KD線圖">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🎯 大盤 KD <span style="font-size:.5rem;opacity:.6;">▼ 點擊看圖</span></div>
           <div style="font-size:.72rem;font-weight:700;" id="twseKdStatus">—</div>
           <div style="font-size:.6rem;color:var(--fg3);margin-top:4px;">
             K <span id="twseK" style="font-weight:700;color:var(--fg);">—</span> ·
@@ -18125,11 +18125,19 @@ a.module-nav-item.acc-active {
         </div>
       </div>
 
+      <!-- 圖表展開區 -->
+      <div id="twseChartArea" style="display:none;margin-bottom:10px;background:var(--bg2);border-radius:10px;padding:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span id="twseChartTitle" style="font-size:.65rem;font-weight:800;color:var(--fg);">—</span>
+          <button onclick="twseToggleChart(null)" style="font-size:.58rem;background:none;border:none;cursor:pointer;color:var(--fg3);">✕ 關閉</button>
+        </div>
+        <canvas id="twseChart" height="120" style="width:100%;display:block;"></canvas>
+      </div>
 
       <!-- 法人籌碼（台積電代理）-->
-      <div style="background:var(--bg2);border-radius:10px;padding:8px 12px;margin-bottom:8px;">
+      <div style="background:var(--bg2);border-radius:10px;padding:8px 12px;margin-bottom:8px;cursor:pointer;" onclick="twseToggleChart('inst')" title="點擊查看法人籌碼圖">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-          <span style="font-size:.62rem;color:var(--fg3);font-weight:700;">🏦 大盤法人籌碼（近5日）</span>
+          <span style="font-size:.62rem;color:var(--fg3);font-weight:700;">🏦 大盤法人籌碼（近5日）<span style="font-size:.5rem;opacity:.6;">▼ 點擊看圖</span></span>
           <span style="font-size:.55rem;padding:2px 6px;background:rgba(234,179,8,.15);color:#ca8a04;border-radius:10px;border:1px solid rgba(234,179,8,.3);">⚠️ 以台積電(2330)代理——台積電佔加權指數逾30%，外資買賣台積電近似買賣大盤</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:.68rem;text-align:center;">
@@ -61436,6 +61444,7 @@ async function fetchTWSEIndex() {
     setHtml('twseVerdict', verdictTxt);
     _twseIndexCache = { closes, kd, dif, macdLine, osc };
     window._twiiSeries = closes;
+    window._twseChartData = { osc, dif, macdLine, kd, rows };
 
     // 台積電法人代理（免token公開資料）
     try {
@@ -61444,6 +61453,7 @@ async function fetchTWSEIndex() {
       );
       const instJson = await instRes.json();
       const instRows = (instJson.data || []).sort((a,b) => a.date > b.date ? 1 : -1);
+      _twseInstRows = instRows;
       const last5dates = [...new Set(instRows.map(r=>r.date))].slice(-5);
       const filter5 = instRows.filter(r => last5dates.includes(r.date));
       const sum = (name) => filter5.filter(r=>r.name===name).reduce((s,r)=>s+(+r.buy - +r.sell),0);
@@ -61461,6 +61471,126 @@ async function fetchTWSEIndex() {
 
   } catch(e) {
     document.getElementById('twseVerdict').textContent = '載入失敗：' + e.message;
+  }
+}
+
+let _twseCurrentChart = null;
+let _twseInstRows = [];
+
+function twseToggleChart(type) {
+  const area = document.getElementById('twseChartArea');
+  const canvas = document.getElementById('twseChart');
+  const title = document.getElementById('twseChartTitle');
+  if (!area || !canvas) return;
+
+  if (!type || _twseCurrentChart === type) {
+    area.style.display = 'none';
+    _twseCurrentChart = null;
+    return;
+  }
+  _twseCurrentChart = type;
+  area.style.display = 'block';
+
+  const d = window._twseChartData;
+  if (!d) { title.textContent = '請先按更新載入資料'; return; }
+
+  const W = canvas.offsetWidth || 600;
+  const H = 120;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const fgColor = isDark ? '#94a3b8' : '#64748b';
+  const gridColor = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
+
+  if (type === 'macd') {
+    title.textContent = '大盤 MACD 柱狀圖（近60日 OSC）';
+    const data = d.osc.slice(-40);
+    const max = Math.max(...data.map(Math.abs), 1);
+    const pad = 8, bw = (W - pad*2) / data.length;
+    const mid = H / 2;
+    // 零軸
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, mid); ctx.lineTo(W-pad, mid); ctx.stroke();
+    data.forEach((v, i) => {
+      const x = pad + i * bw;
+      const h = Math.abs(v) / max * (H/2 - 4);
+      ctx.fillStyle = v >= 0 ? '#dc2626' : '#059669';
+      ctx.fillRect(x+1, v >= 0 ? mid-h : mid, bw-2, h);
+    });
+    // DIF/MACD線
+    [d.dif.slice(-40), d.macdLine.slice(-40)].forEach((arr, li) => {
+      ctx.strokeStyle = li === 0 ? '#f59e0b' : '#6366f1';
+      ctx.lineWidth = 1.5; ctx.beginPath();
+      arr.forEach((v, i) => {
+        const x = pad + i * bw + bw/2;
+        const y = mid - v / max * (H/2 - 4);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    });
+    // 圖例
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = '#f59e0b'; ctx.fillText('DIF', W-50, 12);
+    ctx.fillStyle = '#6366f1'; ctx.fillText('MACD', W-50, 22);
+
+  } else if (type === 'kd') {
+    title.textContent = '大盤 KD 線圖（近60日）';
+    const kArr = d.kd.slice(-40).map(x => x.K);
+    const dArr = d.kd.slice(-40).map(x => x.D);
+    const pad = 8, bw = (W - pad*2) / kArr.length;
+    // 超買超賣線
+    [80, 20].forEach(lvl => {
+      const y = H - (lvl / 100) * (H - pad*2) - pad;
+      ctx.strokeStyle = gridColor; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W-pad, y); ctx.stroke();
+      ctx.fillStyle = fgColor; ctx.font = '8px sans-serif';
+      ctx.fillText(lvl, 0, y+3);
+    });
+    ctx.setLineDash([]);
+    [kArr, dArr].forEach((arr, li) => {
+      ctx.strokeStyle = li === 0 ? '#f59e0b' : '#3b82f6';
+      ctx.lineWidth = 1.8; ctx.beginPath();
+      arr.forEach((v, i) => {
+        const x = pad + i * bw + bw/2;
+        const y = H - (v / 100) * (H - pad*2) - pad;
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    });
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = '#f59e0b'; ctx.fillText('K', W-30, 12);
+    ctx.fillStyle = '#3b82f6'; ctx.fillText('D', W-30, 22);
+
+  } else if (type === 'inst') {
+    title.textContent = '台積電法人籌碼（近20日，代理大盤）';
+    const rows = _twseInstRows;
+    if (!rows.length) { title.textContent += '（無資料）'; return; }
+    const dates = [...new Set(rows.map(r=>r.date))].slice(-20);
+    const getNet = (date, name) => {
+      const r = rows.find(x=>x.date===date && x.name===name);
+      return r ? (+r.buy - +r.sell) : 0;
+    };
+    const fArr = dates.map(d => getNet(d, 'Foreign_Investor'));
+    const tArr = dates.map(d => getNet(d, 'Investment_Trust'));
+    const max = Math.max(...[...fArr,...tArr].map(Math.abs), 1);
+    const pad = 8, bw = (W - pad*2) / dates.length / 2;
+    const mid = H / 2;
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad, mid); ctx.lineTo(W-pad, mid); ctx.stroke();
+    dates.forEach((date, i) => {
+      const x = pad + i * (bw*2 + 2);
+      [fArr[i], tArr[i]].forEach((v, j) => {
+        const h = Math.abs(v) / max * (H/2 - 6);
+        ctx.fillStyle = j===0 ? (v>=0?'#dc2626':'#059669') : (v>=0?'#f97316':'#06b6d4');
+        ctx.fillRect(x + j*(bw+1), v>=0 ? mid-h : mid, bw, h);
+      });
+    });
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = '#dc2626'; ctx.fillText('外資', W-60, 12);
+    ctx.fillStyle = '#f97316'; ctx.fillText('投信', W-60, 22);
   }
 }
 
