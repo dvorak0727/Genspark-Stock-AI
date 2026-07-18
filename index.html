@@ -41926,6 +41926,35 @@ function renderExitTracker(hist, close) {
     s2Msg = 'K 棒高低點資料不足，無法計算中關';
   }
 
+  // ── 策略三：法人籌碼（外資＋投信近3日合計）──
+  const fS = d.fSeries || [];
+  const tS = d.tSeries || [];
+  const instNet3 = fS.slice(-3).reduce((s,v)=>s+v,0) + tS.slice(-3).reduce((s,v)=>s+v,0);
+  const instNet5r = fS.slice(-5).reduce((s,v)=>s+v,0) + tS.slice(-5).reduce((s,v)=>s+v,0);
+
+  let s3Msg, s3Color, s3Bg, s3Border, s3Icon, s3State;
+  if (fS.length === 0) {
+    s3State = 'nodata'; s3Icon = '⚪';
+    s3Msg = '法人籌碼資料不足';
+    s3Color='#64748b'; s3Bg='rgba(100,116,139,0.10)'; s3Border='rgba(100,116,139,0.25)';
+  } else if (instNet3 < -10) {
+    s3State = 'sell_heavy'; s3Icon = '🔴';
+    s3Msg = `外資+投信近3日合計 ${instNet3.toFixed(0)}張 · 法人大量出走 → 出場壓力高`;
+    s3Color='#991B1B'; s3Bg='#FEE2E2'; s3Border='#FCA5A5';
+  } else if (instNet3 < -2) {
+    s3State = 'sell_light'; s3Icon = '🟡';
+    s3Msg = `外資+投信近3日合計 ${instNet3.toFixed(0)}張 · 法人小幅賣超 · 留意`;
+    s3Color='#92400E'; s3Bg='#FEF3C7'; s3Border='#F59E0B';
+  } else if (instNet5r < -5) {
+    s3State = 'sell_5d'; s3Icon = '🟡';
+    s3Msg = `近3日小賣但近5日合計 ${instNet5r.toFixed(0)}張 · 中期偏空 · 警戒`;
+    s3Color='#92400E'; s3Bg='#FEF3C7'; s3Border='#F59E0B';
+  } else {
+    s3State = 'hold'; s3Icon = '🟢';
+    s3Msg = `外資+投信近3日合計 ${instNet3.toFixed(0)>=0?'+':''}${instNet3.toFixed(0)}張 · 法人持續進場 · 可續抱`;
+    s3Color='#065F46'; s3Bg='#D1FAE5'; s3Border='#6EE7B7';
+  }
+
   // ── 時間警示（09:00~09:15 觀察期）──
   const now    = new Date();
   const hhmm   = now.getHours() * 100 + now.getMinutes();
@@ -41948,19 +41977,30 @@ function renderExitTracker(hist, close) {
        </div>`
     : '';
 
-  // ── 綜合燈號 ──
-  const isRed    = ['contract2','near_zero'].includes(s1State) || s2Icon === '🔴';
-  const isYellow = (s1State === 'contract1') && s2Icon !== '🔴';
-  const isGreen  = (s1State === 'expand')    && s2Icon === '🟢';
+  // ── 綜合燈號（三策略聯合）──
+  const s1Red  = ['contract2','near_zero'].includes(s1State);
+  const s2Red  = s2Icon === '🔴';
+  const s3Red  = ['sell_heavy'].includes(s3State);
+  const s1Yel  = s1State === 'contract1';
+  const s3Yel  = ['sell_light','sell_5d'].includes(s3State);
+
+  // 雙紅（MACD＋法人 or MACD＋中關）→ 立刻全出
+  const dualRed = (s1Red && s3Red) || (s1Red && s2Red) || (s2Red && s3Red);
+  const anyRed  = s1Red || s2Red || s3Red;
+  const anyYel  = s1Yel || s3Yel;
+
   let overallIcon, overallText, overallBg, overallColor, overallBorder;
-  if (isRed) {
-    overallIcon = '🔴'; overallText = '出場紀律觸發 · 執行出場';
+  if (dualRed) {
+    overallIcon = '🚨'; overallText = '雙重出場訊號！MACD+中關/法人同時觸發 → 立刻全出';
     overallBg = '#FEE2E2'; overallColor = '#991B1B'; overallBorder = '#FCA5A5';
-  } else if (isYellow) {
+  } else if (anyRed) {
+    overallIcon = '🔴'; overallText = '出場紀律觸發 · 執行出場計畫';
+    overallBg = '#FEE2E2'; overallColor = '#991B1B'; overallBorder = '#FCA5A5';
+  } else if (anyYel) {
     overallIcon = '🟡'; overallText = '警戒 · 出 1/3，其餘繼續守';
     overallBg = '#FEF3C7'; overallColor = '#92400E'; overallBorder = '#F59E0B';
-  } else if (isGreen) {
-    overallIcon = '🟢'; overallText = '全倉續抱 · 動能健康，不准早賣';
+  } else if (s1State === 'expand' && s2Icon === '🟢' && s3State === 'hold') {
+    overallIcon = '🟢'; overallText = '三策略全綠 · 全倉續抱，不准早賣';
     overallBg = '#D1FAE5'; overallColor = '#065F46'; overallBorder = '#6EE7B7';
   } else {
     overallIcon = '⚪'; overallText = '觀望 · 尚未進入出場追蹤模式';
@@ -42019,6 +42059,22 @@ function renderExitTracker(hist, close) {
         📌 今日盤中守住線：<b style="color:var(--fg1,#0F172A);font-size:0.68rem;">${s2GateStr} 元</b>
         &nbsp;·&nbsp; 跌破此價請自行在盤中執行出場
       </div>` : ''}
+    </div>
+
+    <!-- 策略三：法人籌碼 -->
+    <div style="margin-bottom:6px;">
+      <div style="font-size:0.60rem;color:var(--fg2);margin-bottom:3px;font-weight:700;">
+        策略三 · 法人籌碼（外資＋投信近3日）
+      </div>
+      <div style="
+        display:inline-flex;align-items:flex-start;gap:5px;
+        padding:4px 9px;border-radius:8px;
+        background:${s3Bg};border:1px solid ${s3Border};
+        font-size:0.62rem;color:${s3Color};font-weight:700;line-height:1.5;
+        white-space:normal;
+      ">
+        ${s3Icon} ${s3Msg}
+      </div>
     </div>
 
     <!-- 時間警示 -->
