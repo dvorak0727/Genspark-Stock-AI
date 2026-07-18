@@ -93,8 +93,12 @@ button{cursor:pointer;border:none;font-family:inherit;}
 
 /* Stock table */
 .stock-table-wrap{background:linear-gradient(145deg,#0f1e33,#0a1525);border:1px solid #1e3a5f;border-radius:10px;overflow:hidden;}
-.stock-table-hdr{display:grid;grid-template-columns:60px 1fr 70px 60px 90px 80px;gap:4px;padding:7px 12px;background:#0a1525;font-size:.62rem;color:#64748b;letter-spacing:1px;text-transform:uppercase;}
-.stock-row{display:grid;grid-template-columns:60px 1fr 70px 60px 90px 80px;gap:4px;padding:9px 12px;border-bottom:1px solid #1e3a5f;align-items:center;transition:background .15s;}
+.stock-table-hdr{display:grid;grid-template-columns:1fr 1fr;background:#0a1525;font-size:.62rem;color:#64748b;letter-spacing:1px;text-transform:uppercase;}
+.stock-table-hdr-half{display:grid;grid-template-columns:50px 1fr 62px 52px 84px 68px;gap:4px;padding:7px 8px;}
+.stock-table-hdr-half:last-child{border-left:1px solid #1e3a5f;}
+#stockRows{display:grid;grid-template-columns:1fr 1fr;}
+.stock-col-r{border-left:1px solid #1e3a5f;}
+.stock-row{display:grid;grid-template-columns:50px 1fr 62px 52px 84px 68px;gap:4px;padding:8px 8px;border-bottom:1px solid #1e3a5f;align-items:center;transition:background .15s;}
 .stock-row:last-child{border-bottom:none;}
 .stock-row:hover{background:rgba(30,58,95,.3);}
 .stock-row.selected{background:rgba(29,78,216,.15);border-left:3px solid #1d4ed8;}
@@ -197,7 +201,10 @@ button{cursor:pointer;border:none;font-family:inherit;}
 @media(max-width:700px){
   .trade-body{grid-template-columns:1fr;}
   .trade-right{order:-1;}
-  .stock-table-hdr,.stock-row{grid-template-columns:55px 1fr 65px 55px 75px 70px;}
+  #stockRows{grid-template-columns:1fr;}
+  .stock-col-r{border-left:none;border-top:1px solid #1e3a5f;}
+  .stock-table-hdr-half:last-child{display:none;}
+  .stock-table-hdr-half,.stock-row{grid-template-columns:50px 1fr 62px 52px 84px 68px;}
   .sector-hint,.sector-heatmap{grid-template-columns:repeat(3,1fr);}
   .wave-row{grid-template-columns:1fr 1fr;}
 }
@@ -301,7 +308,8 @@ button{cursor:pointer;border:none;font-family:inherit;}
       <!-- Stock table -->
       <div class="stock-table-wrap">
         <div class="stock-table-hdr">
-          <span>代號</span><span>股票</span><span>現價</span><span>漲跌</span><span>週期訊號</span><span>操作</span>
+          <div class="stock-table-hdr-half"><span>代號</span><span>股票</span><span>現價</span><span>漲跌</span><span>週期訊號</span><span>操作</span></div>
+          <div class="stock-table-hdr-half"><span>代號</span><span>股票</span><span>現價</span><span>漲跌</span><span>週期訊號</span><span>操作</span></div>
         </div>
         <div id="stockRows"></div>
       </div>
@@ -971,9 +979,8 @@ function renderTradingDay() {
     </div>`;
   }).join('');
 
-  // Stock rows
-  const rowsEl = document.getElementById('stockRows');
-  rowsEl.innerHTML = G.stocks.map((s, si) => {
+  // Stock rows (2-column layout)
+  function buildStockRowHtml(s, si, d) {
     const price = s.prices[d];
     const prevP = d > 0 ? s.prices[d-1] : price;
     const chg = (price - prevP) / prevP;
@@ -1004,7 +1011,12 @@ function renderTradingDay() {
         ${hasSell ? `<button class="btn-sell" onclick="openModal('${s.id}','sell')">賣出</button>` : ''}
       </div>
     </div>`;
-  }).join('');
+  }
+  const rowsEl = document.getElementById('stockRows');
+  const half = Math.ceil(G.stocks.length / 2);
+  const leftHtml = G.stocks.slice(0, half).map((s, i) => buildStockRowHtml(s, i, d)).join('');
+  const rightHtml = G.stocks.slice(half).map((s, i) => buildStockRowHtml(s, half + i, d)).join('');
+  rowsEl.innerHTML = `<div class="stock-col-l">${leftHtml}</div><div class="stock-col-r">${rightHtml}</div>`;
 
   // Portfolio
   renderPortfolio();
