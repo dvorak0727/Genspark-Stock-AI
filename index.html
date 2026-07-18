@@ -42807,8 +42807,9 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
             curY += 50;
           }
 
-          // 三欄
+          // 三欄（÷1000 → 張，標籤置中，數值右對齊）
           const col3W = (W - 132) / 3;
+          const fmt張 = v => (v >= 0 ? '+' : '') + Math.round(v / 1000) + '張';
           [
             { label: '外資5日', val: instData.fNet5, color: '#1d4ed8' },
             { label: '投信5日', val: instData.tNet5, color: '#059669' },
@@ -42819,41 +42820,63 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
             roundRect(ctx, gx, curY, col3W, 152, 14); ctx.fill();
             ctx.strokeStyle = accentDim; ctx.lineWidth = 1.5;
             roundRect(ctx, gx, curY, col3W, 152, 14); ctx.stroke();
+            // 標籤：左對齊
             ctx.fillStyle = '#64748b'; ctx.font = '33px sans-serif';
+            ctx.textAlign = 'left';
             ctx.fillText(col.label, gx + 18, curY + 46);
-            ctx.fillStyle = col.color; ctx.font = 'bold 58px sans-serif';
-            ctx.fillText((col.val >= 0 ? '+' : '') + Math.round(col.val), gx + 18, curY + 126);
+            // 數值：右對齊
+            ctx.fillStyle = col.color; ctx.font = 'bold 54px sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(fmt張(col.val), gx + col3W - 18, curY + 126);
           });
+          ctx.textAlign = 'left';
           curY += 172;
 
-          // 合計
+          // 合計（÷1000 → 張）
           ctx.fillStyle = instData.sumNet5 >= 0 ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.10)';
           roundRect(ctx, 56, curY, W-112, 100, 14); ctx.fill();
           ctx.fillStyle = instData.sumNet5 >= 0 ? '#15803d' : '#dc2626';
           ctx.font = 'bold 48px sans-serif';
-          ctx.fillText(`合計5日  ${instData.sumNet5 >= 0 ? '+' : ''}${Math.round(instData.sumNet5)}張`, 56+24, curY + 68);
+          ctx.fillText(`合計5日  ${fmt張(instData.sumNet5)}`, 56+24, curY + 68);
           curY += 120;
 
-          // 日期明細表
-          const cws = [170, (W-252)/4, (W-252)/4, (W-252)/4, (W-252)/4];
-          const tblCols = ['日期','外資','投信','自營','合計'];
+          // 日期明細表（÷1000 → 張，數字欄右對齊）
+          const dateColW = 180;
+          const numColW  = (W - 112 - dateColW) / 4;
+          const tblCols  = ['日期','外資','投信','自營','合計'];
+          const colXs    = [
+            56 + 14,                        // 日期：左對齊起點
+            56 + dateColW + numColW * 0,    // 外資右邊界
+            56 + dateColW + numColW * 1,
+            56 + dateColW + numColW * 2,
+            56 + dateColW + numColW * 3,
+          ];
+          // 表頭
           ctx.fillStyle = 'rgba(30,58,95,0.14)';
           roundRect(ctx, 56, curY, W-112, 66, 8); ctx.fill();
           ctx.fillStyle = '#475569'; ctx.font = 'bold 32px sans-serif';
-          let hx = 56 + 14; tblCols.forEach((c,ci) => { ctx.fillText(c, hx, curY+46); hx += cws[ci]; });
+          ctx.textAlign = 'left';  ctx.fillText(tblCols[0], colXs[0], curY+46);
+          ctx.textAlign = 'right';
+          [1,2,3,4].forEach(ci => ctx.fillText(tblCols[ci], colXs[ci] + numColW - 14, curY+46));
+          ctx.textAlign = 'left';
           curY += 66;
+
           instData.rows.slice(0, 8).forEach((row, ri) => {
             ctx.fillStyle = ri%2===0 ? 'rgba(255,255,255,0.65)' : 'rgba(248,250,252,0.5)';
             roundRect(ctx, 56, curY, W-112, 66, 0); ctx.fill();
-            let rx = 56 + 14;
+            // 日期：左對齊
             ctx.fillStyle = '#475569'; ctx.font = '32px sans-serif';
-            ctx.fillText(row.date, rx, curY+46); rx += cws[0];
+            ctx.textAlign = 'left';
+            ctx.fillText(row.date, colXs[0], curY+46);
+            // 數值：右對齊 + ÷1000
+            ctx.textAlign = 'right';
             [row.f, row.t, row.dv, row.sum].forEach((v, ci) => {
+              const張 = Math.round(v / 1000);
               ctx.fillStyle = v > 0 ? '#dc2626' : v < 0 ? '#16a34a' : '#94a3b8';
               ctx.font = 'bold 32px sans-serif';
-              ctx.fillText((v >= 0 ? '+' : '') + Math.round(v), rx, curY+46);
-              rx += cws[ci+1];
+              ctx.fillText((張 >= 0 ? '+' : '') + 張, colXs[ci+1] + numColW - 14, curY+46);
             });
+            ctx.textAlign = 'left';
             curY += 66;
           });
         }
