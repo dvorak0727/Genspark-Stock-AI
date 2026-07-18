@@ -42487,6 +42487,7 @@ function _getPositionStatus(sid) {
 
 // ── 🎬 輪播圖選取 / 匯出 ──────────────────────────────────────
 function _toggleReel(sid) {
+  if (!isAdmin()) { if (typeof showEpicToast==='function') showEpicToast('🔒 輪播匯出限管理者使用', '#dc2626'); return; }
   if (_reelSelected.has(sid)) _reelSelected.delete(sid);
   else _reelSelected.add(sid);
   // 更新按鈕外觀
@@ -42514,6 +42515,7 @@ function _updateReelFloat() {
 }
 
 async function exportReelCards() {
+  if (!isAdmin()) { if (typeof showEpicToast==='function') showEpicToast('🔒 輪播匯出限管理者使用', '#dc2626'); return; }
   const toExport = _screenerResults.filter(r => _reelSelected.has(r.stockId));
   if (!toExport.length) return;
   if (typeof showEpicToast === 'function') showEpicToast('🎨 製作中，請稍候…', '#d97706');
@@ -57200,12 +57202,12 @@ function renderScreenerCards(showStats=false) {
       <div class="sc-quick-panel" id="scqp-${r.stockId}"></div>
       <!-- ✨ v7.09 持倉 Toggle 按鈕（Bug#2 fix: data-name 屬性替代 onclick 字串拼接）-->
       <div style="margin-top:5px;text-align:right;display:flex;gap:4px;justify-content:flex-end;align-items:center;">
-        <button id="reel-btn-${r.stockId}"
+        ${ isAdmin() ? `<button id="reel-btn-${r.stockId}"
           class="sc-reel-btn${_reelSelected.has(r.stockId)?' sel':''}"
           onclick="_toggleReel('${r.stockId}')"
           title="加入短影音輪播">
           ${ _reelSelected.has(r.stockId) ? '🎬 已選' : '🎬 輪播' }
-        </button>
+        </button>` : '' }
         <button id="pos-btn-${r.stockId}"
           onclick="_togglePosition(this.dataset.sid, this.dataset.name)"
           data-sid="${r.stockId}"
@@ -58402,6 +58404,12 @@ function isVIP() {
     if (!d || !d.activated || !d.expiry) return false;
     if (d.tier === 'admin') return true; // 管理人永久通過，不看到期日
     return d.expiry >= new Date().toISOString().slice(0,10);
+  } catch { return false; }
+}
+function isAdmin() {
+  try {
+    const d = JSON.parse(localStorage.getItem(VIP_KEY)||'null');
+    return !!(d && d.tier === 'admin');
   } catch { return false; }
 }
 
