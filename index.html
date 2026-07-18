@@ -5051,6 +5051,35 @@
     .sc-bias-badge.over  { background: #FFF7ED; color: #C2410C; border: 1px solid #FED7AA; } /* 正乖離>8% 偏熱 */
     .sc-bias-badge.under { background: #ECFDF5; color: #065F46; border: 1px solid #6EE7B7; } /* 負乖離<-5% 低吸帶 */
     .sc-bias-badge.mid   { background: var(--surface2); color: var(--fg3); border: 1px solid var(--border); }
+    /* ── 輪播圖選取按鈕 ── */
+    .sc-reel-btn {
+      padding: 2px 8px; font-size: 0.58rem; border-radius: 5px; cursor: pointer;
+      border: 1px solid rgba(251,191,36,0.4);
+      background: rgba(251,191,36,0.08); color: #d97706; font-weight: 700;
+      margin-right: 4px; transition: background .15s, color .15s;
+    }
+    .sc-reel-btn.sel {
+      background: rgba(251,191,36,0.25); color: #92400e;
+      border-color: #f59e0b;
+    }
+    @media(prefers-color-scheme:dark){ .sc-reel-btn.sel { color:#fcd34d; background: rgba(251,191,36,0.22); } }
+    /* ── 浮動匯出按鈕 ── */
+    #reelExportFloat {
+      position: fixed; bottom: 80px; right: 14px; z-index: 9998;
+      display: none; flex-direction: column; align-items: flex-end; gap: 6px;
+    }
+    #reelExportFloat.show { display: flex; }
+    .reel-float-btn {
+      background: linear-gradient(135deg,#f59e0b,#d97706);
+      color: #fff; font-weight: 800; font-size: 0.78rem;
+      padding: 10px 16px; border-radius: 22px; border: none; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(217,119,6,0.45);
+      white-space: nowrap;
+    }
+    .reel-float-clear {
+      background: rgba(0,0,0,0.55); color: #fde68a; font-size: 0.65rem;
+      padding: 4px 10px; border-radius: 12px; border: none; cursor: pointer;
+    }
     /* ════════════════════════════════════════════════
        v5.72 模式說明面板（Mode Guide Panel）
        點 ❓ 從下方滑入，白話解釋當前海選模式
@@ -15898,6 +15927,12 @@ a.module-nav-item.acc-active {
 
   </div><!-- /.screener-inner -->
 </div><!-- /.screener-section -->
+
+<!-- 🎬 輪播圖浮動匯出按鈕 -->
+<div id="reelExportFloat">
+  <button class="reel-float-clear" onclick="_reelClearAll()">✕ 取消全選</button>
+  <button class="reel-float-btn" onclick="exportReelCards()">📦 匯出 <span id="reelCount">0</span> 張 PNG</button>
+</div>
 
 <!-- ═══════════════════════════════════════════════════════
      📊 回測統計 Modal  (v5.54)
@@ -42449,6 +42484,230 @@ function _savePositions(arr) {
 function _getPositionStatus(sid) {
   return _getPositions().some(p => p.sid === sid);
 }
+
+// ── 🎬 輪播圖選取 / 匯出 ──────────────────────────────────────
+function _toggleReel(sid) {
+  if (_reelSelected.has(sid)) _reelSelected.delete(sid);
+  else _reelSelected.add(sid);
+  // 更新按鈕外觀
+  const btn = document.getElementById('reel-btn-' + sid);
+  if (btn) {
+    const sel = _reelSelected.has(sid);
+    btn.textContent = sel ? '🎬 已選' : '🎬 輪播';
+    btn.classList.toggle('sel', sel);
+  }
+  _updateReelFloat();
+}
+function _reelClearAll() {
+  _reelSelected.clear();
+  document.querySelectorAll('.sc-reel-btn').forEach(b => {
+    b.textContent = '🎬 輪播'; b.classList.remove('sel');
+  });
+  _updateReelFloat();
+}
+function _updateReelFloat() {
+  const f = document.getElementById('reelExportFloat');
+  const c = document.getElementById('reelCount');
+  if (!f) return;
+  if (_reelSelected.size > 0) { f.classList.add('show'); if (c) c.textContent = _reelSelected.size; }
+  else f.classList.remove('show');
+}
+
+async function exportReelCards() {
+  const toExport = _screenerResults.filter(r => _reelSelected.has(r.stockId));
+  if (!toExport.length) return;
+  if (typeof showEpicToast === 'function') showEpicToast('🎨 製作中，請稍候…', '#d97706');
+
+  const W = 1080, H = 1920;
+  const today = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' });
+
+  for (let i = 0; i < toExport.length; i++) {
+    const r = toExport[i];
+    const info = STOCK_DB[r.stockId] || { name: r.stockId, industry: '—' };
+    await _drawReelCard(r, info, W, H, today, i + 1, toExport.length);
+    await new Promise(res => setTimeout(res, 200)); // 瀏覽器下載間隔
+  }
+  if (typeof showEpicToast === 'function') showEpicToast(`✅ 已匯出 ${toExport.length} 張 PNG！`, '#16a34a');
+}
+
+function _drawReelCard(r, info, W, H, today, idx, total) {
+  return new Promise(resolve => {
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+
+    // ── 背景漸層 ──
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0,   '#0a0f1e');
+    bg.addColorStop(0.4, '#0d1b2e');
+    bg.addColorStop(1,   '#091020');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+
+    // ── 左側亮條裝飾 ──
+    const score6 = Math.min(r.score / 6, 1);
+    const accentColor = r.score >= 5 ? '#fbbf24' : r.score >= 4 ? '#ef4444' : r.score >= 3 ? '#f59e0b' : '#3b82f6';
+    const sideGrad = ctx.createLinearGradient(0, 0, 0, H * 0.6);
+    sideGrad.addColorStop(0, accentColor + 'cc');
+    sideGrad.addColorStop(1, accentColor + '00');
+    ctx.fillStyle = sideGrad;
+    ctx.fillRect(0, 0, 10, H * 0.6);
+
+    // ── 標題列 ──
+    ctx.fillStyle = '#1e3a5f';
+    ctx.fillRect(0, 0, W, 140);
+    ctx.fillStyle = '#60a5fa';
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillText('📊 MACD多方結構掃瞄', 50, 80);
+    ctx.fillStyle = '#4b6a8d';
+    ctx.font = '32px sans-serif';
+    ctx.fillText(`${today}  |  ${idx}/${total}`, 50, 120);
+
+    // ── 股票名稱 ──
+    ctx.fillStyle = '#f1f5f9';
+    ctx.font = 'bold 96px sans-serif';
+    ctx.fillText(info.name, 60, 270);
+
+    // ── 代號 + 價格 ──
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 52px sans-serif';
+    ctx.fillText(r.stockId, 60, 345);
+
+    const up = r.chgPct >= 0;
+    ctx.fillStyle = up ? '#ef4444' : '#22c55e';
+    ctx.font = 'bold 72px sans-serif';
+    const priceStr = `$${r.lc >= 100 ? r.lc.toFixed(0) : r.lc.toFixed(1)}  ${up ? '▲' : '▼'}${Math.abs(r.chgPct).toFixed(1)}%`;
+    ctx.fillText(priceStr, 60, 440);
+
+    // ── 評分圓圈 ──
+    const cx = W - 170, cy = 290, cr = 130;
+    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+    ctx.strokeStyle = accentColor; ctx.lineWidth = 12; ctx.stroke();
+    ctx.fillStyle = accentColor + '22';
+    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = accentColor;
+    ctx.font = 'bold 100px sans-serif';
+    ctx.textAlign = 'center';
+    const scoreStr = r.score % 1 === 0 ? String(r.score) : r.score.toFixed(1);
+    ctx.fillText(scoreStr, cx, cy + 20);
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('/6', cx, cy + 70);
+    ctx.textAlign = 'left';
+
+    // ── 法人連買 badges ──
+    let badgeX = 60, badgeY = 510;
+    const drawBadge = (label, color, bg) => {
+      ctx.font = 'bold 36px sans-serif';
+      const tw = ctx.measureText(label).width + 32;
+      ctx.fillStyle = bg;
+      roundRect(ctx, badgeX, badgeY, tw, 60, 12);
+      ctx.fill();
+      ctx.fillStyle = color;
+      ctx.fillText(label, badgeX + 16, badgeY + 42);
+      badgeX += tw + 16;
+    };
+    if (r.fCons >= 1) drawBadge(`🐋 外資連買${r.fCons}日`, '#60a5fa', '#1e3a5f');
+    if (r.tCons >= 1) drawBadge(`📦 投信連買${r.tCons}日`, '#34d399', '#0f2a20');
+
+    // ── MACD mini Histogram ──
+    const histArr = r.macdMini?.hist || [];
+    if (histArr.length >= 3) {
+      const chartX = 60, chartY = 600, chartW = W - 120, chartH = 380;
+      ctx.fillStyle = 'rgba(30,58,95,0.35)';
+      roundRect(ctx, chartX - 10, chartY - 10, chartW + 20, chartH + 20, 16);
+      ctx.fill();
+      const maxAbs = Math.max(...histArr.map(Math.abs), 0.001);
+      const barW = Math.floor((chartW - 12) / histArr.length) - 2;
+      histArr.forEach((v, i) => {
+        const barH = Math.abs(v) / maxAbs * (chartH / 2 - 20);
+        const bx = chartX + i * (barW + 2);
+        const midY = chartY + chartH / 2;
+        ctx.fillStyle = v >= 0
+          ? (Math.abs(v) >= Math.abs(histArr[i-1]||0) ? '#ef4444' : '#fca5a5')
+          : (Math.abs(v) >= Math.abs(histArr[i-1]||0) ? '#22c55e' : '#86efac');
+        ctx.fillRect(bx, v >= 0 ? midY - barH : midY, barW, barH);
+      });
+      // 零線
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(chartX, chartY + chartH/2); ctx.lineTo(chartX + chartW, chartY + chartH/2); ctx.stroke();
+      ctx.fillStyle = '#475569'; ctx.font = '30px sans-serif';
+      ctx.fillText('MACD Histogram', chartX, chartY + chartH + 12);
+    }
+
+    // ── 數值明細 4格 ──
+    const statsY = 1030;
+    const grid = [
+      { label: '柱狀值', val: r.lHist != null ? (r.lHist >= 0 ? '+' : '') + r.lHist.toFixed(2) : '—', color: (r.lHist||0) >= 0 ? '#ef4444' : '#22c55e' },
+      { label: '動能趨勢', val: (r.lHist != null && r.pHist != null) ? (Math.abs(r.lHist) > Math.abs(r.pHist) ? '擴張 ↑' : '收縮 ↓') : '—', color: '#94a3b8' },
+      { label: 'DIF', val: r.lDif != null ? (r.lDif >= 0 ? '+' : '') + r.lDif.toFixed(2) : '—', color: '#60a5fa' },
+      { label: 'DEA', val: r.lDea != null ? (r.lDea >= 0 ? '+' : '') + r.lDea.toFixed(2) : '—', color: '#a78bfa' },
+    ];
+    const cellW = (W - 120) / 2, cellH = 180;
+    grid.forEach((g, i) => {
+      const gx = 60 + (i % 2) * (cellW + 20);
+      const gy = statsY + Math.floor(i / 2) * (cellH + 16);
+      ctx.fillStyle = 'rgba(30,41,59,0.8)';
+      roundRect(ctx, gx, gy, cellW, cellH, 14); ctx.fill();
+      ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 1.5;
+      roundRect(ctx, gx, gy, cellW, cellH, 14); ctx.stroke();
+      ctx.fillStyle = '#64748b'; ctx.font = '34px sans-serif';
+      ctx.fillText(g.label, gx + 20, gy + 50);
+      ctx.fillStyle = g.color; ctx.font = 'bold 60px sans-serif';
+      ctx.fillText(g.val, gx + 20, gy + 130);
+    });
+
+    // ── 6條件 checklist ──
+    const chkY = statsY + cellH * 2 + 60;
+    if (r.checks && r.checks.length) {
+      r.checks.forEach((c, i) => {
+        const cx2 = 60 + (i % 2) * ((W - 120) / 2 + 20);
+        const cy2 = chkY + Math.floor(i / 2) * 90;
+        ctx.fillStyle = c.hit ? '#22c55e' : c.warn ? '#f59e0b' : '#475569';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.fillText((c.hit ? '✓ ' : c.warn ? '△ ' : '✗ ') + c.label, cx2, cy2);
+      });
+    }
+
+    // ── 分隔線 ──
+    ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 2;
+    const footerY = H - 180;
+    ctx.beginPath(); ctx.moveTo(60, footerY); ctx.lineTo(W - 60, footerY); ctx.stroke();
+
+    // ── 品牌 watermark ──
+    ctx.fillStyle = '#1e3a5f';
+    ctx.fillRect(0, footerY, W, H - footerY);
+    ctx.fillStyle = '#60a5fa';
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillText('台股AI分析儀表板', 60, footerY + 80);
+    ctx.fillStyle = '#334155'; ctx.font = '34px sans-serif';
+    ctx.fillText('dvorak0727.github.io/Genspark-Stock-AI', 60, footerY + 130);
+
+    // ── 下載 ──
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `reel_${r.stockId}_${info.name}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      resolve();
+    }, 'image/png');
+  });
+}
+
+function roundRect(ctx, x, y, w, h, r2) {
+  ctx.beginPath();
+  ctx.moveTo(x + r2, y);
+  ctx.lineTo(x + w - r2, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r2);
+  ctx.lineTo(x + w, y + h - r2);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r2, y + h);
+  ctx.lineTo(x + r2, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r2);
+  ctx.lineTo(x, y + r2);
+  ctx.quadraticCurveTo(x, y, x + r2, y);
+  ctx.closePath();
+}
 // Bug#2 fix: 股名可能含單引號（如「媽媽牌」），用 data-sid/data-name 屬性傳遞，
 // 不再直接拼入 onclick 字串，改由全域 helper 函數呼叫
 function _togglePosition(sid, name) {
@@ -51170,6 +51429,7 @@ let _screenerRunning = false;
 let _screenerStop    = false;
 let _screenerResults = [];
 let _screenerSort    = 'score';
+let _reelSelected    = new Set(); // 輪播圖選取的股票 ID
 // ✨ v7.15 篩選狀態
 let _screenerMinScore  = 0;          // 分數門檻（0=全部）
 let _screenerIndustry  = '';         // 板塊篩選（空=全部）
@@ -56929,7 +57189,13 @@ function renderScreenerCards(showStats=false) {
       <!-- 快速展開面板：法人/MACD（動態注入）-->
       <div class="sc-quick-panel" id="scqp-${r.stockId}"></div>
       <!-- ✨ v7.09 持倉 Toggle 按鈕（Bug#2 fix: data-name 屬性替代 onclick 字串拼接）-->
-      <div style="margin-top:5px;text-align:right;">
+      <div style="margin-top:5px;text-align:right;display:flex;gap:4px;justify-content:flex-end;align-items:center;">
+        <button id="reel-btn-${r.stockId}"
+          class="sc-reel-btn${_reelSelected.has(r.stockId)?' sel':''}"
+          onclick="_toggleReel('${r.stockId}')"
+          title="加入短影音輪播">
+          ${ _reelSelected.has(r.stockId) ? '🎬 已選' : '🎬 輪播' }
+        </button>
         <button id="pos-btn-${r.stockId}"
           onclick="_togglePosition(this.dataset.sid, this.dataset.name)"
           data-sid="${r.stockId}"
