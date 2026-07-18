@@ -57307,18 +57307,10 @@ function _scQuickMacd(stockId, triggerEl) {
     + '<polyline points="' + difPts + '" fill="none" stroke="#f59e0b" stroke-width="1.2" opacity="0.9"/>'
     + '<polyline points="' + deaPts + '" fill="none" stroke="#8b5cf6" stroke-width="1.2" opacity="0.9"/>'
     + '</svg>';
+  // 只顯示數值統計（圖表已在卡片 inline 顯示，不重複）
   const _mHtml = '<div class="scqp-inner">'
-    + '<div class="scqp-title">&#x1F4CA; MACD Histogram（近' + n + '日）' + _cBtn2 + '</div>'
+    + '<div class="scqp-title">&#x1F4CA; MACD 數值明細' + _cBtn2 + '</div>'
     + _macdStatusBar
-    + '<div class="scqp-macd-chart">' + svgStr + '</div>'
-    + '<div style="display:flex;gap:6px;font-size:0.58rem;color:var(--fg3);margin:2px 0 5px;flex-wrap:wrap;">'
-      + '<span style="color:#ef4444">&#9646; 紅擴張</span>'
-      + '<span style="color:#fca5a5">&#9646; 紅收縮</span>'
-      + '<span style="color:#86efac">&#9646; 綠收縮</span>'
-      + '<span style="color:#16a34a">&#9646; 綠擴張</span>'
-      + '<span style="color:#f59e0b">&#9644; DIF</span>'
-      + '<span style="color:#8b5cf6">&#9644; DEA</span>'
-    + '</div>'
     + '<div class="scqp-macd-info">'
       + '<div class="scqp-macd-chip"><div class="scqp-macd-chip-label">柱狀值</div><div class="scqp-macd-chip-val ' + histCls + '">' + (lHist >= 0 ? '+' : '') + lHist.toFixed(2) + '</div></div>'
       + '<div class="scqp-macd-chip"><div class="scqp-macd-chip-label">動能趨勢</div><div class="scqp-macd-chip-val ' + (lHist >= 0 ? 'bull' : 'bear') + '">' + histDir + '</div></div>'
