@@ -959,22 +959,54 @@ function renderIndicatorPanel() {
   document.getElementById('indRows').innerHTML = rows;
 
   // Alerts
-  const alerts = [];
-  const buys   = [];
+  const urgentSell = [];  // 動能轉空（MACD翻空）+ 週期已是倒貨
+  const warnSell   = [];  // 其中一個條件觸發
+  const buys       = [];
+
   G.stocks.forEach((s, si) => {
-    const ind = calcStockIndicators(si, d);
+    const ind   = calcStockIndicators(si, d);
     const isHeld = G.holdings[s.id]?.qty > 0;
-    if (isHeld && ind.phaseNum === 5)
-      alerts.push(`<b>${s.name}</b> 已進入倒貨期！主力正在出貨，建議分批減倉。`);
-    if (!isHeld && ind.phaseNum === 1 && d > 10)
-      buys.push(`<b>${s.name}</b> 正處吸籌底部，主力悄悄進場中。`);
+
+    if (isHeld) {
+      const macdFlip  = ind.rsi > 62 && ind.mom5 < -0.008;   // 高位動能轉空
+      const inDist    = ind.phaseNum === 5;                    // 已進倒貨期
+      const prevPhase = G.prevPhases?.[s.id] ?? ind.phaseNum;
+      const newlyDist = inDist && prevPhase < 5;               // 剛從拉升→倒貨
+
+      if (macdFlip && inDist) {
+        urgentSell.push(`<b>${s.name}</b>：動能轉空＋倒貨期 → <span style="color:#fcd34d">立刻減碼</span>`);
+      } else if (newlyDist) {
+        warnSell.push(`<b>${s.name}</b>：剛進入倒貨期，留意動能是否轉空`);
+      } else if (macdFlip) {
+        warnSell.push(`<b>${s.name}</b>：高位動能轉空（RSI ${ind.rsi}），觀察是否出貨`);
+      } else if (inDist) {
+        warnSell.push(`<b>${s.name}</b>：持續倒貨期，量能放大則快走`);
+      }
+    }
+
+    if (!isHeld && (ind.phaseNum === 1 || ind.phaseNum === 2) && d > 10)
+      buys.push(`<b>${s.name}</b> ${ind.phase}，${ind.signal}`);
+  });
+
+  // 記錄本日週期供明日比較
+  if (!G.prevPhases) G.prevPhases = {};
+  G.stocks.forEach((s, si) => {
+    G.prevPhases[s.id] = calcStockIndicators(si, d).phaseNum;
   });
 
   let alertHtml = '';
-  if (alerts.length)
-    alertHtml += `<div class="alert-box alert-sell"><span class="alert-icon">🔴</span>出貨警報<br>${alerts.join('<br>')}</div>`;
+  if (urgentSell.length)
+    alertHtml += `<div class="alert-box alert-sell" style="border-color:#ef4444;background:rgba(239,68,68,.15);">
+      <span class="alert-icon">🚨</span><b>立刻處理</b><br>${urgentSell.join('<br>')}
+    </div>`;
+  if (warnSell.length)
+    alertHtml += `<div class="alert-box alert-sell">
+      <span class="alert-icon">⚠️</span>留意出場時機<br>${warnSell.join('<br>')}
+    </div>`;
   if (buys.length)
-    alertHtml += `<div class="alert-box alert-buy"><span class="alert-icon">🎯</span>吸籌機會<br>${buys.slice(0,2).join('<br>')}</div>`;
+    alertHtml += `<div class="alert-box alert-buy">
+      <span class="alert-icon">🎯</span>進場機會<br>${buys.slice(0,3).join('<br>')}
+    </div>`;
   document.getElementById('indAlerts').innerHTML = alertHtml;
 }
 
