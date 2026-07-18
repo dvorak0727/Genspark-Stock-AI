@@ -42814,7 +42814,7 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
 
           // 三欄（÷1000 → 張，標籤置中，數值右對齊）
           const col3W = (W - 132) / 3;
-          const fmt張 = v => (v >= 0 ? '+' : '') + Math.round(v / 1000) + '張';
+          const fmtZhang = v => (v >= 0 ? '+' : '') + Math.round(v / 1000) + '張';
           [
             { label: '外資5日', val: instData.fNet5, color: '#1d4ed8' },
             { label: '投信5日', val: instData.tNet5, color: '#059669' },
@@ -42832,7 +42832,7 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
             // 數值：右對齊
             ctx.fillStyle = col.color; ctx.font = 'bold 54px sans-serif';
             ctx.textAlign = 'right';
-            ctx.fillText(fmt張(col.val), gx + col3W - 18, curY + 126);
+            ctx.fillText(fmtZhang(col.val), gx + col3W - 18, curY + 126);
           });
           ctx.textAlign = 'left';
           curY += 172;
@@ -42842,7 +42842,7 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
           roundRect(ctx, 56, curY, W-112, 100, 14); ctx.fill();
           ctx.fillStyle = instData.sumNet5 >= 0 ? '#15803d' : '#dc2626';
           ctx.font = 'bold 48px sans-serif';
-          ctx.fillText(`合計5日  ${fmt張(instData.sumNet5)}`, 56+24, curY + 68);
+          ctx.fillText(`合計5日  ${fmtZhang(instData.sumNet5)}`, 56+24, curY + 68);
           curY += 120;
 
           // 日期明細表（÷1000 → 張，數字欄右對齊）
@@ -42898,18 +42898,17 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
     ctx.fillStyle = '#475569'; ctx.font = '32px sans-serif';
     ctx.fillText('dvorak0727.github.io/Genspark-Stock-AI', 46, footerY + 130);
 
-    // ── 下載 ──
-    canvas.toBlob(blob => {
-      if (!blob) { reject(new Error('canvas.toBlob 回傳 null')); return; }
+    // ── 下載（用 toDataURL 避免 file:// 環境被 Chrome 攔截）──
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
+      a.href = dataUrl;
       a.download = `reel_${r.stockId}_${info.name}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(a.href);
       resolve();
-    }, 'image/png');
+    } catch(dlErr) { reject(dlErr); }
   } catch(e) { reject(e); } });
 }
 
