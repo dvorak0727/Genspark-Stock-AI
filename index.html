@@ -16416,6 +16416,7 @@ a.module-nav-item.acc-active {
       <a class="module-nav-item" href="#techCard">📈 技術</a>
       
       <a class="module-nav-item" href="#peakCard">🔴 高點</a>
+      <a class="module-nav-item" href="#twseIndexCard">🇹🇼 大盤脈搏</a>
       <a class="module-nav-item" href="#contraCard">🔀 反指標</a>
       <a class="module-nav-item" href="#phaseCard">🔬 籌碼週期</a>
       <a class="module-nav-item" href="#biCard">👤 大戶意圖</a>
@@ -18075,6 +18076,70 @@ a.module-nav-item.acc-active {
           <div class="peak-items" id="peakItems"><!-- JS --></div>
         </div>
       </div><!-- /.peak-card -->
+
+    <!-- ══════════════════════════════════════════════════
+         【第二關】台股大盤脈搏 — MACD / KD / 籌碼
+    ══════════════════════════════════════════════════ -->
+    <div id="twseIndexCard" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(30,58,138,.06));border:1.5px solid rgba(30,58,138,.2);border-radius:14px;padding:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:1.3rem;">🇹🇼</span>
+        <div style="flex:1;">
+          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">台股大盤脈搏</div>
+          <div style="font-size:.62rem;color:var(--fg3);">加權指數 MACD · KD · 法人籌碼 — 個股分析的上游條件</div>
+        </div>
+        <div id="twseBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</div>
+        <button onclick="fetchTWSEIndex()" style="font-size:.62rem;padding:4px 10px;border-radius:8px;background:rgba(30,58,138,.12);color:#1e3a8a;border:1px solid rgba(30,58,138,.3);cursor:pointer;font-weight:700;">🔄 更新</button>
+      </div>
+
+      <!-- 三欄：指數/MACD/KD -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+
+        <!-- 指數現況 -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">📈 加權指數</div>
+          <div style="font-size:1.3rem;font-weight:900;color:var(--fg);" id="twseClose">—</div>
+          <div style="font-size:.68rem;margin-top:3px;" id="twseChange">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日趨勢：<span id="twse5dTrend" style="font-weight:700;">—</span></div>
+        </div>
+
+        <!-- MACD -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">📊 大盤 MACD</div>
+          <div style="font-size:.72rem;font-weight:700;" id="twseMacdStatus">—</div>
+          <div style="font-size:.6rem;color:var(--fg3);margin-top:4px;">
+            DIF <span id="twseDif" style="font-weight:700;color:var(--fg);">—</span> ·
+            MACD <span id="twseMacd" style="font-weight:700;color:var(--fg);">—</span>
+          </div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:2px;">OSC <span id="twseOsc" style="font-weight:700;">—</span></div>
+        </div>
+
+        <!-- KD -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🎯 大盤 KD</div>
+          <div style="font-size:.72rem;font-weight:700;" id="twseKdStatus">—</div>
+          <div style="font-size:.6rem;color:var(--fg3);margin-top:4px;">
+            K <span id="twseK" style="font-weight:700;color:var(--fg);">—</span> ·
+            D <span id="twseD" style="font-weight:700;color:var(--fg);">—</span>
+          </div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:2px;" id="twseKdZone">—</div>
+        </div>
+      </div>
+
+      <!-- 法人籌碼橫列 -->
+      <div style="background:var(--bg2);border-radius:10px;padding:8px 12px;margin-bottom:8px;">
+        <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🏦 大盤法人籌碼（近5日）</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:.68rem;text-align:center;">
+          <div>外資<br><span id="twseForeign5" style="font-weight:900;color:var(--fg);">—</span></div>
+          <div>投信<br><span id="twseTrust5" style="font-weight:900;color:var(--fg);">—</span></div>
+          <div>自營<br><span id="twseDealer5" style="font-weight:900;color:var(--fg);">—</span></div>
+        </div>
+      </div>
+
+      <!-- 結論 -->
+      <div id="twseVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #1e3a8a;">
+        載入中…
+      </div>
+    </div>
 
     <!-- ③ 反指標邏輯分析 — 全寬 -->
     <div class="contra-card" id="contraCard" style="margin-bottom:0;height:fit-content;">
@@ -61256,6 +61321,138 @@ function getToken() {
   return window._userToken || TOKEN || '';
 }
 
+// ══════════════════════════════════════════════════
+//  🇹🇼 台股大盤脈搏 — MACD / KD / 法人籌碼
+// ══════════════════════════════════════════════════
+let _twseIndexCache = null;
+
+async function fetchTWSEIndex() {
+  const token = getToken();
+  const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
+
+  try {
+    const end = new Date();
+    const start = new Date(); start.setDate(start.getDate() - 90);
+    const fmt = d => d.toISOString().split('T')[0];
+
+    const res = await fetch(
+      `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${token}`
+    );
+    const json = await res.json();
+    const rows = (json.data || []).sort((a,b) => a.date > b.date ? 1 : -1);
+    if (rows.length < 10) { setTx('twseVerdict', '資料不足，請確認 FinMind Token 已填入。'); return; }
+
+    const closes = rows.map(r => +r.close);
+    const C = closes;
+    const n = C.length;
+
+    // 近5日趨勢
+    const ret5 = ((C.at(-1) - C.at(-6)) / C.at(-6) * 100).toFixed(2);
+    const lastRow = rows.at(-1);
+    const chg = (+lastRow.spread).toFixed(0);
+    const chgPct = (+lastRow.close - +lastRow.open !== 0)
+      ? ((+lastRow.spread / (+lastRow.close - +lastRow.spread)) * 100).toFixed(2)
+      : '0.00';
+
+    const upColor = '#dc2626', dnColor = '#059669';
+    const chgColor = +chg >= 0 ? upColor : dnColor;
+    setTx('twseClose', Number(lastRow.close).toLocaleString());
+    setHtml('twseChange', `<span style="color:${chgColor};font-weight:700;">${+chg>=0?'+':''}${chg} (${+chgPct>=0?'+':''}${chgPct}%)</span> <span style="color:var(--fg3);font-size:.58rem;">${lastRow.date}</span>`);
+    setHtml('twse5dTrend', `<span style="color:${+ret5>=0?upColor:dnColor};font-weight:700;">${+ret5>=0?'▲':'▼'} ${Math.abs(ret5)}%</span>`);
+
+    // MACD (12/26/9)
+    function ema(arr, period) {
+      const k = 2 / (period + 1);
+      let e = arr[0];
+      const result = [e];
+      for (let i = 1; i < arr.length; i++) { e = arr[i] * k + e * (1 - k); result.push(e); }
+      return result;
+    }
+    const ema12 = ema(C, 12);
+    const ema26 = ema(C, 26);
+    const dif = ema12.map((v,i) => v - ema26[i]);
+    const macdLine = ema(dif, 9);
+    const osc = dif.map((v,i) => v - macdLine[i]);
+
+    const difV = dif.at(-1), macdV = macdLine.at(-1), oscV = osc.at(-1);
+    const difPrev = dif.at(-2), macdPrev = macdLine.at(-2);
+    const macdGolden = difPrev < macdPrev && difV > macdV;
+    const macdDead   = difPrev > macdPrev && difV < macdV;
+    const macdBull   = difV > macdV;
+
+    const macdStatusTxt = macdGolden ? '🟢 金叉向上' : macdDead ? '🔴 死叉向下' : macdBull ? '🟡 多方偏強' : '🟡 空方偏弱';
+    const macdColor = macdGolden ? '#10b981' : macdDead ? '#ef4444' : '#ca8a04';
+    setHtml('twseMacdStatus', `<span style="color:${macdColor};font-weight:800;">${macdStatusTxt}</span>`);
+    setTx('twseDif', difV.toFixed(1));
+    setTx('twseMacd', macdV.toFixed(1));
+    setHtml('twseOsc', `<span style="color:${oscV>=0?upColor:dnColor};">${oscV>=0?'+':''}${oscV.toFixed(1)}</span>`);
+
+    // KD (9日RSV)
+    function calcKD(rows, period=9) {
+      let K = 50, D = 50;
+      const result = [];
+      for (let i = 0; i < rows.length; i++) {
+        const slice = rows.slice(Math.max(0, i-period+1), i+1);
+        const high = Math.max(...slice.map(r=>+r.max||+r.high||+r.close));
+        const low  = Math.min(...slice.map(r=>+r.min||+r.low||+r.close));
+        const rsv = high === low ? 50 : (+rows[i].close - low) / (high - low) * 100;
+        K = K * 2/3 + rsv * 1/3;
+        D = D * 2/3 + K * 1/3;
+        result.push({ K, D });
+      }
+      return result;
+    }
+    const kd = calcKD(rows);
+    const kV = kd.at(-1).K, dV = kd.at(-1).D;
+    const kPrev = kd.at(-2).K, dPrev = kd.at(-2).D;
+    const kdGolden = kPrev < dPrev && kV > dV;
+    const kdDead   = kPrev > dPrev && kV < dV;
+    const kdBull   = kV > dV;
+    const kdStatusTxt = kdGolden ? '🟢 KD金叉' : kdDead ? '🔴 KD死叉' : kdBull ? '🟡 K在D上' : '🟡 K在D下';
+    const kdColor = kdGolden ? '#10b981' : kdDead ? '#ef4444' : '#ca8a04';
+    setHtml('twseKdStatus', `<span style="color:${kdColor};font-weight:800;">${kdStatusTxt}</span>`);
+    setTx('twseK', kV.toFixed(1));
+    setTx('twseD', dV.toFixed(1));
+    const kdZone = kV < 20 ? '超賣區（低接機會）' : kV > 80 ? '超買區（注意風險）' : '中性區';
+    setTx('twseKdZone', kdZone);
+
+    // 法人籌碼（用現有fSeries/tSeries/dSeries if available，否則跳過）
+    try {
+      if (window.fSeries && window.tSeries && window.dSeries) {
+        const f5 = window.fSeries.slice(-5).reduce((s,v)=>s+v,0);
+        const t5 = window.tSeries.slice(-5).reduce((s,v)=>s+v,0);
+        const d5 = window.dSeries.slice(-5).reduce((s,v)=>s+v,0);
+        const fmt3 = v => (v>=0?'+':'')+Math.round(v/100)+'億';
+        setHtml('twseForeign5', `<span style="color:${f5>=0?upColor:dnColor};font-weight:900;">${fmt3(f5)}</span>`);
+        setHtml('twseTrust5',   `<span style="color:${t5>=0?upColor:dnColor};font-weight:900;">${fmt3(t5)}</span>`);
+        setHtml('twseDealer5',  `<span style="color:${d5>=0?upColor:dnColor};font-weight:900;">${fmt3(d5)}</span>`);
+      }
+    } catch(e) {}
+
+    // Badge + 結論
+    const bullCount = [macdBull, kdBull, +ret5>0].filter(Boolean).length;
+    const badge = document.getElementById('twseBadge');
+    let verdictTxt = '';
+    if (bullCount === 3) {
+      if(badge){badge.textContent='🟢 大盤順風';badge.style.background='rgba(16,185,129,.15)';badge.style.color='#10b981';}
+      verdictTxt = `✅ <b>大盤全面偏多</b>：MACD${macdGolden?'金叉':'多方'}、KD${kdGolden?'金叉':'K>D'}、近5日${ret5}%。<br>個股五燈全亮時，勝率最高。`;
+    } else if (bullCount === 2) {
+      if(badge){badge.textContent='🟡 大盤中性';badge.style.background='rgba(234,179,8,.12)';badge.style.color='#ca8a04';}
+      verdictTxt = `⚡ <b>大盤偏多但未全面確認</b>，選股要更嚴格，個股五燈至少要4燈以上再動。`;
+    } else {
+      if(badge){badge.textContent='🔴 大盤逆風';badge.style.background='rgba(239,68,68,.12)';badge.style.color='#ef4444';}
+      verdictTxt = `⚠️ <b>大盤偏空</b>：逆風環境，個股即使強勢也難拉升。建議縮手等待大盤轉向。`;
+    }
+    setHtml('twseVerdict', verdictTxt);
+    _twseIndexCache = { closes, kd, dif, macdLine, osc };
+    window._twiiSeries = closes;
+
+  } catch(e) {
+    document.getElementById('twseVerdict').textContent = '載入失敗：' + e.message;
+  }
+}
+
 // ── watchlist CRUD ──
 function loadWatchlist() {
   try {
@@ -64186,6 +64383,9 @@ document.addEventListener('DOMContentLoaded', function _onDOMReady() {
   // 5. v5.77 ETF 換檔日曆初始化
   try { _etfLoadCache(); } catch(e) {}
   try { setTimeout(renderEtfCal, 600); } catch(e) {}
+
+  // 6.5 台股大盤脈搏自動載入
+  try { setTimeout(fetchTWSEIndex, 1200); } catch(e) {}
 
   // 7. v5.90 1:4 控盤面板靜態初始化
   try { setTimeout(ctrl14Init, 900); } catch(e) {}
@@ -70182,6 +70382,7 @@ if (typeof _origRenderSM === 'function') {
     { id:'usLeadCard',    label:'美股先行',  emoji:'🌐', why:'台股是美股的影子，AI/半導體類股尤其明顯。美股昨晚怎麼收，今天開盤就知道了。',       ksTab:'sectors' },
     { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。', ksTab:'indicators' },
     { id:'phaseCard',     label:'籌碼週期',  emoji:'🔬', why:'主力有其慣性，吸籌→拉升→出貨→洗盤是標準劇本，這裡告訴你現在在哪個章節。底部探測與高點偵測同步收在此處。', ksTab:'wyckoff' },
+    { id:'twseIndexCard', label:'大盤脈搏',  emoji:'🇹🇼', why:'個股再強，大盤逆風就是逆風。先看大盤MACD/KD，確認上游順風再選股。' },
     { id:'contraCard',    label:'反指標',    emoji:'🔀', why:'散戶情緒是反指標。大家都看多時要小心，大家都看空時才是底部。',                     ksTab:'philosophy' },
     { id:'bigIntentCard', label:'大戶意圖',  emoji:'👤', why:'法人是不對稱資訊的持有者。外資、投信、自營商的方向，比任何技術線型都可靠。',       ksTab:'bigplayer' },
     { id:'bpcCard',       label:'五大券商',  emoji:'💎', why:'特定券商分點的進出，往往透露主力佈局動作，是籌碼分析中最細緻的一層。',             ksTab:'chips' },
