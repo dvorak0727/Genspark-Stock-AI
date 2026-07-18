@@ -51176,16 +51176,22 @@ let _screenerIndustry  = '';         // 板塊篩選（空=全部）
 
 // ── 啟動海選 ──
 async function startScreener() {
-  if (_screenerRunning) return;
+  if (_screenerRunning) {
+    if (typeof showEpicToast === 'function') showEpicToast('⏳ 掃描中，請稍候…', '#d97706');
+    return;
+  }
 
   const poolKey  = document.getElementById('screenerPool').value;
   const pool     = SCREENER_POOLS[poolKey];
+  if (!pool) { console.error('screener: unknown pool', poolKey); return; }
   const ids      = pool.ids;
   const modeKey  = document.getElementById('screenerMode')?.value || 'bottom';
 
   _screenerRunning = true;
   _screenerStop    = false;
   _screenerResults = [];
+
+  try {
 
   // UI 狀態
   document.getElementById('screenerBtn').disabled = true;
@@ -51381,14 +51387,19 @@ async function startScreener() {
   await sleep(1000);
   document.getElementById('screenerProgress').classList.remove('show');
 
-  _screenerRunning = false;
-  document.getElementById('screenerBtn').disabled = false;
-  document.getElementById('screenerStopBtn').classList.remove('show');
-
   renderScreenerCards(true); // 最終渲染（顯示統計）
 
   // ── v7.41 背景靜默抓持股分級（不阻塞主流程，完成後刷新卡片）──
   _screenerFetchHoldings();
+
+  } catch(e) {
+    console.error('startScreener error:', e);
+    if (typeof showEpicToast === 'function') showEpicToast('❌ 掃描發生錯誤，請重試', '#dc2626');
+  } finally {
+    _screenerRunning = false;
+    document.getElementById('screenerBtn').disabled = false;
+    document.getElementById('screenerStopBtn').classList.remove('show');
+  }
 }
 
 // ── v7.41 _screenerFetchHoldings：背景靜默抓所有海選結果的持股分級 ──
