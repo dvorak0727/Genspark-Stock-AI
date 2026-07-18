@@ -42521,7 +42521,7 @@ async function exportReelCards() {
   if (!isAdmin()) { if (typeof showEpicToast==='function') showEpicToast('🔒 輪播匯出限管理者使用', '#dc2626'); return; }
   const toExport = _screenerResults.filter(r => _reelSelected.has(r.stockId));
   if (!toExport.length) return;
-  if (typeof showEpicToast === 'function') showEpicToast('🎨 製作中，請稍候…', '#d97706');
+  if (typeof showEpicToast === 'function') showEpicToast('🎨 抓取法人資料中…', '#d97706');
 
   const W = 1080, H = 1920;
   const today = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' });
@@ -42529,15 +42529,38 @@ async function exportReelCards() {
   const modeMeta = SCREENER_MODE_META[curMode] || SCREENER_MODE_META.bottom;
 
   for (let i = 0; i < toExport.length; i++) {
-    const r = toExport[i];
+    const r    = toExport[i];
     const info = STOCK_DB[r.stockId] || { name: r.stockId, industry: '—' };
-    await _drawReelCard(r, info, W, H, today, i + 1, toExport.length, curMode, modeMeta.title);
-    await new Promise(res => setTimeout(res, 200)); // 瀏覽器下載間隔
+
+    // ── 即時抓法人籌碼（近10日）──
+    let instData = null;
+    try {
+      const raw = await fetchInstFM(r.stockId);
+      if (raw && raw.length) {
+        const instMap = buildInstMap(raw);
+        const days = Object.keys(instMap).sort().slice(-10);
+        const d5   = days.slice(-5);
+        const fNet5 = d5.reduce((s,d) => s + (instMap[d]?.Foreign_Investor?.net||0), 0);
+        const tNet5 = d5.reduce((s,d) => s + (instMap[d]?.Investment_Trust?.net||0), 0);
+        const dNet5 = d5.reduce((s,d) => s + (instMap[d]?.Dealer_self?.net||0), 0);
+        const rows  = [...d5].reverse().map(d => ({
+          date: d.slice(5),
+          f: instMap[d]?.Foreign_Investor?.net||0,
+          t: instMap[d]?.Investment_Trust?.net||0,
+          dv: instMap[d]?.Dealer_self?.net||0,
+          sum: (instMap[d]?.Foreign_Investor?.net||0)+(instMap[d]?.Investment_Trust?.net||0)+(instMap[d]?.Dealer_self?.net||0),
+        }));
+        instData = { fNet5, tNet5, dNet5, sumNet5: fNet5+tNet5+dNet5, rows };
+      }
+    } catch(e) { /* 抓不到就略過 */ }
+
+    await _drawReelCard(r, info, W, H, today, i + 1, toExport.length, curMode, modeMeta.title, instData);
+    await new Promise(res => setTimeout(res, 300));
   }
   if (typeof showEpicToast === 'function') showEpicToast(`✅ 已匯出 ${toExport.length} 張 PNG！`, '#16a34a');
 }
 
-function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle) {
+function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, instData) {
   curMode   = curMode   || 'bottom';
   modeTitle = modeTitle || '海選結果';
   return new Promise(resolve => {
@@ -42690,31 +42713,118 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle) {
           ctx.fillText((c.hit ? '✓ ' : c.warn ? '△ ' : '✗ ') + c.label, cx2, cy2);
         });
       } else {
-        // 非 MACD：條件卡片放大，佔主體區域
-        const cardY0 = 640;
-        const rows = Math.ceil(r.checks.length / 2);
-        const cCardH = Math.min(160, Math.floor((H - 200 - cardY0) / rows) - 14);
-        const cCardW = (W - 132) / 2;
-        r.checks.forEach((c, i) => {
-          const gx = 56 + (i % 2) * (cCardW + 20);
-          const gy = cardY0 + Math.floor(i / 2) * (cCardH + 14);
-          const hitBg   = c.hit  ? 'rgba(22,163,74,0.12)'  : c.warn ? 'rgba(217,119,6,0.10)' : 'rgba(148,163,184,0.08)';
-          const hitBd   = c.hit  ? '#bbf7d0' : c.warn ? '#fde68a' : '#e2e8f0';
-          ctx.fillStyle = hitBg;
-          roundRect(ctx, gx, gy, cCardW, cCardH, 16); ctx.fill();
-          ctx.strokeStyle = hitBd; ctx.lineWidth = 2;
-          roundRect(ctx, gx, gy, cCardW, cCardH, 16); ctx.stroke();
-          // icon
-          const icon = c.hit ? '✓' : c.warn ? '△' : '✗';
-          ctx.fillStyle = c.hit ? '#16a34a' : c.warn ? '#d97706' : '#94a3b8';
-          ctx.font = `bold ${Math.min(52, cCardH * 0.4)}px sans-serif`;
-          ctx.fillText(icon, gx + 20, gy + cCardH * 0.52);
-          // label
-          ctx.fillStyle = c.hit ? '#15803d' : c.warn ? '#b45309' : '#64748b';
-          ctx.font = `bold ${Math.min(40, cCardH * 0.3)}px sans-serif`;
-          const iconW = ctx.measureText(icon + ' ').width;
-          ctx.fillText(c.label.replace(/^C\d+ /,''), gx + 20 + iconW + 4, gy + cCardH * 0.52);
-        });
+        // ── 非 MACD：迷你K線 + 法人籌碼表 + 條件清單 ──
+        let curY = 640;
+
+        // 迷你 K 線（若有 candles 資料）
+        const cl = r.candles?.closes || [];
+        if (cl.length >= 5) {
+          const chartX = 56, chartW = W - 112, chartH = 260;
+          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          roundRect(ctx, chartX - 12, curY - 12, chartW + 24, chartH + 24, 18); ctx.fill();
+          ctx.strokeStyle = accentDim; ctx.lineWidth = 1.5;
+          roundRect(ctx, chartX - 12, curY - 12, chartW + 24, chartH + 24, 18); ctx.stroke();
+          const minP = Math.min(...cl), maxP = Math.max(...cl);
+          const rng = maxP - minP || 1;
+          const barW2 = Math.floor(chartW / cl.length) - 3;
+          cl.forEach((v, i) => {
+            const h2 = ((v - minP) / rng) * (chartH - 20);
+            const bx2 = chartX + i * (barW2 + 3);
+            const by2 = curY + chartH - h2 - 10;
+            ctx.fillStyle = i === 0 ? '#94a3b8' : (v >= cl[i-1] ? '#ef4444' : '#16a34a');
+            ctx.fillRect(bx2, by2, barW2, Math.max(h2, 3));
+          });
+          // 均線
+          const ma5c = cl.slice(-5);
+          if (ma5c.length === 5) {
+            const ma5v = ma5c.reduce((a,b)=>a+b,0)/5;
+            const ma5y = curY + chartH - ((ma5v - minP) / rng) * (chartH - 20) - 10;
+            ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(chartX, ma5y); ctx.lineTo(chartX + chartW, ma5y); ctx.stroke();
+          }
+          curY += chartH + 36;
+        }
+
+        // 法人籌碼區
+        if (instData) {
+          // ─ 標題 ─
+          ctx.fillStyle = '#1e3a5f'; ctx.font = 'bold 40px sans-serif';
+          ctx.fillText('三大法人籌碼（近5日）', 56, curY + 44);
+          curY += 66;
+
+          // ─ 三欄合計 ─
+          const col3W = (W - 132) / 3;
+          const cols3 = [
+            { label: '外資5日', val: instData.fNet5, color: '#1d4ed8' },
+            { label: '投信5日', val: instData.tNet5, color: '#059669' },
+            { label: '自營5日', val: instData.dNet5, color: '#7c3aed' },
+          ];
+          cols3.forEach((col, i) => {
+            const gx = 56 + i * (col3W + 20);
+            ctx.fillStyle = 'rgba(255,255,255,0.8)';
+            roundRect(ctx, gx, curY, col3W, 148, 14); ctx.fill();
+            ctx.strokeStyle = accentDim; ctx.lineWidth = 1.5;
+            roundRect(ctx, gx, curY, col3W, 148, 14); ctx.stroke();
+            ctx.fillStyle = '#64748b'; ctx.font = '32px sans-serif';
+            ctx.fillText(col.label, gx + 16, curY + 44);
+            ctx.fillStyle = col.color; ctx.font = 'bold 54px sans-serif';
+            const valStr = (col.val >= 0 ? '+' : '') + Math.round(col.val/1000) + '千';
+            ctx.fillText(valStr, gx + 16, curY + 118);
+          });
+          curY += 168;
+
+          // ─ 合計 ─
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          roundRect(ctx, 56, curY, W - 112, 110, 14); ctx.fill();
+          ctx.fillStyle = '#0f172a'; ctx.font = 'bold 36px sans-serif';
+          const sumStr = `合計5日  ${instData.sumNet5 >= 0 ? '+' : ''}${Math.round(instData.sumNet5/1000)}千張`;
+          ctx.fillText(sumStr, 56 + 20, curY + 70);
+          curY += 130;
+
+          // ─ 日期明細表 ─
+          const tblRows = instData.rows.slice(0, 5);
+          const cols = ['日期','外資','投信','自營'];
+          const cws  = [160, (W-232)/3, (W-232)/3, (W-232)/3];
+          // 表頭
+          ctx.fillStyle = 'rgba(30,58,95,0.12)';
+          roundRect(ctx, 56, curY, W-112, 62, 8); ctx.fill();
+          ctx.fillStyle = '#475569'; ctx.font = 'bold 32px sans-serif';
+          let hx = 56 + 16;
+          cols.forEach((c, ci) => { ctx.fillText(c, hx, curY + 44); hx += cws[ci]; });
+          curY += 62;
+          // 表列
+          tblRows.forEach((row, ri) => {
+            const rowBg = ri % 2 === 0 ? 'rgba(255,255,255,0.6)' : 'rgba(248,250,252,0.5)';
+            ctx.fillStyle = rowBg;
+            roundRect(ctx, 56, curY, W-112, 68, 0); ctx.fill();
+            let rx = 56 + 16;
+            ctx.fillStyle = '#475569'; ctx.font = '34px sans-serif';
+            ctx.fillText(row.date, rx, curY + 48); rx += cws[0];
+            [row.f, row.t, row.dv].forEach((v, ci) => {
+              ctx.fillStyle = v > 0 ? '#dc2626' : v < 0 ? '#16a34a' : '#94a3b8';
+              ctx.font = 'bold 34px sans-serif';
+              ctx.fillText((v >= 0 ? '+' : '') + Math.round(v), rx, curY + 48);
+              rx += cws[ci + 1];
+            });
+            curY += 68;
+          });
+          curY += 24;
+        }
+
+        // ─ 條件清單（緊湊 2 欄） ─
+        if (r.checks && r.checks.length) {
+          const halfW = (W - 132) / 2;
+          r.checks.forEach((c, i) => {
+            const cx2 = 56 + (i % 2) * (halfW + 20);
+            const cy2 = curY + Math.floor(i / 2) * 84;
+            const hitBg = c.hit ? 'rgba(22,163,74,0.10)' : c.warn ? 'rgba(217,119,6,0.08)' : 'rgba(148,163,184,0.06)';
+            ctx.fillStyle = hitBg;
+            roundRect(ctx, cx2, cy2 - 52, halfW, 72, 10); ctx.fill();
+            ctx.fillStyle = c.hit ? '#16a34a' : c.warn ? '#d97706' : '#94a3b8';
+            ctx.font = 'bold 36px sans-serif';
+            ctx.fillText((c.hit ? '✓ ' : c.warn ? '△ ' : '✗ ') + c.label.replace(/^C\d+ /,''), cx2 + 14, cy2);
+          });
+        }
       }
     }
 
