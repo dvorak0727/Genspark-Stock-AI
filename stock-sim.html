@@ -971,25 +971,18 @@ function calcStockIndicators(si, d) {
   const al = cnt ? losses / cnt : 0;
   const rsi = Math.round(al === 0 ? 100 : 100 - 100 / (1 + ag / al));
 
-  // Wyckoff Phase
-  const ar = s.annualReturn;
+  // Wyckoff Phase（全部股票統一走同一套邏輯，無論牛熊年）
   let phase, phaseNum;
-  if (ar < -0.15) {
-    if (pos < 0.18 && rsi < 38)         { phase = '吸籌期'; phaseNum = 1; }
-    else if (pos >= 0.75 && mom5 < 0)   { phase = '倒貨期'; phaseNum = 5; }
-    else                                  { phase = '下跌中'; phaseNum = -1; }
-  } else {
-    if      (pos < 0.22 && rsi < 42)                               { phase = '吸籌期'; phaseNum = 1; }
-    else if (pos < 0.42 && Math.abs(mom5) < 0.045 && rsi < 56)    { phase = '洗盤期'; phaseNum = 2; }
-    else if (pos >= 0.28 && pos < 0.62 && mom5 > 0.018 && volRatio > 1.1) { phase = '啟動期'; phaseNum = 3; }
-    else if (pos >= 0.52 && pos < 0.82 && rsi >= 50)               { phase = '拉升期'; phaseNum = 4; }
-    else if (pos >= 0.80 || (rsi >= 74 && mom5 < 0.01))            { phase = '倒貨期'; phaseNum = 5; }
-    else if (pos < 0.28)  { phase = '吸籌期'; phaseNum = 1; }
-    else if (pos < 0.50)  { phase = '洗盤期'; phaseNum = 2; }
-    else if (pos < 0.65)  { phase = '啟動期'; phaseNum = 3; }
-    else if (pos < 0.82)  { phase = '拉升期'; phaseNum = 4; }
-    else                  { phase = '倒貨期'; phaseNum = 5; }
-  }
+  if      (pos < 0.22 && rsi < 42)                                   { phase = '吸籌期'; phaseNum = 1; }
+  else if (pos < 0.42 && Math.abs(mom5) < 0.045 && rsi < 56)         { phase = '洗盤期'; phaseNum = 2; }
+  else if (pos >= 0.28 && pos < 0.62 && mom5 > 0.018 && volRatio > 1.1) { phase = '啟動期'; phaseNum = 3; }
+  else if (pos >= 0.52 && pos < 0.82 && rsi >= 50)                   { phase = '拉升期'; phaseNum = 4; }
+  else if (pos >= 0.80 || (rsi >= 74 && mom5 < 0.01))                { phase = '倒貨期'; phaseNum = 5; }
+  else if (pos < 0.28)  { phase = '吸籌期'; phaseNum = 1; }
+  else if (pos < 0.50)  { phase = '洗盤期'; phaseNum = 2; }
+  else if (pos < 0.65)  { phase = '啟動期'; phaseNum = 3; }
+  else if (pos < 0.82)  { phase = '拉升期'; phaseNum = 4; }
+  else                  { phase = '倒貨期'; phaseNum = 5; }
 
   // RSI colour
   const rsiColor = rsi < 30 ? '#60a5fa' : rsi < 50 ? '#94a3b8' : rsi < 70 ? '#34d399' : rsi < 80 ? '#fbbf24' : '#f87171';
