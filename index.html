@@ -15931,7 +15931,10 @@ a.module-nav-item.acc-active {
 <!-- 🎬 輪播圖浮動匯出按鈕 -->
 <div id="reelExportFloat">
   <button class="reel-float-clear" onclick="_reelClearAll()">✕ 取消全選</button>
-  <button class="reel-float-btn" onclick="exportReelCards()">📦 匯出 <span id="reelCount">0</span> 張 PNG</button>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="reel-float-btn" style="background:rgba(30,58,95,0.85);box-shadow:0 2px 10px rgba(0,0,0,0.3);font-size:0.72rem;padding:9px 14px;" onclick="_reelClearAll()">🔄 重新選擇</button>
+    <button class="reel-float-btn" onclick="exportReelCards()">📦 匯出 <span id="reelCount">0</span> 張 PNG</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════
