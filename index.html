@@ -42554,7 +42554,12 @@ async function exportReelCards() {
       }
     } catch(e) { /* 抓不到就略過 */ }
 
-    await _drawReelCard(r, info, W, H, today, i + 1, toExport.length, curMode, modeMeta.title, instData);
+    try {
+      await _drawReelCard(r, info, W, H, today, i + 1, toExport.length, curMode, modeMeta.title, instData);
+    } catch(drawErr) {
+      console.error('_drawReelCard error:', drawErr);
+      if (typeof showEpicToast === 'function') showEpicToast(`❌ ${info.name} 匯出失敗：${drawErr.message}`, '#dc2626');
+    }
     await new Promise(res => setTimeout(res, 300));
   }
   if (typeof showEpicToast === 'function') showEpicToast(`✅ 已匯出 ${toExport.length} 張 PNG！`, '#16a34a');
@@ -42563,7 +42568,7 @@ async function exportReelCards() {
 function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, instData) {
   curMode   = curMode   || 'bottom';
   modeTitle = modeTitle || '海選結果';
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => { try {
     const canvas = document.createElement('canvas');
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
@@ -42895,14 +42900,17 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
 
     // ── 下載 ──
     canvas.toBlob(blob => {
+      if (!blob) { reject(new Error('canvas.toBlob 回傳 null')); return; }
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `reel_${r.stockId}_${info.name}.png`;
+      document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(a.href);
       resolve();
     }, 'image/png');
-  });
+  } catch(e) { reject(e); } });
 }
 
 function roundRect(ctx, x, y, w, h, r2) {
