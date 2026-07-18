@@ -42536,152 +42536,162 @@ function _drawReelCard(r, info, W, H, today, idx, total) {
     canvas.width = W; canvas.height = H;
     const ctx = canvas.getContext('2d');
 
-    // ── 背景漸層 ──
-    const bg = ctx.createLinearGradient(0, 0, 0, H);
-    bg.addColorStop(0,   '#0a0f1e');
-    bg.addColorStop(0.4, '#0d1b2e');
-    bg.addColorStop(1,   '#091020');
+    // ── 配色：依評分對應卡片顏色（仿 sc-card.score4/3/2）──
+    const accent    = r.score >= 5 ? '#fbbf24' : r.score >= 4 ? '#E8343A' : r.score >= 3 ? '#F59E0B' : '#1976D2';
+    const accentDim = r.score >= 5 ? '#fef3c7' : r.score >= 4 ? '#FEE8E8' : r.score >= 3 ? '#FEF3C7' : '#DBEAFE';
+    const cardBg1   = r.score >= 5 ? '#FFFBEB' : r.score >= 4 ? '#FFF5F5' : r.score >= 3 ? '#FFFBEB' : '#EEF5FE';
+    const cardBg2   = r.score >= 5 ? '#FEF3C7' : r.score >= 4 ? '#FEE8E8' : r.score >= 3 ? '#FEF3C7' : '#DBEAFE';
+
+    // ── 卡片主體背景漸層（淺色） ──
+    const bg = ctx.createLinearGradient(0, 200, 0, H);
+    bg.addColorStop(0, cardBg1);
+    bg.addColorStop(1, cardBg2);
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, W, H);
 
-    // ── 左側亮條裝飾 ──
-    const score6 = Math.min(r.score / 6, 1);
-    const accentColor = r.score >= 5 ? '#fbbf24' : r.score >= 4 ? '#ef4444' : r.score >= 3 ? '#f59e0b' : '#3b82f6';
-    const sideGrad = ctx.createLinearGradient(0, 0, 0, H * 0.6);
-    sideGrad.addColorStop(0, accentColor + 'cc');
-    sideGrad.addColorStop(1, accentColor + '00');
-    ctx.fillStyle = sideGrad;
-    ctx.fillRect(0, 0, 10, H * 0.6);
-
-    // ── 標題列 ──
-    ctx.fillStyle = '#1e3a5f';
-    ctx.fillRect(0, 0, W, 140);
+    // ── 頂部深色標題列 ──
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, W, 180);
+    // 品牌標誌線條
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, 14, 180);
     ctx.fillStyle = '#60a5fa';
-    ctx.font = 'bold 40px sans-serif';
-    ctx.fillText('📊 MACD多方結構掃瞄', 50, 80);
-    ctx.fillStyle = '#4b6a8d';
-    ctx.font = '32px sans-serif';
-    ctx.fillText(`${today}  |  ${idx}/${total}`, 50, 120);
-
-    // ── 股票名稱 ──
-    ctx.fillStyle = '#f1f5f9';
-    ctx.font = 'bold 96px sans-serif';
-    ctx.fillText(info.name, 60, 270);
-
-    // ── 代號 + 價格 ──
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 52px sans-serif';
-    ctx.fillText(r.stockId, 60, 345);
-
-    const up = r.chgPct >= 0;
-    ctx.fillStyle = up ? '#ef4444' : '#22c55e';
-    ctx.font = 'bold 72px sans-serif';
-    const priceStr = `$${r.lc >= 100 ? r.lc.toFixed(0) : r.lc.toFixed(1)}  ${up ? '▲' : '▼'}${Math.abs(r.chgPct).toFixed(1)}%`;
-    ctx.fillText(priceStr, 60, 440);
-
-    // ── 評分圓圈 ──
-    const cx = W - 170, cy = 290, cr = 130;
-    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2);
-    ctx.strokeStyle = accentColor; ctx.lineWidth = 12; ctx.stroke();
-    ctx.fillStyle = accentColor + '22';
-    ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = accentColor;
-    ctx.font = 'bold 100px sans-serif';
-    ctx.textAlign = 'center';
-    const scoreStr = r.score % 1 === 0 ? String(r.score) : r.score.toFixed(1);
-    ctx.fillText(scoreStr, cx, cy + 20);
-    ctx.font = 'bold 40px sans-serif';
+    ctx.font = 'bold 44px sans-serif';
+    ctx.fillText('📊 MACD多方結構掃瞄', 46, 90);
     ctx.fillStyle = '#64748b';
-    ctx.fillText('/6', cx, cy + 70);
+    ctx.font = '34px sans-serif';
+    ctx.fillText(`${today}   ${idx} / ${total}`, 46, 145);
+
+    // ── 評分圓圈（右上，在卡片區域內） ──
+    const crx = W - 185, cry = 390, crr = 140;
+    // 外環陰影感
+    ctx.beginPath(); ctx.arc(crx, cry, crr + 8, 0, Math.PI * 2);
+    ctx.fillStyle = accent + '28'; ctx.fill();
+    // 圓圈填色
+    ctx.beginPath(); ctx.arc(crx, cry, crr, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff'; ctx.fill();
+    ctx.strokeStyle = accent; ctx.lineWidth = 14; ctx.stroke();
+    // 評分數字
+    const scoreStr = r.score % 1 === 0 ? String(r.score) : r.score.toFixed(1);
+    ctx.fillStyle = accent; ctx.font = 'bold 110px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(scoreStr, crx, cry + 28);
+    ctx.font = 'bold 44px sans-serif'; ctx.fillStyle = '#94a3b8';
+    ctx.fillText('/6', crx, cry + 84);
     ctx.textAlign = 'left';
 
-    // ── 法人連買 badges ──
-    let badgeX = 60, badgeY = 510;
-    const drawBadge = (label, color, bg) => {
-      ctx.font = 'bold 36px sans-serif';
-      const tw = ctx.measureText(label).width + 32;
-      ctx.fillStyle = bg;
-      roundRect(ctx, badgeX, badgeY, tw, 60, 12);
-      ctx.fill();
-      ctx.fillStyle = color;
-      ctx.fillText(label, badgeX + 16, badgeY + 42);
-      badgeX += tw + 16;
-    };
-    if (r.fCons >= 1) drawBadge(`🐋 外資連買${r.fCons}日`, '#60a5fa', '#1e3a5f');
-    if (r.tCons >= 1) drawBadge(`📦 投信連買${r.tCons}日`, '#34d399', '#0f2a20');
+    // ── 股票名稱 ──
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 110px sans-serif';
+    ctx.fillText(info.name, 56, 320);
 
-    // ── MACD mini Histogram ──
+    // ── 代號 ──
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 54px sans-serif';
+    ctx.fillText(r.stockId, 56, 392);
+
+    // ── 現價 + 漲跌 ──
+    const up = r.chgPct >= 0;
+    ctx.fillStyle = up ? '#E8343A' : '#16a34a';
+    ctx.font = 'bold 82px sans-serif';
+    const priceStr = `$${r.lc >= 100 ? r.lc.toFixed(0) : r.lc.toFixed(1)}`;
+    ctx.fillText(priceStr, 56, 488);
+    ctx.font = 'bold 64px sans-serif';
+    const chgW = ctx.measureText(priceStr).width + 80;
+    ctx.fillText(`${up ? '▲' : '▼'}${Math.abs(r.chgPct).toFixed(1)}%`, 56 + chgW, 488);
+
+    // ── 法人連買 badges ──
+    let badgeX = 56, badgeY = 534;
+    const drawBadge = (label, textColor, bgColor, borderColor) => {
+      ctx.font = 'bold 38px sans-serif';
+      const tw = ctx.measureText(label).width + 44;
+      ctx.fillStyle = bgColor;
+      roundRect(ctx, badgeX, badgeY, tw, 70, 14); ctx.fill();
+      ctx.strokeStyle = borderColor; ctx.lineWidth = 2;
+      roundRect(ctx, badgeX, badgeY, tw, 70, 14); ctx.stroke();
+      ctx.fillStyle = textColor;
+      ctx.fillText(label, badgeX + 22, badgeY + 48);
+      badgeX += tw + 18;
+    };
+    if (r.fCons >= 1) drawBadge(`🐋 外資連買${r.fCons}日`, '#075985', '#e0f2fe', '#bae6fd');
+    if (r.tCons >= 1) drawBadge(`📦 投信連買${r.tCons}日`, '#065f46', '#d1fae5', '#6ee7b7');
+
+    // ── MACD Histogram 圖 ──
     const histArr = r.macdMini?.hist || [];
     if (histArr.length >= 3) {
-      const chartX = 60, chartY = 600, chartW = W - 120, chartH = 380;
-      ctx.fillStyle = 'rgba(30,58,95,0.35)';
-      roundRect(ctx, chartX - 10, chartY - 10, chartW + 20, chartH + 20, 16);
-      ctx.fill();
-      const maxAbs = Math.max(...histArr.map(Math.abs), 0.001);
-      const barW = Math.floor((chartW - 12) / histArr.length) - 2;
-      histArr.forEach((v, i) => {
-        const barH = Math.abs(v) / maxAbs * (chartH / 2 - 20);
-        const bx = chartX + i * (barW + 2);
-        const midY = chartY + chartH / 2;
-        ctx.fillStyle = v >= 0
-          ? (Math.abs(v) >= Math.abs(histArr[i-1]||0) ? '#ef4444' : '#fca5a5')
-          : (Math.abs(v) >= Math.abs(histArr[i-1]||0) ? '#22c55e' : '#86efac');
-        ctx.fillRect(bx, v >= 0 ? midY - barH : midY, barW, barH);
-      });
+      const chartX = 56, chartY = 640, chartW = W - 112, chartH = 360;
+      // 背景
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      roundRect(ctx, chartX - 16, chartY - 16, chartW + 32, chartH + 48, 20); ctx.fill();
+      ctx.strokeStyle = accent + '44'; ctx.lineWidth = 2;
+      roundRect(ctx, chartX - 16, chartY - 16, chartW + 32, chartH + 48, 20); ctx.stroke();
       // 零線
-      ctx.strokeStyle = '#334155'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(chartX, chartY + chartH/2); ctx.lineTo(chartX + chartW, chartY + chartH/2); ctx.stroke();
-      ctx.fillStyle = '#475569'; ctx.font = '30px sans-serif';
-      ctx.fillText('MACD Histogram', chartX, chartY + chartH + 12);
+      const midY = chartY + chartH / 2;
+      ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(chartX, midY); ctx.lineTo(chartX + chartW, midY); ctx.stroke();
+      // 柱子
+      const maxAbs = Math.max(...histArr.map(Math.abs), 0.001);
+      const barW = Math.floor((chartW - 8) / histArr.length) - 2;
+      histArr.forEach((v, i) => {
+        const barH = Math.abs(v) / maxAbs * (chartH / 2 - 18);
+        const bx = chartX + i * (barW + 2);
+        const isExpanding = Math.abs(v) >= Math.abs(histArr[i-1] || 0);
+        ctx.fillStyle = v >= 0
+          ? (isExpanding ? '#ef4444' : '#fca5a5')
+          : (isExpanding ? '#16a34a' : '#86efac');
+        ctx.fillRect(bx, v >= 0 ? midY - barH : midY, barW, Math.max(barH, 2));
+      });
+      ctx.fillStyle = '#94a3b8'; ctx.font = '30px sans-serif';
+      ctx.fillText('MACD Histogram', chartX, chartY + chartH + 28);
     }
 
     // ── 數值明細 4格 ──
-    const statsY = 1030;
+    const statsY = 1060;
+    const cellW = (W - 132) / 2, cellH = 192;
     const grid = [
-      { label: '柱狀值', val: r.lHist != null ? (r.lHist >= 0 ? '+' : '') + r.lHist.toFixed(2) : '—', color: (r.lHist||0) >= 0 ? '#ef4444' : '#22c55e' },
-      { label: '動能趨勢', val: (r.lHist != null && r.pHist != null) ? (Math.abs(r.lHist) > Math.abs(r.pHist) ? '擴張 ↑' : '收縮 ↓') : '—', color: '#94a3b8' },
-      { label: 'DIF', val: r.lDif != null ? (r.lDif >= 0 ? '+' : '') + r.lDif.toFixed(2) : '—', color: '#60a5fa' },
-      { label: 'DEA', val: r.lDea != null ? (r.lDea >= 0 ? '+' : '') + r.lDea.toFixed(2) : '—', color: '#a78bfa' },
+      { label: '柱狀值',  val: r.lHist != null ? (r.lHist >= 0 ? '+' : '') + r.lHist.toFixed(2) : '—', color: (r.lHist||0) >= 0 ? '#E8343A' : '#16a34a' },
+      { label: '動能趨勢', val: (r.lHist != null && r.pHist != null) ? (Math.abs(r.lHist) > Math.abs(r.pHist) ? '擴張 ↑' : '收縮 ↓') : '—', color: '#0f172a' },
+      { label: 'DIF',    val: r.lDif != null ? (r.lDif >= 0 ? '+' : '') + r.lDif.toFixed(2) : '—', color: '#1d4ed8' },
+      { label: 'DEA',    val: r.lDea != null ? (r.lDea >= 0 ? '+' : '') + r.lDea.toFixed(2) : '—', color: '#7c3aed' },
     ];
-    const cellW = (W - 120) / 2, cellH = 180;
     grid.forEach((g, i) => {
-      const gx = 60 + (i % 2) * (cellW + 20);
-      const gy = statsY + Math.floor(i / 2) * (cellH + 16);
-      ctx.fillStyle = 'rgba(30,41,59,0.8)';
-      roundRect(ctx, gx, gy, cellW, cellH, 14); ctx.fill();
-      ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 1.5;
-      roundRect(ctx, gx, gy, cellW, cellH, 14); ctx.stroke();
-      ctx.fillStyle = '#64748b'; ctx.font = '34px sans-serif';
-      ctx.fillText(g.label, gx + 20, gy + 50);
-      ctx.fillStyle = g.color; ctx.font = 'bold 60px sans-serif';
-      ctx.fillText(g.val, gx + 20, gy + 130);
+      const gx = 56 + (i % 2) * (cellW + 20);
+      const gy = statsY + Math.floor(i / 2) * (cellH + 18);
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      roundRect(ctx, gx, gy, cellW, cellH, 16); ctx.fill();
+      ctx.strokeStyle = accentDim; ctx.lineWidth = 2;
+      roundRect(ctx, gx, gy, cellW, cellH, 16); ctx.stroke();
+      ctx.fillStyle = '#64748b'; ctx.font = '36px sans-serif';
+      ctx.fillText(g.label, gx + 22, gy + 54);
+      ctx.fillStyle = g.color; ctx.font = 'bold 66px sans-serif';
+      ctx.fillText(g.val, gx + 22, gy + 142);
     });
 
     // ── 6條件 checklist ──
-    const chkY = statsY + cellH * 2 + 60;
+    const chkStartY = statsY + cellH * 2 + 50;
     if (r.checks && r.checks.length) {
+      const halfW = (W - 112) / 2;
       r.checks.forEach((c, i) => {
-        const cx2 = 60 + (i % 2) * ((W - 120) / 2 + 20);
-        const cy2 = chkY + Math.floor(i / 2) * 90;
-        ctx.fillStyle = c.hit ? '#22c55e' : c.warn ? '#f59e0b' : '#475569';
-        ctx.font = 'bold 36px sans-serif';
+        const cx2 = 56 + (i % 2) * (halfW + 20);
+        const cy2 = chkStartY + Math.floor(i / 2) * 94;
+        const hitColor  = '#16a34a';
+        const warnColor = '#d97706';
+        const missColor = '#94a3b8';
+        ctx.fillStyle = c.hit ? hitColor : c.warn ? warnColor : missColor;
+        ctx.font = 'bold 38px sans-serif';
         ctx.fillText((c.hit ? '✓ ' : c.warn ? '△ ' : '✗ ') + c.label, cx2, cy2);
       });
     }
 
-    // ── 分隔線 ──
-    ctx.strokeStyle = '#1e3a5f'; ctx.lineWidth = 2;
-    const footerY = H - 180;
-    ctx.beginPath(); ctx.moveTo(60, footerY); ctx.lineTo(W - 60, footerY); ctx.stroke();
-
-    // ── 品牌 watermark ──
-    ctx.fillStyle = '#1e3a5f';
+    // ── 底部品牌條 ──
+    const footerY = H - 160;
+    ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, footerY, W, H - footerY);
-    ctx.fillStyle = '#60a5fa';
-    ctx.font = 'bold 40px sans-serif';
-    ctx.fillText('台股AI分析儀表板', 60, footerY + 80);
-    ctx.fillStyle = '#334155'; ctx.font = '34px sans-serif';
-    ctx.fillText('dvorak0727.github.io/Genspark-Stock-AI', 60, footerY + 130);
+    ctx.fillStyle = accent; ctx.fillRect(0, footerY, 14, H - footerY);
+    ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 42px sans-serif';
+    ctx.fillText('台股AI分析儀表板', 46, footerY + 80);
+    ctx.fillStyle = '#475569'; ctx.font = '32px sans-serif';
+    ctx.fillText('dvorak0727.github.io/Genspark-Stock-AI', 46, footerY + 130);
 
     // ── 下載 ──
     canvas.toBlob(blob => {
