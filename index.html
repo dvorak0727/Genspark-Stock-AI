@@ -61337,7 +61337,7 @@ async function fetchTWSEIndex() {
     const fmt = d => d.toISOString().split('T')[0];
 
     const res = await fetch(
-      `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${token}`
+      `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${token}`
     );
     const json = await res.json();
     const rows = (json.data || []).sort((a,b) => a.date > b.date ? 1 : -1);
