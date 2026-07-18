@@ -42632,23 +42632,25 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
     const chgW = ctx.measureText(priceStr).width + 80;
     ctx.fillText(`${up ? '▲' : '▼'}${Math.abs(r.chgPct).toFixed(1)}%`, 56 + chgW, 488);
 
-    // ── 法人連買 badges ──
-    let badgeX = 56, badgeY = 534;
-    const drawBadge = (label, textColor, bgColor, borderColor) => {
-      ctx.font = 'bold 38px sans-serif';
-      const tw = ctx.measureText(label).width + 44;
-      ctx.fillStyle = bgColor;
-      roundRect(ctx, badgeX, badgeY, tw, 70, 14); ctx.fill();
-      ctx.strokeStyle = borderColor; ctx.lineWidth = 2;
-      roundRect(ctx, badgeX, badgeY, tw, 70, 14); ctx.stroke();
-      ctx.fillStyle = textColor;
-      ctx.fillText(label, badgeX + 22, badgeY + 48);
-      badgeX += tw + 18;
-    };
-    if (r.fCons >= 1) drawBadge(`🐋 外資連買${r.fCons}日`, '#075985', '#e0f2fe', '#bae6fd');
-    if (r.tCons >= 1) drawBadge(`📦 投信連買${r.tCons}日`, '#065f46', '#d1fae5', '#6ee7b7');
-
     const isMacd = curMode === 'macdmatrix';
+
+    // ── 法人連買 badges（MACD模式才顯示；其他模式改在法人籌碼區呈現）──
+    if (isMacd) {
+      let badgeX = 56, badgeY = 534;
+      const drawBadge = (label, textColor, bgColor, borderColor) => {
+        ctx.font = 'bold 38px sans-serif';
+        const tw = ctx.measureText(label).width + 44;
+        ctx.fillStyle = bgColor;
+        roundRect(ctx, badgeX, badgeY, tw, 70, 14); ctx.fill();
+        ctx.strokeStyle = borderColor; ctx.lineWidth = 2;
+        roundRect(ctx, badgeX, badgeY, tw, 70, 14); ctx.stroke();
+        ctx.fillStyle = textColor;
+        ctx.fillText(label, badgeX + 22, badgeY + 48);
+        badgeX += tw + 18;
+      };
+      if (r.fCons >= 1) drawBadge(`🐋 外資連買${r.fCons}日`, '#075985', '#e0f2fe', '#bae6fd');
+      if (r.tCons >= 1) drawBadge(`📦 投信連買${r.tCons}日`, '#065f46', '#d1fae5', '#6ee7b7');
+    }
 
     // ── MACD Histogram 圖（僅 MACD 模式）──
     let checksStartY = 650;
@@ -42713,116 +42715,146 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
           ctx.fillText((c.hit ? '✓ ' : c.warn ? '△ ' : '✗ ') + c.label, cx2, cy2);
         });
       } else {
-        // ── 非 MACD：迷你K線 + 法人籌碼表 + 條件清單 ──
-        let curY = 640;
+        // ── 非 MACD：K線 → Verdict → 法人籌碼表（無條件清單）──
+        let curY = 530;
 
-        // 迷你 K 線（若有 candles 資料）
+        // ① 迷你 K 線＋量柱
         const cl = r.candles?.closes || [];
+        const op = r.candles?.opens  || [];
+        const hi = r.candles?.highs  || [];
+        const lo = r.candles?.lows   || [];
         if (cl.length >= 5) {
-          const chartX = 56, chartW = W - 112, chartH = 260;
-          ctx.fillStyle = 'rgba(255,255,255,0.7)';
+          const chartX = 56, chartW = W - 112, chartH = 280;
+          ctx.fillStyle = 'rgba(255,255,255,0.75)';
           roundRect(ctx, chartX - 12, curY - 12, chartW + 24, chartH + 24, 18); ctx.fill();
           ctx.strokeStyle = accentDim; ctx.lineWidth = 1.5;
           roundRect(ctx, chartX - 12, curY - 12, chartW + 24, chartH + 24, 18); ctx.stroke();
-          const minP = Math.min(...cl), maxP = Math.max(...cl);
+          const minP = Math.min(...lo.filter(Boolean), ...cl), maxP = Math.max(...hi.filter(Boolean), ...cl);
           const rng = maxP - minP || 1;
-          const barW2 = Math.floor(chartW / cl.length) - 3;
-          cl.forEach((v, i) => {
-            const h2 = ((v - minP) / rng) * (chartH - 20);
-            const bx2 = chartX + i * (barW2 + 3);
-            const by2 = curY + chartH - h2 - 10;
-            ctx.fillStyle = i === 0 ? '#94a3b8' : (v >= cl[i-1] ? '#ef4444' : '#16a34a');
-            ctx.fillRect(bx2, by2, barW2, Math.max(h2, 3));
+          const bw = Math.floor((chartW - 8) / cl.length) - 3;
+          cl.forEach((c2, i) => {
+            const o2 = op[i] || c2;
+            const h2 = hi[i] || c2;
+            const l2 = lo[i] || c2;
+            const isUp = c2 >= o2;
+            const color = isUp ? '#ef4444' : '#16a34a';
+            const bx2 = chartX + 4 + i * (bw + 3);
+            const bodyT = curY + chartH - ((Math.max(c2,o2) - minP) / rng) * (chartH - 20) - 10;
+            const bodyB = curY + chartH - ((Math.min(c2,o2) - minP) / rng) * (chartH - 20) - 10;
+            const wickT = curY + chartH - ((h2 - minP) / rng) * (chartH - 20) - 10;
+            const wickB = curY + chartH - ((l2 - minP) / rng) * (chartH - 20) - 10;
+            ctx.strokeStyle = color; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(bx2 + bw/2, wickT); ctx.lineTo(bx2 + bw/2, wickB); ctx.stroke();
+            ctx.fillStyle = isUp ? color : 'rgba(22,163,74,0.3)';
+            ctx.fillRect(bx2, bodyT, bw, Math.max(bodyB - bodyT, 2));
+            if (!isUp) { ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.strokeRect(bx2, bodyT, bw, Math.max(bodyB - bodyT, 2)); }
           });
-          // 均線
-          const ma5c = cl.slice(-5);
-          if (ma5c.length === 5) {
-            const ma5v = ma5c.reduce((a,b)=>a+b,0)/5;
-            const ma5y = curY + chartH - ((ma5v - minP) / rng) * (chartH - 20) - 10;
-            ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.moveTo(chartX, ma5y); ctx.lineTo(chartX + chartW, ma5y); ctx.stroke();
+          // MA5 線
+          if (cl.length >= 5) {
+            ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3; ctx.beginPath();
+            for (let i = 4; i < cl.length; i++) {
+              const ma5 = (cl[i]+cl[i-1]+cl[i-2]+cl[i-3]+cl[i-4])/5;
+              const mx = chartX + 4 + i * (bw + 3) + bw/2;
+              const my = curY + chartH - ((ma5 - minP) / rng) * (chartH - 20) - 10;
+              i === 4 ? ctx.moveTo(mx, my) : ctx.lineTo(mx, my);
+            }
+            ctx.stroke();
           }
-          curY += chartH + 36;
+          curY += chartH + 28;
         }
 
-        // 法人籌碼區
-        if (instData) {
-          // ─ 標題 ─
-          ctx.fillStyle = '#1e3a5f'; ctx.font = 'bold 40px sans-serif';
-          ctx.fillText('三大法人籌碼（近5日）', 56, curY + 44);
-          curY += 66;
+        // ② Verdict badge（強烈 ▼ 底部訊號）
+        const _maxSc = 5; // 底部/啟動/其他都是5分制
+        const _th4   = _maxSc * 0.67;
+        const verdict = r.score >= _th4
+          ? `強烈 ▼ ${(SCREENER_MODE_META[curMode]||{}).badge||'訊號'}`
+          : r.score >= _maxSc * 0.5
+            ? `明確 ▼ ${(SCREENER_MODE_META[curMode]||{}).badge||'訊號'}`
+            : r.score >= _maxSc * 0.33
+              ? `部分訊號成立`
+              : '訊號初現';
+        const vColor = r.score >= _th4 ? accent : r.score >= _maxSc * 0.5 ? '#d97706' : '#64748b';
+        const vBg    = r.score >= _th4 ? accentDim : r.score >= _maxSc * 0.5 ? '#fef3c7' : '#f1f5f9';
+        ctx.font = 'bold 44px sans-serif';
+        const vw = ctx.measureText('● ' + verdict).width + 56;
+        ctx.fillStyle = vBg;
+        roundRect(ctx, 56, curY, vw, 80, 40); ctx.fill();
+        ctx.strokeStyle = vColor + '88'; ctx.lineWidth = 2;
+        roundRect(ctx, 56, curY, vw, 80, 40); ctx.stroke();
+        ctx.fillStyle = vColor;
+        ctx.fillText('● ' + verdict, 56 + 28, curY + 56);
+        curY += 106;
 
-          // ─ 三欄合計 ─
+        // ③ 三大法人籌碼表
+        if (instData) {
+          // 標題
+          ctx.fillStyle = '#1e3a5f'; ctx.font = 'bold 42px sans-serif';
+          ctx.fillText('🏛 三大法人籌碼（近5日）', 56, curY + 46);
+          curY += 72;
+
+          // 外資/投信連買天數（一行，小字）
+          if (r.fCons >= 1 || r.tCons >= 1) {
+            ctx.font = '36px sans-serif';
+            let bx3 = 56;
+            if (r.fCons >= 1) {
+              ctx.fillStyle = '#1d4ed8';
+              ctx.fillText(`外資連買${r.fCons}日`, bx3, curY); bx3 += ctx.measureText(`外資連買${r.fCons}日`).width + 40;
+            }
+            if (r.tCons >= 1) {
+              ctx.fillStyle = '#059669';
+              ctx.fillText(`投信連買${r.tCons}日`, bx3, curY);
+            }
+            curY += 50;
+          }
+
+          // 三欄
           const col3W = (W - 132) / 3;
-          const cols3 = [
+          [
             { label: '外資5日', val: instData.fNet5, color: '#1d4ed8' },
             { label: '投信5日', val: instData.tNet5, color: '#059669' },
             { label: '自營5日', val: instData.dNet5, color: '#7c3aed' },
-          ];
-          cols3.forEach((col, i) => {
+          ].forEach((col, i) => {
             const gx = 56 + i * (col3W + 20);
             ctx.fillStyle = 'rgba(255,255,255,0.8)';
-            roundRect(ctx, gx, curY, col3W, 148, 14); ctx.fill();
+            roundRect(ctx, gx, curY, col3W, 152, 14); ctx.fill();
             ctx.strokeStyle = accentDim; ctx.lineWidth = 1.5;
-            roundRect(ctx, gx, curY, col3W, 148, 14); ctx.stroke();
-            ctx.fillStyle = '#64748b'; ctx.font = '32px sans-serif';
-            ctx.fillText(col.label, gx + 16, curY + 44);
-            ctx.fillStyle = col.color; ctx.font = 'bold 54px sans-serif';
-            const valStr = (col.val >= 0 ? '+' : '') + Math.round(col.val/1000) + '千';
-            ctx.fillText(valStr, gx + 16, curY + 118);
+            roundRect(ctx, gx, curY, col3W, 152, 14); ctx.stroke();
+            ctx.fillStyle = '#64748b'; ctx.font = '33px sans-serif';
+            ctx.fillText(col.label, gx + 18, curY + 46);
+            ctx.fillStyle = col.color; ctx.font = 'bold 58px sans-serif';
+            ctx.fillText((col.val >= 0 ? '+' : '') + Math.round(col.val), gx + 18, curY + 126);
           });
-          curY += 168;
+          curY += 172;
 
-          // ─ 合計 ─
-          ctx.fillStyle = 'rgba(255,255,255,0.85)';
-          roundRect(ctx, 56, curY, W - 112, 110, 14); ctx.fill();
-          ctx.fillStyle = '#0f172a'; ctx.font = 'bold 36px sans-serif';
-          const sumStr = `合計5日  ${instData.sumNet5 >= 0 ? '+' : ''}${Math.round(instData.sumNet5/1000)}千張`;
-          ctx.fillText(sumStr, 56 + 20, curY + 70);
-          curY += 130;
+          // 合計
+          ctx.fillStyle = instData.sumNet5 >= 0 ? 'rgba(22,163,74,0.12)' : 'rgba(220,38,38,0.10)';
+          roundRect(ctx, 56, curY, W-112, 100, 14); ctx.fill();
+          ctx.fillStyle = instData.sumNet5 >= 0 ? '#15803d' : '#dc2626';
+          ctx.font = 'bold 48px sans-serif';
+          ctx.fillText(`合計5日  ${instData.sumNet5 >= 0 ? '+' : ''}${Math.round(instData.sumNet5)}張`, 56+24, curY + 68);
+          curY += 120;
 
-          // ─ 日期明細表 ─
-          const tblRows = instData.rows.slice(0, 5);
-          const cols = ['日期','外資','投信','自營'];
-          const cws  = [160, (W-232)/3, (W-232)/3, (W-232)/3];
-          // 表頭
-          ctx.fillStyle = 'rgba(30,58,95,0.12)';
-          roundRect(ctx, 56, curY, W-112, 62, 8); ctx.fill();
+          // 日期明細表
+          const cws = [170, (W-252)/4, (W-252)/4, (W-252)/4, (W-252)/4];
+          const tblCols = ['日期','外資','投信','自營','合計'];
+          ctx.fillStyle = 'rgba(30,58,95,0.14)';
+          roundRect(ctx, 56, curY, W-112, 66, 8); ctx.fill();
           ctx.fillStyle = '#475569'; ctx.font = 'bold 32px sans-serif';
-          let hx = 56 + 16;
-          cols.forEach((c, ci) => { ctx.fillText(c, hx, curY + 44); hx += cws[ci]; });
-          curY += 62;
-          // 表列
-          tblRows.forEach((row, ri) => {
-            const rowBg = ri % 2 === 0 ? 'rgba(255,255,255,0.6)' : 'rgba(248,250,252,0.5)';
-            ctx.fillStyle = rowBg;
-            roundRect(ctx, 56, curY, W-112, 68, 0); ctx.fill();
-            let rx = 56 + 16;
-            ctx.fillStyle = '#475569'; ctx.font = '34px sans-serif';
-            ctx.fillText(row.date, rx, curY + 48); rx += cws[0];
-            [row.f, row.t, row.dv].forEach((v, ci) => {
+          let hx = 56 + 14; tblCols.forEach((c,ci) => { ctx.fillText(c, hx, curY+46); hx += cws[ci]; });
+          curY += 66;
+          instData.rows.slice(0, 8).forEach((row, ri) => {
+            ctx.fillStyle = ri%2===0 ? 'rgba(255,255,255,0.65)' : 'rgba(248,250,252,0.5)';
+            roundRect(ctx, 56, curY, W-112, 66, 0); ctx.fill();
+            let rx = 56 + 14;
+            ctx.fillStyle = '#475569'; ctx.font = '32px sans-serif';
+            ctx.fillText(row.date, rx, curY+46); rx += cws[0];
+            [row.f, row.t, row.dv, row.sum].forEach((v, ci) => {
               ctx.fillStyle = v > 0 ? '#dc2626' : v < 0 ? '#16a34a' : '#94a3b8';
-              ctx.font = 'bold 34px sans-serif';
-              ctx.fillText((v >= 0 ? '+' : '') + Math.round(v), rx, curY + 48);
-              rx += cws[ci + 1];
+              ctx.font = 'bold 32px sans-serif';
+              ctx.fillText((v >= 0 ? '+' : '') + Math.round(v), rx, curY+46);
+              rx += cws[ci+1];
             });
-            curY += 68;
-          });
-          curY += 24;
-        }
-
-        // ─ 條件清單（緊湊 2 欄） ─
-        if (r.checks && r.checks.length) {
-          const halfW = (W - 132) / 2;
-          r.checks.forEach((c, i) => {
-            const cx2 = 56 + (i % 2) * (halfW + 20);
-            const cy2 = curY + Math.floor(i / 2) * 84;
-            const hitBg = c.hit ? 'rgba(22,163,74,0.10)' : c.warn ? 'rgba(217,119,6,0.08)' : 'rgba(148,163,184,0.06)';
-            ctx.fillStyle = hitBg;
-            roundRect(ctx, cx2, cy2 - 52, halfW, 72, 10); ctx.fill();
-            ctx.fillStyle = c.hit ? '#16a34a' : c.warn ? '#d97706' : '#94a3b8';
-            ctx.font = 'bold 36px sans-serif';
-            ctx.fillText((c.hit ? '✓ ' : c.warn ? '△ ' : '✗ ') + c.label.replace(/^C\d+ /,''), cx2 + 14, cy2);
+            curY += 66;
           });
         }
       }
