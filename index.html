@@ -3201,6 +3201,31 @@
     /* 圖表容器 */
     .icm-body { padding: 14px 16px 16px; flex: 1; overflow: auto; }
     .icm-chart-wrap { position: relative; height: 260px; }
+
+    /* ── 📱 分享模式 ── */
+    .icm-share-banner { display: none; }
+    .icm-share-footer { display: none; }
+    #indChartModal.share-mode .icm-box {
+      width: 100vw; height: 100dvh; max-height: none;
+      border-radius: 0; border: none;
+      background: #0a0f1e;
+    }
+    #indChartModal.share-mode .icm-header { background: #0a0f1e; border-bottom: none; padding: 16px 20px 8px; }
+    #indChartModal.share-mode .icm-tabs   { display: none; }
+    #indChartModal.share-mode .icm-desc   { display: none; }
+    #indChartModal.share-mode .icm-stats  { display: none; }
+    #indChartModal.share-mode .icm-signals { margin-top: 6px; }
+    #indChartModal.share-mode .icm-chart-wrap { height: calc(55dvh); }
+    #indChartModal.share-mode .icm-body   { background: #0a0f1e; overflow: hidden; }
+    #indChartModal.share-mode .icm-share-banner { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+    #indChartModal.share-mode .icm-share-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 4px 0; font-size: 0.60rem; color: #4b5563;
+    }
+    #indChartModal.share-mode .icm-title { display: none; }
+    .share-stock-name { font-size: 1.3rem; font-weight: 900; color: #fcd34d; }
+    .share-stock-code { font-size: 0.80rem; color: #60a5fa; font-family: monospace; }
+    .share-date       { font-size: 0.68rem; color: #6b7280; margin-left: auto; }
     .icm-desc {
       margin-top: 10px; padding: 8px 12px;
       border-radius: 7px; font-size: 0.68rem; color: var(--fg2);
@@ -17573,10 +17598,17 @@ a.module-nav-item.acc-active {
       <div class="ma-tags"  id="maTags"></div>
 
       <!-- ✨ v6.29 指標線圖 Modal -->
-      <div id="indChartModal" onclick="if(event.target===this)closeIndChart()">
+      <div id="indChartModal" onclick="if(event.target===this&&!this.classList.contains('share-mode'))closeIndChart()">
         <div class="icm-box">
           <div class="icm-header">
+            <!-- 分享模式：股票名稱大標 -->
+            <div class="icm-share-banner">
+              <span class="share-stock-name" id="shareStockName">—</span>
+              <span class="share-stock-code" id="shareStockCode"></span>
+              <span class="share-date" id="shareDate"></span>
+            </div>
             <span class="icm-title" id="icmTitle">指標走勢圖</span>
+            <button class="icm-close" id="icmShareBtn" onclick="toggleShareMode()" title="📱 分享模式" style="font-size:1rem;margin-right:2px;">📱</button>
             <button class="icm-close" onclick="closeIndChart()">✕</button>
           </div>
           <div class="icm-tabs" id="icmTabs">
@@ -17591,9 +17623,13 @@ a.module-nav-item.acc-active {
             <div class="icm-chart-wrap">
               <canvas id="icmCanvas"></canvas>
             </div>
-            <!-- v6.30 訊號解讀列 -->
             <div class="icm-signals" id="icmSignals"></div>
             <div class="icm-desc" id="icmDesc"></div>
+            <!-- 分享模式：底部浮水印 -->
+            <div class="icm-share-footer">
+              <span>台股AI分析器 · dvorak0727.github.io/Genspark-Stock-AI</span>
+              <span id="shareSignalText"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -43270,6 +43306,7 @@ const IND_CHART_META = {
 /** 目前 Modal 狀態 */
 let _icmType = null;
 let _icmChart = null;
+let _icmDays  = 20;
 
 /** 開啟指標 Modal */
 function openIndChart(type) {
@@ -43293,14 +43330,43 @@ function openIndChart(type) {
 
 /** 關閉 Modal */
 function closeIndChart() {
-  document.getElementById('indChartModal').classList.remove('open');
+  const modal = document.getElementById('indChartModal');
+  modal.classList.remove('open', 'share-mode');
   document.onkeydown = null;
   if (_icmChart) { _icmChart.destroy(); _icmChart = null; }
   _icmType = null;
 }
 
+function toggleShareMode() {
+  const modal = document.getElementById('indChartModal');
+  const isShare = modal.classList.toggle('share-mode');
+  const btn = document.getElementById('icmShareBtn');
+  btn.textContent = isShare ? '⬅ 返回' : '📱';
+  btn.style.fontSize = isShare ? '0.72rem' : '1rem';
+
+  if (isShare) {
+    // 填入股票資訊
+    const d = window.aData;
+    const id = d?.stockId || '';
+    const info = window.STOCK_DB?.[id] || {};
+    const name = info.name || id;
+    const today = d?.dates?.at(-1) || new Date().toISOString().slice(0,10);
+    document.getElementById('shareStockName').textContent = name;
+    document.getElementById('shareStockCode').textContent = id;
+    document.getElementById('shareDate').textContent = today;
+    // 從 icmSignals 取最新訊號文字
+    const sigEl = document.getElementById('icmSignals');
+    document.getElementById('shareSignalText').textContent =
+      sigEl?.querySelector?.('[data-signal-short]')?.dataset?.signalShort || '';
+  }
+
+  // 重繪 canvas 以適應新高度
+  setTimeout(() => { if (_icmType) _drawIndChart(_icmType, _icmDays || 20); }, 50);
+}
+
 /** 切換 Tab 天數 */
 function switchIndTab(days, el) {
+  _icmDays = days;
   document.querySelectorAll('.icm-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   if (_icmType) _drawIndChart(_icmType, days);
