@@ -16871,10 +16871,16 @@ a.module-nav-item.acc-active {
             請輸入真實內外盤張數（以千股為單位）覆蓋估算值：
           </div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <input id="obiManualOut" type="number" min="0" placeholder="外盤 (張)"
-              style="width:90px;padding:3px 6px;border-radius:5px;border:1px solid rgba(99,102,241,0.35);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
-            <input id="obiManualIn" type="number" min="0" placeholder="內盤 (張)"
-              style="width:90px;padding:3px 6px;border-radius:5px;border:1px solid rgba(99,102,241,0.35);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
+            <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
+              <span style="font-size:0.58rem;font-weight:800;color:#ef4444;letter-spacing:0.04em;">外盤（主動買）</span>
+              <input id="obiManualOut" type="number" min="0" placeholder="張數"
+                style="width:90px;padding:3px 6px;border-radius:5px;border:1.5px solid rgba(239,68,68,0.5);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
+              <span style="font-size:0.58rem;font-weight:800;color:#22c55e;letter-spacing:0.04em;">內盤（主動賣）</span>
+              <input id="obiManualIn" type="number" min="0" placeholder="張數"
+                style="width:90px;padding:3px 6px;border-radius:5px;border:1.5px solid rgba(34,197,94,0.5);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
+            </div>
             <button onclick="autoFetchOBI()" id="obiFetchBtn" style="padding:3px 10px;border-radius:5px;border:none;background:#7c3aed;color:#fff;font-size:0.62rem;cursor:pointer;font-weight:700;">⚡ 自動抓取</button>
             <button onclick="applyObiManual()" style="padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-size:0.62rem;cursor:pointer;font-weight:700;">✓ 套用</button>
             <button onclick="clearObiManual()" style="padding:3px 8px;border-radius:5px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:var(--fg3);font-size:0.62rem;cursor:pointer;">重設</button>
