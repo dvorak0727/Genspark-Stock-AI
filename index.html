@@ -40232,6 +40232,8 @@ function applyObiManual() {
   if (csObiOutEl) csObiOutEl.textContent = `外盤 ${_fmtVManual(out)}`;
   if (csObiInEl)  csObiInEl.textContent  = `內盤 ${_fmtVManual(inp)}`;
   if (obiCardSubEl) obiCardSubEl.textContent = `✅ 手動輸入 OBI ${obiPct.toFixed(1)}% · ${out>inp?'外>內 主動買':'內>外 主動賣'}`;
+  // 儲存校正資料（手動輸入也算訓練資料）
+  if (total > 0) _saveOBICalibration(window._currentStockId, obiPct);
 
   // 更新展開面板儀表
   const todayPctEl = document.getElementById('obiTodayPct');
@@ -40275,6 +40277,62 @@ function clearObiManual() {
   }
   const obiCardSubEl = document.getElementById('csObiCardSub');
   if (obiCardSubEl) obiCardSubEl.textContent = '⚠️ 已重設為 Lee-Ready 估算（非逐筆）';
+}
+
+// ── OBI 校正系統（v7.44）─────────────────────────────────────
+// 儲存一筆真實OBI校正資料（每次套用真實數字時呼叫）
+function _saveOBICalibration(stockId, obiReal) {
+  if (!stockId || isNaN(obiReal) || obiReal <= 0) return;
+
+  // 從 FinMind 快取取最新一日 OHLC（key格式同fetchFM）
+  const today = new Date();
+  const start = new Date(today - 65*86400000);
+  const fmt = d => d.toISOString().slice(0,10);
+  const cacheKey = `TaiwanStockPrice|${stockId}|${fmt(start)}|${fmt(today)}`;
+  let priceRows = window._fmCache?.[cacheKey] || [];
+  // 嘗試從 localStorage 快取取
+  if (!priceRows.length) {
+    try {
+      const lsKeys = Object.keys(localStorage).filter(k => k.startsWith(`TaiwanStockPrice|${stockId}|`));
+      if (lsKeys.length) { const raw = localStorage.getItem(lsKeys[0]); if(raw) priceRows = JSON.parse(raw).data || []; }
+    } catch(e) {}
+  }
+
+  const sorted = [...priceRows].sort((a,b)=>a.date>b.date?1:-1);
+  const bar = sorted.at(-1);
+  if (!bar) return;
+
+  const lc = parseFloat(bar.close || 0);
+  const lh = parseFloat(bar.max || bar.high || lc);
+  const ll = parseFloat(bar.min || bar.low  || lc);
+  const range = lh - ll;
+  if (range <= 0 || lc <= 0) return;
+
+  const obiLR = (lc - ll) / range * 100;
+  const ratio = obiReal > 0 ? obiLR / obiReal : 1;
+  const date  = fmt(today);
+
+  const calKey = `obi_cal_${stockId}`;
+  let history  = [];
+  try { history = JSON.parse(localStorage.getItem(calKey) || '[]'); } catch(e) {}
+  // 同一天只存一筆（更新不重複）
+  history = history.filter(d => d.date !== date);
+  history.push({ date, obiReal: +obiReal.toFixed(1), obiLR: +obiLR.toFixed(1), ratio: +ratio.toFixed(3) });
+  // 只保留最近 30 天
+  history.sort((a,b)=>a.date>b.date?1:-1);
+  if (history.length > 30) history = history.slice(0, 30);
+  try { localStorage.setItem(calKey, JSON.stringify(history)); } catch(e) {}
+  console.log(`[OBI Cal] ${stockId} 已儲存 ${date} 真實=${obiReal.toFixed(1)}% Lee-Ready=${obiLR.toFixed(1)}% 係數=${ratio.toFixed(3)} 累積=${history.length}天`);
+}
+
+// 取該股校正係數（中位數，≥3天資料才校正）
+function _getOBICorrection(stockId) {
+  try {
+    const history = JSON.parse(localStorage.getItem(`obi_cal_${stockId}`) || '[]');
+    if (history.length < 3) return 1.0;
+    const ratios = history.map(d => d.ratio).sort((a,b)=>a-b);
+    return ratios[Math.floor(ratios.length / 2)]; // 中位數
+  } catch(e) { return 1.0; }
 }
 
 // ── OBI 自動抓取（v7.44）──────────────────────────────────────
@@ -40331,6 +40389,9 @@ function _fillObiInputs(buyVol, sellVol, src) {
   if (rowEl) {
     rowEl.querySelector('div').textContent = `✅ FinMind 自動載入（${src}）外盤 ${buyVol.toLocaleString()} / 內盤 ${sellVol.toLocaleString()} 張`;
   }
+  // 儲存校正資料
+  const total = buyVol + sellVol;
+  if (total > 0) _saveOBICalibration(window._currentStockId, buyVol / total * 100);
 }
 
 // ── OBI 明細面板切換 ──────────────────────────────────────────
@@ -52976,6 +53037,15 @@ function calcOBIScanScore(stockId, mfRows, priceRows) {
     const range = lh - ll;
     obiPct = range > 0 ? (lc - ll) / range * 100 : 50;
     src = 'Lee-Ready';
+  }
+
+  // 套用個股校正係數（累積真實輸入後自動修正 Lee-Ready 偏差）
+  if (src === 'Lee-Ready') {
+    const corrFactor = _getOBICorrection(stockId);
+    if (corrFactor !== 1.0) {
+      obiPct = Math.max(0, Math.min(100, obiPct / corrFactor));
+      src = `Lee-Ready×校正${corrFactor.toFixed(2)}`;
+    }
   }
 
   if (obiPct < 50) return _skip;
