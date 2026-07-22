@@ -51831,14 +51831,20 @@ async function startScreener() {
         result._instRaw = instRaw; result._priceRaw = priceRaw;
 
       } else if (modeKey === 'obi') {
-        // 外盤強勢掃描：TaiwanStockMoneyFlow + TaiwanStockPrice 並行
-        const mfStart = new Date(); mfStart.setDate(mfStart.getDate() - 7);
+        // 外盤強勢掃描：TaiwanStockMoneyFlow + TaiwanStockPrice 並行（OBI 用 10 秒超時）
+        const _obiTimeout = (p) => Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('obiTimeout')),10000))]);
+        const mfStart = new Date(); mfStart.setDate(mfStart.getDate() - 10);
         const [r1, r2] = await Promise.allSettled([
-          _scrFetch(fetchFM('TaiwanStockMoneyFlow', sid, mfStart, _scrEnd)),
-          _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd))
+          _obiTimeout(fetchFM('TaiwanStockMoneyFlow', sid, mfStart, _scrEnd)),
+          _obiTimeout(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd))
         ]);
         const mfRows   = r1.status === 'fulfilled' ? r1.value : [];
         const priceRaw = r2.status === 'fulfilled' ? r2.value : [];
+        console.log(`[OBI scan] ${sid} mfRows=${mfRows.length} priceRows=${priceRaw.length} r1=${r1.status} r2=${r2.status}`);
+        if (!mfRows.length) {
+          _screenerResults.push({ stockId:sid, score:-1, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _apiMissing:true });
+          renderScreenerCards(); processed++; continue;
+        }
         result = calcOBIScanScore(sid, mfRows, priceRaw);
         if (result._skip) { processed++; continue; }
         result._priceRaw = priceRaw;
