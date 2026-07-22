@@ -52942,48 +52942,56 @@ function renderBacktestResult(btResults, selectedMode, holdDays, threshold) {
 // ── v7.44 外盤強勢掃描評分引擎 ────────────────────────────────────
 function calcOBIScanScore(stockId, mfRows, priceRows) {
   const _skip = { stockId, score:0, obiPct:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _skip:true };
-  if (!mfRows.length) return _skip;
-
-  // 取最新一筆 MoneyFlow（欄位：buy/sell 為金額，buy_ratio 為直接比率）
-  const sorted = [...mfRows].sort((a,b) => a.date > b.date ? 1 : -1);
-  const last = sorted.at(-1);
-
-  // OBI% = buy_ratio 直接取，或用 buy/(buy+sell) 金額比
-  let obiPct = parseFloat(last.buy_ratio ?? last.BuyRatio ?? last.ratio ?? 'x');
-  if (isNaN(obiPct) || obiPct <= 0 || obiPct > 100) {
-    const b = parseFloat(last.buy ?? last.buy_volume ?? 0);
-    const s = parseFloat(last.sell ?? last.sell_volume ?? 0);
-    if (b + s === 0) return _skip;
-    obiPct = b / (b + s) * 100;
-  }
-  if (obiPct < 50) return _skip; // 外盤未過半，不列入
+  if (!priceRows.length) return _skip;
 
   // 股價資訊（TaiwanStockPrice）
-  const closes = priceRows.map(r => +r.close).filter(Boolean);
-  const lc     = closes.at(-1) || 0;
-  const pc     = closes.at(-2) || lc;
+  const priceSorted = [...priceRows].sort((a,b)=>a.date>b.date?1:-1);
+  const todayBar = priceSorted.at(-1);
+  const lc     = parseFloat(todayBar?.close  || 0);
+  const lh     = parseFloat(todayBar?.max    || todayBar?.high || lc);
+  const ll     = parseFloat(todayBar?.min    || todayBar?.low  || lc);
+  const pc     = parseFloat(priceSorted.at(-2)?.close || lc);
   const chgPct = pc ? (lc - pc) / pc * 100 : 0;
 
-  // 總成交張數（TaiwanStockPrice 的 Trading_Volume 單位=股，÷1000=張）
-  const rawVols = priceRows.map(r => Math.round((+r.Trading_Volume || +r.volume || 0) / 1000));
+  // 總成交張數
+  const rawVols  = priceSorted.map(r => Math.round((+r.Trading_Volume || +r.volume || 0) / 1000));
   const todayLot = rawVols.at(-1) || 0;
   const avg20Lot = rawVols.slice(-21,-1).reduce((s,v)=>s+v,0) / Math.max(rawVols.slice(-21,-1).length,1);
   const volRatio = avg20Lot > 0 ? todayLot / avg20Lot : 1;
 
-  // 換算外盤/內盤張數
+  // OBI%：優先用 MoneyFlow buy_ratio，否則用 Lee-Ready 收盤位置估算
+  let obiPct = NaN;
+  let src = 'Lee-Ready';
+  if (mfRows.length) {
+    const mfSorted = [...mfRows].sort((a,b)=>a.date>b.date?1:-1);
+    const last = mfSorted.at(-1);
+    obiPct = parseFloat(last?.buy_ratio ?? last?.BuyRatio ?? last?.ratio ?? 'x');
+    if (isNaN(obiPct) || obiPct <= 0 || obiPct > 100) {
+      const b = parseFloat(last?.buy ?? 0), s = parseFloat(last?.sell ?? 0);
+      if (b + s > 0) { obiPct = b / (b + s) * 100; src = 'MoneyFlow金額比'; }
+    } else { src = 'MoneyFlow'; }
+  }
+  // Lee-Ready fallback：收盤位置在 high-low 區間的比例
+  if (isNaN(obiPct) || obiPct <= 0) {
+    const range = lh - ll;
+    obiPct = range > 0 ? (lc - ll) / range * 100 : 50;
+    src = 'Lee-Ready';
+  }
+
+  if (obiPct < 50) return _skip;
+
   const buyVol  = Math.round(todayLot * obiPct / 100);
   const sellVol = todayLot - buyVol;
 
   const checks = [
-    { ok: obiPct >= 65,        label: `外盤比率 ${obiPct.toFixed(1)}%` },
-    { ok: obiPct >= 60,        label: `外盤 ${buyVol.toLocaleString()}張` },
-    { ok: volRatio >= 1.2,     label: `量比 ${volRatio.toFixed(1)}x` },
-    { ok: chgPct >= 0,         label: `收漲 ${chgPct.toFixed(2)}%` },
+    { ok: obiPct >= 65,    label: `外盤比率 ${obiPct.toFixed(1)}% (${src})` },
+    { ok: buyVol > sellVol, label: `外盤 ${buyVol.toLocaleString()}張` },
+    { ok: volRatio >= 1.2, label: `量比 ${volRatio.toFixed(1)}x` },
+    { ok: chgPct >= 0,     label: `收漲 ${chgPct.toFixed(2)}%` },
   ];
 
-  const score = parseFloat((obiPct / 10).toFixed(1)); // 5.0–10.0
-
-  return { stockId, score, obiPct, buyVol, sellVol, checks, lc, chgPct, fCons:0, tCons:0, _mfDate: last.date };
+  const score = parseFloat((obiPct / 10).toFixed(1));
+  return { stockId, score, obiPct, buyVol, sellVol, checks, lc, chgPct, fCons:0, tCons:0 };
 }
 
 const SCREENER_MODE_META = {
