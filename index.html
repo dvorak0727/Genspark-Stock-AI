@@ -15792,6 +15792,7 @@ a.module-nav-item.acc-active {
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
           <option value="broker">🏦 券商囤貨掃描</option>
           <option value="exdiv">🎯 除息填息候選雷達</option>
+          <option value="obi">📡 外盤強勢掃描</option>
         </select>
         <button class="screener-btn" id="screenerBtn" onclick="startScreener()">
           🔭 開始海選
@@ -16047,6 +16048,7 @@ a.module-nav-item.acc-active {
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
           <option value="broker">🏦 券商囤貨掃描</option>
           <option value="exdiv">🎯 除息填息候選雷達</option>
+          <option value="obi">📡 外盤強勢掃描</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -16873,6 +16875,7 @@ a.module-nav-item.acc-active {
               style="width:90px;padding:3px 6px;border-radius:5px;border:1px solid rgba(99,102,241,0.35);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
             <input id="obiManualIn" type="number" min="0" placeholder="內盤 (張)"
               style="width:90px;padding:3px 6px;border-radius:5px;border:1px solid rgba(99,102,241,0.35);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
+            <button onclick="autoFetchOBI()" id="obiFetchBtn" style="padding:3px 10px;border-radius:5px;border:none;background:#7c3aed;color:#fff;font-size:0.62rem;cursor:pointer;font-weight:700;">⚡ 自動抓取</button>
             <button onclick="applyObiManual()" style="padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-size:0.62rem;cursor:pointer;font-weight:700;">✓ 套用</button>
             <button onclick="clearObiManual()" style="padding:3px 8px;border-radius:5px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:var(--fg3);font-size:0.62rem;cursor:pointer;">重設</button>
           </div>
@@ -40274,6 +40277,62 @@ function clearObiManual() {
   if (obiCardSubEl) obiCardSubEl.textContent = '⚠️ 已重設為 Lee-Ready 估算（非逐筆）';
 }
 
+// ── OBI 自動抓取（v7.44）──────────────────────────────────────
+async function autoFetchOBI() {
+  const stockId = window._currentStockId;
+  if (!stockId) { alert('請先查詢一支股票'); return; }
+  const token = localStorage.getItem('tsai_finmind_token') || '';
+  if (!token) { alert('請先設定 FinMind Token'); return; }
+
+  const btn = document.getElementById('obiFetchBtn');
+  if (btn) { btn.textContent = '⏳ 抓取中…'; btn.disabled = true; }
+
+  // 當日快取（省 API 額度）
+  const today = new Date().toISOString().slice(0,10);
+  const cacheKey = `obi_snap_${stockId}_${today}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    const { buyVol, sellVol } = JSON.parse(cached);
+    _fillObiInputs(buyVol, sellVol, '快取');
+    if (btn) { btn.textContent = '✅ 已載入（快取）'; btn.disabled = false; }
+    return;
+  }
+
+  try {
+    const start = new Date(Date.now() - 5*86400000).toISOString().slice(0,10);
+    const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockMoneyFlow&data_id=${stockId}&start_date=${start}&end_date=${today}&token=${token}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
+    const json = await resp.json();
+    const rows = (json.data || []).sort((a,b) => a.date > b.date ? 1 : -1);
+    if (!rows.length) throw new Error('無資料（可能非交易日或 token 過期）');
+
+    const last = rows.at(-1);
+    const buyVol  = Math.round(parseFloat(last.buy_vol  ?? last.buy  ?? 0));
+    const sellVol = Math.round(parseFloat(last.sell_vol ?? last.sell ?? 0));
+    const src = last.date === today ? '今日' : last.date;
+
+    localStorage.setItem(cacheKey, JSON.stringify({ buyVol, sellVol }));
+    _fillObiInputs(buyVol, sellVol, src);
+    if (btn) { btn.textContent = `✅ ${src} 已載入`; btn.disabled = false; }
+  } catch(e) {
+    if (btn) { btn.textContent = '⚡ 自動抓取'; btn.disabled = false; }
+    alert('抓取失敗：' + e.message);
+  }
+}
+
+function _fillObiInputs(buyVol, sellVol, src) {
+  const outEl = document.getElementById('obiManualOut');
+  const inEl  = document.getElementById('obiManualIn');
+  if (outEl) outEl.value = buyVol;
+  if (inEl)  inEl.value  = sellVol;
+  applyObiManual();
+  const rowEl = document.getElementById('obiManualRow');
+  if (rowEl) {
+    rowEl.querySelector('div').textContent = `✅ FinMind 自動載入（${src}）外盤 ${buyVol.toLocaleString()} / 內盤 ${sellVol.toLocaleString()} 張`;
+  }
+}
+
 // ── OBI 明細面板切換 ──────────────────────────────────────────
 let _obiPeriod = 5; // 目前選取的期間（5/10/20）
 
@@ -42721,7 +42780,7 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
         });
       } else {
         // ── 非 MACD：K線 → Verdict → 法人籌碼表（無條件清單）──
-        let curY = 530;
+        let curY = 560;
 
         // ① 迷你 K 線＋量柱
         const cl = r.candles?.closes || [];
@@ -42795,11 +42854,11 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
           // 標題
           ctx.fillStyle = '#1e3a5f'; ctx.font = 'bold 42px sans-serif';
           ctx.fillText('🏛 三大法人籌碼（近5日）', 56, curY + 46);
-          curY += 72;
+          curY += 92;
 
           // 外資/投信連買天數（一行，小字）
           if (r.fCons >= 1 || r.tCons >= 1) {
-            ctx.font = '36px sans-serif';
+            ctx.font = '34px sans-serif';
             let bx3 = 56;
             if (r.fCons >= 1) {
               ctx.fillStyle = '#1d4ed8';
@@ -42809,7 +42868,7 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
               ctx.fillStyle = '#059669';
               ctx.fillText(`投信連買${r.tCons}日`, bx3, curY);
             }
-            curY += 50;
+            curY += 56;
           }
 
           // 三欄（÷1000 → 張，標籤置中，數值右對齊）
@@ -42866,7 +42925,7 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
           ctx.textAlign = 'left';
           curY += 66;
 
-          instData.rows.slice(0, 8).forEach((row, ri) => {
+          instData.rows.slice(0, 4).forEach((row, ri) => {
             ctx.fillStyle = ri%2===0 ? 'rgba(255,255,255,0.65)' : 'rgba(248,250,252,0.5)';
             roundRect(ctx, 56, curY, W-112, 66, 0); ctx.fill();
             // 日期：左對齊
@@ -42876,10 +42935,10 @@ function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, ins
             // 數值：右對齊 + ÷1000
             ctx.textAlign = 'right';
             [row.f, row.t, row.dv, row.sum].forEach((v, ci) => {
-              const張 = Math.round(v / 1000);
+              const zv = Math.round(v / 1000);
               ctx.fillStyle = v > 0 ? '#dc2626' : v < 0 ? '#16a34a' : '#94a3b8';
               ctx.font = 'bold 32px sans-serif';
-              ctx.fillText((張 >= 0 ? '+' : '') + 張, colXs[ci+1] + numColW - 14, curY+46);
+              ctx.fillText((zv >= 0 ? '+' : '') + zv, colXs[ci+1] + numColW - 14, curY+46);
             });
             ctx.textAlign = 'left';
             curY += 66;
@@ -51771,6 +51830,19 @@ async function startScreener() {
         if (result._noExDiv) { processed++; continue; } // 無近期除息，跳過不列入
         result._instRaw = instRaw; result._priceRaw = priceRaw;
 
+      } else if (modeKey === 'obi') {
+        // 外盤強勢掃描：TaiwanStockMoneyFlow + TaiwanStockPrice 並行
+        const mfStart = new Date(); mfStart.setDate(mfStart.getDate() - 7);
+        const [r1, r2] = await Promise.allSettled([
+          _scrFetch(fetchFM('TaiwanStockMoneyFlow', sid, mfStart, _scrEnd)),
+          _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd))
+        ]);
+        const mfRows   = r1.status === 'fulfilled' ? r1.value : [];
+        const priceRaw = r2.status === 'fulfilled' ? r2.value : [];
+        result = calcOBIScanScore(sid, mfRows, priceRaw);
+        if (result._skip) { processed++; continue; }
+        result._priceRaw = priceRaw;
+
       } else {
         // 並行取兩支 API：海選用4秒超時（避免每支卡15秒）
         const [r1, r2] = await Promise.allSettled([
@@ -51842,19 +51914,23 @@ async function startScreener() {
   // 完成
   document.getElementById('screenerFill').style.width = '100%';
   const modeMeta2 = SCREENER_MODE_META[modeKey] || SCREENER_MODE_META.bottom;
-  // MACD 矩陣 / broker 模式：完成訊息加入專屬統計
+  // MACD 矩陣 / broker / obi 模式：完成訊息加入專屬統計
   const _isMacdFinish   = modeKey === 'macdmatrix';
   const _isBrokerFinish = modeKey === 'broker';
+  const _isObiFinish    = modeKey === 'obi';
   const _th4f = _isMacdFinish ? 6 * 0.67 : 4;
   const _th3f = _isMacdFinish ? 6 * 0.50 : 3;
   const _cntStrong = _screenerResults.filter(r => r.score >= _th4f).length;
   const _cntMid    = _screenerResults.filter(r => r.score >= _th3f && r.score < _th4f).length;
   const _cntSuper  = _isMacdFinish ? _screenerResults.filter(r => r.score >= 5).length : 0;
-  // broker 模式：統計全中(5分)、強囤貨(≥4)、明確(≥3)
   const _cntB5  = _isBrokerFinish ? _screenerResults.filter(r => r.score >= 5).length : 0;
   const _cntB4  = _isBrokerFinish ? _screenerResults.filter(r => r.score >= 4).length : 0;
   const _cntB3  = _isBrokerFinish ? _screenerResults.filter(r => r.score >= 3 && r.score < 4).length : 0;
-  const _finishMsg = _isMacdFinish
+  const _cntO70 = _isObiFinish ? _screenerResults.filter(r => r.obiPct >= 70).length : 0;
+  const _cntO60 = _isObiFinish ? _screenerResults.filter(r => r.obiPct >= 60 && r.obiPct < 70).length : 0;
+  const _finishMsg = _isObiFinish
+    ? `✅ 外盤強勢掃描完成！共 ${processed} 檔 · 🔴 超強(外盤≥70%)：${_cntO70} 檔 · 🟡 偏強(60-70%)：${_cntO60} 檔`
+    : _isMacdFinish
     ? `✅ MACD 矩陣掃描完成！共 ${processed} 檔 · 🔥 極強(≥5/6)：${_cntSuper} 檔 · 🔴 強烈(≥4/6)：${_cntStrong} 檔 · 🟡 明確(≥3/6)：${_cntMid} 檔`
     : _isBrokerFinish
       ? `✅ 券商囤貨掃描完成！共 ${processed} 檔 · 🏦 全中(5/5)：${_cntB5} 檔 · 🔴 強囤貨(≥4)：${_cntB4} 檔 · 🟡 明確(≥3)：${_cntB3} 檔`
@@ -52857,6 +52933,45 @@ function renderBacktestResult(btResults, selectedMode, holdDays, threshold) {
   detailEl.innerHTML = detailHtml || '<div class="bt-no-signal">本期間無符合門檻的訊號</div>';
 }
 
+// ── v7.44 外盤強勢掃描評分引擎 ────────────────────────────────────
+function calcOBIScanScore(stockId, mfRows, priceRows) {
+  const _skip = { stockId, score:0, obiPct:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _skip:true };
+  if (!mfRows.length) return _skip;
+
+  // 取最新一筆 MoneyFlow
+  const sorted = [...mfRows].sort((a,b) => a.date > b.date ? 1 : -1);
+  const last = sorted.at(-1);
+  const buyVol  = parseFloat(last.buy_vol  ?? last.buy  ?? 0);
+  const sellVol = parseFloat(last.sell_vol ?? last.sell ?? 0);
+  const total   = buyVol + sellVol;
+  if (total === 0) return _skip;
+
+  const obiPct = buyVol / total * 100;
+  if (obiPct < 50) return _skip; // 外盤未過半，不列入
+
+  // 股價資訊
+  const closes = priceRows.map(r => +r.close).filter(Boolean);
+  const lc     = closes.at(-1) || 0;
+  const pc     = closes.at(-2) || lc;
+  const chgPct = pc ? (lc - pc) / pc * 100 : 0;
+
+  // 量比（今日 vs 20日均量）
+  const vols = priceRows.map(r => +r.Trading_Volume || +r.volume || 0);
+  const avg20 = vols.slice(-21, -1).reduce((s,v)=>s+v, 0) / Math.max(vols.slice(-21,-1).length, 1);
+  const volRatio = avg20 > 0 ? (vols.at(-1)||0) / avg20 : 1;
+
+  const checks = [
+    { ok: obiPct >= 65,       label: `外盤比率 ${obiPct.toFixed(1)}%` },
+    { ok: buyVol > sellVol * 1.5, label: `外/內倍數 ${sellVol>0?(buyVol/sellVol).toFixed(1):'∞'}x` },
+    { ok: volRatio >= 1.2,    label: `量比 ${volRatio.toFixed(1)}x` },
+    { ok: chgPct >= 0,        label: `收漲 ${chgPct.toFixed(2)}%` },
+  ];
+
+  const score = parseFloat((obiPct / 10).toFixed(1)); // 5.0–10.0
+
+  return { stockId, score, obiPct, buyVol, sellVol, checks, lc, chgPct, fCons:0, tCons:0, _mfDate: last.date };
+}
+
 const SCREENER_MODE_META = {
   bottom:  { title:'底部探測',             subtitle:'AI核心指標 · 自動批次掃描 · 評分4大底部條件',          badge:'🔻 底部' },
   crush:   { title:'碎骨區探測',           subtitle:'RSI超賣 · 近20日新低 · 放量後縮量 · 法人賣超減速',    badge:'💀 碎骨' },
@@ -52870,6 +52985,7 @@ const SCREENER_MODE_META = {
   macdmatrix: { title:'MACD 多方結構掃瞄矩陣', subtitle:'C1 MACD柱翻紅擴張 · C2 DIF突破DEA · C3 零軸上方 · C4 法人買超 · C5 均線多排 · C6 KD多頭', badge:'📊 MACD矩陣' },
   broker:     { title:'券商囤貨掃描',           subtitle:'C1 累積淨買超 · C2 連買天數 · C3 籌碼集中度 · C4 近5日加速 · C5 主力成本低於現價', badge:'🏦 囤貨' },
   exdiv:      { title:'除息填息候選雷達',        subtitle:'投信除息前佈局 · 外資製造恐懼換手 · 殖利率誘人 · 跌不下去確認 · 入場甜蜜點偵測', badge:'🎯 填息候選' },
+  obi:        { title:'外盤強勢掃描',            subtitle:'收盤外盤比率排行 · 主動買盤強度確認 · 外盤>內盤篩選 · 資金動能方向', badge:'📡 外盤強' },
 };
 
 // ═══════════════════════════════════════════════════════════════
