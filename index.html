@@ -52173,13 +52173,23 @@ function calcBottomScore(stockId, instRaw, priceRaw) {
   const c5hit  = marginReduce3 && rsiLow55;
   const c5warn = !c5hit && (marginReduce3 || rsiLow55);
 
-  // 計分配比（5項，最高 5.5 分，顯示門檻 ≥4=強烈）
+  // ⑥ 窒息後量能回升（v7.44）：近3-10天曾窒息，今天量回升且未創新低
+  const avg20Vol = vols.slice(-21,-1).reduce((a,b)=>a+b,0) / Math.max(vols.slice(-21,-1).length,1);
+  const recentVols  = vols.slice(-11,-1);   // 昨天往前10天
+  const hadChoke    = recentVols.some(v => v > 0 && v < avg20Vol * 0.5); // 曾出現真窒息（<50%均量）
+  const volRebound  = latestVol > (vols.at(-2)||0);                       // 今天量 > 昨天
+  const noNewLow    = lc >= Math.min(...closes.slice(-11,-1).filter(Boolean)); // 未創近10日新低
+  const c6hit  = hadChoke && volRebound && noNewLow;
+  const c6warn = !c6hit && hadChoke && (volRebound || noNewLow);
+
+  // 計分配比（6項，最高 6 分，顯示門檻 ≥4=強烈）
   let score = 0;
   if(c1hit)  score += 1;
   if(c2hit)  score += 1;  else if(c2warn) score += 0.5;
   if(c3hit)  { score += 1; if(c3both) score += 0.5; }  // 雙買bonus
   if(c4hit)  score += 1;  else if(c4warn) score += 0.3;
   if(c5hit)  score += 0.5;  else if(c5warn) score += 0.2;
+  if(c6hit)  score += 0.5;  else if(c6warn) score += 0.2; // 窒息後回升 bonus
   score = Math.min(Math.round(score*10)/10, 5); // 保留一位小數，上限5
 
   // 漲跌幅
@@ -52207,6 +52217,7 @@ function calcBottomScore(stockId, instRaw, priceRaw) {
       { label:`法人連買${Math.max(fCons,tCons)}日`, hit:c3hit, warn:c3warn, val: `外${fCons}投${tCons}`, star: c3both },
       { label:'窒息量',      hit:c4hit, warn:c4warn, val: `${volRatio4.toFixed(2)}x` },
       { label:'資減人走',    hit:c5hit, warn:c5warn, val: marginReduce3?'量縮3日':c5warn?'部分符合':'未符合' },
+      { label:'窒息後回升',  hit:c6hit, warn:c6warn, val: c6hit?'量縮→回升✓':hadChoke?'待回升':'未窒息' },
     ],
     lMA20, lK, lD, lRSI,
     instDays, candles,
