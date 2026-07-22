@@ -51840,8 +51840,8 @@ async function startScreener() {
         ]);
         const mfRows   = r1.status === 'fulfilled' ? r1.value : [];
         const priceRaw = r2.status === 'fulfilled' ? r2.value : [];
-        console.log(`[OBI scan] ${sid} mfRows=${mfRows.length} priceRows=${priceRaw.length} r1=${r1.status} r2=${r2.status}`);
-        if (!mfRows.length) {
+        console.log(`[OBI scan] ${sid} mfRows=${mfRows.length} priceRows=${priceRaw.length}`);
+        if (!priceRaw.length) {
           _screenerResults.push({ stockId:sid, score:-1, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _apiMissing:true });
           renderScreenerCards(); processed++; continue;
         }
