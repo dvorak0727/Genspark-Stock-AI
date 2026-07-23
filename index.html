@@ -69809,7 +69809,7 @@ async function _fetchNightFutures() {
     const r    = await fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(tid));
     if (!r.ok) return null;
     const j    = await r.json();
-    const rows = (j.data || []).filter(d => d.trading_session === 'after_market');
+    const rows = (j.data || []).filter(d => d.trading_session === 'after_market' && d.close > 0);
     if (!rows.length) return null;
     const latest  = rows[rows.length - 1];
     const prevCls = latest.close - latest.spread;
