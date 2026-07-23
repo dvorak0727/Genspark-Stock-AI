@@ -69809,15 +69809,22 @@ async function _fetchNightFutures() {
     const r    = await fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(tid));
     if (!r.ok) return null;
     const j    = await r.json();
-    const rows = (j.data || []).filter(d => d.trading_session === 'after_market' && d.close > 0);
+    // 排除跨月價差合約（contract_date 含 "/"，close 是價差非指數）
+    const rows = (j.data || []).filter(d =>
+      d.trading_session === 'after_market' &&
+      d.close > 0 &&
+      !String(d.contract_date || '').includes('/')
+    );
     if (!rows.length) return null;
-    // 取最近日期、成交量最大的合約（近月）
+    // 取最近日期、成交量最大的近月合約
     const lastDate  = rows[rows.length - 1].date;
     const dateRows  = rows.filter(d => d.date === lastDate);
     const latest    = dateRows.reduce((mx, d) => d.volume > mx.volume ? d : mx, dateRows[0]);
-    const prevCls = latest.close - latest.spread;
-    const chgPct  = prevCls > 0 ? (latest.spread / prevCls) * 100 : 0;
-    return { date: latest.date, close: latest.close, chg: +chgPct.toFixed(2), spread: latest.spread };
+    // 優先用 FinMind 提供的漲跌% (spread_per)，否則自行計算
+    const chgPct = (latest.spread_per !== undefined && latest.spread_per !== null)
+      ? latest.spread_per
+      : (latest.close - latest.spread > 0 ? (latest.spread / (latest.close - latest.spread)) * 100 : 0);
+    return { date: latest.date, close: latest.close, chg: +Number(chgPct).toFixed(2), spread: latest.spread };
   } catch(e) { return null; }
 }
 
