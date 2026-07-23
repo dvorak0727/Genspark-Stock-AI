@@ -69796,6 +69796,28 @@ async function _oppFetchOne(stock) {
   return { ...stock, price: +(stock.base*(1+noise)).toFixed(2), chg: +(noise*100).toFixed(2), sim: true };
 }
 
+/* ── 夜盤台指期（TaiwanFuturesDaily after_market）── */
+async function _fetchNightFutures() {
+  const fmt = d => d.toISOString().slice(0,10);
+  const end  = new Date();
+  const start= new Date(); start.setDate(start.getDate() - 7);
+  const token= getToken();
+  try {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 8000);
+    const url  = `${FINMIND}?dataset=TaiwanFuturesDaily&data_id=TX&start_date=${fmt(start)}&end_date=${fmt(end)}${token?'&token='+token:''}`;
+    const r    = await fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(tid));
+    if (!r.ok) return null;
+    const j    = await r.json();
+    const rows = (j.data || []).filter(d => d.trading_session === 'after_market');
+    if (!rows.length) return null;
+    const latest  = rows[rows.length - 1];
+    const prevCls = latest.close - latest.spread;
+    const chgPct  = prevCls > 0 ? (latest.spread / prevCls) * 100 : 0;
+    return { date: latest.date, close: latest.close, chg: +chgPct.toFixed(2), spread: latest.spread };
+  } catch(e) { return null; }
+}
+
 /* ── 主渲染 ── */
 async function fetchOpeningPressure() {
   const gridEl   = document.getElementById('oppGrid');
@@ -69806,12 +69828,16 @@ async function fetchOpeningPressure() {
 
   badgeEl.textContent = '抓取中...';
   badgeEl.className   = 'opp-badge neut';
-  gridEl.innerHTML    = OPP_STOCKS.map(()=>
-    `<div class="opp-item"><div class="opp-item-name">⏳</div><div class="opp-item-price">—</div></div>`
-  ).join('');
+  gridEl.innerHTML    = [
+    ...OPP_STOCKS.map(()=>`<div class="opp-item"><div class="opp-item-name">⏳</div><div class="opp-item-price">—</div></div>`),
+    `<div class="opp-item" style="border-style:dashed;"><div class="opp-item-name">🌙 台指夜盤</div><div class="opp-item-price">—</div></div>`
+  ].join('');
 
-  // 並行抓取
-  const results = await Promise.all(OPP_STOCKS.map(s => _oppFetchOne(s)));
+  // 並行抓取（全球指數 + 夜盤台指期）
+  const [results, nightFut] = await Promise.all([
+    Promise.all(OPP_STOCKS.map(s => _oppFetchOne(s))),
+    _fetchNightFutures()
+  ]);
   const anyLive = results.some(r => !r.sim);
 
   // 計算壓力分數
@@ -69834,6 +69860,24 @@ async function fetchOpeningPressure() {
       ${r.sim ? '<div class="opp-item-sim">模擬</div>' : ''}
     </div>`;
   }).join('');
+
+  // 夜盤台指期格子（附加在 grid 末尾）
+  if (nightFut) {
+    const nc  = Math.abs(nightFut.chg) > 1 ? (nightFut.chg >= 0 ? 'bull' : 'bear') : '';
+    const nsg = nightFut.chg >= 0 ? '+' : '';
+    gridEl.innerHTML += `<div class="opp-item ${nc}" style="border-style:dashed;border-width:1.5px;">
+      <div class="opp-item-name">🌙 台指夜盤</div>
+      <div class="opp-item-price">${Math.round(nightFut.close).toLocaleString()}</div>
+      <div class="opp-item-chg ${nightFut.chg>=0?'up':'down'}">${nsg}${nightFut.chg.toFixed(2)}%</div>
+      <div class="opp-item-sim">${nightFut.date.slice(5)} 夜收</div>
+    </div>`;
+  } else {
+    gridEl.innerHTML += `<div class="opp-item" style="border-style:dashed;opacity:0.5;">
+      <div class="opp-item-name">🌙 台指夜盤</div>
+      <div class="opp-item-price">—</div>
+      <div class="opp-item-sim">無資料</div>
+    </div>`;
+  }
 
   // TSM ADR 特別分析
   const tsm = results.find(r=>r.ticker==='TSM');
@@ -69873,9 +69917,18 @@ async function fetchOpeningPressure() {
       tsmNote = `✅ 台積電ADR(+${tsm.chg.toFixed(1)}%) 強於費半，外資加碼意願明確。`;
   }
 
+  // 夜盤台指期附加提示
+  let nightNote = '';
+  if (nightFut) {
+    const nsg   = nightFut.chg >= 0 ? '+' : '';
+    const trend = nightFut.chg > 1  ? '偏多收盤' :
+                  nightFut.chg < -1 ? '偏空收盤' : '小幅震盪';
+    nightNote = `🌙 台指夜盤 ${nsg}${nightFut.chg.toFixed(1)}%（${Math.round(nightFut.close).toLocaleString()} 點），${trend}，可作為今日開盤參考。`;
+  }
+
   verdictEl.innerHTML =
     `<div class="vd-main">${vdMain}</div>` +
-    `<div class="vd-sub">${vdSub}${tsmNote ? '<br>'+tsmNote : ''}</div>`;
+    `<div class="vd-sub">${vdSub}${tsmNote ? '<br>'+tsmNote : ''}${nightNote ? '<br>'+nightNote : ''}</div>`;
   badgeEl.textContent = badgeTxt;
   badgeEl.className   = `opp-badge ${badgeCls}`;
   updEl.textContent   = `更新：${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}${anyLive?'（即時）':'（模擬）'}`;
