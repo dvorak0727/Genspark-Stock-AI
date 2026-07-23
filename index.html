@@ -69811,7 +69811,10 @@ async function _fetchNightFutures() {
     const j    = await r.json();
     const rows = (j.data || []).filter(d => d.trading_session === 'after_market' && d.close > 0);
     if (!rows.length) return null;
-    const latest  = rows[rows.length - 1];
+    // 取最近日期、成交量最大的合約（近月）
+    const lastDate  = rows[rows.length - 1].date;
+    const dateRows  = rows.filter(d => d.date === lastDate);
+    const latest    = dateRows.reduce((mx, d) => d.volume > mx.volume ? d : mx, dateRows[0]);
     const prevCls = latest.close - latest.spread;
     const chgPct  = prevCls > 0 ? (latest.spread / prevCls) * 100 : 0;
     return { date: latest.date, close: latest.close, chg: +chgPct.toFixed(2), spread: latest.spread };
