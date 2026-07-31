@@ -33558,9 +33558,10 @@ async function fetchInstFM(id) {
 
 // ══════════════════════════════════════════════════════════════════
 //  v7.41 fetchHoldingShares — 持股分級統計（週更，4週快取）
-//  dataset: TaiwanStockHoldingSharess
-//  HoldingLevel 1~16（16 = 千張大戶 ≥1,000,000股 = ≥1000張）
-//  people: 持有人數；unit: 持股千股（÷1000 = 張）
+//  dataset: TaiwanStockHoldingSharesPer（v7.45 更正，需 FinMind 贊助會員）
+//  原始欄位 HoldingSharesLevel 為字串區間，經 _parseHoldingLevel() 轉為
+//  HoldingLevel 1~16（15、16 = 千張大戶，≥1,000,001股 = ≥1000張）
+//  people: 持有人數；unit: 持股股數（÷1000 = 張）
 //  快取策略：週快取（同一週內刷新不重打）
 // ══════════════════════════════════════════════════════════════════
 const _holdingCache = {};  // { stockId: { fetchedWeek, rows4w, parsed, ts } }
