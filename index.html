@@ -733,6 +733,25 @@
     .btn-force-refresh.spinning { pointer-events: none; opacity: 0.7; }
     .btn-force-refresh.spinning .fr-icon { display: inline-block; animation: frSpin 0.7s linear infinite; }
     @keyframes frSpin { to { transform: rotate(360deg); } }
+    .btn-realtime {
+      background: var(--surface2);
+      color: var(--fg2);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-realtime:hover { border-color: #10B981; color: #059669; }
+    .btn-realtime.on {
+      background: #059669; color: #fff; border-color: #059669;
+      animation: rtPulse 2s ease-in-out infinite;
+    }
+    @keyframes rtPulse { 0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,0.5);} 50%{box-shadow:0 0 0 6px rgba(5,150,105,0);} }
     .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; }
     .chip {
       background: var(--surface2);
@@ -16396,6 +16415,8 @@ a.module-nav-item.acc-active {
     <button class="btn-force-refresh" id="forceRefreshBtn" onclick="forceRefreshAll()" title="清除所有籌碼與股價快取，強制重新向 FinMind 取得最新資料">
       <span class="fr-icon">⚡</span> 強制刷新
     </button>
+    <button class="btn-realtime" id="rtToggleBtn" onclick="rtToggle()" title="即時報價（約 10 秒更新，需 FinMind 贊助會員 Token）">⚡ 即時 OFF</button>
+    <span id="rtStatus" style="font-size:0.68rem;font-weight:700;white-space:nowrap;"></span>
     <div class="quick-chips">
       <span class="chip" onclick="quickSearch('2330')">台積電</span>
       <span class="chip" onclick="quickSearch('0050')">元大50</span>
@@ -57643,9 +57664,9 @@ function renderScreenerCards(showStats=false) {
           <div class="sc-code">
             ${r.stockId}
             &nbsp;
-            <span class="sc-price">$${r.lc >= 100 ? r.lc.toFixed(0) : r.lc.toFixed(1)}</span>
+            <span class="sc-price" data-rt-price="${r.stockId}">$${r.lc >= 100 ? r.lc.toFixed(0) : r.lc.toFixed(1)}</span>
             &nbsp;
-            <span class="sc-chg" style="color:${up?'var(--up)':'var(--down)'};">${up?'▲':'▼'}${Math.abs(r.chgPct).toFixed(1)}%</span>
+            <span class="sc-chg" data-rt-chg="${r.stockId}" style="color:${up?'var(--up)':'var(--down)'};">${up?'▲':'▼'}${Math.abs(r.chgPct).toFixed(1)}%</span>
           </div>
           <div class="sc-badges-row">${instBadge}${biasBadge}${window._buildEtfRebalBadgeHtml ? window._buildEtfRebalBadgeHtml(r.stockId) : ''}${bottomBadgeHtml}</div>
           <div class="sc-industry">${info.industry}</div>
@@ -62229,6 +62250,125 @@ function forceRefreshAll() {
     if (btn) setTimeout(() => btn.classList.remove('spinning'), 800);
   }
 }
+
+// ══════════════════════════════════════════════════
+//  ⚡ 即時報價（FinMind taiwan_stock_tick_snapshot，約 10 秒更新）
+//  需 FinMind 贊助會員 Token；經 Cloudflare Worker /snapshot 代理（不快取）
+// ══════════════════════════════════════════════════
+const RT_ENDPOINT  = 'https://license-worker.dvorak0727.workers.dev/snapshot';
+const RT_INTERVAL  = 15000;   // 15 秒拉一次（資料源約 10 秒更新）
+const RT_KEY       = 'tsai_realtime_on';
+let   _rtTimer     = null;
+let   _rtLastOk    = null;
+
+// 台股交易時間：週一~週五 09:00–13:35（收盤後留 5 分鐘給最後撮合）
+function _rtIsMarketOpen() {
+  const now = new Date();
+  const tpe = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+  const day = tpe.getDay();
+  if (day === 0 || day === 6) return false;
+  const mins = tpe.getHours() * 60 + tpe.getMinutes();
+  return mins >= 540 && mins <= 815;
+}
+
+async function _rtFetchSnapshot() {
+  const token = getToken();
+  if (!token) throw new Error('尚未設定 FinMind Token');
+  const res = await fetch(`${RT_ENDPOINT}?data_id=&token=${encodeURIComponent(token)}`, {
+    cache: 'no-store',
+  });
+  const j = await res.json();
+  if (j.error)  throw new Error(j.msg || j.error);
+  if (j.status && j.status !== 200) throw new Error(j.msg || `API ${j.status}`);
+  return j.data || [];
+}
+
+function _rtApply(rows) {
+  const byId = {};
+  rows.forEach(r => { byId[r.stock_id] = r; });
+  let updated = 0;
+
+  document.querySelectorAll('[data-rt-price]').forEach(el => {
+    const q = byId[el.getAttribute('data-rt-price')];
+    if (!q || !(q.close > 0)) return;
+    const txt = '$' + (q.close >= 100 ? q.close.toFixed(0) : q.close.toFixed(1));
+    if (el.textContent !== txt) {
+      el.textContent = txt;
+      el.style.transition = 'background 0.1s';
+      el.style.background = 'rgba(251,191,36,0.35)';
+      setTimeout(() => { el.style.background = ''; }, 700);
+    }
+    updated++;
+  });
+
+  document.querySelectorAll('[data-rt-chg]').forEach(el => {
+    const q = byId[el.getAttribute('data-rt-chg')];
+    if (!q || typeof q.change_rate !== 'number') return;
+    const up = q.change_rate >= 0;
+    el.textContent = (up ? '▲' : '▼') + Math.abs(q.change_rate).toFixed(1) + '%';
+    el.style.color = up ? 'var(--up)' : 'var(--down)';
+  });
+
+  return updated;
+}
+
+async function _rtTick() {
+  try {
+    const rows = await _rtFetchSnapshot();
+    const n = _rtApply(rows);
+    _rtLastOk = new Date();
+    _rtSetStatus(`⚡ 即時 ${_rtLastOk.toTimeString().slice(0,8)}（${n} 檔）`, '#059669');
+  } catch (e) {
+    // Token 無權限就直接關閉，避免每 15 秒重複失敗
+    if (/level|illegal|token/i.test(e.message)) {
+      rtSetEnabled(false);
+      _frShowToast(`即時報價需要 FinMind 贊助會員：${e.message}`);
+    }
+    // 注意：必須在 rtSetEnabled(false) 之後才設定，否則錯誤訊息會被清空
+    _rtSetStatus(`⚡ 即時失敗：${e.message}`, '#dc2626');
+  }
+}
+
+function _rtSetStatus(msg, color) {
+  const el = document.getElementById('rtStatus');
+  if (el) { el.textContent = msg; el.style.color = color || 'var(--fg3)'; }
+}
+
+function rtSetEnabled(on) {
+  const btn = document.getElementById('rtToggleBtn');
+  if (_rtTimer) { clearInterval(_rtTimer); _rtTimer = null; }
+
+  if (on) {
+    if (!getToken()) {
+      _frShowToast('請先設定 FinMind Token（右上角 🔑）');
+      on = false;
+    }
+  }
+  try { localStorage.setItem(RT_KEY, on ? '1' : '0'); } catch(e) {}
+
+  if (btn) {
+    btn.classList.toggle('on', on);
+    btn.innerHTML = on ? '⚡ 即時 ON' : '⚡ 即時 OFF';
+  }
+  if (!on) { _rtSetStatus(''); return; }
+
+  if (!_rtIsMarketOpen()) {
+    _rtSetStatus('⚡ 非交易時段（09:00–13:30）', 'var(--fg3)');
+  }
+  _rtTick();
+  _rtTimer = setInterval(() => {
+    // 非交易時段不打 API，省額度；開盤後自動恢復
+    if (_rtIsMarketOpen()) _rtTick();
+    else _rtSetStatus('⚡ 非交易時段（09:00–13:30）', 'var(--fg3)');
+  }, RT_INTERVAL);
+}
+
+function rtToggle() { rtSetEnabled(localStorage.getItem(RT_KEY) !== '1'); }
+
+// 頁面載入時還原上次狀態
+window.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem(RT_KEY) === '1' && getToken()) rtSetEnabled(true);
+});
 
 function _frShowToast(msg) {
   let t = document.getElementById('frToast');

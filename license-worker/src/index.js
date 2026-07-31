@@ -89,6 +89,45 @@ export default {
       }
     }
 
+    // GET /snapshot?data_id=2330,2412&token=...
+    //   → 代理 FinMind 即時報價 taiwan_stock_tick_snapshot（約 10 秒更新一次）
+    //   data_id 留空 = 取全市場；需 FinMind 贊助會員權限
+    //   ⚠️ 即時資料一律不快取（與 /finmind 的 cacheTtl:3600 不同）
+    if (url.pathname === "/snapshot") {
+      try {
+        const data_id = url.searchParams.get("data_id") || "";
+        const token   = url.searchParams.get("token") || "";
+        if (!token) {
+          return json({ error: "missing_token", msg: "即時報價需要 FinMind 贊助會員 Token" }, 400);
+        }
+
+        const fmUrl = "https://api.finmindtrade.com/api/v4/taiwan_stock_tick_snapshot"
+          + `?data_id=${encodeURIComponent(data_id)}&token=${encodeURIComponent(token)}`;
+
+        // token 同時用 query 與 Bearer header 送出，兼容 FinMind 兩種驗證方式
+        const res = await fetch(fmUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+            "Authorization": `Bearer ${token}`,
+          },
+          cf: { cacheTtl: 0, cacheEverything: false },
+        });
+        const data = await res.json();
+
+        // 非 200 時把 FinMind 的訊息原樣帶回，方便前端顯示「需要贊助會員」等提示
+        return new Response(JSON.stringify(data), {
+          status: res.ok ? 200 : 200,
+          headers: {
+            ...CORS_HEADERS,
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+          },
+        });
+      } catch (e) {
+        return json({ error: "snapshot_fetch_failed", message: e.message }, 502);
+      }
+    }
+
     return json({ error: "not_found" }, 404);
   },
 };
