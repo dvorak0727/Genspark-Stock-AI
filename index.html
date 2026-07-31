@@ -10,7 +10,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>台股AI分析器 v7.43</title>
+  <title>台股AI分析器 v7.44</title>
 
   <!-- Google Fonts：非阻塞載入（避免手機字型 fetch 卡住渲染） -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
@@ -72,7 +72,7 @@
       <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;max-width:400px;width:90%;text-align:center;">
         <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
         <h2 style="color:#f8fafc;margin:0 0 4px;font-size:1.3rem;">台股AI分析器</h2>
-        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.43 · FinMind API</div>
+        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.44 · FinMind API</div>
         <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 24px;">請輸入您的月費授權碼以繼續使用</p>
         <input id="lgInput" type="text" placeholder="TSAI-202507-XXXXXXXX"
           style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:0.95rem;margin-bottom:12px;outline:none;letter-spacing:1px;" />
@@ -714,6 +714,25 @@
     }
     .btn-search:hover { background: #1565C0; }
     .btn-search:active { transform: scale(0.97); }
+    .btn-force-refresh {
+      background: #f59e0b;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s, transform 0.1s;
+      white-space: nowrap;
+      position: relative;
+    }
+    .btn-force-refresh:hover { background: #d97706; }
+    .btn-force-refresh:active { transform: scale(0.97); }
+    .btn-force-refresh.spinning { pointer-events: none; opacity: 0.7; }
+    .btn-force-refresh.spinning .fr-icon { display: inline-block; animation: frSpin 0.7s linear infinite; }
+    @keyframes frSpin { to { transform: rotate(360deg); } }
     .quick-chips { display: flex; gap: 6px; flex-wrap: wrap; }
     .chip {
       background: var(--surface2);
@@ -15715,7 +15734,7 @@ a.module-nav-item.acc-active {
           title="定錨收盤價已超過7天，建議於下次收盤後更新">
       ⚠️ 收盤價待更新
     </span>
-    <div class="header-badge">v7.43 · FinMind API</div>
+    <div class="header-badge">v7.44 · FinMind API</div>
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
@@ -16374,6 +16393,9 @@ a.module-nav-item.acc-active {
       <div class="autocomplete-list" id="acList"></div>
     </div>
     <button class="btn-search" onclick="startAnalysis()">🔍 分析</button>
+    <button class="btn-force-refresh" id="forceRefreshBtn" onclick="forceRefreshAll()" title="清除所有籌碼與股價快取，強制重新向 FinMind 取得最新資料">
+      <span class="fr-icon">⚡</span> 強制刷新
+    </button>
     <div class="quick-chips">
       <span class="chip" onclick="quickSearch('2330')">台積電</span>
       <span class="chip" onclick="quickSearch('0050')">元大50</span>
@@ -16434,7 +16456,7 @@ a.module-nav-item.acc-active {
 
   <div id="welcomeMsg">
     <div style="font-size:2.4rem;margin-bottom:8px;">📊</div>
-    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.43</div>
+    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.44</div>
     <div style="font-size:0.88rem;line-height:1.9;color:var(--fg2);margin-bottom:12px;">
       輸入<b>股票代號</b>（如 2330）或<b>公司名稱</b>（如 台積電、鴻海）即可開始分析<br/>
       支援模糊比對 · 串接 FinMind 即時籌碼資料 · 技術指標自動計算
@@ -32743,7 +32765,7 @@ a.module-nav-item.acc-active {
   <div>資料來源：<a href="https://finmindtrade.com/" target="_blank">FinMind 開源金融資料庫</a> ·
        <a href="https://openapi.twse.com.tw/" target="_blank">TWSE OpenAPI</a></div>
   <div>所有分析結果僅供參考，不構成任何投資建議。投資有風險，操作請審慎評估。</div>
-  <div style="color:var(--accent);">台股AI分析器 v7.43 · 2026
+  <div style="color:var(--accent);">台股AI分析器 v7.44 · 2026
     <span style="margin-left:12px;font-size:0.58rem;">
     </span>
   </div>
@@ -33406,20 +33428,24 @@ const _FM_LS_PREFIX = 'fm_cache_v6p_'; // v6.20p：升版號強制清除舊版�
 // ⚠️ v6.21k 修正：原本 >=14:00 就用 after14 slot，但 FinMind 16:xx 才完整，
 //    14:00-15:59 拿到不完整資料（rows=1~30）後快取，導致整天顯示舊價
 // 修正：>=16:00 才啟用「日期_after16」穩定快取；14:00-15:59 繼續用30分鐘slot
+// ⚠️ v7.44 修正：原本只有 TaiwanStockPrice 有 16:00 分段邏輯，籌碼等其他 dataset
+//    一律 return dateStr（整天同一個 slot）。若在 16:00 前開過頁面，當天尚未發布的
+//    籌碼（只到前一日）會被快取鎖住到午夜 → 晚上看仍停在前一天。
+//    修正：所有盤後型 dataset 共用同一套分段規則。
+//    同時修正時區：原本 toISOString() 取 UTC 日期、getHours() 取本地時，
+//    兩者在台北 00:00~08:00 會對不起來，統一改用台北時間（UTC+8）。
 function _getFMCacheSlot(dataset) {
   const now = new Date();
-  const dateStr = now.toISOString().slice(0,10); // YYYY-MM-DD
-  const h = now.getHours(), m = now.getMinutes();
-  const minOfDay = h * 60 + m;
-  if (dataset === 'TaiwanStockPrice') {
-    // FinMind 約 16:00 後盤後資料完整，用「日期_after16」slot（穩定快取至隔天）
-    if (minOfDay >= 960) return `${dateStr}_after16`; // >= 16:00 盤後完整資料
-    // 14:00-15:59 / 盤中：每 30 分鐘換一個 slot，確保不超過 30 分鐘的舊快取
-    const slot30 = Math.floor(minOfDay / 30);
-    return `${dateStr}_t${slot30}`;
-  }
-  // 籌碼資料（TaiwanStockInstitutionalInvestorsBuySell）日內穩定，用日期即可
-  return dateStr;
+  const tpe = new Date(now.getTime() + (now.getTimezoneOffset() + 480) * 60000);
+  const dateStr = `${tpe.getFullYear()}-${String(tpe.getMonth()+1).padStart(2,'0')}-${String(tpe.getDate()).padStart(2,'0')}`;
+  const minOfDay = tpe.getHours() * 60 + tpe.getMinutes();
+
+  // 台股 09:00 開盤 / 13:30 收盤；FinMind 盤後資料（股價、三大法人籌碼、融資券…）
+  // 約 16:00~16:30 才完整更新。
+  //   >= 16:00 → 用「日期_after16」穩定快取至隔天（資料已定案，不需重抓）
+  //   <  16:00 → 每 30 分鐘換一個 slot，資料一發布最多 30 分鐘內就會自動更新
+  if (minOfDay >= 960) return `${dateStr}_after16`;
+  return `${dateStr}_t${Math.floor(minOfDay / 30)}`;
 }
 
 function _lsGet(cacheKey, dataset) {
@@ -33466,6 +33492,11 @@ async function fetchFM(dataset, id, start, end) {
 
   // v7.17：用 getToken()取得使用者儲存的 token（修復原本永遠傳空字串的 bug）
   const p = new URLSearchParams({ dataset, data_id: id, start_date: fmtDate(start), end_date: fmtDate(end), token: getToken() });
+
+  // ★ 強制刷新期間加上 cache-buster，讓 Cloudflare Worker 的 edge cache（cacheTtl 3600）失效
+  if (window._fmBustUntil && Date.now() < window._fmBustUntil) {
+    p.set('_cb', String(window._fmBustStamp));
+  }
 
   // ★ v7.17 加入 15 秒 timeout，避免不常見股票一直轉圈圈
   const _ctrl = new AbortController();
@@ -62155,6 +62186,68 @@ const NOTES_KEY  = 'tsai_notes_v1';
 // 取得有效 Token（優先 localStorage，fallback 空字串）
 function getToken() {
   return window._userToken || TOKEN || '';
+}
+
+// ── 強制刷新：清除籌碼 & 股價全部快取，重新分析當前股票 ──
+function forceRefreshAll() {
+  const btn = document.getElementById('forceRefreshBtn');
+  if (btn) btn.classList.add('spinning');
+
+  // 清除 FinMind localStorage 快取（fm_cache_v6p_* 前綴）
+  let cleared = 0;
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(_FM_LS_PREFIX)) { keysToRemove.push(k); }
+  }
+  keysToRemove.forEach(k => { localStorage.removeItem(k); cleared++; });
+
+  // 清除其他掃描快取
+  localStorage.removeItem('tsai_ctrl14_cache_v1');
+  localStorage.removeItem('tsai_macd_scan_v2');
+  localStorage.removeItem('tsai_macd_scan_v1');
+
+  // 清除記憶體快取（_fmCache 物件）
+  Object.keys(_fmCache).forEach(k => delete _fmCache[k]);
+
+  // ★ 開啟 cache-buster 視窗 90 秒：期間所有 FinMind 請求都繞過 Cloudflare edge cache
+  //   （Worker 設定 cacheTtl:3600，不加這個的話仍會拿到最多 1 小時前的舊資料）
+  window._fmBustStamp = Date.now();
+  window._fmBustUntil = window._fmBustStamp + 90000;
+
+  // 顯示 toast 通知
+  _frShowToast(`⚡ 已清除 ${cleared} 筆快取，重新載入最新資料…`);
+
+  // 若搜尋框有股票代號，重新執行分析
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput && searchInput.value.trim()) {
+    setTimeout(() => {
+      startAnalysis();
+      if (btn) setTimeout(() => btn.classList.remove('spinning'), 1500);
+    }, 150);
+  } else {
+    if (btn) setTimeout(() => btn.classList.remove('spinning'), 800);
+  }
+}
+
+function _frShowToast(msg) {
+  let t = document.getElementById('frToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'frToast';
+    Object.assign(t.style, {
+      position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+      background: '#1e293b', color: '#fbbf24', padding: '10px 22px',
+      borderRadius: '24px', fontSize: '0.82rem', fontWeight: '700',
+      zIndex: '99999', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+      transition: 'opacity 0.3s', pointerEvents: 'none', whiteSpace: 'nowrap',
+    });
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => { t.style.opacity = '0'; }, 2800);
 }
 
 // ══════════════════════════════════════════════════
