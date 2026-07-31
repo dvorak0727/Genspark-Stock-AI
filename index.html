@@ -10,7 +10,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>台股AI分析器 v7.44</title>
+  <title>台股AI分析器 v7.45</title>
 
   <!-- Google Fonts：非阻塞載入（避免手機字型 fetch 卡住渲染） -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
@@ -72,7 +72,7 @@
       <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;max-width:400px;width:90%;text-align:center;">
         <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
         <h2 style="color:#f8fafc;margin:0 0 4px;font-size:1.3rem;">台股AI分析器</h2>
-        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.44 · FinMind API</div>
+        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.45 · FinMind API</div>
         <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 24px;">請輸入您的月費授權碼以繼續使用</p>
         <input id="lgInput" type="text" placeholder="TSAI-202507-XXXXXXXX"
           style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:0.95rem;margin-bottom:12px;outline:none;letter-spacing:1px;" />
@@ -15753,7 +15753,7 @@ a.module-nav-item.acc-active {
           title="定錨收盤價已超過7天，建議於下次收盤後更新">
       ⚠️ 收盤價待更新
     </span>
-    <div class="header-badge">v7.44 · FinMind API</div>
+    <div class="header-badge">v7.45 · FinMind API</div>
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
@@ -16477,7 +16477,7 @@ a.module-nav-item.acc-active {
 
   <div id="welcomeMsg">
     <div style="font-size:2.4rem;margin-bottom:8px;">📊</div>
-    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.44</div>
+    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.45</div>
     <div style="font-size:0.88rem;line-height:1.9;color:var(--fg2);margin-bottom:12px;">
       輸入<b>股票代號</b>（如 2330）或<b>公司名稱</b>（如 台積電、鴻海）即可開始分析<br/>
       支援模糊比對 · 串接 FinMind 即時籌碼資料 · 技術指標自動計算
@@ -32786,7 +32786,7 @@ a.module-nav-item.acc-active {
   <div>資料來源：<a href="https://finmindtrade.com/" target="_blank">FinMind 開源金融資料庫</a> ·
        <a href="https://openapi.twse.com.tw/" target="_blank">TWSE OpenAPI</a></div>
   <div>所有分析結果僅供參考，不構成任何投資建議。投資有風險，操作請審慎評估。</div>
-  <div style="color:var(--accent);">台股AI分析器 v7.44 · 2026
+  <div style="color:var(--accent);">台股AI分析器 v7.45 · 2026
     <span style="margin-left:12px;font-size:0.58rem;">
     </span>
   </div>
@@ -33602,6 +33602,27 @@ const PYRAMID_GROUPS = [
   { label:'千張大戶',levels:[15,16],         color:'#ef4444', textColor:'#991b1b' },
 ];
 
+// ── v7.45 修正：原本呼叫 'TaiwanStockHoldingSharess'（此 dataset 名稱無效，
+//    FinMind 回空殼、連 status 都沒有）→ 千張大戶功能長期取不到資料。
+//    正解為 'TaiwanStockHoldingSharesPer'（股權分散表，週更，需贊助會員）。
+//    該 dataset 的級距欄位是「字串區間」HoldingSharesLevel（如 "1-999"、
+//    "1,000,001以上"），與舊程式預期的數字 HoldingLevel(1~16) 不同，
+//    故在此解析字串下界並映射回 HOLDING_LEVELS 的 id，維持下游格式不變。
+function _parseHoldingLevel(raw) {
+  const s = String(raw ?? '').replace(/[,，\s]/g, '');
+  if (!s) return null;
+  // 合計 / 差異數調整 等非級距列必須排除，否則會重複計入總量導致佔比失真
+  if (/合計|總計|小計|差異|調整|total/i.test(s)) return null;
+  const m = s.match(/\d+/);
+  if (!m) return null;
+  const lower = +m[0];
+  let id = null;
+  for (const L of HOLDING_LEVELS) {     // 已依 minShares 遞增排序
+    if (lower >= L.minShares) id = L.id;
+  }
+  return id;
+}
+
 async function fetchHoldingShares(stockId) {
   const weekSlot = _getWeekSlot();
   const cached = _holdingCache[stockId];
@@ -33611,8 +33632,14 @@ async function fetchHoldingShares(stockId) {
   const end   = new Date();
   const start = new Date(); start.setDate(start.getDate() - 35);
   try {
-    const rows = await fetchFM('TaiwanStockHoldingSharess', stockId, start, end);
-    if (!rows || !rows.length) {
+    const raw = await fetchFM('TaiwanStockHoldingSharesPer', stockId, start, end);
+    // 字串級距 → 數字 HoldingLevel，並濾掉合計列
+    const rows = (raw || []).map(r => {
+      const lv = _parseHoldingLevel(r.HoldingSharesLevel ?? r.HoldingLevel);
+      return lv ? { ...r, HoldingLevel: lv } : null;
+    }).filter(Boolean);
+
+    if (!rows.length) {
       _holdingCache[stockId] = { fetchedWeek: weekSlot, rows4w: [], parsed: null, error: '無資料' };
       return _holdingCache[stockId];
     }
@@ -33679,7 +33706,11 @@ async function fetchHoldingShares(stockId) {
     return _holdingCache[stockId];
   } catch(e) {
     console.warn('[HoldingShares] fetch error:', stockId, e.message);
-    _holdingCache[stockId] = { fetchedWeek: weekSlot, rows4w: [], parsed: null, error: e.message };
+    // 股權分散表需 FinMind 贊助/支持會員，免費 Token 會回 "Your level is register"
+    const err = /level is (register|free)/i.test(e.message)
+      ? '需 FinMind 贊助會員 Token（股權分散表為付費資料）'
+      : e.message;
+    _holdingCache[stockId] = { fetchedWeek: weekSlot, rows4w: [], parsed: null, error: err };
     return _holdingCache[stockId];
   }
 }
