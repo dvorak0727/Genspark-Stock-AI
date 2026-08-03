@@ -10,7 +10,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>台股AI分析器 v7.45</title>
+  <title>台股AI分析器 v7.46</title>
 
   <!-- Google Fonts：非阻塞載入（避免手機字型 fetch 卡住渲染） -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
@@ -72,7 +72,7 @@
       <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;max-width:400px;width:90%;text-align:center;">
         <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
         <h2 style="color:#f8fafc;margin:0 0 4px;font-size:1.3rem;">台股AI分析器</h2>
-        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.45 · FinMind API</div>
+        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.46 · FinMind API</div>
         <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 24px;">請輸入您的月費授權碼以繼續使用</p>
         <input id="lgInput" type="text" placeholder="TSAI-202507-XXXXXXXX"
           style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:0.95rem;margin-bottom:12px;outline:none;letter-spacing:1px;" />
@@ -5254,6 +5254,43 @@
       border: 1px solid var(--border);
       padding: 3px 4px;
     }
+    /* v7.46 可放大的迷你K線 */
+    .sc-minik.zoomable { cursor: zoom-in; transition: border-color .15s, box-shadow .15s; }
+    .sc-minik.zoomable:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(25,118,210,0.15);
+    }
+    /* v7.46 K線放大 modal（為截圖設計：白底、留白、無多餘裝飾）*/
+    #mkZoomOverlay {
+      display: none; position: fixed; inset: 0; z-index: 10000;
+      background: rgba(15,23,42,0.72); backdrop-filter: blur(3px);
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    #mkZoomOverlay.show { display: flex; }
+    #mkZoomCard {
+      background: #fff; border-radius: 14px; padding: 22px 26px 18px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.35);
+      max-width: 96vw; max-height: 92vh; overflow: auto;
+    }
+    #mkZoomHead {
+      display: flex; align-items: baseline; gap: 10px;
+      margin-bottom: 14px; color: #0f172a;
+    }
+    #mkZoomName { font-size: 1.15rem; font-weight: 900; }
+    #mkZoomCode { font-size: 0.85rem; font-weight: 700; color: #64748b; }
+    #mkZoomRange { font-size: 0.72rem; color: #94a3b8; margin-left: auto; }
+    #mkZoomBody { background: #fff; padding: 8px 4px 4px; }
+    .mk-size-btn {
+      font-size: 0.72rem; font-weight: 700; padding: 4px 12px; cursor: pointer;
+      border: 1.5px solid #cbd5e1; background: #f8fafc; color: #475569;
+      border-radius: 6px; font-family: inherit;
+    }
+    .mk-size-btn.on { background: #1976D2; color: #fff; border-color: #1976D2; }
+    #mkZoomFoot {
+      display: flex; gap: 6px; align-items: center;
+      margin-top: 14px; padding-top: 12px; border-top: 1px solid #e2e8f0;
+    }
+    #mkZoomHint { font-size: 0.66rem; color: #94a3b8; margin-left: auto; }
     /* 4個底部指標點 */
     .sc-checks {
       display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap;
@@ -15753,7 +15790,7 @@ a.module-nav-item.acc-active {
           title="定錨收盤價已超過7天，建議於下次收盤後更新">
       ⚠️ 收盤價待更新
     </span>
-    <div class="header-badge">v7.45 · FinMind API</div>
+    <div class="header-badge">v7.46 · FinMind API</div>
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
@@ -16447,6 +16484,25 @@ a.module-nav-item.acc-active {
   </div>
 </div>
 
+<!-- v7.46 迷你K線放大 Modal（截圖用）-->
+<div id="mkZoomOverlay" onclick="if(event.target===this)mkZoomClose()">
+  <div id="mkZoomCard">
+    <div id="mkZoomHead">
+      <span id="mkZoomName"></span>
+      <span id="mkZoomCode"></span>
+      <span id="mkZoomRange"></span>
+    </div>
+    <div id="mkZoomBody"></div>
+    <div id="mkZoomFoot">
+      <span style="font-size:0.68rem;font-weight:700;color:#64748b;">尺寸</span>
+      <button class="mk-size-btn" onclick="mkZoomSize(4)" data-mksize="4">4×</button>
+      <button class="mk-size-btn" onclick="mkZoomSize(6)" data-mksize="6">6×</button>
+      <button class="mk-size-btn" onclick="mkZoomSize(8)" data-mksize="8">8×</button>
+      <span id="mkZoomHint">按 ESC 或點背景關閉</span>
+    </div>
+  </div>
+</div>
+
 <!-- v5.98 筆記搜尋 Modal -->
 <div id="noteSearchModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9998;align-items:flex-start;justify-content:center;padding-top:80px;backdrop-filter:blur(3px);"
   onclick="if(event.target===this)noteSearchClose()">
@@ -16477,7 +16533,7 @@ a.module-nav-item.acc-active {
 
   <div id="welcomeMsg">
     <div style="font-size:2.4rem;margin-bottom:8px;">📊</div>
-    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.45</div>
+    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.46</div>
     <div style="font-size:0.88rem;line-height:1.9;color:var(--fg2);margin-bottom:12px;">
       輸入<b>股票代號</b>（如 2330）或<b>公司名稱</b>（如 台積電、鴻海）即可開始分析<br/>
       支援模糊比對 · 串接 FinMind 即時籌碼資料 · 技術指標自動計算
@@ -32786,7 +32842,7 @@ a.module-nav-item.acc-active {
   <div>資料來源：<a href="https://finmindtrade.com/" target="_blank">FinMind 開源金融資料庫</a> ·
        <a href="https://openapi.twse.com.tw/" target="_blank">TWSE OpenAPI</a></div>
   <div>所有分析結果僅供參考，不構成任何投資建議。投資有風險，操作請審慎評估。</div>
-  <div style="color:var(--accent);">台股AI分析器 v7.45 · 2026
+  <div style="color:var(--accent);">台股AI分析器 v7.46 · 2026
     <span style="margin-left:12px;font-size:0.58rem;">
     </span>
   </div>
@@ -51581,7 +51637,9 @@ function _copyWodScript() {
 }
 
 // 迷你K線 + 量柱 渲染（v5.69 量縮極致視覺化）
-function buildMiniCandles(closes, opens, highs, lows, dates, vols) {
+// v7.46：新增 scale 參數（預設 1 = 原本卡片尺寸）
+//   放大鏡 modal 以 scale 4~8 重畫同一份資料，供截圖使用
+function buildMiniCandles(closes, opens, highs, lows, dates, vols, scale = 1) {
   if (!closes || closes.length === 0) return '<div style="color:var(--fg3);font-size:0.72rem;padding:4px;">無資料</div>';
   const n      = closes.length;
   const allVals= [...closes, ...opens, ...highs, ...lows].filter(v=>!isNaN(v));
@@ -51589,10 +51647,12 @@ function buildMiniCandles(closes, opens, highs, lows, dates, vols) {
   const maxV   = Math.max(...allVals);
   const range  = maxV - minV || 1;
 
-  // ── 價格區高度 / 量柱區高度 ──
-  const KH = 46;  // K線區高度 px
-  const VH = 18;  // 量柱區高度 px
-  const GAP = 2;  // 中間間距
+  // ── 價格區高度 / 量柱區高度（隨 scale 等比放大）──
+  const KH  = 46 * scale;  // K線區高度 px
+  const VH  = 18 * scale;  // 量柱區高度 px
+  const GAP = 2  * scale;  // 中間間距
+  const WICK = Math.max(1, Math.round(scale));   // 影線寬度
+  const RAD  = Math.max(1, Math.round(scale));   // 圓角
   const W  = 100 / n;
 
   // ── K線 HTML ──
@@ -51610,8 +51670,8 @@ function buildMiniCandles(closes, opens, highs, lows, dates, vols) {
     const bw   = (W * 0.7).toFixed(1);
     return `
       <div style="position:absolute;left:${left}%;width:${bw}%;height:100%;">
-        <div style="position:absolute;left:50%;transform:translateX(-50%);width:1px;background:${clr}88;top:${wickTop}px;height:${wickH}px;"></div>
-        <div style="position:absolute;width:100%;background:${clr};top:${bodyTop}px;height:${bodyHeight}px;border-radius:1px;"></div>
+        <div style="position:absolute;left:50%;transform:translateX(-50%);width:${WICK}px;background:${clr}88;top:${wickTop}px;height:${wickH}px;"></div>
+        <div style="position:absolute;width:100%;background:${clr};top:${bodyTop}px;height:${bodyHeight}px;border-radius:${RAD}px;"></div>
       </div>`;
   }).join('');
 
@@ -51640,7 +51700,7 @@ function buildMiniCandles(closes, opens, highs, lows, dates, vols) {
         const left = (i * W + W * 0.1).toFixed(1);
         const bw   = (W * 0.8).toFixed(1);
         const top  = (VH - barH).toFixed(1);
-        return `<div style="position:absolute;left:${left}%;width:${bw}%;background:${clr};bottom:0;height:${barH}px;border-radius:1px 1px 0 0;" title="${(v/1000).toFixed(0)}K張 (${ratio.toFixed(1)}x)"></div>`;
+        return `<div style="position:absolute;left:${left}%;width:${bw}%;background:${clr};bottom:0;height:${barH}px;border-radius:${RAD}px ${RAD}px 0 0;" title="${(v/1000).toFixed(0)}K張 (${ratio.toFixed(1)}x)"></div>`;
       }).join('') +
     `</div>`;
   }
@@ -51648,6 +51708,66 @@ function buildMiniCandles(closes, opens, highs, lows, dates, vols) {
   const totalH = KH + (volHtml ? VH + GAP : 0);
   return `<div style="position:relative;height:${KH}px;overflow:visible;">${candlesHtml}</div>${volHtml}`;
 }
+
+// ══════════════════════════════════════════════════
+//  v7.46 迷你K線放大鏡 —— 點卡片上的K線圖即可放大，方便截圖給漫畫用
+//  配色沿用卡片本身（紅漲綠跌，台股慣例），不經 AI 生成故不會畫反
+// ══════════════════════════════════════════════════
+let _mkZoomId = null;
+let _mkZoomScale = 6;
+
+// 注意：_screenerResults / STOCK_DB 是用 let / const 宣告的，
+// 頂層 let/const 只進入 global lexical environment，不會成為 window 的屬性，
+// 因此不可寫成 window._screenerResults（恆為 undefined）。
+function _mkFindRow(stockId) {
+  const arr = (typeof _screenerResults !== 'undefined') ? _screenerResults : [];
+  return arr.find(x => x.stockId === stockId);
+}
+
+function mkZoom(stockId) {
+  const r = _mkFindRow(stockId);
+  if (!r || !r.candles) return;
+  _mkZoomId = stockId;
+  const info = ((typeof STOCK_DB !== 'undefined') ? STOCK_DB : {})[stockId] || {};
+  const el = id => document.getElementById(id);
+  el('mkZoomName').textContent = info.name || stockId;
+  el('mkZoomCode').textContent = stockId;
+
+  const d = r.candles.dates || [];
+  el('mkZoomRange').textContent = d.length
+    ? `${d[0]} ~ ${d[d.length-1]}（${d.length} 根）` : '';
+
+  mkZoomSize(_mkZoomScale);
+  el('mkZoomOverlay').classList.add('show');
+}
+
+function mkZoomSize(scale) {
+  _mkZoomScale = scale;
+  const r = _mkFindRow(_mkZoomId);
+  if (!r || !r.candles) return;
+  const c = r.candles;
+  const body = document.getElementById('mkZoomBody');
+
+  // K線的寬度是百分比，若不指定容器寬度會被壓成瘦高的形狀。
+  // 每根給 scale*6 px，讓寬高比穩定落在約 1.9:1（適合截圖放進漫畫格）
+  const n = c.closes.length || 1;
+  const w = Math.max(480, Math.min(1280, Math.round(n * scale * 6)));
+  body.style.width = w + 'px';
+
+  body.innerHTML =
+    buildMiniCandles(c.closes, c.opens, c.highs, c.lows, c.dates, c.vols, scale);
+  document.querySelectorAll('.mk-size-btn').forEach(b =>
+    b.classList.toggle('on', +b.dataset.mksize === scale));
+}
+
+function mkZoomClose() {
+  document.getElementById('mkZoomOverlay').classList.remove('show');
+  _mkZoomId = null;
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && _mkZoomId) mkZoomClose();
+});
 
 // ── v7.00 MACD Histogram 迷你圖（macdmatrix 海選卡片專用）──
 // hist[]：Histogram 陣列（×2 已計算）；dif[]：DIF；dea[]：DEA
@@ -57705,7 +57825,7 @@ function renderScreenerCards(showStats=false) {
         </div>
       </div>
       <!-- v5.69 迷你K線走勢 -->
-      ${miniK ? `<div class="sc-minik">${miniK}</div>` : ''}
+      ${miniK ? `<div class="sc-minik${r.candles ? ' zoomable' : ''}"${r.candles ? ` onclick="mkZoom('${r.stockId}')" title="點擊放大（方便截圖）"` : ''}>${miniK}</div>` : ''}
       <!-- ↓ 指標明細：預設隱藏，解鎖後才顯示 -->
       <div class="sc-checks">${checksHtml}</div>
       ${exDivInfoHtml}
