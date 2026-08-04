@@ -10,7 +10,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>台股AI分析器 v7.46</title>
+  <title>台股AI分析器 v7.47</title>
 
   <!-- Google Fonts：非阻塞載入（避免手機字型 fetch 卡住渲染） -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
@@ -72,7 +72,7 @@
       <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;max-width:400px;width:90%;text-align:center;">
         <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
         <h2 style="color:#f8fafc;margin:0 0 4px;font-size:1.3rem;">台股AI分析器</h2>
-        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.46 · FinMind API</div>
+        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.47 · FinMind API</div>
         <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 24px;">請輸入您的月費授權碼以繼續使用</p>
         <input id="lgInput" type="text" placeholder="TSAI-202507-XXXXXXXX"
           style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:0.95rem;margin-bottom:12px;outline:none;letter-spacing:1px;" />
@@ -15790,7 +15790,7 @@ a.module-nav-item.acc-active {
           title="定錨收盤價已超過7天，建議於下次收盤後更新">
       ⚠️ 收盤價待更新
     </span>
-    <div class="header-badge">v7.46 · FinMind API</div>
+    <div class="header-badge">v7.47 · FinMind API</div>
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
@@ -16533,7 +16533,7 @@ a.module-nav-item.acc-active {
 
   <div id="welcomeMsg">
     <div style="font-size:2.4rem;margin-bottom:8px;">📊</div>
-    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.46</div>
+    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.47</div>
     <div style="font-size:0.88rem;line-height:1.9;color:var(--fg2);margin-bottom:12px;">
       輸入<b>股票代號</b>（如 2330）或<b>公司名稱</b>（如 台積電、鴻海）即可開始分析<br/>
       支援模糊比對 · 串接 FinMind 即時籌碼資料 · 技術指標自動計算
@@ -16572,20 +16572,35 @@ a.module-nav-item.acc-active {
 
     <!-- 🗂️ 模組快速錄 -->
     <nav class="module-nav" id="moduleNav" aria-label="模組快速導覽">
-      <a class="module-nav-item" href="#csCard">💼 籌碼</a>
+      <!-- v7.47 導覽順序＝判讀動線：盤前 → 大盤 → 板塊 → 個股籌碼 → 技術 → 週期 → AI → 進階工具
+           （僅調整此清單的排列，頁面版面完全未動） -->
+
+      <!-- ① 盤前：先看外部條件 -->
+      <a class="module-nav-item" href="#opPressureCard"
+         onclick="document.getElementById('opPressureCard').scrollIntoView({behavior:'smooth'});return false;">🌏 開盤壓力表</a>
+      <a class="module-nav-item" href="#usLeadCard">🌐 美股先行</a>
+      <a class="module-nav-item" href="#twseIndexCard">🇹🇼 大盤脈搏</a>
+      <a class="module-nav-item" href="#srCard">🌍 板塊</a>
+
+      <!-- ② 個股：籌碼 → 技術 → 週期 -->
+      <a class="module-nav-item" href="#csCard">💼 籌碼總覽</a>
+      <a class="module-nav-item" href="#techCard">📈 技術指標</a>
+      <a class="module-nav-item" href="#cfdCard">🌊 籌碼流體</a>
+      <a class="module-nav-item" href="#phaseCard">🔬 籌碼週期</a>
+
+      <!-- ③ 研判：背離 → AI 建言 → 教學 -->
+      <a class="module-nav-item" href="#fitPanel">📉 外投背離</a>
       <a class="module-nav-item" href="#aiCard">🤖 AI建言</a>
       <a class="module-nav-item" href="#teachCard">📚 教學操盤</a>
-      <a class="module-nav-item" href="#srCard">🌍 板塊</a>
-      <a class="module-nav-item" href="#usLeadCard">🌐 美股先行</a>
-      <a class="module-nav-item" href="#techCard">📈 技術</a>
-      
-      <a class="module-nav-item" href="#peakCard">🔴 高點</a>
-      <a class="module-nav-item" href="#twseIndexCard">🇹🇼 大盤脈搏</a>
-      <a class="module-nav-item" href="#contraCard">🔀 反指標</a>
-      <a class="module-nav-item" href="#phaseCard">🔬 籌碼週期</a>
+
+      <!-- ④ 主力行為 -->
       <a class="module-nav-item" href="#biCard">👤 大戶意圖</a>
       <a class="module-nav-item" href="#bpcCard">💎 五大券商</a>
+      <a class="module-nav-item" href="#contraCard">🔀 反指標</a>
       <a class="module-nav-item" href="#washCard">🎯 洗盤估算</a>
+      <a class="module-nav-item" href="#peakCard">🔴 高點</a>
+
+      <!-- ⑤ 風險與比較 -->
       <a class="module-nav-item" href="#vrAnchor">📐 VR噪音檢驗</a>
       <a class="module-nav-item" href="#geoRiskAnchor">🌏 地緣風險</a>
       <a class="module-nav-item" href="#hedgeAnchor">🛡️ 對沖策略</a>
@@ -16593,13 +16608,19 @@ a.module-nav-item.acc-active {
          onclick="document.getElementById('compareCard').scrollIntoView({behavior:'smooth'});return false;">📊 多股比較</a>
       <a class="module-nav-item" href="#earnCalAnchor"
          onclick="document.getElementById('earnCalCard').scrollIntoView({behavior:'smooth'});return false;">📅 財報日曆</a>
+
+      <!-- ⑥ 掃描與紀錄 -->
+      <a class="module-nav-item" href="#ctrl14Anchor"
+         onclick="document.getElementById('ctrl14Card').scrollIntoView({behavior:'smooth'});return false;"
+         style="border-color:#4F46E5;color:#4F46E5;font-weight:700;">📊 1:4控盤</a>
+      <a class="module-nav-item" href="#macdScanWrap"
+         onclick="document.getElementById('macdScanWrap').scrollIntoView({behavior:'smooth'});return false;">📉 MACD結構掃描</a>
       <a class="module-nav-item" href="#etfCalAnchor"
          onclick="document.getElementById('etfCalCard').scrollIntoView({behavior:'smooth'});return false;">📆 ETF換檔</a>
       <a class="module-nav-item" href="#chipLogAnchor"
          onclick="document.getElementById('chipLogCard').scrollIntoView({behavior:'smooth'});return false;">📋 籌碼記錄</a>
-      <a class="module-nav-item" href="#ctrl14Anchor"
-         onclick="document.getElementById('ctrl14Card').scrollIntoView({behavior:'smooth'});return false;"
-         style="border-color:#4F46E5;color:#4F46E5;font-weight:700;">📊 1:4控盤</a>
+      <a class="module-nav-item" href="#backtestCard"
+         onclick="document.getElementById('backtestCard').scrollIntoView({behavior:'smooth'});return false;">💹 績效回測</a>
 
       <a class="module-nav-item" href="broker-scanner.html" target="_blank"
          style="border-color:#f97316;color:#f97316;font-weight:700;">🏦 券商囤貨掃描</a>
@@ -32842,7 +32863,7 @@ a.module-nav-item.acc-active {
   <div>資料來源：<a href="https://finmindtrade.com/" target="_blank">FinMind 開源金融資料庫</a> ·
        <a href="https://openapi.twse.com.tw/" target="_blank">TWSE OpenAPI</a></div>
   <div>所有分析結果僅供參考，不構成任何投資建議。投資有風險，操作請審慎評估。</div>
-  <div style="color:var(--accent);">台股AI分析器 v7.46 · 2026
+  <div style="color:var(--accent);">台股AI分析器 v7.47 · 2026
     <span style="margin-left:12px;font-size:0.58rem;">
     </span>
   </div>
