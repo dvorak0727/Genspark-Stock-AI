@@ -10,7 +10,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>台股AI分析器 v7.49</title>
+  <title>台股AI分析器 v7.50</title>
 
   <!-- Google Fonts：非阻塞載入（避免手機字型 fetch 卡住渲染） -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
@@ -72,7 +72,7 @@
       <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;max-width:400px;width:90%;text-align:center;">
         <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
         <h2 style="color:#f8fafc;margin:0 0 4px;font-size:1.3rem;">台股AI分析器</h2>
-        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.49 · FinMind API</div>
+        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.50 · FinMind API</div>
         <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 24px;">請輸入您的月費授權碼以繼續使用</p>
         <input id="lgInput" type="text" placeholder="TSAI-202507-XXXXXXXX"
           style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:0.95rem;margin-bottom:12px;outline:none;letter-spacing:1px;" />
@@ -15790,7 +15790,7 @@ a.module-nav-item.acc-active {
           title="定錨收盤價已超過7天，建議於下次收盤後更新">
       ⚠️ 收盤價待更新
     </span>
-    <div class="header-badge">v7.49 · FinMind API</div>
+    <div class="header-badge">v7.50 · FinMind API</div>
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
@@ -16533,7 +16533,7 @@ a.module-nav-item.acc-active {
 
   <div id="welcomeMsg">
     <div style="font-size:2.4rem;margin-bottom:8px;">📊</div>
-    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.49</div>
+    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.50</div>
     <div style="font-size:0.88rem;line-height:1.9;color:var(--fg2);margin-bottom:12px;">
       輸入<b>股票代號</b>（如 2330）或<b>公司名稱</b>（如 台積電、鴻海）即可開始分析<br/>
       支援模糊比對 · 串接 FinMind 即時籌碼資料 · 技術指標自動計算
@@ -32963,7 +32963,7 @@ a.module-nav-item.acc-active {
   <div>資料來源：<a href="https://finmindtrade.com/" target="_blank">FinMind 開源金融資料庫</a> ·
        <a href="https://openapi.twse.com.tw/" target="_blank">TWSE OpenAPI</a></div>
   <div>所有分析結果僅供參考，不構成任何投資建議。投資有風險，操作請審慎評估。</div>
-  <div style="color:var(--accent);">台股AI分析器 v7.49 · 2026
+  <div style="color:var(--accent);">台股AI分析器 v7.50 · 2026
     <span style="margin-left:12px;font-size:0.58rem;">
     </span>
   </div>
@@ -63104,6 +63104,104 @@ function saveToken() {
   closeTokenModal();
 }
 
+// ══════════════════════════════════════════════════
+//  v7.50 Token 連線測試
+//  用三層探測判斷「實際」權限等級，而不是相信使用者以為的等級。
+//  這是為了避免「以為自己是付費會員、其實 token 是免費的」——
+//  該情況下即時報價與千張大戶會靜靜失效，不易察覺。
+// ══════════════════════════════════════════════════
+async function testToken() {
+  const btn  = document.getElementById('tokenTestBtn');
+  const box  = document.getElementById('tokenTestResult');
+  const val  = document.getElementById('tokenInput')?.value.trim() || '';
+  if (!box) return;
+
+  // 先存起來，測試才有意義
+  window._userToken = val;
+  if (val) localStorage.setItem(TOKEN_KEY, val);
+  else     localStorage.removeItem(TOKEN_KEY);
+
+  if (btn) { btn.disabled = true; btn.textContent = '測試中…'; }
+  box.style.display = 'block';
+  box.innerHTML = '<div style="color:var(--fg3);font-size:0.7rem;">正在探測三層權限…</div>';
+
+  const end = new Date(), start = new Date(); start.setDate(end.getDate() - 10);
+  const f = d => d.toISOString().slice(0,10);
+  const q = (ds, extra='') =>
+    `${FINMIND}?dataset=${ds}&data_id=2330&start_date=${f(start)}&end_date=${f(end)}&token=${encodeURIComponent(val)}${extra}`;
+
+  async function probe(url) {
+    try {
+      const r = await fetch(url, { cache: 'no-store' });
+      const j = await r.json();
+      return { ok: (j.data || []).length > 0, msg: j.msg || '', status: j.status };
+    } catch (e) { return { ok: false, msg: '連線失敗：' + e.message }; }
+  }
+
+  // 層1：基本連線（免費即可）
+  const t1 = await probe(q('TaiwanStockPrice'));
+  // 層2：贊助會員資料（股權分散表）
+  const t2 = await probe(q('TaiwanStockHoldingSharesPer'));
+  // 層3：即時報價快照
+  let t3;
+  try {
+    const r = await fetch(`${RT_ENDPOINT}?data_id=2330&token=${encodeURIComponent(val)}`, { cache:'no-store' });
+    const j = await r.json();
+    t3 = { ok: !j.error && (!j.status || j.status === 200) && (j.data || []).length > 0,
+           msg: j.msg || j.error || '' };
+  } catch (e) { t3 = { ok:false, msg:'連線失敗：' + e.message }; }
+
+  // ⚠️ 不能只看第一層就判定 token 有效：
+  //    FinMind 的免費資料不需 token 也能取得（匿名模式），
+  //    無效 token 會被靜靜忽略而退回匿名，第一層照樣通過。
+  //    真正能分辨的是快照端點的錯誤訊息：
+  //      「Token is illegal」→ token 本身無效
+  //      「Your level is ...」→ token 有效但等級不足
+  const msg3 = String(t3.msg || '');
+  const tokenIllegal = /illegal|invalid.*token|token.*invalid/i.test(msg3);
+  const looksJWT = /^[\w-]+\.[\w-]+\.[\w-]+$/.test(val);
+
+  let level;
+  if (!t1.ok)                          level = 'offline';   // 連不上
+  else if (!val)                       level = 'anon';      // 未填 token
+  else if (tokenIllegal || !looksJWT)  level = 'invalid';   // token 格式或內容有誤
+  else if (t2.ok || t3.ok)             level = 'sponsor';
+  else                                 level = 'register';
+  const row = (label, r, note) =>
+    `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:5px;font-size:0.68rem;line-height:1.5;">
+       <span style="flex-shrink:0;">${r.ok ? '✅' : '❌'}</span>
+       <span style="flex:1;"><b>${label}</b>　${r.ok ? '通過' : '未通過'}
+         ${!r.ok && r.msg ? `<br><span style="color:var(--fg3);">${String(r.msg).slice(0,90)}</span>` : ''}
+         ${r.ok && note ? `<br><span style="color:var(--fg3);">${note}</span>` : ''}
+       </span>
+     </div>`;
+
+  const banner = {
+    sponsor : ['#065F46','#D1FAE5','#6EE7B7','🎉 贊助會員 Token 有效',
+               '即時報價、股權分散表（千張大戶）皆可正常使用'],
+    register: ['#92400E','#FEF3C7','#FCD34D','⚠️ Token 有效，但為「註冊會員」等級',
+               '基本資料可用；即時報價與千張大戶金字塔<b>無法使用</b>，需升級為贊助會員'],
+    invalid : ['#991B1B','#FEE2E2','#FCA5A5','❌ Token 無效',
+               'FinMind 已拒絕這把 Token。請確認是否複製完整（應為 <code>xxx.yyy.zzz</code> 三段式），或到官網重新產生'],
+    anon    : ['#1E40AF','#DBEAFE','#93C5FD','ℹ️ 未填 Token，目前為匿名模式',
+               '每日約 30 次查詢額度。填入免費 Token 可提升至約 600 次'],
+    offline : ['#991B1B','#FEE2E2','#FCA5A5','❌ 無法連線到資料服務',
+               '這不是 Token 的問題，可能是網路或後端暫時無回應，請稍後再試'],
+  }[level];
+
+  box.innerHTML =
+    `<div style="background:${banner[1]};border:1.5px solid ${banner[2]};color:${banner[0]};
+                 border-radius:8px;padding:10px 12px;margin-bottom:9px;">
+       <div style="font-weight:800;font-size:0.76rem;margin-bottom:3px;">${banner[3]}</div>
+       <div style="font-size:0.67rem;line-height:1.5;">${banner[4]}</div>
+     </div>` +
+    row('① 基本連線（日K行情）', t1, '每日額度已提升') +
+    row('② 股權分散表（贊助會員限定）', t2, '千張大戶金字塔可用') +
+    row('③ 即時報價快照（贊助會員限定）', t3, '⚡ 即時模式可用');
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔌 儲存並測試連線'; }
+}
+
 // ── 筆記 Modal（個股） ──
 function openNoteModal(stockId) {
   const modal = document.getElementById('noteModal');
@@ -65430,10 +65528,13 @@ function _injectModals() {
             ✅ <strong style="color:#6ee7b7;">設定後立即生效</strong>：OBI 內/外盤、融資融券、大戶散戶持股均可正常取得<br>
             💡 進場時系統自動記錄今日為進場日，載入個股後可在持倉面板查看損益
           </div>
+          <div id="tokenTestResult" style="display:none;margin-top:12px;"></div>
         </div>
         <div class="token-modal-footer">
           <button class="token-modal-cancel" onclick="closeTokenModal()">取消</button>
-          <button class="token-modal-save" onclick="saveToken()">💾 儲存 Token</button>
+          <button id="tokenTestBtn" class="token-modal-save" onclick="testToken()"
+                  style="background:#059669;">🔌 儲存並測試連線</button>
+          <button class="token-modal-save" onclick="saveToken()">💾 只儲存</button>
         </div>
       </div>
     </div>`);
