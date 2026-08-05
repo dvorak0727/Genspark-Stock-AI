@@ -10,7 +10,7 @@
   <meta name="format-detection" content="telephone=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <title>台股AI分析器 v7.48</title>
+  <title>台股AI分析器 v7.49</title>
 
   <!-- Google Fonts：非阻塞載入（避免手機字型 fetch 卡住渲染） -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
@@ -72,7 +72,7 @@
       <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;max-width:400px;width:90%;text-align:center;">
         <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
         <h2 style="color:#f8fafc;margin:0 0 4px;font-size:1.3rem;">台股AI分析器</h2>
-        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.48 · FinMind API</div>
+        <div style="color:#64748b;font-size:0.72rem;margin-bottom:8px;letter-spacing:0.05em;">v7.49 · FinMind API</div>
         <p style="color:#94a3b8;font-size:0.85rem;margin:0 0 24px;">請輸入您的月費授權碼以繼續使用</p>
         <input id="lgInput" type="text" placeholder="TSAI-202507-XXXXXXXX"
           style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#f8fafc;font-size:0.95rem;margin-bottom:12px;outline:none;letter-spacing:1px;" />
@@ -15790,7 +15790,7 @@ a.module-nav-item.acc-active {
           title="定錨收盤價已超過7天，建議於下次收盤後更新">
       ⚠️ 收盤價待更新
     </span>
-    <div class="header-badge">v7.48 · FinMind API</div>
+    <div class="header-badge">v7.49 · FinMind API</div>
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
@@ -16533,7 +16533,7 @@ a.module-nav-item.acc-active {
 
   <div id="welcomeMsg">
     <div style="font-size:2.4rem;margin-bottom:8px;">📊</div>
-    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.48</div>
+    <div style="font-size:1.1rem;font-weight:800;color:var(--accent);margin-bottom:8px;">台股AI分析器 v7.49</div>
     <div style="font-size:0.88rem;line-height:1.9;color:var(--fg2);margin-bottom:12px;">
       輸入<b>股票代號</b>（如 2330）或<b>公司名稱</b>（如 台積電、鴻海）即可開始分析<br/>
       支援模糊比對 · 串接 FinMind 即時籌碼資料 · 技術指標自動計算
@@ -28153,6 +28153,106 @@ a.module-nav-item.acc-active {
       </div><!-- /schrodinger-example -->
     </div><!-- /薛丁格 ks-card -->
 
+    <!-- ══ v7.49 反身性 vs 量子芝諾：兩種觀測效應的分辨 ══ -->
+    <div class="ks-card">
+      <div class="ks-card-title">🔁 反身性 vs 量子芝諾：兩種觀測效應，別搞混</div>
+      <div class="ks-body">
+
+        <p>
+          前面幾張卡把「觀測會改變被觀測對象」講清楚了。但這句話其實包含
+          <strong>兩種完全不同的機制</strong>，混用會導致判讀錯誤。
+        </p>
+
+        <div style="overflow-x:auto;margin:10px 0;">
+          <table style="border-collapse:collapse;width:100%;min-width:460px;font-size:0.72rem;line-height:1.6;">
+            <thead>
+              <tr><th style="text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--fg2);white-space:nowrap;">　</th><th style="text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--fg2);white-space:nowrap;">量子芝諾效應</th><th style="text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--fg2);white-space:nowrap;">反身性（Reflexivity）</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;"><b>出處</b></td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">量子力學（Misra &amp; Sudarshan, 1977）</td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">社會科學／金融（George Soros）</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;"><b>核心</b></td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">頻繁觀測會<b>凍結</b>系統狀態</td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">認知會<b>改變</b>被認知的對象</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;"><b>方向</b></td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">觀測 → 讓事情<b>不變</b></td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">觀測 → 讓事情<b>發生</b></td>
+              </tr>
+              <tr>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;"><b>盤面對應</b></td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">高頻報價刷新綁架注意力，
+                    散戶盯著跳動的數字，被<b>釘在原地</b>反覆進出</td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">美股／費半釋出上漲訊號 → 散戶集體追買 →
+                    <b>真的把價格推上去</b>，驗證了原先的預期</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;"><b>本站模組</b></td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">資料新鮮度警示、模擬定錨標示<br/>
+                    （提醒你「觀測視窗」是否可信）</td>
+                <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">反指標邏輯分析、融資券溫度<br/>
+                    （測量集體認知走到多極端）</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p style="margin-top:14px;">
+          <b>一句話分辨：</b>芝諾效應解釋「<b>注意力如何被綁架</b>」，
+          反身性解釋「<b>被綁架的注意力如何真的推動價格</b>」。
+          前者是心理陷阱，後者是價格機制。兩者接起來，才是完整的因果鏈。
+        </p>
+
+        <div class="ks-example-tip">
+          <div style="font-weight:800;margin-bottom:4px;">⚠️ 為什麼這個區分很實際</div>
+          反身性成立時，<b>技術指標會失效</b>——因為價格是被信念推動的，
+          而信念的變化比指標的平滑週期快得多。
+        </div>
+
+        <div class="ks-example-card">
+          <div class="ks-example-label">📊 實證案例：2026 年 7 月 31 日</div>
+          <p>
+            加權指數自 7/17 起因外部衝擊重挫，7/30 見波段低 39,933。
+            隔日 7/31 單日大漲 <b class="up">+7.98%</b>——這是二十一年來單日漲幅前段班。
+          </p>
+          <p><b>但同一時間，MACD 的狀態是：</b></p>
+          <div style="overflow-x:auto;margin:10px 0;">
+            <table style="border-collapse:collapse;width:100%;min-width:460px;font-size:0.72rem;line-height:1.6;">
+              <thead><tr><th style="text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--fg2);white-space:nowrap;">日期</th><th style="text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--fg2);white-space:nowrap;">收盤</th><th style="text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--fg2);white-space:nowrap;">日漲跌</th><th style="text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--fg2);white-space:nowrap;">DIF</th><th style="text-align:left;padding:6px 10px;border-bottom:1.5px solid var(--fg2);white-space:nowrap;">MACD 判定</th></tr></thead>
+              <tbody>
+                <tr><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">07/21</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">44,233</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--up);font-weight:700;">+4.20%</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">−178</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--dn);font-weight:700;">空／零軸下</td></tr>
+                <tr><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">07/30</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">39,933</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--dn);font-weight:700;">−0.26%</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">−970</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--dn);font-weight:700;">空／零軸下</td></tr>
+                <tr style="background:rgba(200,50,47,0.06);">
+                  <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;"><b>07/31</b></td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;"><b>43,120</b></td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--up);font-weight:700;"><b>+7.98%</b></td>
+                  <td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;"><b>−877</b></td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--dn);font-weight:700;"><b>空／零軸下</b></td></tr>
+                <tr><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">08/03</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">43,386</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--up);font-weight:700;">+0.62%</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">−773</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--dn);font-weight:700;">空／零軸下</td></tr>
+                <tr><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">08/04</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">43,361</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--dn);font-weight:700;">−0.06%</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);vertical-align:top;">−684</td><td style="padding:6px 10px;border-bottom:1px solid var(--border);color:var(--dn);font-weight:700;">空／零軸下</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <b>從 7/20 到 8/04，MACD 一次多方訊號都沒發過</b>，
+            而指數已經自低點回升 <b class="up">+8.6%</b>、回補了跌幅的六成。
+          </p>
+          <p>
+            這不是 MACD 壞掉，是它的本質——12/26/9 的指數平滑天生落後。
+            當價格由<b>集體信念</b>而非籌碼結構推動時，慢指標會慢到完全無法參與。
+          </p>
+          <p style="margin-bottom:0;">
+            <b>操作意涵：</b>判斷「這波是籌碼推的還是信念推的」，
+            決定了你該不該相信技術指標。籌碼推動時指標有效；
+            信念推動時，先看反指標與資金流向，技術指標只能事後確認。
+          </p>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /#ks-quantum -->
 
   <!-- ══════════ Panel 7：ETF原理 ══════════ -->
@@ -32863,7 +32963,7 @@ a.module-nav-item.acc-active {
   <div>資料來源：<a href="https://finmindtrade.com/" target="_blank">FinMind 開源金融資料庫</a> ·
        <a href="https://openapi.twse.com.tw/" target="_blank">TWSE OpenAPI</a></div>
   <div>所有分析結果僅供參考，不構成任何投資建議。投資有風險，操作請審慎評估。</div>
-  <div style="color:var(--accent);">台股AI分析器 v7.48 · 2026
+  <div style="color:var(--accent);">台股AI分析器 v7.49 · 2026
     <span style="margin-left:12px;font-size:0.58rem;">
     </span>
   </div>
