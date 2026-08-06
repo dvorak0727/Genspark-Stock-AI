@@ -38423,11 +38423,15 @@ function _renderPCAPanel(pca, containerId) {
 }
 
 // ── FinMind API 拉取券商分點（或模擬資料）────────────────────
-// v7.52 修復根因：舊版呼叫的 dataset=TaiwanStockBrokerTradingDetail 已從
-// FinMind API 移除（一律 400），程式碼從未真正抓到過真實分點，永遠 fallback
-// 模擬資料。改用現行端點 taiwan_stock_trading_daily_report_secid_agg，
-// 並透過自建 CORS 代理 finmind-broker-proxy 轉發（該端點本身不回傳
-// Access-Control-Allow-Origin，瀏覽器直打會被擋）。
+// v7.53 修復根因（除錯記錄，避免下次又繞回去）：
+//  1. 舊版呼叫的 dataset=TaiwanStockBrokerTradingDetail 已從 FinMind API
+//     移除，一律 400，程式碼從未真正抓到過真實分點。
+//  2. 改用 taiwan_stock_trading_daily_report_secid_agg 後，實測發現這個
+//     端點強制要求同時帶 securities_trader_id（單一券商），無法只給
+//     data_id 拿到「一支股票全部分點」，跟需求不合。
+//  3. 最終改用 taiwan_stock_trading_daily_report（單日端點，data_id 可
+//     單獨使用），由 finmind-broker-proxy 這個 Worker 在後端迴圈打 N 天、
+//     彙整後一次回傳，同時補上 CORS（FinMind 該端點不回傳 CORS 標頭）。
 async function _fetchBrokerData(stockId, days = 20) {
   const token     = getToken();
   const endDate   = new Date();
@@ -38441,15 +38445,15 @@ async function _fetchBrokerData(stockId, days = 20) {
     if (!r.ok) throw new Error(`API error ${r.status}`);
     const j = await r.json();
     if (j.status && j.status !== 200) throw new Error(j.msg || `API(${j.status})`);
-    // secid_agg 回傳欄位：securities_trader, buy_volume, sell_volume, date …
-    // 單位比照 FinMind 其他 volume 欄位慣例為「股」，÷1000 換算成本站慣用的「張」
-    // ⚠️ 待首次抓到真實資料後，務必核對量級是否合理（例如與收盤成交量比對），
-    //    若發現數字仍相差1000倍，代表這個端點單位跟其他 dataset 不同，需拿掉÷1000
+    // taiwan_stock_trading_daily_report 回傳欄位：securities_trader, buy, sell, price, date …
+    // ⚠️ 待首次抓到真實資料後，務必核對 buy/sell 量級是否合理（跟收盤成交量比對），
+    //    FinMind 文件沒明講單位是股還是張，這裡先假設是「張」（不除1000）；
+    //    若數字誇張大 1000 倍，改成 Math.round(x/1000)
     const rows = (j.data || []).map(d => ({
       date: d.date,
       broker_id: d.securities_trader || d.securities_trader_id || '未知',
-      buy: Math.round((+d.buy_volume || 0) / 1000),
-      sell: Math.round((+d.sell_volume || 0) / 1000),
+      buy: +d.buy || 0,
+      sell: +d.sell || 0,
     }));
     if (rows.length > 5) return { rows, live: true };
     throw new Error('insufficient data');
