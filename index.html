@@ -6958,6 +6958,28 @@
     }
 
     /* ====== 籌碼博弈矩陣 gm-* ====== */
+    /* v7.51 模擬資料強警示橫幅 */
+    .gm-sim-banner {
+      margin:8px 10px 0; padding:9px 12px;
+      background:repeating-linear-gradient(135deg,rgba(239,68,68,.22),rgba(239,68,68,.22) 10px,rgba(217,119,6,.22) 10px,rgba(217,119,6,.22) 20px);
+      border:1.5px solid rgba(239,68,68,.85); border-radius:8px;
+      display:flex; align-items:center; gap:8px;
+      font-size:0.68rem; font-weight:800; color:#fca5a5;
+      line-height:1.4;
+    }
+    .gm-sim-banner .gm-sim-icon { font-size:1rem; flex-shrink:0; }
+    .gm-sim-banner b { color:#fecaca; }
+    /* 表格區域浮水印（模擬資料時顯示） */
+    .gm-matrix-wrap.gm-sim-mode { position:relative; }
+    .gm-matrix-wrap.gm-sim-mode::after {
+      content:"⚠ 模擬資料 · 非真實籌碼 ⚠";
+      position:absolute; inset:0; pointer-events:none;
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.6rem; font-weight:900; letter-spacing:2px;
+      color:rgba(239,68,68,0.10);
+      transform:rotate(-18deg); white-space:nowrap; overflow:hidden;
+      z-index:5;
+    }
     /* 頂部摘要卡列 */
     .gm-summary-row {
       display:flex; flex-wrap:wrap; gap:6px;
@@ -17155,6 +17177,11 @@ a.module-nav-item.acc-active {
 
         <!-- ─── 面板B：籌碼博弈矩陣 ─── -->
         <div id="csSubPanelGame" style="display:none;">
+          <!-- v7.51 模擬資料強警示橫幅 -->
+          <div class="gm-sim-banner" id="gmSimBanner" style="display:none;">
+            <span class="gm-sim-icon">⚠️</span>
+            <span>本表為 <b>模擬推算資料</b>，非真實券商分點數字（FinMind 免費方案不提供分點明細，需付費方案）。數字由系統演算法生成，僅供功能展示，<b>請勿作為買賣依據</b>。</span>
+          </div>
           <!-- 頂部摘要卡 -->
           <div class="gm-summary-row" id="gmSummaryRow">
             <div class="gm-summary-loading">⏳ 分析券商分點籌碼博弈中…</div>
@@ -38396,19 +38423,35 @@ function _renderPCAPanel(pca, containerId) {
 }
 
 // ── FinMind API 拉取券商分點（或模擬資料）────────────────────
+// v7.52 修復根因：舊版呼叫的 dataset=TaiwanStockBrokerTradingDetail 已從
+// FinMind API 移除（一律 400），程式碼從未真正抓到過真實分點，永遠 fallback
+// 模擬資料。改用現行端點 taiwan_stock_trading_daily_report_secid_agg，
+// 並透過自建 CORS 代理 finmind-broker-proxy 轉發（該端點本身不回傳
+// Access-Control-Allow-Origin，瀏覽器直打會被擋）。
 async function _fetchBrokerData(stockId, days = 20) {
-  // v6.21l：改用 getToken()（原本用錯誤的 'fm_token' key，應為 'tsai_finmind_token'）
   const token     = getToken();
   const endDate   = new Date();
   const startDate = new Date(); startDate.setDate(endDate.getDate() - days * 2);
   const fmt = d => d.toISOString().slice(0,10);
 
   try {
-    const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockBrokerTradingDetail&data_id=${stockId}&start_date=${fmt(startDate)}&end_date=${fmt(endDate)}${token ? '&token='+token : ''}`;
+    if (!token) throw new Error('未設定 FinMind Token（分點資料需付費方案）');
+    const url = `https://finmind-broker-proxy.dvorak0727.workers.dev/?data_id=${stockId}&start_date=${fmt(startDate)}&end_date=${fmt(endDate)}&token=${encodeURIComponent(token)}`;
     const r = await fetch(url);
-    if (!r.ok) throw new Error('API error');
+    if (!r.ok) throw new Error(`API error ${r.status}`);
     const j = await r.json();
-    if (j.data && j.data.length > 5) return { rows: j.data, live: true };
+    if (j.status && j.status !== 200) throw new Error(j.msg || `API(${j.status})`);
+    // secid_agg 回傳欄位：securities_trader, buy_volume, sell_volume, date …
+    // 單位比照 FinMind 其他 volume 欄位慣例為「股」，÷1000 換算成本站慣用的「張」
+    // ⚠️ 待首次抓到真實資料後，務必核對量級是否合理（例如與收盤成交量比對），
+    //    若發現數字仍相差1000倍，代表這個端點單位跟其他 dataset 不同，需拿掉÷1000
+    const rows = (j.data || []).map(d => ({
+      date: d.date,
+      broker_id: d.securities_trader || d.securities_trader_id || '未知',
+      buy: Math.round((+d.buy_volume || 0) / 1000),
+      sell: Math.round((+d.sell_volume || 0) / 1000),
+    }));
+    if (rows.length > 5) return { rows, live: true };
     throw new Error('insufficient data');
   } catch(e) {
     // 模擬資料：鴻海 2317 近 20 日主力分點
@@ -38595,6 +38638,12 @@ async function _renderGameMatrix(stockId) {
   // 拉取資料
   const { rows, live } = await _fetchBrokerData(stockId, 20);
 
+  // v7.51：強警示橫幅 + 表格浮水印（模擬資料時開啟）
+  const simBanner = document.getElementById('gmSimBanner');
+  const matrixWrap = matrixTable.closest('.gm-matrix-wrap');
+  if (simBanner) simBanner.style.display = live ? 'none' : 'flex';
+  if (matrixWrap) matrixWrap.classList.toggle('gm-sim-mode', !live);
+
   // ── 整理資料 ──
   // 取出所有日期（最近20日）
   const allDates = [...new Set(rows.map(r => r.date))].sort().slice(-20);
@@ -38709,7 +38758,6 @@ async function _renderGameMatrix(stockId) {
       <div class="gm-sc-val" style="color:var(--fg3);">${dayCount} 家</div>
       <div class="gm-sc-sub">已過濾</div>
     </div>
-    ${!live ? '<div style="font-size:0.48rem;color:var(--fg3);width:100%;padding:2px 4px;">🟡 模擬定錨資料（FinMind API 需 token 或額度不足）</div>' : ''}
   `;
 
   // ── 平均防守成本橫幅 ──
