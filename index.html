@@ -164,6 +164,16 @@
       --success:    #059669;
       --detect-hit: #E8343A;
       --detect-miss:#8A90A8;
+      /* v7.53 籌碼博弈矩陣配色（原本寫死淺色系文字，在白底卡片上對比度不足） */
+      --gm-purple:      #7C3AED;
+      --gm-purple-soft: #6D28D9;
+      --gm-indigo:      #4338CA;
+      --gm-indigo-bg:   rgba(99,102,241,.10);
+      --gm-indigo-bd:   rgba(99,102,241,.30);
+      --gm-red:         #B91C1C;
+      --gm-amber:       #A16207;
+      --gm-slate:       #475569;
+      --gm-pca-bg:      linear-gradient(90deg,rgba(99,102,241,.08),rgba(79,70,229,.05));
       /* 深色模式切換過渡 */
       color-scheme: light;
     }
@@ -195,6 +205,16 @@
       --success:    #34D399;
       --detect-hit: #FF5A60;
       --detect-miss:#4B5580;
+      /* v7.53 籌碼博弈矩陣配色（深色模式沿用原本的柔和淺色） */
+      --gm-purple:      #A78BFA;
+      --gm-purple-soft: #C4B5FD;
+      --gm-indigo:      #A5B4FC;
+      --gm-indigo-bg:   rgba(99,102,241,.25);
+      --gm-indigo-bd:   rgba(99,102,241,.40);
+      --gm-red:         #FCA5A5;
+      --gm-amber:       #FDE68A;
+      --gm-slate:       #CBD5E1;
+      --gm-pca-bg:      linear-gradient(90deg,rgba(30,64,175,.22),rgba(79,70,229,.15));
       color-scheme: dark;
     }
 
@@ -7136,22 +7156,22 @@
     /* ── v7.01 PCA 主成分分析面板 ── */
     .gm-pca-banner {
       margin:4px 10px 6px; padding:8px 12px 10px;
-      background:linear-gradient(90deg,rgba(30,64,175,.22),rgba(79,70,229,.15));
-      border:1px solid rgba(99,102,241,.38); border-radius:10px;
+      background:var(--gm-pca-bg);
+      border:1px solid var(--gm-indigo-bd); border-radius:10px;
     }
     .gm-pca-header {
       display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:7px;
     }
     .gm-pca-title {
-      font-size:0.65rem; font-weight:800; color:#a5b4fc; white-space:nowrap;
+      font-size:0.65rem; font-weight:800; color:var(--gm-indigo); white-space:nowrap;
     }
     .gm-pca-badge {
       font-size:0.58rem; font-weight:700; padding:2px 8px;
       border-radius:6px; white-space:nowrap;
     }
-    .gm-pca-badge.gm-pca-high { background:rgba(239,68,68,.18); color:#fca5a5; border:1px solid rgba(239,68,68,.35); }
-    .gm-pca-badge.gm-pca-mid  { background:rgba(234,179,8,.18);  color:#fde68a; border:1px solid rgba(234,179,8,.35); }
-    .gm-pca-badge.gm-pca-low  { background:rgba(100,116,139,.18);color:#cbd5e1; border:1px solid rgba(100,116,139,.35); }
+    .gm-pca-badge.gm-pca-high { background:rgba(239,68,68,.14); color:var(--gm-red);   border:1px solid rgba(239,68,68,.35); }
+    .gm-pca-badge.gm-pca-mid  { background:rgba(234,179,8,.14); color:var(--gm-amber); border:1px solid rgba(234,179,8,.35); }
+    .gm-pca-badge.gm-pca-low  { background:rgba(100,116,139,.14);color:var(--gm-slate);border:1px solid rgba(100,116,139,.35); }
     .gm-pca-body {
       display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; margin-bottom:7px;
     }
@@ -7170,8 +7190,8 @@
     }
     .gm-pca-foot-label { white-space:nowrap; }
     .gm-pca-top-chip {
-      display:inline-block; background:rgba(99,102,241,.25);
-      color:#a5b4fc; border:1px solid rgba(99,102,241,.4);
+      display:inline-block; background:var(--gm-indigo-bg);
+      color:var(--gm-indigo); border:1px solid var(--gm-indigo-bd);
       border-radius:5px; padding:1px 6px; font-size:0.58rem; font-weight:700;
       white-space:nowrap;
     }
@@ -38751,11 +38771,11 @@ async function _renderGameMatrix(stockId) {
       <div class="gm-sc-val">${washCount} 家</div>
       <div class="gm-sc-sub">假賣真買</div>
     </div>
-    <div class="gm-stat-card" style="border-color:rgba(167,139,250,.4);min-width:130px;">
+    <div class="gm-stat-card" style="border-color:var(--gm-indigo-bd);min-width:130px;">
       <div class="gm-sc-label" title="主力今日淨買量÷全日總成交量，代表主力控盤強度">📐 主力控盤強度</div>
-      <div class="gm-sc-val" style="font-size:0.75rem;color:#A78BFA;">${bpRatio.toFixed(1)}% <span style="font-size:0.58rem;color:var(--fg3);font-weight:400;">占今日成交</span></div>
+      <div class="gm-sc-val" style="font-size:0.75rem;color:var(--gm-purple);">${bpRatio.toFixed(1)}% <span style="font-size:0.58rem;color:var(--fg3);font-weight:400;">占今日成交</span></div>
       <div class="gm-sc-sub">${bpState}</div>
-      <div style="font-size:0.52rem;color:#c4b5fd;margin-top:3px;line-height:1.35;opacity:0.9;">${bpExplain}</div>
+      <div style="font-size:0.52rem;color:var(--gm-purple-soft);margin-top:3px;line-height:1.35;opacity:0.95;">${bpExplain}</div>
     </div>
     <div class="gm-stat-card" style="border-color:rgba(148,163,184,.2);">
       <div class="gm-sc-label">⚪ 隔日沖雜訊</div>
