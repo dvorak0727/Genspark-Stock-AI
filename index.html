@@ -16621,6 +16621,7 @@ a.module-nav-item.acc-active {
       <a class="module-nav-item" href="#opPressureCard"
          onclick="document.getElementById('opPressureCard').scrollIntoView({behavior:'smooth'});return false;">🌏 開盤壓力表</a>
       <a class="module-nav-item" href="#usLeadCard">🌐 美股先行</a>
+      <a class="module-nav-item" href="#futuresCard">📐 期貨先行</a>
       <a class="module-nav-item" href="#twseIndexCard">🇹🇼 大盤脈搏</a>
       <a class="module-nav-item" href="#srCard">🌍 板塊</a>
 
@@ -17726,6 +17727,63 @@ a.module-nav-item.acc-active {
           </div>
 
         </div><!-- /.ql-accordion-box -->
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         📐 期貨市場先行指標（v7.54）— 放在美股先行與大盤脈搏之間
+         基差 · 外資期貨未平倉 · Put/Call Ratio · VIX
+    ══════════════════════════════════════════════════ -->
+    <div id="futuresCard" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(88,28,135,.06));border:1.5px solid rgba(126,34,206,.2);border-radius:14px;padding:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:1.3rem;">📐</span>
+        <div style="flex:1;">
+          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">期貨市場先行指標</div>
+          <div style="font-size:.62rem;color:var(--fg3);">基差 · 外資期貨未平倉 · Put/Call Ratio · VIX — 期貨資訊靈敏，常領先現貨表態</div>
+        </div>
+        <div id="futuresBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</div>
+        <button onclick="fetchFuturesModule()" style="font-size:.62rem;padding:4px 10px;border-radius:8px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;font-weight:700;">🔄 更新</button>
+      </div>
+
+      <!-- 四欄：基差 / 外資未平倉 / PC Ratio / VIX -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
+
+        <!-- 基差 -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;" title="期貨價-現貨指數。正價差=偏多，逆價差=偏空">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">⚖️ 基差</div>
+          <div style="font-size:1.1rem;font-weight:900;" id="futBasisVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futBasis5d" style="font-weight:700;">—</span></div>
+          <div style="font-size:.56rem;margin-top:2px;" id="futBasisTag">—</div>
+        </div>
+
+        <!-- 外資期貨未平倉 -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;" title="外資在台指期的淨部位（多單-空單，口）。持續增加=偏多">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🏦 外資期貨未平倉</div>
+          <div style="font-size:1.1rem;font-weight:900;" id="futOiVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">較昨日：<span id="futOiChg" style="font-weight:700;">—</span></div>
+          <div style="font-size:.56rem;margin-top:2px;" id="futOiTag">—</div>
+        </div>
+
+        <!-- Put/Call Ratio -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;" title="選擇權賣權/買權成交量比。>1.2偏恐慌（常反向偏多）；<0.8偏樂觀（留意過熱）">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">⚖️ P/C Ratio</div>
+          <div style="font-size:1.1rem;font-weight:900;" id="futPcVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futPc5d" style="font-weight:700;">—</span></div>
+          <div style="font-size:.56rem;margin-top:2px;" id="futPcTag">—</div>
+        </div>
+
+        <!-- VIX -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;" title="台指選擇權波動率指數，恐慌指標。>20恐慌區，<15低檔">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">😨 VIX 恐慌指數</div>
+          <div style="font-size:1.1rem;font-weight:900;" id="futVixVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futVix5d" style="font-weight:700;">—</span></div>
+          <div style="font-size:.56rem;margin-top:2px;" id="futVixTag">—</div>
+        </div>
+      </div>
+
+      <!-- 結論 -->
+      <div id="futuresVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #7e22ce;">
+        載入中…
       </div>
     </div>
 
@@ -62891,6 +62949,162 @@ async function fetchTWSEIndex() {
   }
 }
 
+// ══════════════════════════════════════════════════
+//  📐 期貨市場先行指標（v7.54）
+//  基差 · 外資期貨未平倉 · Put/Call Ratio · VIX
+//  資料來源：license-worker /finmind 代理（同 fetchTWSEIndex 用法）
+//  ⚠️ 首次上線待實測驗證欄位假設：
+//    - 基差：TaiwanFuturesDaily 每日多筆合約（近月/遠月/週選），
+//      用當日 volume 最大者視為近月主力合約（無精確合約月曆比對）
+//    - 外資未平倉：institutional_investors 篩選字串假設為 'Foreign_Investor'
+//      （比照個股三大法人欄位慣例），若欄位實際名稱不同，該卡會顯示「資料不足」
+//    - P/C Ratio：TaiwanOptionDaily 依 call_put 欄位加總全月合約成交量，
+//      假設值為 'call'/'put'
+// ══════════════════════════════════════════════════
+async function fetchFuturesModule() {
+  const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
+  const badge = document.getElementById('futuresBadge');
+  const upColor = '#dc2626', dnColor = '#059669', neuColor = 'var(--fg3)';
+
+  const fmt = d => d.toISOString().split('T')[0];
+  const end = new Date();
+  const start30 = new Date(); start30.setDate(start30.getDate() - 30);
+  const start12 = new Date(); start12.setDate(start12.getDate() - 12);
+  const token = getToken();
+
+  const fmFetch = async (dataset, dataId, start) => {
+    try {
+      const r = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=${dataset}&data_id=${encodeURIComponent(dataId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${encodeURIComponent(token)}`);
+      const j = await r.json();
+      return j.data || [];
+    } catch(e) { console.warn('[期貨模組]', dataset, e.message); return []; }
+  };
+
+  try {
+    if (badge) { badge.textContent = '載入中'; badge.style.background = 'var(--bg2)'; badge.style.color = 'var(--fg3)'; }
+
+    const [futRows, taiexRows, oiRows, optRows, vixRows] = await Promise.all([
+      fmFetch('TaiwanFuturesDaily', 'TX', start30),
+      fmFetch('TaiwanStockPrice', 'TAIEX', start30),
+      fmFetch('TaiwanFuturesInstitutionalInvestors', 'TX', start30),
+      fmFetch('TaiwanOptionDaily', 'TXO', start12),
+      fmFetch('TaiwanOptionVix', '', start30),
+    ]);
+
+    const tags = []; // 收集各指標的多空判讀，最後湊成總結論
+
+    // ── ① 基差 ──────────────────────────────────
+    try {
+      // 每日近月合約：同一天多筆合約資料中，volume 最大者視為主力（近月）合約
+      const byDate = {};
+      futRows.forEach(r => {
+        const d = r.date;
+        if (!byDate[d] || (+r.volume||0) > (+byDate[d].volume||0)) byDate[d] = r;
+      });
+      const taiexByDate = {}; taiexRows.forEach(r => { taiexByDate[r.date] = +r.close; });
+      const basisDates = Object.keys(byDate).sort().filter(d => taiexByDate[d] != null);
+      const basisArr = basisDates.map(d => (+byDate[d].close) - taiexByDate[d]);
+
+      if (basisArr.length >= 3) {
+        const lastBasis = basisArr.at(-1);
+        const avg5 = basisArr.slice(-5).reduce((a,b)=>a+b,0) / Math.min(5,basisArr.length);
+        const bColor = lastBasis >= 0 ? upColor : dnColor;
+        setHtml('futBasisVal', `<span style="color:${bColor};">${lastBasis>=0?'+':''}${lastBasis.toFixed(0)}</span>`);
+        setTx('futBasis5d', `${avg5>=0?'+':''}${avg5.toFixed(0)}`);
+        if (lastBasis > 15) { setHtml('futBasisTag', `<span style="color:${upColor};">正價差偏多</span>`); tags.push(1); }
+        else if (lastBasis < -15) { setHtml('futBasisTag', `<span style="color:${dnColor};">逆價差偏空</span>`); tags.push(-1); }
+        else { setHtml('futBasisTag', '<span style="color:var(--fg3);">價差中性</span>'); tags.push(0); }
+      } else {
+        setTx('futBasisVal', '資料不足'); setTx('futBasisTag', '');
+      }
+    } catch(e) { console.warn('[期貨模組] 基差計算失敗', e.message); setTx('futBasisVal', '計算失敗'); }
+
+    // ── ② 外資期貨未平倉 ──────────────────────────
+    try {
+      const foreignRows = oiRows.filter(r => r.institutional_investors === 'Foreign_Investor')
+                                 .sort((a,b) => a.date.localeCompare(b.date));
+      if (foreignRows.length >= 2) {
+        const netArr = foreignRows.map(r => (+r.long_open_interest_balance_volume||0) - (+r.short_open_interest_balance_volume||0));
+        const lastNet = netArr.at(-1);
+        const chgNet  = lastNet - netArr.at(-2);
+        const oColor = lastNet >= 0 ? upColor : dnColor;
+        setHtml('futOiVal', `<span style="color:${oColor};">${lastNet>=0?'+':''}${lastNet.toLocaleString()}</span>口`);
+        setHtml('futOiChg', `<span style="color:${chgNet>=0?upColor:dnColor};">${chgNet>=0?'+':''}${chgNet.toLocaleString()}</span>`);
+        if (lastNet > 0 && chgNet > 0) { setHtml('futOiTag', `<span style="color:${upColor};">偏多加碼</span>`); tags.push(1); }
+        else if (lastNet < 0 && chgNet < 0) { setHtml('futOiTag', `<span style="color:${dnColor};">偏空加碼</span>`); tags.push(-1); }
+        else { setHtml('futOiTag', '<span style="color:var(--fg3);">部位持平</span>'); tags.push(0); }
+      } else {
+        setTx('futOiVal', '資料不足'); setTx('futOiTag', '');
+      }
+    } catch(e) { console.warn('[期貨模組] 外資未平倉計算失敗', e.message); setTx('futOiVal', '計算失敗'); }
+
+    // ── ③ Put/Call Ratio ────────────────────────
+    try {
+      const byDatePC = {};
+      optRows.forEach(r => {
+        const d = r.date;
+        if (!byDatePC[d]) byDatePC[d] = { call:0, put:0 };
+        const cp = (r.call_put||'').toLowerCase();
+        if (cp === 'call') byDatePC[d].call += (+r.volume||0);
+        else if (cp === 'put') byDatePC[d].put += (+r.volume||0);
+      });
+      const pcDates = Object.keys(byDatePC).sort().filter(d => byDatePC[d].call > 0);
+      const pcArr = pcDates.map(d => byDatePC[d].put / byDatePC[d].call);
+
+      if (pcArr.length >= 3) {
+        const lastPC = pcArr.at(-1);
+        const avg5PC = pcArr.slice(-5).reduce((a,b)=>a+b,0) / Math.min(5,pcArr.length);
+        setTx('futPcVal', lastPC.toFixed(2));
+        setTx('futPc5d', avg5PC.toFixed(2));
+        if (lastPC > 1.2) { setHtml('futPcTag', `<span style="color:${upColor};">恐慌濃厚(常反向偏多)</span>`); tags.push(1); }
+        else if (lastPC < 0.7) { setHtml('futPcTag', `<span style="color:${dnColor};">過度樂觀(留意過熱)</span>`); tags.push(-1); }
+        else { setHtml('futPcTag', '<span style="color:var(--fg3);">情緒中性</span>'); tags.push(0); }
+      } else {
+        setTx('futPcVal', '資料不足'); setTx('futPcTag', '');
+      }
+    } catch(e) { console.warn('[期貨模組] P/C Ratio 計算失敗', e.message); setTx('futPcVal', '計算失敗'); }
+
+    // ── ④ VIX ────────────────────────────────────
+    try {
+      const byDateVix = {};
+      vixRows.forEach(r => { byDateVix[r.date] = +r.vix; }); // 同日多筆取最後一筆（物件覆蓋）
+      const vixDates = Object.keys(byDateVix).sort();
+      const vixArr = vixDates.map(d => byDateVix[d]);
+
+      if (vixArr.length >= 3) {
+        const lastVix = vixArr.at(-1);
+        const avg5Vix = vixArr.slice(-5).reduce((a,b)=>a+b,0) / Math.min(5,vixArr.length);
+        setTx('futVixVal', lastVix.toFixed(1));
+        setTx('futVix5d', avg5Vix.toFixed(1));
+        if (lastVix > 20) { setHtml('futVixTag', `<span style="color:${upColor};">恐慌區(常伴短底)</span>`); tags.push(-1); }
+        else if (lastVix < 15) { setHtml('futVixTag', `<span style="color:${dnColor};">低檔平靜</span>`); tags.push(1); }
+        else { setHtml('futVixTag', '<span style="color:var(--fg3);">情緒中性</span>'); tags.push(0); }
+      } else {
+        setTx('futVixVal', '資料不足'); setTx('futVixTag', '');
+      }
+    } catch(e) { console.warn('[期貨模組] VIX 計算失敗', e.message); setTx('futVixVal', '計算失敗'); }
+
+    // ── 總結論 ────────────────────────────────────
+    const validTags = tags.filter(t => typeof t === 'number');
+    if (validTags.length > 0) {
+      const sum = validTags.reduce((a,b)=>a+b,0);
+      let verdictTxt, badgeTxt, badgeColor, badgeBg;
+      if (sum >= 2) { verdictTxt = '多項期貨指標同步偏多，市場情緒與部位傾向樂觀，可留意大盤上檔動能。'; badgeTxt = '偏多'; badgeColor = upColor; badgeBg = 'rgba(220,38,38,.12)'; }
+      else if (sum <= -2) { verdictTxt = '多項期貨指標同步偏空，法人與選擇權市場轉趨保守，大盤上檔壓力需留意。'; badgeTxt = '偏空'; badgeColor = dnColor; badgeBg = 'rgba(5,150,105,.12)'; }
+      else { verdictTxt = '期貨市場多空訊號不一致，尚無明確方向，建議觀望或以現貨籌碼面為主判斷。'; badgeTxt = '中性'; badgeColor = 'var(--fg3)'; badgeBg = 'var(--bg2)'; }
+      setTx('futuresVerdict', verdictTxt);
+      if (badge) { badge.textContent = badgeTxt; badge.style.color = badgeColor; badge.style.background = badgeBg; }
+    } else {
+      setTx('futuresVerdict', '資料不足，請確認 FinMind Token 是否為贊助會員等級（期貨/選擇權籌碼資料需付費方案）。');
+      if (badge) { badge.textContent = '無資料'; badge.style.color = 'var(--fg3)'; badge.style.background = 'var(--bg2)'; }
+    }
+  } catch(e) {
+    document.getElementById('futuresVerdict').textContent = '載入失敗：' + e.message;
+    console.warn('[期貨模組] 整體載入失敗', e.message);
+  }
+}
+
 let _twseCurrentChart = null;
 let _twseInstRows = [];
 
@@ -66045,6 +66259,9 @@ document.addEventListener('DOMContentLoaded', function _onDOMReady() {
 
   // 6.5 台股大盤脈搏自動載入
   try { setTimeout(fetchTWSEIndex, 1200); } catch(e) {}
+
+  // 6.6 期貨市場先行指標自動載入（v7.54）
+  try { setTimeout(fetchFuturesModule, 1400); } catch(e) {}
 
   // 7. v5.90 1:4 控盤面板靜態初始化
   try { setTimeout(ctrl14Init, 900); } catch(e) {}
@@ -72102,6 +72319,7 @@ if (typeof _origRenderSM === 'function') {
     // ── 盤前：先看外部條件 ──
     { id:'opPressureCard',label:'開盤壓力表',emoji:'🌏', why:'每天第一件事！美股昨晚怎麼收，台積電ADR怎麼動，決定今天開盤的基本盤。',           ksTab:'philosophy' },
     { id:'usLeadCard',    label:'美股先行',  emoji:'🌐', why:'台股是美股的影子，AI/半導體類股尤其明顯。美股昨晚怎麼收，今天開盤就知道了。',       ksTab:'sectors' },
+    { id:'futuresCard',   label:'期貨先行',  emoji:'📐', why:'期貨槓桿高、資訊靈敏，聰明錢常先在期貨表態。基差、外資未平倉、P/C Ratio、VIX 都是領先大盤的訊號。' },
     { id:'twseIndexCard', label:'大盤脈搏',  emoji:'🇹🇼', why:'個股再強，大盤逆風就是逆風。先看大盤MACD/KD，確認上游順風再選股。' },
     { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。',                 ksTab:'sectors' },
 
