@@ -17738,7 +17738,9 @@ a.module-nav-item.acc-active {
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <span style="font-size:1.3rem;">📐</span>
         <div style="flex:1;">
-          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">期貨市場先行指標</div>
+          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">期貨市場先行指標
+            <span data-tip="期貨先行指標" style="cursor:pointer;font-size:.7rem;color:#7e22ce;font-weight:700;">?</span>
+          </div>
           <div style="font-size:.62rem;color:var(--fg3);">基差 · 外資期貨未平倉 · Put/Call Ratio · VIX — 期貨資訊靈敏，常領先現貨表態</div>
         </div>
         <div id="futuresBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</div>
@@ -17749,32 +17751,32 @@ a.module-nav-item.acc-active {
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
 
         <!-- 基差 -->
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;" title="期貨價-現貨指數。正價差=偏多，逆價差=偏空">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">⚖️ 基差</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;cursor:pointer;" data-tip="基差">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">⚖️ 基差 <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="futBasisVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futBasis5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futBasisTag">—</div>
         </div>
 
         <!-- 外資期貨未平倉 -->
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;" title="外資在台指期的淨部位（多單-空單，口）。持續增加=偏多">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🏦 外資期貨未平倉</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;cursor:pointer;" data-tip="外資期貨未平倉">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🏦 外資期貨未平倉 <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="futOiVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">較昨日：<span id="futOiChg" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futOiTag">—</div>
         </div>
 
         <!-- Put/Call Ratio -->
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;" title="選擇權賣權/買權成交量比。>1.2偏恐慌（常反向偏多）；<0.8偏樂觀（留意過熱）">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">⚖️ P/C Ratio</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;cursor:pointer;" data-tip="Put/Call Ratio">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">⚖️ P/C Ratio <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="futPcVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futPc5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futPcTag">—</div>
         </div>
 
         <!-- VIX -->
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;" title="台指選擇權波動率指數，恐慌指標。>20恐慌區，<15低檔">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">😨 VIX 恐慌指數</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;cursor:pointer;" data-tip="VIX">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">😨 VIX 恐慌指數 <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="futVixVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futVix5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futVixTag">—</div>
@@ -66137,6 +66139,33 @@ const INDICATOR_TIP_DB = {
     title: '🤖 AI 操作建議（多驅動因子分析）',
     formula: '依股票類型（大型/中型/小型/ETF）\n自動調整驅動力權重：\n• 大型股：外資 > 技術 > 投信\n• 中型股：投信 > 主力 > 外資\n• 小型股：主力量能 > 投信 > 技術\n• ETF：外資 > 指數成分 > 技術',
     body: '🔍 這是什麼？\n根據「這支股票的主要驅動力是誰」，給出 5-6 條客製化操作建議。\n\n📋 每條建議說明：\n🌍 外資：外資方向 + 連買/賣日數\n🏦 投信：投信方向 + 季底作帳效應\n🐋 主力量能：MACD 柱狀體 + DIF/DEA 關係\n📊 技術面：RSI 超買/超賣判斷\n📐 成本壓力：3日/5日均價成本與現價差\n💡 綜合結論：評分 + 建議操作方式\n\n⚠️ 特殊警告：\n若出現 FIT 警告（外資賣×投信作帳），\nAI 會自動扣分並插入第6條警示說明'
+  },
+
+  /* ── v7.54 期貨市場先行指標 ── */
+  '期貨先行指標': {
+    title: '📐 期貨市場先行指標（人話版）',
+    formula: '期貨槓桿高、成本低、盤前盤後都能交易\n→ 消息靈通的資金習慣先在期貨表態\n→ 期貨常常比現貨大盤「早一步」反應',
+    body: '🔍 這是什麼？\n台指期跟台股大盤是「同一個東西、兩個市場」，因為期貨資訊反應快，常被當成大盤的領先指標，用來提早嗅出風向。\n\n📋 四個指標分別在看什麼？\n⚖️ 基差：期貨比現貨貴還便宜，看多空傾向\n🏦 外資期貨未平倉：外資在期貨市場的真實部位，籌碼指標之王\n⚖️ P/C Ratio：選擇權市場恐慌還是樂觀\n😨 VIX：恐慌指數，急升常伴隨短線見底\n\n💡 怎麼用？\n四個指標不用全部都同意才進場，重點是看「有沒有同時偏向同一邊」——多個訊號同步出現，才是比較可信的訊號，單一指標容易騙人。\n\n⚠️ 提醒：\n這些是機率性參考，不是保證。期貨是零和市場，波動比現貨股票劇烈很多，僅供輔助判斷大盤氣氛，不建議直接拿來做選股或進出場的唯一依據。'
+  },
+  '基差': {
+    title: '⚖️ 基差（期貨 − 現貨）',
+    formula: '基差 = 台指期收盤價 − 加權指數收盤價\n正值 = 正價差，負值 = 逆價差',
+    body: '🔍 這是什麼？\n期貨價格跟大盤現貨指數之間的價差，反映市場對「未來」比「現在」更樂觀還是更悲觀。\n\n📈 正價差（期貨 > 現貨）：\n• 市場願意花更高價格卡位多單，代表偏樂觀\n• 正價差持續擴大 → 多方信心強\n\n📉 逆價差（期貨 < 現貨）：\n• 期貨市場對後市看法保守，或避險需求重\n• 逆價差持續擴大 → 空方壓力增加\n\n✅ 怎麼看：\n單日價差意義不大，重點看「連續幾天的變化方向」，價差正負反轉、或急速擴大/收斂，才是比較值得留意的轉折訊號。'
+  },
+  '外資期貨未平倉': {
+    title: '🏦 外資期貨未平倉（籌碼指標之王）',
+    formula: '外資淨部位 = 外資多單未平倉 − 外資空單未平倉（口數）',
+    body: '🔍 這是什麼？\n外資在台指期市場「還沒平倉、留倉過夜」的多空部位，是外資對大盤真實看法的直接表態——比買賣現貨股票更誠實，因為期貨部位每天都要付保證金，做假成本高。\n\n📈 淨多單增加：\n• 外資對大盤偏多，且用真金白銀壓注\n• 是市場最多人盯的籌碼指標之一\n\n📉 淨空單增加：\n• 外資轉為保守或避險，警訊意味濃厚\n\n✅ 怎麼看：\n不是看單一天的數字大小，是看「連續增減的方向」跟「變化速度」。如果外資部位連續好幾天同向加碼，比單日暴增更有參考價值。'
+  },
+  'Put/Call Ratio': {
+    title: '⚖️ Put/Call Ratio（選擇權情緒溫度計）',
+    formula: 'P/C Ratio = 賣權(Put)成交量 ÷ 買權(Call)成交量',
+    body: '🔍 這是什麼？\n選擇權市場買「賣權」（跌就賺）跟買「買權」（漲就賺）的量誰多誰少，反映投資人此刻的情緒是恐慌還是樂觀。\n\n📈 比值 > 1.2（恐慌濃厚）：\n• 大家搶著買保險（賣權）避險\n• 反指標效應：極度恐慌時常常是短線落底訊號\n\n📉 比值 < 0.7（過度樂觀）：\n• 大家一面倒買買權賭漲\n• 過度一致的樂觀，反而要留意是否已經過熱\n\n✅ 怎麼看：\nP/C Ratio 是典型的「反指標」——極端值比中間值更有參考意義，數值在中性區間（0.7~1.2）通常沒有特別訊號。'
+  },
+  'VIX': {
+    title: '😨 VIX 恐慌指數',
+    formula: 'VIX = 台指選擇權隱含波動率指數\n數值越高 = 市場預期未來波動越劇烈',
+    body: '🔍 這是什麼？\n用選擇權價格反推市場「預期」未來的波動程度，數字越高代表投資人越緊張、越願意付高價買保險，是最直接的市場情緒溫度計。\n\n📈 VIX > 20（恐慌區）：\n• 市場明顯緊張，常伴隨股價急殺\n• 但恐慌高點也常是短線的甜蜜買點（別人恐懼我貪婪）\n\n📉 VIX < 15（低檔平靜）：\n• 市場氣氛平靜甚至過度自滿\n• 過度平靜有時反而是風險累積的前兆\n\n✅ 怎麼看：\nVIX 適合搭配大盤走勢一起看：股價急跌 + VIX 急升到高檔，是經典的恐慌性拋售特徵，通常物極必反的機率較高。'
   },
 };
 
