@@ -71686,6 +71686,18 @@ function _updateOpGuide() {
   // ══════════════════════════════════════════════════
   const SCM_KEY = 'tsai_supply_chain_map';
 
+  // v7.63：實測查證過的關聯資料（僅限有台股代號的部分，美股客戶/供應商
+  // 如輝達、蘋果、博通這種沒有台股代號，這套機制抓不到，不放進來）。
+  // 這是「建議」，不會覆蓋使用者自己編輯過的資料，使用者可以一鍵採用或忽略。
+  // 資料來源：太報 2026財報報導 / 中央社（台積電客戶排名）。
+  const SCM_SEED = {
+    '2330': { // 台積電
+      customers: ['2454'], // 聯發科（IC設計，台積電代工客戶；輝達/蘋果/博通等美股客戶無台股代號，抓不到）
+      suppliers: ['4772'], // 台灣特化（先進製程特殊氣體供應商）
+      note: '客戶欄僅列有台股代號者，輝達/蘋果/博通/高通/超微/英特爾等美股大客戶無法在此系統追蹤',
+    },
+  };
+
   function _scmGetMap() {
     try { return JSON.parse(localStorage.getItem(SCM_KEY) || '{}'); } catch(e) { return {}; }
   }
@@ -71721,6 +71733,20 @@ function _updateOpGuide() {
     _renderChainRadar(document.getElementById('stockTwNewsList'));
   };
 
+  window._scmAdoptSeed = function() {
+    const sid = _stnCurrentStockId;
+    const seed = SCM_SEED[sid];
+    if (!sid || !seed) return;
+    const map = _scmGetMap();
+    const cur = map[sid] || { customers: [], suppliers: [] };
+    map[sid] = {
+      customers: [...new Set([...(cur.customers||[]), ...seed.customers])],
+      suppliers: [...new Set([...(cur.suppliers||[]), ...seed.suppliers])],
+    };
+    _scmSetMap(map);
+    _renderChainRadar(document.getElementById('stockTwNewsList'));
+  };
+
   async function _renderChainRadar(listEl) {
     const sid = _stnCurrentStockId;
     if (!sid) { listEl.innerHTML = '<div class="stock-us-news-empty">⚠️ 請先查詢個股</div>'; return; }
@@ -71730,9 +71756,25 @@ function _updateOpGuide() {
       ...rel.suppliers.map(id => ({ id, role: '供應商' })),
     ];
 
+    const searchQuery = encodeURIComponent(`${_scmLookupName(sid)} ${sid} 供應鏈 客戶 供應商`);
+    const searchBtn = `<a href="https://www.google.com/search?q=${searchQuery}" target="_blank" rel="noopener"
+        style="font-size:0.6rem;padding:2px 8px;border-radius:6px;background:rgba(37,99,235,.12);color:#2563eb;border:1px solid rgba(37,99,235,.3);cursor:pointer;text-decoration:none;">🔍 幫我查</a>`;
+
+    // 有實測查證過的建議資料時，顯示「採用建議」提示（不會自動套用，要使用者點了才會存）
+    const seed = SCM_SEED[sid];
+    const seedHtml = seed ? `
+        <div style="margin-top:6px;padding:6px 8px;background:rgba(37,99,235,.08);border-radius:6px;font-size:0.6rem;">
+          💡 查到參考資料：客戶 ${seed.customers.map(_scmLookupName).join('、')}、供應商 ${seed.suppliers.map(_scmLookupName).join('、')}
+          <button onclick="_scmAdoptSeed()" style="margin-left:6px;font-size:0.58rem;padding:1px 8px;border-radius:5px;background:#2563eb;color:#fff;border:none;cursor:pointer;">採用</button>
+          <div style="color:var(--fg3);margin-top:2px;">${seed.note}</div>
+        </div>` : '';
+
     const editorHtml = `
       <div style="padding:10px 12px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:0.68rem;">
-        <div style="font-weight:700;color:var(--fg);margin-bottom:6px;">🔗 ${_scmLookupName(sid)}（${sid}）的關聯公司</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <div style="font-weight:700;color:var(--fg);">🔗 ${_scmLookupName(sid)}（${sid}）的關聯公司</div>
+          ${searchBtn}
+        </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">
           <span style="color:var(--fg3);">客戶：</span>
           ${rel.customers.length ? rel.customers.map(id => `<span style="background:rgba(220,38,38,.12);color:#dc2626;padding:2px 8px;border-radius:10px;">${_scmLookupName(id)} ${id}</span>`).join('') : '<span style="color:var(--fg3);">（未設定）</span>'}
@@ -71743,12 +71785,13 @@ function _updateOpGuide() {
           ${rel.suppliers.length ? rel.suppliers.map(id => `<span style="background:rgba(5,150,105,.12);color:#059669;padding:2px 8px;border-radius:10px;">${_scmLookupName(id)} ${id}</span>`).join('') : '<span style="color:var(--fg3);">（未設定）</span>'}
           <button onclick="_scmEditRelations('suppliers')" style="font-size:0.6rem;padding:2px 8px;border-radius:6px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;">✏️ 編輯</button>
         </div>
-        <div style="color:var(--fg3);margin-top:6px;font-size:0.58rem;">⚠️ 關聯是你自己標記的，系統不會自動推斷，資料存在瀏覽器本機（localStorage）</div>
+        ${seedHtml}
+        <div style="color:var(--fg3);margin-top:6px;font-size:0.58rem;">⚠️ 關聯是你自己標記的，系統不會自動推斷，資料存在瀏覽器本機（localStorage）。此系統只認台股代號，美股客戶/供應商無法追蹤。</div>
       </div>
     `;
 
     if (allRelated.length === 0) {
-      listEl.innerHTML = editorHtml + '<div class="stock-us-news-empty">📭 還沒設定關聯公司，點上面「✏️ 編輯」加入客戶/供應商的股票代號</div>';
+      listEl.innerHTML = editorHtml + '<div class="stock-us-news-empty">📭 還沒設定關聯公司，點上面「✏️ 編輯」手動加入，或點「🔍 幫我查」搜尋後自己判斷</div>';
       return;
     }
 
