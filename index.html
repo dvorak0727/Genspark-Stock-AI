@@ -16625,7 +16625,8 @@ a.module-nav-item.acc-active {
       <a class="module-nav-item" href="#twseIndexCard">🇹🇼 大盤脈搏</a>
       <a class="module-nav-item" href="#srCard">🌍 板塊</a>
 
-      <!-- ② 個股：籌碼 → 技術 → 週期 -->
+      <!-- ② 個股：基本面 → 籌碼 → 技術 → 週期 -->
+      <a class="module-nav-item" href="#profitQualityCard">💊 獲利品質</a>
       <a class="module-nav-item" href="#csCard">💼 籌碼總覽</a>
       <a class="module-nav-item" href="#techCard">📈 技術指標</a>
       <a class="module-nav-item" href="#cfdCard">🌊 籌碼流體</a>
@@ -16839,6 +16840,45 @@ a.module-nav-item.acc-active {
         <button onclick="document.getElementById('oppTokenReminder').style.display='none'" style="
           margin-left:auto; background:none; border:none; color:#a16207;
           font-size:1rem; cursor:pointer; flex-shrink:0;" title="關閉提醒">✕</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         💊 獲利品質檢查（v7.60）— 個股分析第一站，放在籌碼總覽正前面
+         帳上賺錢 vs 真的收到現金，兩者是否同步
+    ══════════════════════════════════════════════════ -->
+    <div id="profitQualityCard" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(6,95,70,.06));border:1.5px solid rgba(5,150,105,.2);border-radius:14px;padding:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:1.3rem;">💊</span>
+        <div style="flex:1;">
+          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">獲利品質檢查
+            <span data-tip="獲利品質檢查" style="cursor:pointer;font-size:.7rem;color:#059669;font-weight:700;">?</span>
+          </div>
+          <div style="font-size:.62rem;color:var(--fg3);">EPS vs 營業現金流 — 帳上賺的錢，是不是真的收到現金</div>
+        </div>
+        <div id="pqBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;" data-tip="獲利品質檢查">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">📈 最新季 EPS</div>
+          <div style="font-size:1.1rem;font-weight:900;" id="pqEpsVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pqEpsYoy">—</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;" data-tip="獲利品質檢查">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">💵 營業現金流</div>
+          <div style="font-size:1.1rem;font-weight:900;" id="pqCfoVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pqCfoYoy">—</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;" data-tip="獲利品質檢查">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🔍 獲利含金量</div>
+          <div style="font-size:1.1rem;font-weight:900;" id="pqRatioVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pqRatioTag">—</div>
+        </div>
+      </div>
+
+      <div id="pqVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #059669;">
+        載入中…
       </div>
     </div>
 
@@ -35721,6 +35761,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
   window._gmDates    = dates;    // v6.28：橋接 dates 供 renderFITPanel 使用
   renderHero(stockId, info, lc, chg, chgPct, priceRaw.at(-1), lVol);       // hero
   renderSignalBar(lRSI, lK, lD, lHist, lc, lMA5, lMA20, fSeries, tSeries); // ⚡ 動能掃描橫幅
+  setTimeout(() => { if (!isStale() && typeof renderProfitQuality === 'function') renderProfitQuality(stockId); }, 300); // 💊 獲利品質檢查（個股分析第一站，季報資料不急，錯開避免搶頻寬）
   renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes, vols, lc, dates); // 籌碼總覽
 
   buildKAnnotEvents(dates, closes, ma20, vols, instMap, instDays);           // [v6.40] K線標注事件
@@ -62850,6 +62891,140 @@ function _frShowToast(msg) {
 }
 
 // ══════════════════════════════════════════════════
+//  💊 獲利品質檢查（v7.60）
+//  EPS vs 營業現金流，抓「帳上賺錢但沒收到現金」的落差
+//  資料來源：license-worker /finmind 代理
+//  ⚠️ 首次上線待實測驗證欄位假設：
+//    - TaiwanStockFinancialStatements：type='EPS'（基本每股盈餘）、
+//      type='IncomeAfterTaxes'（本期淨利）
+//    - TaiwanStockCashFlowsStatement：type='CashFlowsFromOperatingActivities'
+//      （營業活動之淨現金流入）
+//    這幾個 type 代碼已用 2330 實測資料確認存在，但不保證每家公司/
+//    每一季都有完整揭露（尤其小型股可能缺欄位），缺資料時該卡顯示
+//    「資料不足」而非顯示錯誤數字。
+// ══════════════════════════════════════════════════
+async function renderProfitQuality(stockId) {
+  const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
+  const badge = document.getElementById('pqBadge');
+  const healthy = '#059669', danger = '#dc2626', warn = '#d97706';
+
+  const fmt = d => d.toISOString().split('T')[0];
+  const end = new Date();
+  const start = new Date(); start.setFullYear(start.getFullYear() - 3); // 抓3年，確保有去年同期可比對
+  const token = getToken();
+
+  const fmFetch = async (dataset) => {
+    try {
+      const r = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=${dataset}&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${encodeURIComponent(token)}`);
+      const j = await r.json();
+      return j.data || [];
+    } catch(e) { console.warn('[獲利品質]', dataset, e.message); return []; }
+  };
+
+  try {
+    if (badge) { badge.textContent = '載入中'; badge.style.background = 'var(--bg2)'; badge.style.color = 'var(--fg3)'; }
+
+    const [finRows, cfRows] = await Promise.all([
+      fmFetch('TaiwanStockFinancialStatements'),
+      fmFetch('TaiwanStockCashFlowsStatement'),
+    ]);
+
+    const epsRows = finRows.filter(r => r.type === 'EPS').sort((a,b) => a.date.localeCompare(b.date));
+    const niRows  = finRows.filter(r => r.type === 'IncomeAfterTaxes').sort((a,b) => a.date.localeCompare(b.date));
+    const cfoRows = cfRows.filter(r => r.type === 'CashFlowsFromOperatingActivities').sort((a,b) => a.date.localeCompare(b.date));
+
+    if (epsRows.length === 0 || niRows.length === 0 || cfoRows.length === 0) {
+      setTx('pqEpsVal', '資料不足'); setTx('pqEpsYoy', '');
+      setTx('pqCfoVal', '資料不足'); setTx('pqCfoYoy', '');
+      setTx('pqRatioVal', '—'); setTx('pqRatioTag', '');
+      setTx('pqVerdict', '財報資料不足（可能是新股、ETF，或財報尚未公布），無法進行獲利品質檢查。');
+      if (badge) { badge.textContent = '無資料'; badge.style.color = 'var(--fg3)'; badge.style.background = 'var(--bg2)'; }
+      return;
+    }
+
+    const lastEps = epsRows.at(-1);
+    const lastNi  = niRows.at(-1);
+    const lastCfo = cfoRows.at(-1);
+
+    // 找「去年同期」：用日期往前推一年，抓最接近的一筆（誤差超過60天視為抓錯季度，不採用）
+    function findYoY(arr, lastDate) {
+      const target = new Date(lastDate); target.setFullYear(target.getFullYear() - 1);
+      let best = null, bestDiff = Infinity;
+      arr.forEach(r => {
+        const diff = Math.abs(new Date(r.date) - target);
+        if (diff < bestDiff) { bestDiff = diff; best = r; }
+      });
+      return (best && bestDiff < 1000*60*60*24*60) ? best : null;
+    }
+    const epsYoY = findYoY(epsRows, lastEps.date);
+    const cfoYoY = findYoY(cfoRows, lastCfo.date);
+
+    setTx('pqEpsVal', `${lastEps.value.toFixed(2)} 元`);
+    if (epsYoY && epsYoY.value !== 0) {
+      const g = (lastEps.value - epsYoY.value) / Math.abs(epsYoY.value) * 100;
+      setHtml('pqEpsYoy', `年增：<span style="color:${g>=0?healthy:danger};font-weight:700;">${g>=0?'+':''}${g.toFixed(1)}%</span>`);
+    } else setTx('pqEpsYoy', '年增：無去年同期資料');
+
+    const cfoYi = lastCfo.value / 1e8;
+    setTx('pqCfoVal', `${cfoYi>=0?'+':''}${cfoYi.toFixed(1)} 億`);
+    if (cfoYoY && cfoYoY.value !== 0) {
+      const g = (lastCfo.value - cfoYoY.value) / Math.abs(cfoYoY.value) * 100;
+      setHtml('pqCfoYoy', `年增：<span style="color:${g>=0?healthy:danger};font-weight:700;">${g>=0?'+':''}${g.toFixed(1)}%</span>`);
+    } else setTx('pqCfoYoy', '年增：無去年同期資料');
+
+    // 獲利含金量 = 營業現金流 ÷ 稅後淨利（同一季度比對，這是財會上既有的標準比率）
+    const ratio = lastNi.value !== 0 ? (lastCfo.value / lastNi.value) : null;
+    if (ratio !== null) {
+      const rColor = ratio >= 1 ? healthy : ratio >= 0.5 ? warn : danger;
+      setHtml('pqRatioVal', `<span style="color:${rColor};">${ratio.toFixed(2)}</span>`);
+      if (ratio >= 1) setHtml('pqRatioTag', `<span style="color:${healthy};">健康，現金流跟上獲利</span>`);
+      else if (ratio >= 0.5) setHtml('pqRatioTag', `<span style="color:${warn};">略有落差，觀察中</span>`);
+      else if (ratio >= 0) setHtml('pqRatioTag', `<span style="color:${danger};">明顯落差，留意</span>`);
+      else setHtml('pqRatioTag', `<span style="color:${danger};font-weight:700;">⚠️ 帳上賺錢但現金流是負的</span>`);
+    } else {
+      setTx('pqRatioVal', '—'); setTx('pqRatioTag', '本期淨利為0，無法計算比值');
+    }
+
+    // 連續性檢查：最近幾季是否「連續」偏低（單季偏低可能只是正常商業週期雜訊，
+    // 連續多季才是真警訊——這是使用者自己討論出來的判斷邏輯，跟期貨模組的
+    // 「連續天數確認」是同一種思路）
+    let lowStreak = 0;
+    for (let i = 1; i <= Math.min(niRows.length, 6); i++) {
+      const ni = niRows.at(-i);
+      if (!ni || ni.value === 0) break;
+      const cfo = cfoRows.find(r => r.date === ni.date);
+      if (!cfo) break;
+      if ((cfo.value / ni.value) < 0.5) lowStreak++; else break;
+    }
+
+    let verdictTxt, badgeTxt, badgeColor, badgeBg;
+    if (ratio === null) {
+      verdictTxt = '本期淨利為0，無法計算比值，建議查看下一季財報再確認。';
+      badgeTxt = '資料不足'; badgeColor = 'var(--fg3)'; badgeBg = 'var(--bg2)';
+    } else if (lowStreak >= 3) {
+      verdictTxt = `⚠️ 最近連續 ${lowStreak} 季獲利含金量都偏低，帳上獲利跟現金流持續脫節，不像單季雜訊，建議進一步查應收帳款、存貨科目是否異常堆積。`;
+      badgeTxt = '⚠️ 品質存疑'; badgeColor = danger; badgeBg = 'rgba(220,38,38,.12)';
+    } else if (ratio >= 1) {
+      verdictTxt = '本季獲利含金量健康，營業現金流跟上甚至超過帳上獲利，財報可信度較高。';
+      badgeTxt = '✅ 品質健康'; badgeColor = healthy; badgeBg = 'rgba(5,150,105,.12)';
+    } else if (ratio >= 0.5) {
+      verdictTxt = '本季獲利含金量略低，可能只是正常商業週期（例如旺季應收帳款暫時墊高），單季不必過度擔心，建議下季追蹤是否改善。';
+      badgeTxt = '觀察中'; badgeColor = warn; badgeBg = 'rgba(217,119,6,.12)';
+    } else {
+      verdictTxt = '本季帳上獲利跟現金流有明顯落差，建議留意，若下季仍未改善要提高警覺。';
+      badgeTxt = '留意'; badgeColor = warn; badgeBg = 'rgba(217,119,6,.12)';
+    }
+    setTx('pqVerdict', verdictTxt);
+    if (badge) { badge.textContent = badgeTxt; badge.style.color = badgeColor; badge.style.background = badgeBg; }
+  } catch(e) {
+    console.warn('[獲利品質] 整體載入失敗', e.message);
+    const el = document.getElementById('pqVerdict');
+    if (el) el.textContent = '載入失敗：' + e.message;
+  }
+}
+
+// ══════════════════════════════════════════════════
 //  🇹🇼 台股大盤脈搏 — MACD / KD / 法人籌碼
 // ══════════════════════════════════════════════════
 let _twseIndexCache = null;
@@ -66443,6 +66618,13 @@ const INDICATOR_TIP_DB = {
     title: '😨 VIX 恐慌指數',
     formula: 'VIX = 台指選擇權隱含波動率指數\n數值越高 = 市場預期未來波動越劇烈',
     body: '🔍 這是什麼？\n用選擇權價格反推市場「預期」未來的波動程度，數字越高代表投資人越緊張、越願意付高價買保險，是最直接的市場情緒溫度計。\n\n📈 VIX > 20（恐慌區）：\n• 市場明顯緊張，常伴隨股價急殺\n• 但恐慌高點也常是短線的甜蜜買點（別人恐懼我貪婪）\n\n📉 VIX < 15（低檔平靜）：\n• 市場氣氛平靜甚至過度自滿\n• 過度平靜有時反而是風險累積的前兆\n\n✅ 怎麼看：\nVIX 適合搭配大盤走勢一起看：股價急跌 + VIX 急升到高檔，是經典的恐慌性拋售特徵，通常物極必反的機率較高。'
+  },
+
+  /* ── v7.60 獲利品質檢查 ── */
+  '獲利品質檢查': {
+    title: '💊 獲利品質檢查（人話版）',
+    formula: '獲利含金量 = 營業活動現金流 ÷ 本期稅後淨利\n比值 ≥ 1：賺的錢真的變成現金了\n比值 < 1（尤其接近0或負）：帳上賺錢，但沒收到現金',
+    body: '🔍 這是什麼？\n損益表上的「獲利」是用會計原則算出來的，可以透過認列時點、存貨評價、應收帳款掛帳等方式美化；但現金流是真金白銀的進出，很難長期造假。這個模組比對「帳上賺多少」跟「真的收到多少現金」，抓出落差。\n\n📈 獲利含金量 ≥ 1：\n• 本業收到的現金比帳上獲利還多，代表獲利品質紮實，甚至偏保守\n\n📉 獲利含金量遠低於1，甚至是負的：\n• EPS看起來在賺錢，但營業現金流卻沒跟上、甚至是負的\n• 常見原因：錢卡在應收帳款收不回來、存貨堆積賣不掉\n• 這是財報地雷的典型早期徵兆之一，很多出事公司倒下前都是這個模式\n\n✅ 怎麼用：\n不是絕對規則，短期一兩季偏低可能只是正常的商業週期（例如出貨旺季應收帳款暫時墊高），重點是看「連續好幾季都偏低」——那才是真警訊，不是雜訊。\n\n⚠️ 提醒：\n這是體質檢查，不是買賣訊號。體質好不代表股價會漲，體質差也不代表股價會跌，只是提醒你「這家公司的獲利數字，可信度打幾折」。'
   },
 };
 
@@ -72631,7 +72813,8 @@ if (typeof _origRenderSM === 'function') {
     { id:'twseIndexCard', label:'大盤脈搏',  emoji:'🇹🇼', why:'個股再強，大盤逆風就是逆風。先看大盤MACD/KD，確認上游順風再選股。' },
     { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。',                 ksTab:'sectors' },
 
-    // ── 個股：籌碼 → 技術 → 週期 ──
+    // ── 個股：基本面 → 籌碼 → 技術 → 週期 ──
+    { id:'profitQualityCard', label:'獲利品質', emoji:'💊', why:'籌碼再強，體質有問題也是空話。先看EPS跟營業現金流是否同步，帳上賺錢但收不到現金是財報地雷的早期徵兆。' },
     { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。',       ksTab:'chips' },
     { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。', ksTab:'indicators' },
     { id:'phaseCard',     label:'籌碼週期',  emoji:'🔬', why:'主力有其慣性，吸籌→拉升→出貨→洗盤是標準劇本，這裡告訴你現在在哪個章節。底部探測與高點偵測同步收在此處。', ksTab:'wyckoff', before:'cfdCard' },
