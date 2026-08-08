@@ -17756,6 +17756,7 @@ a.module-nav-item.acc-active {
           <div style="font-size:1.1rem;font-weight:900;" id="futBasisVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futBasis5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futBasisTag">—</div>
+          <div style="font-size:.52rem;margin-top:4px;color:var(--fg3);border-top:1px dashed var(--border);padding-top:4px;" id="futBasisCycle">週期偵測中…</div>
         </div>
 
         <!-- 外資期貨未平倉 -->
@@ -17764,6 +17765,7 @@ a.module-nav-item.acc-active {
           <div style="font-size:1.1rem;font-weight:900;" id="futOiVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">較昨日：<span id="futOiChg" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futOiTag">—</div>
+          <div style="font-size:.52rem;margin-top:4px;color:var(--fg3);border-top:1px dashed var(--border);padding-top:4px;" id="futOiCycle">週期偵測中…</div>
         </div>
 
         <!-- Put/Call Ratio -->
@@ -17772,6 +17774,7 @@ a.module-nav-item.acc-active {
           <div style="font-size:1.1rem;font-weight:900;" id="futPcVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futPc5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futPcTag">—</div>
+          <div style="font-size:.52rem;margin-top:4px;color:var(--fg3);border-top:1px dashed var(--border);padding-top:4px;" id="futPcCycle">週期偵測中…</div>
         </div>
 
         <!-- VIX -->
@@ -17780,6 +17783,7 @@ a.module-nav-item.acc-active {
           <div style="font-size:1.1rem;font-weight:900;" id="futVixVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futVix5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futVixTag">—</div>
+          <div style="font-size:.52rem;margin-top:4px;color:var(--fg3);border-top:1px dashed var(--border);padding-top:4px;" id="futVixCycle">週期偵測中…</div>
         </div>
       </div>
 
@@ -62952,17 +62956,72 @@ async function fetchTWSEIndex() {
 }
 
 // ══════════════════════════════════════════════════
-//  📐 期貨市場先行指標（v7.54）
+//  📐 期貨市場先行指標（v7.54 + v7.55 自動週期偵測）
 //  基差 · 外資期貨未平倉 · Put/Call Ratio · VIX
 //  資料來源：license-worker /finmind 代理（同 fetchTWSEIndex 用法）
 //  ⚠️ 首次上線待實測驗證欄位假設：
 //    - 基差：TaiwanFuturesDaily 每日多筆合約（近月/遠月/週選），
 //      用當日 volume 最大者視為近月主力合約（無精確合約月曆比對）
-//    - 外資未平倉：institutional_investors 篩選字串假設為 'Foreign_Investor'
-//      （比照個股三大法人欄位慣例），若欄位實際名稱不同，該卡會顯示「資料不足」
 //    - P/C Ratio：TaiwanOptionDaily 依 call_put 欄位加總全月合約成交量，
 //      假設值為 'call'/'put'
 // ══════════════════════════════════════════════════
+
+// ── 自動週期偵測（v7.55）─────────────────────────
+// 概念：與其用寫死的 5/10/20 日窗期，改成「數這個指標最近平均幾天翻轉一次
+// 方向」，把這個天數當作動態窗期。做法很土炮：
+//   1. 序列跟自己的參考線（0 或均值）比大小，標記每天在線上還是線下
+//   2. 掃過去所有天數，記錄每次「線上/線下」翻轉發生時，距離上次翻轉隔了幾天
+//   3. 取最近幾次翻轉間隔的平均，當作「目前主力週期長度」
+// referenceMode: 'zero'（基差/外資未平倉，天生以0為多空分界）
+//               'mean'（P/C Ratio / VIX，沒有天生的0，用自己的滾動均值當分界）
+function detectCycleLength(series, referenceMode = 'zero') {
+  if (!series || series.length < 10) return null;
+  const ref = referenceMode === 'mean'
+    ? series.reduce((a,b)=>a+b,0) / series.length
+    : 0;
+  const signs = series.map(v => v >= ref ? 1 : -1);
+  const gaps = [];
+  let lastFlip = 0;
+  for (let i = 1; i < signs.length; i++) {
+    if (signs[i] !== signs[i-1]) { gaps.push(i - lastFlip); lastFlip = i; }
+  }
+  if (gaps.length < 2) return { cycleLen: null, flipCount: gaps.length }; // 太平穩，抓不到週期
+  const recent = gaps.slice(-5); // 只取最近5次翻轉，反映「目前」節奏而非全期平均
+  const cycleLen = Math.round(recent.reduce((a,b)=>a+b,0) / recent.length);
+  return { cycleLen, flipCount: gaps.length, ref };
+}
+
+// ── 短窗 vs 長窗方向比對（判斷是否早期反轉）──────
+// shortWin＝半週期，longWin＝完整週期。兩者符號不一致＝短線已經在反悔，
+// 比只看長窗期的絕對值更早抓到轉折（對應：10日是正，但5日已轉負，就不能只看10日）
+function checkEarlyReversal(series, cycleLen) {
+  if (!cycleLen || series.length < cycleLen) return null;
+  const shortWin = Math.max(2, Math.round(cycleLen / 2));
+  const longArr  = series.slice(-cycleLen);
+  const shortArr = series.slice(-shortWin);
+  const longSlope  = longArr.at(-1) - longArr[0];
+  const shortSlope = shortArr.at(-1) - shortArr[0];
+  const reversed = (longSlope > 0 && shortSlope < 0) || (longSlope < 0 && shortSlope > 0);
+  return { shortWin, longSlope, shortSlope, reversed };
+}
+
+function _renderCycleInfo(elId, series, referenceMode, unitLabel) {
+  const el = document.getElementById(elId);
+  if (!el) return { reversed: false };
+  const det = detectCycleLength(series, referenceMode);
+  if (!det || !det.cycleLen) {
+    el.textContent = '週期不明顯（近期方向穩定，未偵測到規律翻轉）';
+    return { reversed: false };
+  }
+  const rev = checkEarlyReversal(series, det.cycleLen);
+  if (rev && rev.reversed) {
+    el.innerHTML = `<span style="color:#d97706;font-weight:700;">⚠️ 偵測週期${det.cycleLen}天，但近${rev.shortWin}天已反向，留意反轉</span>`;
+    return { reversed: true, cycleLen: det.cycleLen };
+  }
+  el.textContent = `系統偵測目前週期：約 ${det.cycleLen} 天（近${det.flipCount}次翻轉平均）`;
+  return { reversed: false, cycleLen: det.cycleLen };
+}
+
 async function fetchFuturesModule() {
   const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
   const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
@@ -62971,8 +63030,10 @@ async function fetchFuturesModule() {
 
   const fmt = d => d.toISOString().split('T')[0];
   const end = new Date();
-  const start30 = new Date(); start30.setDate(start30.getDate() - 30);
-  const start12 = new Date(); start12.setDate(start12.getDate() - 12);
+  // v7.55：窗期拉長到 60 天（~40個交易日），才有足夠翻轉次數估計週期；
+  // 選擇權資料量較大（每天多筆履約價），窗期折衷抓 25 天
+  const start60 = new Date(); start60.setDate(start60.getDate() - 60);
+  const start25 = new Date(); start25.setDate(start25.getDate() - 25);
   const token = getToken();
 
   const fmFetch = async (dataset, dataId, start) => {
@@ -62987,14 +63048,15 @@ async function fetchFuturesModule() {
     if (badge) { badge.textContent = '載入中'; badge.style.background = 'var(--bg2)'; badge.style.color = 'var(--fg3)'; }
 
     const [futRows, taiexRows, oiRows, optRows, vixRows] = await Promise.all([
-      fmFetch('TaiwanFuturesDaily', 'TX', start30),
-      fmFetch('TaiwanStockPrice', 'TAIEX', start30),
-      fmFetch('TaiwanFuturesInstitutionalInvestors', 'TX', start30),
-      fmFetch('TaiwanOptionDaily', 'TXO', start12),
-      fmFetch('TaiwanOptionVix', '', start30),
+      fmFetch('TaiwanFuturesDaily', 'TX', start60),
+      fmFetch('TaiwanStockPrice', 'TAIEX', start60),
+      fmFetch('TaiwanFuturesInstitutionalInvestors', 'TX', start60),
+      fmFetch('TaiwanOptionDaily', 'TXO', start25),
+      fmFetch('TaiwanOptionVix', '', start60),
     ]);
 
     const tags = []; // 收集各指標的多空判讀，最後湊成總結論
+    let anyReversal = false; // 只要有一項偵測到「短窗已反轉」，總結論要特別提示
 
     // ── ① 基差 ──────────────────────────────────
     try {
@@ -63017,8 +63079,10 @@ async function fetchFuturesModule() {
         if (lastBasis > 15) { setHtml('futBasisTag', `<span style="color:${upColor};">正價差偏多</span>`); tags.push(1); }
         else if (lastBasis < -15) { setHtml('futBasisTag', `<span style="color:${dnColor};">逆價差偏空</span>`); tags.push(-1); }
         else { setHtml('futBasisTag', '<span style="color:var(--fg3);">價差中性</span>'); tags.push(0); }
+        const cyc = _renderCycleInfo('futBasisCycle', basisArr, 'zero');
+        if (cyc.reversed) anyReversal = true;
       } else {
-        setTx('futBasisVal', '資料不足'); setTx('futBasisTag', '');
+        setTx('futBasisVal', '資料不足'); setTx('futBasisTag', ''); setTx('futBasisCycle', '');
       }
     } catch(e) { console.warn('[期貨模組] 基差計算失敗', e.message); setTx('futBasisVal', '計算失敗'); }
 
@@ -63038,8 +63102,10 @@ async function fetchFuturesModule() {
         if (lastNet > 0 && chgNet > 0) { setHtml('futOiTag', `<span style="color:${upColor};">偏多加碼</span>`); tags.push(1); }
         else if (lastNet < 0 && chgNet < 0) { setHtml('futOiTag', `<span style="color:${dnColor};">偏空加碼</span>`); tags.push(-1); }
         else { setHtml('futOiTag', '<span style="color:var(--fg3);">部位持平</span>'); tags.push(0); }
+        const cyc = _renderCycleInfo('futOiCycle', netArr, 'zero');
+        if (cyc.reversed) anyReversal = true;
       } else {
-        setTx('futOiVal', '資料不足'); setTx('futOiTag', '');
+        setTx('futOiVal', '資料不足'); setTx('futOiTag', ''); setTx('futOiCycle', '');
       }
     } catch(e) { console.warn('[期貨模組] 外資未平倉計算失敗', e.message); setTx('futOiVal', '計算失敗'); }
 
@@ -63064,8 +63130,11 @@ async function fetchFuturesModule() {
         if (lastPC > 1.2) { setHtml('futPcTag', `<span style="color:${upColor};">恐慌濃厚(常反向偏多)</span>`); tags.push(1); }
         else if (lastPC < 0.7) { setHtml('futPcTag', `<span style="color:${dnColor};">過度樂觀(留意過熱)</span>`); tags.push(-1); }
         else { setHtml('futPcTag', '<span style="color:var(--fg3);">情緒中性</span>'); tags.push(0); }
+        // P/C Ratio 沒有天生的「0」，用自己的滾動均值當多空分界（referenceMode='mean'）
+        const cyc = _renderCycleInfo('futPcCycle', pcArr, 'mean');
+        if (cyc.reversed) anyReversal = true;
       } else {
-        setTx('futPcVal', '資料不足'); setTx('futPcTag', '');
+        setTx('futPcVal', '資料不足'); setTx('futPcTag', ''); setTx('futPcCycle', '');
       }
     } catch(e) { console.warn('[期貨模組] P/C Ratio 計算失敗', e.message); setTx('futPcVal', '計算失敗'); }
 
@@ -63084,8 +63153,11 @@ async function fetchFuturesModule() {
         if (lastVix > 20) { setHtml('futVixTag', `<span style="color:${upColor};">恐慌區(常伴短底)</span>`); tags.push(-1); }
         else if (lastVix < 15) { setHtml('futVixTag', `<span style="color:${dnColor};">低檔平靜</span>`); tags.push(1); }
         else { setHtml('futVixTag', '<span style="color:var(--fg3);">情緒中性</span>'); tags.push(0); }
+        // VIX 也沒有天生的「0」，一樣用滾動均值當分界
+        const cyc = _renderCycleInfo('futVixCycle', vixArr, 'mean');
+        if (cyc.reversed) anyReversal = true;
       } else {
-        setTx('futVixVal', '資料不足'); setTx('futVixTag', '');
+        setTx('futVixVal', '資料不足'); setTx('futVixTag', ''); setTx('futVixCycle', '');
       }
     } catch(e) { console.warn('[期貨模組] VIX 計算失敗', e.message); setTx('futVixVal', '計算失敗'); }
 
@@ -63097,6 +63169,11 @@ async function fetchFuturesModule() {
       if (sum >= 2) { verdictTxt = '多項期貨指標同步偏多，市場情緒與部位傾向樂觀，可留意大盤上檔動能。'; badgeTxt = '偏多'; badgeColor = upColor; badgeBg = 'rgba(220,38,38,.12)'; }
       else if (sum <= -2) { verdictTxt = '多項期貨指標同步偏空，法人與選擇權市場轉趨保守，大盤上檔壓力需留意。'; badgeTxt = '偏空'; badgeColor = dnColor; badgeBg = 'rgba(5,150,105,.12)'; }
       else { verdictTxt = '期貨市場多空訊號不一致，尚無明確方向，建議觀望或以現貨籌碼面為主判斷。'; badgeTxt = '中性'; badgeColor = 'var(--fg3)'; badgeBg = 'var(--bg2)'; }
+      // v7.55：短窗反轉優先權比整體多空總分更高——就算多數指標還偏某一邊，
+      // 只要偵測到「近期已經在反悔」，就要提醒使用者不要只看長窗期的表面數字
+      if (anyReversal) {
+        verdictTxt += ' ⚠️ 其中至少一項指標的近期節奏已經跟原本的週期方向不一致，可能是早期反轉訊號，建議別只看單一長窗期的數字，觀察是否持續。';
+      }
       setTx('futuresVerdict', verdictTxt);
       if (badge) { badge.textContent = badgeTxt; badge.style.color = badgeColor; badge.style.background = badgeBg; }
     } else {
