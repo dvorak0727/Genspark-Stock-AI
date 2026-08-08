@@ -17800,21 +17800,41 @@ a.module-nav-item.acc-active {
         <table id="futuresRawTable" style="border-collapse:collapse;width:100%;"></table>
       </div>
 
-      <!-- 三大法人期貨未平倉合計（v7.58）-->
-      <div id="futTotalOiLine" style="font-size:.62rem;color:var(--fg3);padding:6px 10px;margin-bottom:8px;">
-        三大法人期貨未平倉合計計算中…
-      </div>
+      <!-- 三欄對照（v7.59）：左＝規則表 / 中＝期貨未平倉 / 右＝現貨買賣超，
+           中右兩欄各附官方查核連結，自己點進去比對，不用只信這裡的數字 -->
+      <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;margin-bottom:8px;">
 
-      <!-- 現貨/期貨對照表（v7.58）-->
-      <div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:8px;">
-        <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🔀 現貨/期貨交叉對照——分辨「真心看多空」還是「只是避險」</div>
-        <div id="futCrossTable" style="display:flex;flex-direction:column;gap:4px;font-size:.6rem;">
-          <div id="futCrossRow1" style="padding:5px 8px;border-radius:6px;">現貨買超 + 期貨偏多 → <b>最乾淨的訊號，貨真價實看多</b></div>
-          <div id="futCrossRow2" style="padding:5px 8px;border-radius:6px;">現貨買超 + 期貨偏空 → <b>很可能是避險，不是真的看空，別誤判</b></div>
-          <div id="futCrossRow3" style="padding:5px 8px;border-radius:6px;">現貨賣超 + 期貨偏空 → <b>這才是真的轉空，兩邊都在撤</b></div>
-          <div id="futCrossRow4" style="padding:5px 8px;border-radius:6px;">現貨賣超 + 期貨偏多 → <b>訊號矛盾，方向不明，建議觀望</b></div>
+        <!-- 左：現貨/期貨交叉對照規則 -->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🔀 現貨/期貨交叉對照——分辨「真心看多空」還是「只是避險」</div>
+          <div id="futCrossTable" style="display:flex;flex-direction:column;gap:4px;font-size:.58rem;">
+            <div id="futCrossRow1" style="padding:5px 8px;border-radius:6px;">現貨買超 + 期貨偏多 → <b>最乾淨的訊號，貨真價實看多</b></div>
+            <div id="futCrossRow2" style="padding:5px 8px;border-radius:6px;">現貨買超 + 期貨偏空 → <b>很可能是避險，不是真的看空，別誤判</b></div>
+            <div id="futCrossRow3" style="padding:5px 8px;border-radius:6px;">現貨賣超 + 期貨偏空 → <b>這才是真的轉空，兩邊都在撤</b></div>
+            <div id="futCrossRow4" style="padding:5px 8px;border-radius:6px;">現貨賣超 + 期貨偏多 → <b>訊號矛盾，方向不明，建議觀望</b></div>
+          </div>
+          <div id="futCrossVerdict" style="font-size:.58rem;color:var(--fg2);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">計算中…</div>
         </div>
-        <div id="futCrossVerdict" style="font-size:.6rem;color:var(--fg2);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">計算中…</div>
+
+        <!-- 中：三大法人期貨未平倉（含官方查核連結）-->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🏦 三大法人期貨未平倉</div>
+          <div id="futTotalOiDetail" style="font-size:.6rem;line-height:1.9;color:var(--fg);">計算中…</div>
+          <a href="https://www.taifex.com.tw/cht/3/futContractsDate" target="_blank" rel="noopener"
+             style="display:inline-block;margin-top:6px;font-size:.54rem;color:#7e22ce;text-decoration:underline;">
+            🔗 到期交所自己查核 →
+          </a>
+        </div>
+
+        <!-- 右：現貨三大法人買賣超（含官方查核連結）-->
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">📊 現貨三大法人買賣超</div>
+          <div id="futSpotDetail" style="font-size:.6rem;line-height:1.9;color:var(--fg);">計算中…</div>
+          <a href="https://www.twse.com.tw/zh/trading/foreign/bfi82u.html" target="_blank" rel="noopener"
+             style="display:inline-block;margin-top:6px;font-size:.54rem;color:#7e22ce;text-decoration:underline;">
+            🔗 到證交所自己查核 →
+          </a>
+        </div>
       </div>
 
       <!-- 結論 -->
@@ -63196,24 +63216,25 @@ async function fetchFuturesModule() {
         setTx('futOiVal', '資料不足'); setTx('futOiTag', ''); setTx('futOiCycle', '');
       }
 
-      // v7.58：三大法人期貨未平倉合計（自營商+投信+外資，取當日最新一筆）
-      // ── 分母自己會隨大盤規模/年份成長自動放大，不用像固定門檻那樣手動調整
+      // v7.59：三大法人期貨未平倉（自營商+投信+外資，逐一列出，比照期交所頁面格式，
+      // 方便使用者對照 https://www.taifex.com.tw/cht/3/futContractsDate 自己核對）
       try {
         const latestDate = oiRows.length ? oiRows.map(r=>r.date).sort().at(-1) : null;
         const todayRows = oiRows.filter(r => r.date === latestDate);
         let totalOi = 0, foreignOi = 0;
-        todayRows.forEach(r => {
-          const gross = (+r.long_open_interest_balance_volume||0) + (+r.short_open_interest_balance_volume||0);
+        const rowsHtml = ['自營商','投信','外資'].map(name => {
+          const row = todayRows.find(r => r.institutional_investors === name);
+          const net = row ? (+row.long_open_interest_balance_volume||0) - (+row.short_open_interest_balance_volume||0) : null;
+          const gross = row ? (+row.long_open_interest_balance_volume||0) + (+row.short_open_interest_balance_volume||0) : 0;
           totalOi += gross;
-          if (r.institutional_investors === '外資') foreignOi = gross;
-        });
-        if (totalOi > 0) {
-          const foreignPct = (foreignOi / totalOi * 100).toFixed(1);
-          setHtml('futTotalOiLine', `🏦 三大法人期貨未平倉合計：<b>${totalOi.toLocaleString()}</b> 口（${latestDate}）· 外資佔比 <b>${foreignPct}%</b>`);
-        } else {
-          setTx('futTotalOiLine', '三大法人未平倉合計：資料不足');
-        }
-      } catch(e) { console.warn('[期貨模組] 未平倉合計計算失敗', e.message); }
+          if (name === '外資') foreignOi = gross;
+          if (net == null) return `<div>${name}：資料不足</div>`;
+          const c = net >= 0 ? upColor : dnColor;
+          return `<div>${name}　多空淨額：<b style="color:${c};">${net>=0?'+':''}${net.toLocaleString()}</b> 口</div>`;
+        }).join('');
+        const foreignPct = totalOi > 0 ? (foreignOi / totalOi * 100).toFixed(1) : '—';
+        setHtml('futTotalOiDetail', `${rowsHtml}<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--fg3);font-size:.56rem;">合計 ${totalOi.toLocaleString()} 口 · 外資佔比 ${foreignPct}%<br>資料日期：${latestDate||'—'}</div>`);
+      } catch(e) { console.warn('[期貨模組] 未平倉合計計算失敗', e.message); setTx('futTotalOiDetail', '計算失敗'); }
     } catch(e) { console.warn('[期貨模組] 外資未平倉計算失敗', e.message); setTx('futOiVal', '計算失敗'); }
 
     // ── ③ Put/Call Ratio ────────────────────────
@@ -63286,6 +63307,28 @@ async function fetchFuturesModule() {
         const lastSpotNet = spotByDate[spotDates.at(-1)];
         spotDir = lastSpotNet > 0 ? 'buy' : lastSpotNet < 0 ? 'sell' : null;
       }
+
+      // v7.59：現貨三大法人買賣超逐一列出（比照證交所頁面格式，方便對照
+      // https://www.twse.com.tw/zh/trading/foreign/bfi82u.html 自己核核）
+      // 自營商在證交所頁面拆「自行」+「避險」兩筆，這裡合併成一筆顯示
+      try {
+        const latestSpotDate = spotDates.at(-1) || null;
+        const todaySpot = spotInstRows.filter(r => r.date === latestSpotDate);
+        const nameMap = { Foreign_Investor: '外資', Investment_Trust: '投信', Dealer_self: '自營商(自行)', Dealer_Hedging: '自營商(避險)' };
+        const yi = (v) => (v / 1e8); // 元 → 億元
+        const spotRowsHtml = ['Foreign_Investor','Investment_Trust','Dealer_self','Dealer_Hedging'].map(code => {
+          const row = todaySpot.find(r => r.name === code);
+          if (!row) return `<div>${nameMap[code]}：資料不足</div>`;
+          const net = (+row.buy||0) - (+row.sell||0);
+          const netYi = yi(net);
+          const c = net >= 0 ? upColor : dnColor;
+          return `<div>${nameMap[code]}　<b style="color:${c};">${netYi>=0?'+':''}${netYi.toFixed(1)}</b> 億</div>`;
+        }).join('');
+        const totalYi = latestSpotDate ? yi(spotByDate[latestSpotDate]) : null;
+        setHtml('futSpotDetail', totalYi != null
+          ? `${spotRowsHtml}<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--fg3);font-size:.56rem;">合計 ${totalYi>=0?'+':''}${totalYi.toFixed(1)} 億<br>資料日期：${latestSpotDate}</div>`
+          : '資料不足');
+      } catch(e) { console.warn('[期貨模組] 現貨明細計算失敗', e.message); setTx('futSpotDetail', '計算失敗'); }
 
       // 4種組合對應到畫面上的4行，高亮目前符合的那一行
       const rowMap = { 'buy_multi':'futCrossRow1', 'buy_short':'futCrossRow2', 'sell_short':'futCrossRow3', 'sell_multi':'futCrossRow4' };
