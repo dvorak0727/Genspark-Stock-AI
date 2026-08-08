@@ -17757,6 +17757,7 @@ a.module-nav-item.acc-active {
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futBasis5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futBasisTag">—</div>
           <div style="font-size:.52rem;margin-top:4px;color:var(--fg3);border-top:1px dashed var(--border);padding-top:4px;" id="futBasisCycle">週期偵測中…</div>
+          <div style="margin-top:4px;text-align:right;"><span onclick="event.stopPropagation();futToggleRaw('basis')" style="font-size:.5rem;color:#7e22ce;cursor:pointer;text-decoration:underline;">▼ 展開近20日數字</span></div>
         </div>
 
         <!-- 外資期貨未平倉 -->
@@ -17766,6 +17767,7 @@ a.module-nav-item.acc-active {
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">較昨日：<span id="futOiChg" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futOiTag">—</div>
           <div style="font-size:.52rem;margin-top:4px;color:var(--fg3);border-top:1px dashed var(--border);padding-top:4px;" id="futOiCycle">週期偵測中…</div>
+          <div style="margin-top:4px;text-align:right;"><span onclick="event.stopPropagation();futToggleRaw('oi')" style="font-size:.5rem;color:#7e22ce;cursor:pointer;text-decoration:underline;">▼ 展開近20日數字</span></div>
         </div>
 
         <!-- Put/Call Ratio -->
@@ -17775,6 +17777,7 @@ a.module-nav-item.acc-active {
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futPc5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futPcTag">—</div>
           <div style="font-size:.52rem;margin-top:4px;color:var(--fg3);border-top:1px dashed var(--border);padding-top:4px;" id="futPcCycle">週期偵測中…</div>
+          <div style="margin-top:4px;text-align:right;"><span onclick="event.stopPropagation();futToggleRaw('pc')" style="font-size:.5rem;color:#7e22ce;cursor:pointer;text-decoration:underline;">▼ 展開近20日數字</span></div>
         </div>
 
         <!-- VIX -->
@@ -17784,7 +17787,17 @@ a.module-nav-item.acc-active {
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futVix5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futVixTag">—</div>
           <div style="font-size:.52rem;margin-top:4px;color:var(--fg3);border-top:1px dashed var(--border);padding-top:4px;" id="futVixCycle">週期偵測中…</div>
+          <div style="margin-top:4px;text-align:right;"><span onclick="event.stopPropagation();futToggleRaw('vix')" style="font-size:.5rem;color:#7e22ce;cursor:pointer;text-decoration:underline;">▼ 展開近20日數字</span></div>
         </div>
+      </div>
+
+      <!-- 原始數字展開區（點卡片下方連結切換）-->
+      <div id="futuresRawArea" style="display:none;margin-bottom:10px;background:var(--bg2);border-radius:10px;padding:10px;overflow-x:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span id="futuresRawTitle" style="font-size:.65rem;font-weight:800;color:var(--fg);">—</span>
+          <button onclick="futToggleRaw(null)" style="font-size:.58rem;background:none;border:none;cursor:pointer;color:var(--fg3);">✕ 關閉</button>
+        </div>
+        <table id="futuresRawTable" style="border-collapse:collapse;width:100%;"></table>
       </div>
 
       <!-- 結論 -->
@@ -63022,6 +63035,48 @@ function _renderCycleInfo(elId, series, referenceMode, unitLabel) {
   return { reversed: false, cycleLen: det.cycleLen };
 }
 
+// ── 原始數字展開表（v7.56）─────────────────────
+// 使用者反饋：AI 先幫忙下結論，反而讓自己的「數感」練不出來，
+// 想直接看原始逐日數字自己判斷。這裡把每項指標的原始 {date, val}
+// 存起來，點卡片下方連結才展開成表格，預設收起不打擾。
+window._futRawData = { basis: [], oi: [], pc: [], vix: [] };
+let _futCurrentRaw = null;
+
+function futToggleRaw(type) {
+  const area  = document.getElementById('futuresRawArea');
+  const table = document.getElementById('futuresRawTable');
+  const title = document.getElementById('futuresRawTitle');
+  if (!area || !table) return;
+
+  if (!type || _futCurrentRaw === type) {
+    area.style.display = 'none';
+    _futCurrentRaw = null;
+    return;
+  }
+  const data = window._futRawData[type] || [];
+  if (data.length === 0) { showEpicToast('尚無資料可展開，請先按「更新」', '#B45309'); return; }
+
+  _futCurrentRaw = type;
+  area.style.display = 'block';
+
+  const nameMap = { basis: '基差', oi: '外資期貨未平倉（口）', pc: 'P/C Ratio', vix: 'VIX 恐慌指數' };
+  const last20 = data.slice(-20);
+  title.textContent = `近 ${last20.length} 日 ${nameMap[type] || type} 原始數值（自己看，自己判斷）`;
+
+  const fmtVal = (v) => {
+    if (type === 'oi') return (v >= 0 ? '+' : '') + Math.round(v).toLocaleString();
+    if (type === 'pc' || type === 'vix') return v.toFixed(2);
+    return (v >= 0 ? '+' : '') + v.toFixed(0);
+  };
+  const colorOf = (v) => (type === 'pc' || type === 'vix') ? 'var(--fg)' : (v >= 0 ? '#dc2626' : '#059669');
+
+  table.innerHTML = `
+    <tr>${last20.map(r => `<th style="padding:4px 6px;border-bottom:1px solid var(--border);font-size:.56rem;color:var(--fg3);white-space:nowrap;font-weight:700;">${r.date.slice(5)}</th>`).join('')}</tr>
+    <tr>${last20.map(r => `<td style="padding:5px 6px;text-align:center;font-weight:800;font-size:.62rem;color:${colorOf(r.val)};white-space:nowrap;">${fmtVal(r.val)}</td>`).join('')}</tr>
+  `;
+  area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 async function fetchFuturesModule() {
   const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
   const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
@@ -63081,6 +63136,7 @@ async function fetchFuturesModule() {
         else { setHtml('futBasisTag', '<span style="color:var(--fg3);">價差中性</span>'); tags.push(0); }
         const cyc = _renderCycleInfo('futBasisCycle', basisArr, 'zero');
         if (cyc.reversed) anyReversal = true;
+        window._futRawData.basis = basisDates.map((d,i) => ({ date: d, val: basisArr[i] }));
       } else {
         setTx('futBasisVal', '資料不足'); setTx('futBasisTag', ''); setTx('futBasisCycle', '');
       }
@@ -63104,6 +63160,7 @@ async function fetchFuturesModule() {
         else { setHtml('futOiTag', '<span style="color:var(--fg3);">部位持平</span>'); tags.push(0); }
         const cyc = _renderCycleInfo('futOiCycle', netArr, 'zero');
         if (cyc.reversed) anyReversal = true;
+        window._futRawData.oi = foreignRows.map((r,i) => ({ date: r.date, val: netArr[i] }));
       } else {
         setTx('futOiVal', '資料不足'); setTx('futOiTag', ''); setTx('futOiCycle', '');
       }
@@ -63133,6 +63190,7 @@ async function fetchFuturesModule() {
         // P/C Ratio 沒有天生的「0」，用自己的滾動均值當多空分界（referenceMode='mean'）
         const cyc = _renderCycleInfo('futPcCycle', pcArr, 'mean');
         if (cyc.reversed) anyReversal = true;
+        window._futRawData.pc = pcDates.map((d,i) => ({ date: d, val: pcArr[i] }));
       } else {
         setTx('futPcVal', '資料不足'); setTx('futPcTag', ''); setTx('futPcCycle', '');
       }
@@ -63156,6 +63214,7 @@ async function fetchFuturesModule() {
         // VIX 也沒有天生的「0」，一樣用滾動均值當分界
         const cyc = _renderCycleInfo('futVixCycle', vixArr, 'mean');
         if (cyc.reversed) anyReversal = true;
+        window._futRawData.vix = vixDates.map((d,i) => ({ date: d, val: vixArr[i] }));
       } else {
         setTx('futVixVal', '資料不足'); setTx('futVixTag', ''); setTx('futVixCycle', '');
       }
