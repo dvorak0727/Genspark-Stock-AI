@@ -63022,7 +63022,9 @@ async function fetchFuturesModule() {
 
     // ── ② 外資期貨未平倉 ──────────────────────────
     try {
-      const foreignRows = oiRows.filter(r => r.institutional_investors === 'Foreign_Investor')
+      // 實測發現：此 dataset 的 institutional_investors 是中文字串（自營商/投信/外資），
+      // 不是個股法人資料慣用的英文代碼（Foreign_Investor），兩個 dataset 命名慣例不同
+      const foreignRows = oiRows.filter(r => r.institutional_investors === '外資')
                                  .sort((a,b) => a.date.localeCompare(b.date));
       if (foreignRows.length >= 2) {
         const netArr = foreignRows.map(r => (+r.long_open_interest_balance_volume||0) - (+r.short_open_interest_balance_volume||0));
