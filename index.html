@@ -63030,7 +63030,12 @@ function _renderCycleInfo(elId, series, referenceMode) {
   const ref = det.ref != null ? det.ref : 0;
   const { streak, lastSign } = countCurrentStreak(series, ref);
   const confirmDays = Math.max(2, Math.ceil(det.cycleLen / 2));
-  const dirLabel = lastSign > 0 ? '轉正' : '轉負';
+  // v7.57a 修復：referenceMode='mean' 時（P/C Ratio、VIX）是跟自己的滾動均值比較，
+  // 不是跟 0 比較，數值本身可能永遠是正的（VIX 不會變負數），這時用「轉正/轉負」
+  // 講法會誤導成正負號，改成「站上均值/跌破均值」才對應實際在比較的東西
+  const dirLabel = referenceMode === 'mean'
+    ? (lastSign > 0 ? '站上均值' : '跌破均值')
+    : (lastSign > 0 ? '轉正' : '轉負');
 
   if (streak < confirmDays) {
     el.innerHTML = `<span style="color:#d97706;font-weight:700;">🔄 剛${dirLabel}，確認中 ${streak}/${confirmDays}天（週期約${det.cycleLen}天，還不算數）</span>`;
