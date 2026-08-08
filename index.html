@@ -16731,6 +16731,7 @@ a.module-nav-item.acc-active {
                 <button class="stock-us-news-dim-tab active" data-dim="today" onclick="switchStockTwDim('today',this)">🌅 今日</button>
                 <button class="stock-us-news-dim-tab" data-dim="7d" onclick="switchStockTwDim('7d',this)">📆 近7天</button>
                 <button class="stock-us-news-dim-tab" data-dim="30d" onclick="switchStockTwDim('30d',this)">🗓️ 近30天</button>
+                <button class="stock-us-news-dim-tab" data-dim="chain" onclick="switchStockTwDim('chain',this)" style="color:#7e22ce;">🔗 供應鏈雷達</button>
               </div>
               <div class="stock-us-news-list" id="stockTwNewsList"><div class="stock-us-news-loading">⏳ 連線中…</div></div>
             </div>
@@ -71503,6 +71504,10 @@ function _updateOpGuide() {
   async function _fetchStn(dim) {
     const listEl = document.getElementById('stockTwNewsList');
     if (!listEl) return;
+
+    // v7.62 供應鏈雷達：不是「今日/7天/30天」的時間維度，是另一種畫面（關聯公司清單＋各自新聞）
+    if (dim === 'chain') { _renderChainRadar(listEl); return; }
+
     if (_stnCache[dim]) { _renderStn(_stnCache[dim], listEl, dim); return; }
 
     listEl.innerHTML = '<div class="stock-us-news-loading">⏳ 載入中…</div>';
@@ -71667,6 +71672,123 @@ function _updateOpGuide() {
         </div>`
       ).join('');
     }
+  }
+
+  // ══════════════════════════════════════════════════
+  //  🔗 供應鏈雷達（v7.62）
+  //  背景：系統本身沒有供應鏈關係資料庫（沒有人幫你標好「A是B的客戶」），
+  //  這件事沒有免費/自動化的資料源可以直接抓。改成讓使用者自己標記
+  //  「這支股票的客戶/供應商是誰」（存在瀏覽器 localStorage，你自己
+  //  維護的關聯清單），系統負責同時把這些關聯公司的新聞都抓出來、
+  //  放在同一個畫面比對，省去一支一支手動查的麻煩。
+  //  ⚠️ 關聯資料是你自己輸入的，不是系統自動推斷或保證正確，出處
+  //  仍然是新聞本身，記得依新聞內容自行判斷。
+  // ══════════════════════════════════════════════════
+  const SCM_KEY = 'tsai_supply_chain_map';
+
+  function _scmGetMap() {
+    try { return JSON.parse(localStorage.getItem(SCM_KEY) || '{}'); } catch(e) { return {}; }
+  }
+  function _scmSetMap(map) {
+    try { localStorage.setItem(SCM_KEY, JSON.stringify(map)); } catch(e) {}
+  }
+  function _scmGetRelations(sid) {
+    const map = _scmGetMap();
+    return map[sid] || { customers: [], suppliers: [] };
+  }
+  function _scmLookupName(id) {
+    return (typeof STOCK_DB !== 'undefined' && STOCK_DB[id]?.name) || id;
+  }
+
+  window._scmEditRelations = function(role) {
+    // role: 'customers' | 'suppliers'
+    const sid = _stnCurrentStockId;
+    if (!sid) return;
+    const map = _scmGetMap();
+    if (!map[sid]) map[sid] = { customers: [], suppliers: [] };
+    const roleLabel = role === 'customers' ? '客戶' : '供應商';
+    const current = map[sid][role] || [];
+    const input = prompt(
+      `${_scmLookupName(sid)}（${sid}）的${roleLabel}股票代號，用逗號分隔（例：2330,2454）\n` +
+      `目前已設定：${current.length ? current.join(', ') : '（無）'}\n` +
+      `清空請直接留白後確定。`,
+      current.join(',')
+    );
+    if (input === null) return; // 取消
+    const ids = input.split(/[,，\s]+/).map(s => s.trim()).filter(s => /^\d{4,6}$/.test(s));
+    map[sid][role] = [...new Set(ids)];
+    _scmSetMap(map);
+    _renderChainRadar(document.getElementById('stockTwNewsList'));
+  };
+
+  async function _renderChainRadar(listEl) {
+    const sid = _stnCurrentStockId;
+    if (!sid) { listEl.innerHTML = '<div class="stock-us-news-empty">⚠️ 請先查詢個股</div>'; return; }
+    const rel = _scmGetRelations(sid);
+    const allRelated = [
+      ...rel.customers.map(id => ({ id, role: '客戶' })),
+      ...rel.suppliers.map(id => ({ id, role: '供應商' })),
+    ];
+
+    const editorHtml = `
+      <div style="padding:10px 12px;background:var(--bg2);border-radius:8px;margin-bottom:10px;font-size:0.68rem;">
+        <div style="font-weight:700;color:var(--fg);margin-bottom:6px;">🔗 ${_scmLookupName(sid)}（${sid}）的關聯公司</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">
+          <span style="color:var(--fg3);">客戶：</span>
+          ${rel.customers.length ? rel.customers.map(id => `<span style="background:rgba(220,38,38,.12);color:#dc2626;padding:2px 8px;border-radius:10px;">${_scmLookupName(id)} ${id}</span>`).join('') : '<span style="color:var(--fg3);">（未設定）</span>'}
+          <button onclick="_scmEditRelations('customers')" style="font-size:0.6rem;padding:2px 8px;border-radius:6px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;">✏️ 編輯</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span style="color:var(--fg3);">供應商：</span>
+          ${rel.suppliers.length ? rel.suppliers.map(id => `<span style="background:rgba(5,150,105,.12);color:#059669;padding:2px 8px;border-radius:10px;">${_scmLookupName(id)} ${id}</span>`).join('') : '<span style="color:var(--fg3);">（未設定）</span>'}
+          <button onclick="_scmEditRelations('suppliers')" style="font-size:0.6rem;padding:2px 8px;border-radius:6px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;">✏️ 編輯</button>
+        </div>
+        <div style="color:var(--fg3);margin-top:6px;font-size:0.58rem;">⚠️ 關聯是你自己標記的，系統不會自動推斷，資料存在瀏覽器本機（localStorage）</div>
+      </div>
+    `;
+
+    if (allRelated.length === 0) {
+      listEl.innerHTML = editorHtml + '<div class="stock-us-news-empty">📭 還沒設定關聯公司，點上面「✏️ 編輯」加入客戶/供應商的股票代號</div>';
+      return;
+    }
+
+    listEl.innerHTML = editorHtml + '<div class="stock-us-news-loading">⏳ 載入關聯公司新聞中…</div>';
+
+    // 逐一抓每個關聯公司近7天新聞（輕量版：只用 FinMind + Yahoo 兩條路徑，不跑完整4重備援，避免太慢）
+    const results = await Promise.all(allRelated.map(async ({id, role}) => {
+      const name = _scmLookupName(id);
+      let items = [];
+      try {
+        const tok = localStorage.getItem('tsai_finmind_token') || window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '') || '';
+        const end = new Date(), start = new Date(); start.setDate(start.getDate() - 9);
+        const fmt = d => d.toISOString().slice(0,10);
+        const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockNews&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
+        const js = await (await fetch(url, { signal: AbortSignal.timeout(9000) })).json();
+        const raw = (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
+        items = raw.map(n => ({
+          title: n.title || n.description || '', date: n.date_time || n.date || '',
+          url: n.link || '', source: n.source || 'FinMind',
+        })).filter(n => n.title.length > 3).slice(0, 5);
+      } catch(e) { console.warn('[供應鏈雷達]', id, e?.message); }
+      return { id, name, role, items };
+    }));
+
+    const sections = results.map(({id, name, role, items}) => {
+      const roleColor = role === '客戶' ? '#dc2626' : '#059669';
+      const body = items.length
+        ? items.map(n => `<div class="stock-us-news-item"><a href="${n.url||'#'}" target="_blank" rel="noopener" class="sun-title">${n.title}</a><div class="sun-meta">${n.source} · ${(n.date||'').slice(0,10)}</div></div>`).join('')
+        : '<div style="font-size:0.62rem;color:var(--fg3);padding:6px 0;">近7天無相關新聞</div>';
+      return `
+        <div style="margin-bottom:10px;">
+          <div style="font-size:0.68rem;font-weight:700;margin-bottom:4px;">
+            <span style="background:${roleColor};color:#fff;padding:1px 7px;border-radius:8px;font-size:0.58rem;margin-right:6px;">${role}</span>
+            ${name}（${id}）
+          </div>
+          ${body}
+        </div>`;
+    }).join('');
+
+    listEl.innerHTML = editorHtml + sections;
   }
 
   // 點外部關閉 panel（once:true 防止殘留 listener）
