@@ -63004,21 +63004,22 @@ function detectCycleLength(series, referenceMode = 'zero') {
   return { cycleLen, flipCount: gaps.length, ref };
 }
 
-// ── 短窗 vs 長窗方向比對（判斷是否早期反轉）──────
-// shortWin＝半週期，longWin＝完整週期。兩者符號不一致＝短線已經在反悔，
-// 比只看長窗期的絕對值更早抓到轉折（對應：10日是正，但5日已轉負，就不能只看10日）
-function checkEarlyReversal(series, cycleLen) {
-  if (!cycleLen || series.length < cycleLen) return null;
-  const shortWin = Math.max(2, Math.round(cycleLen / 2));
-  const longArr  = series.slice(-cycleLen);
-  const shortArr = series.slice(-shortWin);
-  const longSlope  = longArr.at(-1) - longArr[0];
-  const shortSlope = shortArr.at(-1) - shortArr[0];
-  const reversed = (longSlope > 0 && shortSlope < 0) || (longSlope < 0 && shortSlope > 0);
-  return { shortWin, longSlope, shortSlope, reversed };
+// ── 連續天數確認（v7.57）─────────────────────────
+// 使用者實測發現：翻正/翻負只有1天，跟系統偵測到的週期（約4天）互相
+// 印證——太短的反轉不算數，通常要撐過半個週期以上才算真的轉向。
+// 這裡改用「目前這個方向已經連續幾天」對比「這個週期至少要撐幾天才算
+// 確認」（= 半週期，最少2天），沒撐到就標記「確認中 X/Y天」。
+function countCurrentStreak(series, ref) {
+  const signs = series.map(v => v >= ref ? 1 : -1);
+  const lastSign = signs.at(-1);
+  let streak = 1;
+  for (let i = signs.length - 2; i >= 0; i--) {
+    if (signs[i] === lastSign) streak++; else break;
+  }
+  return { streak, lastSign };
 }
 
-function _renderCycleInfo(elId, series, referenceMode, unitLabel) {
+function _renderCycleInfo(elId, series, referenceMode) {
   const el = document.getElementById(elId);
   if (!el) return { reversed: false };
   const det = detectCycleLength(series, referenceMode);
@@ -63026,12 +63027,16 @@ function _renderCycleInfo(elId, series, referenceMode, unitLabel) {
     el.textContent = '週期不明顯（近期方向穩定，未偵測到規律翻轉）';
     return { reversed: false };
   }
-  const rev = checkEarlyReversal(series, det.cycleLen);
-  if (rev && rev.reversed) {
-    el.innerHTML = `<span style="color:#d97706;font-weight:700;">⚠️ 偵測週期${det.cycleLen}天，但近${rev.shortWin}天已反向，留意反轉</span>`;
-    return { reversed: true, cycleLen: det.cycleLen };
+  const ref = det.ref != null ? det.ref : 0;
+  const { streak, lastSign } = countCurrentStreak(series, ref);
+  const confirmDays = Math.max(2, Math.ceil(det.cycleLen / 2));
+  const dirLabel = lastSign > 0 ? '轉正' : '轉負';
+
+  if (streak < confirmDays) {
+    el.innerHTML = `<span style="color:#d97706;font-weight:700;">🔄 剛${dirLabel}，確認中 ${streak}/${confirmDays}天（週期約${det.cycleLen}天，還不算數）</span>`;
+    return { reversed: true, cycleLen: det.cycleLen, confirming: true };
   }
-  el.textContent = `系統偵測目前週期：約 ${det.cycleLen} 天（近${det.flipCount}次翻轉平均）`;
+  el.innerHTML = `週期約 ${det.cycleLen} 天 · <span style="color:#059669;font-weight:700;">✅ 已連續${streak}天站穩</span>`;
   return { reversed: false, cycleLen: det.cycleLen };
 }
 
@@ -63228,10 +63233,10 @@ async function fetchFuturesModule() {
       if (sum >= 2) { verdictTxt = '多項期貨指標同步偏多，市場情緒與部位傾向樂觀，可留意大盤上檔動能。'; badgeTxt = '偏多'; badgeColor = upColor; badgeBg = 'rgba(220,38,38,.12)'; }
       else if (sum <= -2) { verdictTxt = '多項期貨指標同步偏空，法人與選擇權市場轉趨保守，大盤上檔壓力需留意。'; badgeTxt = '偏空'; badgeColor = dnColor; badgeBg = 'rgba(5,150,105,.12)'; }
       else { verdictTxt = '期貨市場多空訊號不一致，尚無明確方向，建議觀望或以現貨籌碼面為主判斷。'; badgeTxt = '中性'; badgeColor = 'var(--fg3)'; badgeBg = 'var(--bg2)'; }
-      // v7.55：短窗反轉優先權比整體多空總分更高——就算多數指標還偏某一邊，
-      // 只要偵測到「近期已經在反悔」，就要提醒使用者不要只看長窗期的表面數字
+      // v7.57：確認中的訊號優先權比整體多空總分更高——剛翻方向但還沒撐過
+      // 半個週期，不能算數，要提醒使用者這只是「候選訊號」還在觀察期
       if (anyReversal) {
-        verdictTxt += ' ⚠️ 其中至少一項指標的近期節奏已經跟原本的週期方向不一致，可能是早期反轉訊號，建議別只看單一長窗期的數字，觀察是否持續。';
+        verdictTxt += ' 🔄 其中至少一項指標剛翻轉方向，但還沒撐過確認天數（不到半個偵測週期），目前只能算候選訊號，建議繼續觀察是否撐得住，別急著當真。';
       }
       setTx('futuresVerdict', verdictTxt);
       if (badge) { badge.textContent = badgeTxt; badge.style.color = badgeColor; badge.style.background = badgeBg; }
