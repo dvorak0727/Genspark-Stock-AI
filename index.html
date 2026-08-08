@@ -17800,6 +17800,23 @@ a.module-nav-item.acc-active {
         <table id="futuresRawTable" style="border-collapse:collapse;width:100%;"></table>
       </div>
 
+      <!-- 三大法人期貨未平倉合計（v7.58）-->
+      <div id="futTotalOiLine" style="font-size:.62rem;color:var(--fg3);padding:6px 10px;margin-bottom:8px;">
+        三大法人期貨未平倉合計計算中…
+      </div>
+
+      <!-- 現貨/期貨對照表（v7.58）-->
+      <div style="background:var(--bg2);border-radius:10px;padding:10px;margin-bottom:8px;">
+        <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🔀 現貨/期貨交叉對照——分辨「真心看多空」還是「只是避險」</div>
+        <div id="futCrossTable" style="display:flex;flex-direction:column;gap:4px;font-size:.6rem;">
+          <div id="futCrossRow1" style="padding:5px 8px;border-radius:6px;">現貨買超 + 期貨偏多 → <b>最乾淨的訊號，貨真價實看多</b></div>
+          <div id="futCrossRow2" style="padding:5px 8px;border-radius:6px;">現貨買超 + 期貨偏空 → <b>很可能是避險，不是真的看空，別誤判</b></div>
+          <div id="futCrossRow3" style="padding:5px 8px;border-radius:6px;">現貨賣超 + 期貨偏空 → <b>這才是真的轉空，兩邊都在撤</b></div>
+          <div id="futCrossRow4" style="padding:5px 8px;border-radius:6px;">現貨賣超 + 期貨偏多 → <b>訊號矛盾，方向不明，建議觀望</b></div>
+        </div>
+        <div id="futCrossVerdict" style="font-size:.6rem;color:var(--fg2);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);">計算中…</div>
+      </div>
+
       <!-- 結論 -->
       <div id="futuresVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #7e22ce;">
         載入中…
@@ -63112,16 +63129,19 @@ async function fetchFuturesModule() {
   try {
     if (badge) { badge.textContent = '載入中'; badge.style.background = 'var(--bg2)'; badge.style.color = 'var(--fg3)'; }
 
-    const [futRows, taiexRows, oiRows, optRows, vixRows] = await Promise.all([
+    const [futRows, taiexRows, oiRows, optRows, vixRows, spotInstRows] = await Promise.all([
       fmFetch('TaiwanFuturesDaily', 'TX', start60),
       fmFetch('TaiwanStockPrice', 'TAIEX', start60),
       fmFetch('TaiwanFuturesInstitutionalInvestors', 'TX', start60),
       fmFetch('TaiwanOptionDaily', 'TXO', start25),
       fmFetch('TaiwanOptionVix', '', start60),
+      fmFetch('TaiwanStockTotalInstitutionalInvestors', '', start60), // v7.58：全市場現貨三大法人（不綁個股）
     ]);
 
     const tags = []; // 收集各指標的多空判讀，最後湊成總結論
     let anyReversal = false; // 只要有一項偵測到「短窗已反轉」，總結論要特別提示
+    let futuresDir = null; // 'multi'/'short'/null，給現貨/期貨對照表用
+    let spotDir = null;    // 同上
 
     // ── ① 基差 ──────────────────────────────────
     try {
@@ -63171,9 +63191,29 @@ async function fetchFuturesModule() {
         const cyc = _renderCycleInfo('futOiCycle', netArr, 'zero');
         if (cyc.reversed) anyReversal = true;
         window._futRawData.oi = foreignRows.map((r,i) => ({ date: r.date, val: netArr[i] }));
+        futuresDir = lastNet > 0 ? 'multi' : lastNet < 0 ? 'short' : null;
       } else {
         setTx('futOiVal', '資料不足'); setTx('futOiTag', ''); setTx('futOiCycle', '');
       }
+
+      // v7.58：三大法人期貨未平倉合計（自營商+投信+外資，取當日最新一筆）
+      // ── 分母自己會隨大盤規模/年份成長自動放大，不用像固定門檻那樣手動調整
+      try {
+        const latestDate = oiRows.length ? oiRows.map(r=>r.date).sort().at(-1) : null;
+        const todayRows = oiRows.filter(r => r.date === latestDate);
+        let totalOi = 0, foreignOi = 0;
+        todayRows.forEach(r => {
+          const gross = (+r.long_open_interest_balance_volume||0) + (+r.short_open_interest_balance_volume||0);
+          totalOi += gross;
+          if (r.institutional_investors === '外資') foreignOi = gross;
+        });
+        if (totalOi > 0) {
+          const foreignPct = (foreignOi / totalOi * 100).toFixed(1);
+          setHtml('futTotalOiLine', `🏦 三大法人期貨未平倉合計：<b>${totalOi.toLocaleString()}</b> 口（${latestDate}）· 外資佔比 <b>${foreignPct}%</b>`);
+        } else {
+          setTx('futTotalOiLine', '三大法人未平倉合計：資料不足');
+        }
+      } catch(e) { console.warn('[期貨模組] 未平倉合計計算失敗', e.message); }
     } catch(e) { console.warn('[期貨模組] 外資未平倉計算失敗', e.message); setTx('futOiVal', '計算失敗'); }
 
     // ── ③ Put/Call Ratio ────────────────────────
@@ -63229,6 +63269,54 @@ async function fetchFuturesModule() {
         setTx('futVixVal', '資料不足'); setTx('futVixTag', ''); setTx('futVixCycle', '');
       }
     } catch(e) { console.warn('[期貨模組] VIX 計算失敗', e.message); setTx('futVixVal', '計算失敗'); }
+
+    // ── ⑤ 現貨/期貨交叉對照（v7.58）────────────────
+    // 分辨「真心看多空」還是「只是避險」：外資現貨方向 vs 期貨未平倉方向
+    // 是否一致，一致＝乾淨訊號，不一致（現貨買+期貨空）通常是避險，別誤判成看空
+    try {
+      const spotByDate = {};
+      const spotTypes = ['Foreign_Investor','Investment_Trust','Dealer_self','Dealer_Hedging','Foreign_Dealer_Self'];
+      spotInstRows.forEach(r => {
+        if (!spotTypes.includes(r.name)) return; // 跳過 'total' 那筆，自己加總即可，避免重複計算
+        const d = r.date;
+        spotByDate[d] = (spotByDate[d] || 0) + ((+r.buy||0) - (+r.sell||0));
+      });
+      const spotDates = Object.keys(spotByDate).sort();
+      if (spotDates.length > 0) {
+        const lastSpotNet = spotByDate[spotDates.at(-1)];
+        spotDir = lastSpotNet > 0 ? 'buy' : lastSpotNet < 0 ? 'sell' : null;
+      }
+
+      // 4種組合對應到畫面上的4行，高亮目前符合的那一行
+      const rowMap = { 'buy_multi':'futCrossRow1', 'buy_short':'futCrossRow2', 'sell_short':'futCrossRow3', 'sell_multi':'futCrossRow4' };
+      Object.values(rowMap).forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.style.background = 'transparent'; el.style.fontWeight = '400'; }
+      });
+      if (spotDir && futuresDir) {
+        const key = `${spotDir}_${futuresDir}`;
+        const activeId = rowMap[key];
+        const el = document.getElementById(activeId);
+        if (el) {
+          el.style.background = 'rgba(126,34,206,.14)';
+          el.style.fontWeight = '700';
+          el.style.border = '1px solid rgba(126,34,206,.35)';
+        }
+        const spotLabel = spotDir === 'buy' ? '現貨買超' : '現貨賣超';
+        const futLabel  = futuresDir === 'multi' ? '期貨偏多' : '期貨偏空';
+        let noteTxt;
+        if (key === 'buy_multi') noteTxt = '目前對得上：現貨、期貨同步偏多，是乾淨的看多訊號。';
+        else if (key === 'buy_short') noteTxt = '目前現貨買、期貨空——很可能外資正在替現貨部位避險，不代表真的看空大盤。';
+        else if (key === 'sell_short') noteTxt = '目前現貨、期貨同步偏空，兩邊都在撤，是比較確定的轉空訊號。';
+        else noteTxt = '目前現貨賣、期貨多——訊號矛盾，可能是短線調節或資料雜訊，建議先觀望不要躁進。';
+        setTx('futCrossVerdict', `目前狀態：${spotLabel} + ${futLabel} → ${noteTxt}`);
+      } else {
+        setTx('futCrossVerdict', '現貨或期貨方向資料不足，暫無法交叉比對。');
+      }
+    } catch(e) {
+      console.warn('[期貨模組] 現貨/期貨對照計算失敗', e.message);
+      setTx('futCrossVerdict', '交叉比對計算失敗：' + e.message);
+    }
 
     // ── 總結論 ────────────────────────────────────
     const validTags = tags.filter(t => typeof t === 'number');
