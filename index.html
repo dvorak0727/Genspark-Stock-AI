@@ -16860,25 +16860,42 @@ a.module-nav-item.acc-active {
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;" data-tip="獲利品質檢查">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">📈 最新季 EPS</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;cursor:pointer;" data-tip="獲利品質檢查">📈 最新季 EPS <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="pqEpsVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pqEpsYoy">—</div>
+          <div style="margin-top:6px;text-align:right;"><span onclick="pqToggleRaw('eps')" style="font-size:.5rem;color:#059669;cursor:pointer;text-decoration:underline;">▼ 近5季趨勢</span></div>
         </div>
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;" data-tip="獲利品質檢查">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">💵 營業現金流</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;cursor:pointer;" data-tip="獲利品質檢查">💵 營業現金流 <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="pqCfoVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pqCfoYoy">—</div>
+          <div style="margin-top:6px;text-align:right;"><span onclick="pqToggleRaw('cfo')" style="font-size:.5rem;color:#059669;cursor:pointer;text-decoration:underline;">▼ 近5年趨勢</span></div>
         </div>
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;" data-tip="獲利品質檢查">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">🔍 獲利含金量</div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;cursor:pointer;" data-tip="獲利品質檢查">🔍 獲利含金量 <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="pqRatioVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pqRatioTag">—</div>
+          <div style="margin-top:6px;text-align:right;"><span onclick="pqToggleRaw('ratio')" style="font-size:.5rem;color:#059669;cursor:pointer;text-decoration:underline;">▼ 近5季趨勢</span></div>
         </div>
       </div>
 
-      <div id="pqVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #059669;">
+      <!-- 趨勢展開區（點卡片下方連結切換）-->
+      <div id="pqRawArea" style="display:none;margin-bottom:10px;background:var(--bg2);border-radius:10px;padding:10px;overflow-x:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span id="pqRawTitle" style="font-size:.65rem;font-weight:800;color:var(--fg);">—</span>
+          <button onclick="pqToggleRaw(null)" style="font-size:.58rem;background:none;border:none;cursor:pointer;color:var(--fg3);">✕ 關閉</button>
+        </div>
+        <table id="pqRawTable" style="border-collapse:collapse;width:100%;"></table>
+      </div>
+
+      <div id="pqVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #059669;margin-bottom:8px;">
         載入中…
+      </div>
+
+      <!-- 原始資料查核（v7.61）-->
+      <div style="font-size:.58rem;color:var(--fg3);text-align:right;">
+        數字對不上？<a href="https://mops.twse.com.tw/mops/#/web/index" target="_blank" rel="noopener" style="color:#059669;text-decoration:underline;">🔗 到公開資訊觀測站查原始財報 →</a>
       </div>
     </div>
 
@@ -62903,6 +62920,52 @@ function _frShowToast(msg) {
 //    每一季都有完整揭露（尤其小型股可能缺欄位），缺資料時該卡顯示
 //    「資料不足」而非顯示錯誤數字。
 // ══════════════════════════════════════════════════
+// v7.61 修復根因：實測發現 CashFlowsFromOperatingActivities 是「累計數」
+// （Q1→Q2→Q3→Q4 逐季疊加，每年Q1重新歸零），但 EPS / IncomeAfterTaxes 是
+// 「單季數」，兩者基礎不一致。原本直接拿累計現金流除以單季淨利，除了Q1
+// 剛好基礎相同不會出錯之外，Q2~Q4 算出來的比值全部是錯的（會被稀釋到偏低）。
+// 這裡把累計數轉換成單季數：非Q1的季度 = 本期累計 − 去年不看、同一年上一季累計。
+function _pqDequarterize(cumRows) {
+  const byYearQ = {}; // { '2025': [{date,value}, ...] } 依年份分組，組內按季序排列
+  cumRows.forEach(r => {
+    const y = r.date.slice(0,4);
+    (byYearQ[y] = byYearQ[y] || []).push(r);
+  });
+  const out = [];
+  Object.keys(byYearQ).sort().forEach(y => {
+    const rows = byYearQ[y].sort((a,b) => a.date.localeCompare(b.date));
+    rows.forEach((r, i) => {
+      const single = i === 0 ? r.value : r.value - rows[i-1].value; // Q1直接用；其餘減去上一累計季
+      out.push({ date: r.date, value: single, cum: r.value });
+    });
+  });
+  return out.sort((a,b) => a.date.localeCompare(b.date));
+}
+
+window._pqRawData = { eps: [], cfo: [], ratio: [] };
+let _pqCurrentRaw = null;
+
+function pqToggleRaw(type) {
+  const area = document.getElementById('pqRawArea');
+  const table = document.getElementById('pqRawTable');
+  const title = document.getElementById('pqRawTitle');
+  if (!area || !table) return;
+  if (!type || _pqCurrentRaw === type) { area.style.display = 'none'; _pqCurrentRaw = null; return; }
+  const data = window._pqRawData[type] || [];
+  if (data.length === 0) { showEpicToast('尚無資料可展開', '#B45309'); return; }
+  _pqCurrentRaw = type;
+  area.style.display = 'block';
+  const nameMap = { eps: 'EPS（近5季，單位：元）', cfo: '年度營業現金流（近5年，單位：億元）', ratio: '獲利含金量（近5季，單季CFO÷單季淨利）' };
+  title.textContent = `${nameMap[type] || type}`;
+  const fmtVal = (v) => type === 'cfo' ? ((v>=0?'+':'')+(v/1e8).toFixed(1)) : ((v>=0?'+':'')+v.toFixed(2));
+  const colorOf = (v) => v >= 0 ? '#059669' : '#dc2626';
+  table.innerHTML = `
+    <tr>${data.map(r => `<th style="padding:4px 6px;border-bottom:1px solid var(--border);font-size:.56rem;color:var(--fg3);white-space:nowrap;">${r.date}</th>`).join('')}</tr>
+    <tr>${data.map(r => `<td style="padding:5px 6px;text-align:center;font-weight:800;font-size:.62rem;color:${colorOf(r.value)};white-space:nowrap;">${fmtVal(r.value)}</td>`).join('')}</tr>
+  `;
+  area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 async function renderProfitQuality(stockId) {
   const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
   const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
@@ -62911,7 +62974,7 @@ async function renderProfitQuality(stockId) {
 
   const fmt = d => d.toISOString().split('T')[0];
   const end = new Date();
-  const start = new Date(); start.setFullYear(start.getFullYear() - 3); // 抓3年，確保有去年同期可比對
+  const start = new Date(); start.setFullYear(start.getFullYear() - 6); // 抓6年，確保現金流5年趨勢+去年同期都夠用
   const token = getToken();
 
   const fmFetch = async (dataset) => {
@@ -62932,9 +62995,10 @@ async function renderProfitQuality(stockId) {
 
     const epsRows = finRows.filter(r => r.type === 'EPS').sort((a,b) => a.date.localeCompare(b.date));
     const niRows  = finRows.filter(r => r.type === 'IncomeAfterTaxes').sort((a,b) => a.date.localeCompare(b.date));
-    const cfoRows = cfRows.filter(r => r.type === 'CashFlowsFromOperatingActivities').sort((a,b) => a.date.localeCompare(b.date));
+    const cfoCumRows = cfRows.filter(r => r.type === 'CashFlowsFromOperatingActivities').sort((a,b) => a.date.localeCompare(b.date));
+    const cfoQtrRows = _pqDequarterize(cfoCumRows); // 單季化後的現金流，拿來跟單季淨利配對算比值
 
-    if (epsRows.length === 0 || niRows.length === 0 || cfoRows.length === 0) {
+    if (epsRows.length === 0 || niRows.length === 0 || cfoCumRows.length === 0) {
       setTx('pqEpsVal', '資料不足'); setTx('pqEpsYoy', '');
       setTx('pqCfoVal', '資料不足'); setTx('pqCfoYoy', '');
       setTx('pqRatioVal', '—'); setTx('pqRatioTag', '');
@@ -62945,7 +63009,9 @@ async function renderProfitQuality(stockId) {
 
     const lastEps = epsRows.at(-1);
     const lastNi  = niRows.at(-1);
-    const lastCfo = cfoRows.at(-1);
+    // 年度現金流：Q4（12-31）那筆累計數，本身就是全年總額，不用另外加總
+    const annualCfoRows = cfoCumRows.filter(r => r.date.endsWith('-12-31'));
+    const lastAnnualCfo = annualCfoRows.at(-1) || cfoCumRows.at(-1); // 若還沒到Q4，先用最新一筆累計數頂著
 
     // 找「去年同期」：用日期往前推一年，抓最接近的一筆（誤差超過60天視為抓錯季度，不採用）
     function findYoY(arr, lastDate) {
@@ -62958,23 +63024,26 @@ async function renderProfitQuality(stockId) {
       return (best && bestDiff < 1000*60*60*24*60) ? best : null;
     }
     const epsYoY = findYoY(epsRows, lastEps.date);
-    const cfoYoY = findYoY(cfoRows, lastCfo.date);
+    const cfoYoY = findYoY(annualCfoRows, lastAnnualCfo.date);
 
     setTx('pqEpsVal', `${lastEps.value.toFixed(2)} 元`);
     if (epsYoY && epsYoY.value !== 0) {
       const g = (lastEps.value - epsYoY.value) / Math.abs(epsYoY.value) * 100;
       setHtml('pqEpsYoy', `年增：<span style="color:${g>=0?healthy:danger};font-weight:700;">${g>=0?'+':''}${g.toFixed(1)}%</span>`);
     } else setTx('pqEpsYoy', '年增：無去年同期資料');
+    window._pqRawData.eps = epsRows.slice(-5).map(r => ({ date: r.date, value: r.value }));
 
-    const cfoYi = lastCfo.value / 1e8;
+    const cfoYi = lastAnnualCfo.value / 1e8;
     setTx('pqCfoVal', `${cfoYi>=0?'+':''}${cfoYi.toFixed(1)} 億`);
     if (cfoYoY && cfoYoY.value !== 0) {
-      const g = (lastCfo.value - cfoYoY.value) / Math.abs(cfoYoY.value) * 100;
+      const g = (lastAnnualCfo.value - cfoYoY.value) / Math.abs(cfoYoY.value) * 100;
       setHtml('pqCfoYoy', `年增：<span style="color:${g>=0?healthy:danger};font-weight:700;">${g>=0?'+':''}${g.toFixed(1)}%</span>`);
     } else setTx('pqCfoYoy', '年增：無去年同期資料');
+    window._pqRawData.cfo = annualCfoRows.slice(-5).map(r => ({ date: r.date.slice(0,4)+'年', value: r.value }));
 
-    // 獲利含金量 = 營業現金流 ÷ 稅後淨利（同一季度比對，這是財會上既有的標準比率）
-    const ratio = lastNi.value !== 0 ? (lastCfo.value / lastNi.value) : null;
+    // 獲利含金量 = 單季營業現金流 ÷ 單季稅後淨利（同一季度比對，這是財會上既有的標準比率）
+    const lastCfoQtr = cfoQtrRows.find(r => r.date === lastNi.date);
+    const ratio = (lastCfoQtr && lastNi.value !== 0) ? (lastCfoQtr.value / lastNi.value) : null;
     if (ratio !== null) {
       const rColor = ratio >= 1 ? healthy : ratio >= 0.5 ? warn : danger;
       setHtml('pqRatioVal', `<span style="color:${rColor};">${ratio.toFixed(2)}</span>`);
@@ -62983,24 +63052,31 @@ async function renderProfitQuality(stockId) {
       else if (ratio >= 0) setHtml('pqRatioTag', `<span style="color:${danger};">明顯落差，留意</span>`);
       else setHtml('pqRatioTag', `<span style="color:${danger};font-weight:700;">⚠️ 帳上賺錢但現金流是負的</span>`);
     } else {
-      setTx('pqRatioVal', '—'); setTx('pqRatioTag', '本期淨利為0，無法計算比值');
+      setTx('pqRatioVal', '—'); setTx('pqRatioTag', '本期淨利為0或資料不足，無法計算比值');
     }
+
+    // 近5季比值序列（給展開表用）
+    const ratioSeries = niRows.slice(-5).map(ni => {
+      const cfoQ = cfoQtrRows.find(r => r.date === ni.date);
+      return (cfoQ && ni.value !== 0) ? { date: ni.date, value: cfoQ.value / ni.value } : null;
+    }).filter(Boolean);
+    window._pqRawData.ratio = ratioSeries;
 
     // 連續性檢查：最近幾季是否「連續」偏低（單季偏低可能只是正常商業週期雜訊，
     // 連續多季才是真警訊——這是使用者自己討論出來的判斷邏輯，跟期貨模組的
-    // 「連續天數確認」是同一種思路）
+    // 「連續天數確認」是同一種思路）。改用單季化後的現金流，不再拿累計數比。
     let lowStreak = 0;
     for (let i = 1; i <= Math.min(niRows.length, 6); i++) {
       const ni = niRows.at(-i);
       if (!ni || ni.value === 0) break;
-      const cfo = cfoRows.find(r => r.date === ni.date);
-      if (!cfo) break;
-      if ((cfo.value / ni.value) < 0.5) lowStreak++; else break;
+      const cfoQ = cfoQtrRows.find(r => r.date === ni.date);
+      if (!cfoQ) break;
+      if ((cfoQ.value / ni.value) < 0.5) lowStreak++; else break;
     }
 
     let verdictTxt, badgeTxt, badgeColor, badgeBg;
     if (ratio === null) {
-      verdictTxt = '本期淨利為0，無法計算比值，建議查看下一季財報再確認。';
+      verdictTxt = '本期淨利為0或資料不足，無法計算比值，建議查看下一季財報再確認。';
       badgeTxt = '資料不足'; badgeColor = 'var(--fg3)'; badgeBg = 'var(--bg2)';
     } else if (lowStreak >= 3) {
       verdictTxt = `⚠️ 最近連續 ${lowStreak} 季獲利含金量都偏低，帳上獲利跟現金流持續脫節，不像單季雜訊，建議進一步查應收帳款、存貨科目是否異常堆積。`;
