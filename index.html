@@ -63047,8 +63047,29 @@ async function renderProfitQuality(stockId) {
       shareAnomaly = Math.abs(shareChangePct) > 20; // 股數變動超過20%視為異常
     }
 
+    // v7.65：不只標警示，直接找出「哪一季開始異動」+ 給可以點的連結去查源頭，
+    // 不然使用者每次都要來問——逐季掃描（不是只比較YoY）找出跳躍發生的那一季，
+    // 換算成 MOPS 用的民國年/季別，直接連到那一季的財報 + 公司重大訊息頁。
+    let anomalyLinksHtml = '';
     if (shareAnomaly) {
-      setHtml('pqEpsYoy', `<span style="color:${warn};font-weight:700;">⚠️ 股本異動中，年增率不可信</span>`);
+      let anomalyDate = null;
+      for (let i = 1; i < epsRows.length; i++) {
+        const s1 = impliedShares(epsRows[i], niRows), s0 = impliedShares(epsRows[i-1], niRows);
+        if (!s1 || !s0) continue;
+        if (Math.abs((s1 - s0) / Math.abs(s0) * 100) > 20) { anomalyDate = epsRows[i].date; break; }
+      }
+      const qDate = anomalyDate || lastEps.date;
+      const qd = new Date(qDate);
+      const rocYear = qd.getFullYear() - 1911;
+      const season = Math.floor(qd.getUTCMonth() / 3) + 1;
+      const hubUrl = `https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${stockId}`;
+      const incomeUrl = `https://mops.twse.com.tw/mops/#/web/t164sb04?dataType=2&companyId=${stockId}&year=${rocYear}&season=${season}&subsidiaryCompanyId=`;
+      anomalyLinksHtml = ` <a href="${hubUrl}" target="_blank" rel="noopener" style="color:${warn};text-decoration:underline;">🔗 查${anomalyDate ? qDate.slice(0,7) : ''}重大訊息找原因</a>`
+                        + ` <a href="${incomeUrl}" target="_blank" rel="noopener" style="color:${warn};text-decoration:underline;">｜看該季損益表</a>`;
+    }
+
+    if (shareAnomaly) {
+      setHtml('pqEpsYoy', `<span style="color:${warn};font-weight:700;">⚠️ 股本異動中，年增率不可信</span>${anomalyLinksHtml}`);
     } else if (epsYoY && epsYoY.value !== 0) {
       const g = (lastEps.value - epsYoY.value) / Math.abs(epsYoY.value) * 100;
       setHtml('pqEpsYoy', `年增：<span style="color:${g>=0?healthy:danger};font-weight:700;">${g>=0?'+':''}${g.toFixed(1)}%</span>`);
@@ -63113,11 +63134,13 @@ async function renderProfitQuality(stockId) {
       verdictTxt = '本季帳上獲利跟現金流有明顯落差，建議留意，若下季仍未改善要提高警覺。';
       badgeTxt = '留意'; badgeColor = warn; badgeBg = 'rgba(217,119,6,.12)';
     }
+    let verdictHtml = verdictTxt;
     if (shareAnomaly) {
       const dir = shareChangePct > 0 ? '增加' : '減少';
-      verdictTxt += ` ⚠️ 偵測到股本可能大幅${dir}（隱含股數年變動約${Math.abs(shareChangePct).toFixed(0)}%），常見原因是增資、併購發新股或減資。EPS 年增率因此失真，不能直接當成獲利真的變化，建議先到公開資訊觀測站查同期有沒有相關重大訊息公告再判讀。`;
+      const hubUrl = `https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${stockId}`;
+      verdictHtml += ` ⚠️ 偵測到股本可能大幅${dir}（隱含股數年變動約${Math.abs(shareChangePct).toFixed(0)}%），常見原因是增資、併購發新股或減資。EPS 年增率因此失真，不能直接當成獲利真的變化，<a href="${hubUrl}" target="_blank" rel="noopener" style="color:${warn};text-decoration:underline;font-weight:700;">點這裡直接查該公司同期重大訊息公告</a>找原因。`;
     }
-    setTx('pqVerdict', verdictTxt);
+    setHtml('pqVerdict', verdictHtml);
     if (badge) { badge.textContent = badgeTxt; badge.style.color = badgeColor; badge.style.background = badgeBg; }
   } catch(e) {
     console.warn('[獲利品質] 整體載入失敗', e.message);
