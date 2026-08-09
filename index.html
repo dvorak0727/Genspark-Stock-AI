@@ -63028,7 +63028,28 @@ async function renderProfitQuality(stockId) {
     const cfoYoY = findYoY(annualCfoRows, lastAnnualCfo.date);
 
     setTx('pqEpsVal', `${lastEps.value.toFixed(2)} 元`);
-    if (epsYoY && epsYoY.value !== 0) {
+
+    // v7.64 股本異動偵測：用「稅後淨利 ÷ EPS」反推隱含股數（兩個欄位本來就有抓，
+    // 不用多打 API）。實測國巨(2327)發現這比用資產負債表 CapitalStock 反推可靠——
+    // CapitalStock 欄位對不上真實股數（可能未涵蓋 GDR 等其他股權工具），
+    // 而淨利/EPS 反推出的隱含股數，變化時間點精準對上真實併購/增資公告日期。
+    // 股數在期間內大幅變動時，EPS 年增率會被嚴重扭曲（分母變了，不是分子在退步），
+    // 這裡抓出來就不要再顯示誤導的年增%，改顯示警示。
+    function impliedShares(epsRow, niArr) {
+      const ni = niArr.find(r => r.date === epsRow.date);
+      return (ni && epsRow.value) ? ni.value / epsRow.value : null;
+    }
+    const lastShares = impliedShares(lastEps, niRows);
+    const yoyShares   = epsYoY ? impliedShares(epsYoY, niRows) : null;
+    let shareAnomaly = false, shareChangePct = null;
+    if (lastShares && yoyShares) {
+      shareChangePct = (lastShares - yoyShares) / Math.abs(yoyShares) * 100;
+      shareAnomaly = Math.abs(shareChangePct) > 20; // 股數變動超過20%視為異常
+    }
+
+    if (shareAnomaly) {
+      setHtml('pqEpsYoy', `<span style="color:${warn};font-weight:700;">⚠️ 股本異動中，年增率不可信</span>`);
+    } else if (epsYoY && epsYoY.value !== 0) {
       const g = (lastEps.value - epsYoY.value) / Math.abs(epsYoY.value) * 100;
       setHtml('pqEpsYoy', `年增：<span style="color:${g>=0?healthy:danger};font-weight:700;">${g>=0?'+':''}${g.toFixed(1)}%</span>`);
     } else setTx('pqEpsYoy', '年增：無去年同期資料');
@@ -63091,6 +63112,10 @@ async function renderProfitQuality(stockId) {
     } else {
       verdictTxt = '本季帳上獲利跟現金流有明顯落差，建議留意，若下季仍未改善要提高警覺。';
       badgeTxt = '留意'; badgeColor = warn; badgeBg = 'rgba(217,119,6,.12)';
+    }
+    if (shareAnomaly) {
+      const dir = shareChangePct > 0 ? '增加' : '減少';
+      verdictTxt += ` ⚠️ 偵測到股本可能大幅${dir}（隱含股數年變動約${Math.abs(shareChangePct).toFixed(0)}%），常見原因是增資、併購發新股或減資。EPS 年增率因此失真，不能直接當成獲利真的變化，建議先到公開資訊觀測站查同期有沒有相關重大訊息公告再判讀。`;
     }
     setTx('pqVerdict', verdictTxt);
     if (badge) { badge.textContent = badgeTxt; badge.style.color = badgeColor; badge.style.background = badgeBg; }
