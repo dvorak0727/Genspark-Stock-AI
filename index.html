@@ -63031,8 +63031,12 @@ async function renderProfitQuality(stockId) {
 
     // v7.64 股本異動偵測：用「稅後淨利 ÷ EPS」反推隱含股數（兩個欄位本來就有抓，
     // 不用多打 API）。實測國巨(2327)發現這比用資產負債表 CapitalStock 反推可靠——
-    // CapitalStock 欄位對不上真實股數（可能未涵蓋 GDR 等其他股權工具），
-    // 而淨利/EPS 反推出的隱含股數，變化時間點精準對上真實併購/增資公告日期。
+    // CapitalStock 欄位對不上真實股數（可能未涵蓋 GDR 等其他股權工具）。
+    // ⚠️ 除錯記錄：一開始誤判國巨股數暴增4倍是併購發新股稀釋，後來查證
+    // 實際是「一拆四」股票分割（面額變更），跟併購是兩件獨立的事——分割會
+    // 精準呈整數倍（4.00倍），併購發新股很少剛好湊出整數比例，這是分辨兩者
+    // 的線索之一。教訓：偵測到異動時只能提示「可能原因」，不能猜測是哪一種，
+    // 一定要引導使用者自己去查重大訊息公告核實，不要自己編故事。
     // 股數在期間內大幅變動時，EPS 年增率會被嚴重扭曲（分母變了，不是分子在退步），
     // 這裡抓出來就不要再顯示誤導的年增%，改顯示警示。
     function impliedShares(epsRow, niArr) {
@@ -63138,7 +63142,7 @@ async function renderProfitQuality(stockId) {
     if (shareAnomaly) {
       const dir = shareChangePct > 0 ? '增加' : '減少';
       const hubUrl = `https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=${stockId}`;
-      verdictHtml += ` ⚠️ 偵測到股本可能大幅${dir}（隱含股數年變動約${Math.abs(shareChangePct).toFixed(0)}%），常見原因是增資、併購發新股或減資。EPS 年增率因此失真，不能直接當成獲利真的變化，<a href="${hubUrl}" target="_blank" rel="noopener" style="color:${warn};text-decoration:underline;font-weight:700;">點這裡直接查該公司同期重大訊息公告</a>找原因。`;
+      verdictHtml += ` ⚠️ 偵測到股本可能大幅${dir}（隱含股數年變動約${Math.abs(shareChangePct).toFixed(0)}%），常見原因是股票分割／面額變更、增資、併購發新股或減資，實際是哪一種、對股價是不是利空，每個原因都不一樣，不能用猜的。EPS 年增率因此失真，不能直接當成獲利真的變化，<a href="${hubUrl}" target="_blank" rel="noopener" style="color:${warn};text-decoration:underline;font-weight:700;">點這裡直接查該公司同期重大訊息公告</a>找原因。`;
     }
     setHtml('pqVerdict', verdictHtml);
     if (badge) { badge.textContent = badgeTxt; badge.style.color = badgeColor; badge.style.background = badgeBg; }
