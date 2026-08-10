@@ -19783,6 +19783,31 @@ a.module-nav-item.acc-active {
         <br>⚡ <b>策略核心</b>：被踢出成分股 → 機械性賣壓（ETF必須賣）→ 外資低接 → 賣壓結束後反彈。公告日即是套利起點。
       </div>
 
+      <!-- v7.60 0050緩衝區檢查器：新聞常把「排名跌破50」直接講成「被踢除」，
+           但富時台灣指數規則有緩衝區——既有成分股要跌到61名以後才會被踢，
+           排名41~60是灰色地帶不會觸發任何動作。這裡只做規則判斷，不猜實際排名（那需要官方資料）。 -->
+      <div class="etfcal-form-wrap" style="margin-bottom:14px;">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">
+          🧮 0050 緩衝區檢查器 <span style="font-weight:400;">— 排名掉出前50，不代表一定被踢，先算給你看</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-bottom:8px;line-height:1.6;">
+          富時台灣指數規則：<b>既有成分股要跌到市值排名第61名以後才會被剔除</b>，<b>非成分股要升到第40名以內才會被納入</b>，
+          排名 41～60 之間是緩衝區，不觸發任何換股動作。輸入市值排名（自行查證，本站不推算），選是否為現有成分股，
+          就能知道新聞講的「被踢除」是不是言之過早。
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+          <div><label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">目前市值排名</label>
+            <input type="number" id="ecfBufferRank" placeholder="e.g. 51" min="1" style="width:100px;" /></div>
+          <div><label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">目前身份</label>
+            <select id="ecfBufferStatus">
+              <option value="in">目前是 0050 成分股</option>
+              <option value="out">目前不是 0050 成分股</option>
+            </select></div>
+          <button class="etfcal-form-save" onclick="etfCheckBuffer()">🔍 檢查</button>
+        </div>
+        <div id="ecfBufferResult" style="margin-top:10px;font-size:0.8rem;line-height:1.7;"></div>
+      </div>
+
       <!-- 貼公告解析面板 -->
       <div class="etfcal-form-wrap" id="etfCalPastePanel" style="display:none;margin-bottom:12px;">
         <div style="font-size:0.78rem;font-weight:700;color:var(--text-muted);margin-bottom:8px;">📋 貼入投信公告文字，自動解析換檔事件</div>
@@ -65267,6 +65292,47 @@ function etfCalParseAnnouncement() {
   const extra = entries.slice(1).map(e => `${e.action} ${e.name}(${e.id})`).join('、');
   result.innerHTML = `✅ 解析完成，已填入 <b>${first.action} ${first.name}(${first.id})</b>。`
     + (extra ? `<br>其餘：${extra}（請手動新增）` : '');
+}
+
+// v7.60：0050緩衝區檢查器——只做富時台灣指數規則判斷，不猜測/不推算實際市值排名
+// 既有成分股：跌到61名以後才剔除；非成分股：升到40名以內才納入；41~60為緩衝區
+function etfCheckBuffer() {
+  const rankEl = document.getElementById('ecfBufferRank');
+  const statusEl = document.getElementById('ecfBufferStatus');
+  const resultEl = document.getElementById('ecfBufferResult');
+  if (!rankEl || !statusEl || !resultEl) return;
+  const rank = parseInt(rankEl.value, 10);
+  const isIn = statusEl.value === 'in';
+  if (!rank || rank < 1) {
+    resultEl.innerHTML = `<span style="color:var(--down);">請輸入有效的市值排名數字。</span>`;
+    return;
+  }
+  let verdict, tone;
+  if (isIn) {
+    if (rank <= 60) {
+      verdict = `目前是成分股，排名第 ${rank} 名——<b>還在緩衝區內（≤60），規則上不會被剔除</b>。新聞若說「跌出50名要被踢了」，這在規則上還不成立，先別急著解讀成基本面變差。`;
+      tone = 'up';
+    } else {
+      verdict = `目前是成分股，排名第 ${rank} 名——<b>已跌破緩衝區下限（61名以後），下次定期審核確實有被剔除的規則依據</b>。但排名下滑本身只反映市值，不等於基本面變差，仍要另外查證獲利與營收，不要只看排名下結論。`;
+      tone = 'down';
+    }
+  } else {
+    if (rank <= 40) {
+      verdict = `目前非成分股，排名第 ${rank} 名——<b>已達納入門檻（≤40），下次定期審核有機會被納入</b>。`;
+      tone = 'up';
+    } else {
+      verdict = `目前非成分股，排名第 ${rank} 名——<b>尚未達納入門檻（需≤40）</b>。排名 41～60 之間屬於緩衝區，本來就不會被納入，這不是「被踢除」，只是「還沒達標」，用詞不同、意義也不同。`;
+      tone = 'neutral';
+    }
+  }
+  const color = tone === 'up' ? 'var(--up)' : tone === 'down' ? 'var(--down)' : 'var(--text-muted)';
+  resultEl.innerHTML = `<div style="padding:10px 12px;border-radius:8px;background:var(--bg2);border-left:3px solid ${color};">
+    ${verdict}
+    <div style="margin-top:6px;font-size:0.68rem;color:var(--text-muted);">
+      ⚠️ 排名數字請自行從市值排行或財經媒體查證，本站不推算即時官方排名；實際納入/剔除以元大投信與富時官方公告為準——
+      <a href="https://www.taiwanindex.com.tw/" target="_blank" rel="noopener" style="color:${color};text-decoration:underline;">點此查富時台灣指數官網公告</a>。
+    </div>
+  </div>`;
 }
 
 function etfCalToggleForm() {
