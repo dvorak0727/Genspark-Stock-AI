@@ -41470,7 +41470,28 @@ function renderBidAskContent() {
     <div class="bid-ask-summary" style="${diffCls}">${diffTxt}</div>
     <div style="margin-top:6px;padding:6px 8px;background:rgba(255,255,255,0.03);border-radius:6px;font-size:0.53rem;color:var(--fg3);line-height:1.6;">
       ⓘ <strong style="color:var(--fg2);">申報量 vs 五檔掛單的差異：</strong>「申報量」是今天已撮合成交的累計量（反映法人整日真實買賣方向）；「五檔掛單」是收盤時剩餘未成交的委託量（反映大戶尾盤持倉意圖）。兩者意義不同，搭配解讀效果最佳。
-    </div>`;
+    </div>
+    ${(() => {
+      // v7.60：掛單簿方向 vs 成交方向 矛盾偵測——
+      // 委賣（掛單牆）明顯厚於委買，但實際成交卻是外盤（主動買）明顯強於內盤，
+      // 這組合看起來矛盾，新手常看不懂，這裡給兩種可能的白話解讀，不武斷下結論。
+      const obiPct = window._lastOBR_OBI; // 0~100，外盤比（主動買成交佔比）
+      const bookAskHeavier = diffVal < 0; // 委賣 > 委買
+      if (bookAskHeavier && typeof obiPct === 'number' && obiPct >= 60) {
+        return `<div style="margin-top:6px;padding:8px 10px;background:rgba(234,179,8,0.08);border-left:3px solid #eab308;border-radius:0 6px 6px 0;font-size:0.58rem;color:var(--fg2);line-height:1.75;">
+          ⚡ <strong style="color:#eab308;">掛單牆厚，但買方一直在吃單——這組合怎麼看？</strong><br>
+          目前委賣掛單明顯厚於委買，理論上該是賣壓重；但今日成交卻是<strong>外盤（主動買）明顯強於內盤</strong>（約 ${obiPct.toFixed(0)}%），
+          代表買方一路在追價成交，把賣單牆一口一口吃掉，不是掛著不動。這種矛盾組合常見兩種可能：<br>
+          ① <strong>掛單牆是假的、用來壓價</strong>——賣方不是真心想在這個價位出貨，只是想拖住價格別漲太快，
+          結果買盤照樣把牆吃穿，這時候牆會隨成交遞減，價格容易噴出。<br>
+          ② <strong>掛單牆是真的，正在誘多</strong>——讓散戶看見「外盤強」覺得該追，主力再利用這股追價力道把厚牆慢慢賣掉，
+          等牆賣完，力道可能瞬間反轉。<br>
+          兩種解讀單看這張圖表分不出來，關鍵在於<strong>牆是遞減還是不動、成交量是不是同步放大</strong>——
+          若牆隨著成交同步變薄，偏向①；若牆吃不完、掛單一直補上來，偏向②。單一時間點的截圖判斷不了，需要連續觀察。
+        </div>`;
+      }
+      return '';
+    })()}`;
 }
 
 // ══ renderSmartAction 已在 v6.43 移除（SAC 模組已刪除）══
