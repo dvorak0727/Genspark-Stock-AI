@@ -36719,7 +36719,10 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
   let cumulF=0, cumulT=0, bullDays=0, bearDays=0, cumulCntDiff=0;
   // 計算某日的法人買超家數 vs 賣超家數
   function _dayBSCount(dayMap) {
-    const names = ['Foreign_Investor','Investment_Trust','Dealer_self','Dealer_Hedging'];
+    // v7.60：共振/家數差只算有方向性意義的三方（外資／投信／自營商自行買賣）
+    // Dealer_Hedging（自營商避險）本質是造市商 Delta 中性避險，隔日常反向沖銷，
+    // 不代表法人看多/看空，混進共振計算會製造假分歧或假共振，故排除。
+    const names = ['Foreign_Investor','Investment_Trust','Dealer_self'];
     let b=0, s=0;
     for (const n of names) {
       const net = dayMap?.[n]?.net || 0;
@@ -36774,7 +36777,8 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
   {
     // 輔助：計算某一天的買超家數與賣超家數
     function _calcDayBuySellCount(dayMap) {
-      const names = ['Foreign_Investor','Investment_Trust','Dealer_self','Dealer_Hedging'];
+      // v7.60：理由同上（見 _dayBSCount）——避險盤排除在共振計算外
+      const names = ['Foreign_Investor','Investment_Trust','Dealer_self'];
       let buyCount = 0, sellCount = 0;
       for (const n of names) {
         const net = dayMap?.[n]?.net || 0;
@@ -63629,8 +63633,16 @@ async function fetchFuturesModule() {
           return `<div>${nameMap[code]}　<b style="color:${c};">${netYi>=0?'+':''}${netYi.toFixed(1)}</b> 億</div>`;
         }).join('');
         const totalYi = latestSpotDate ? yi(spotByDate[latestSpotDate]) : null;
+        // v7.60：避險盤放大提示——只提醒「有這件事」，不猜是哪一檔權證/可轉債造成的
+        const selfRow  = todaySpot.find(r => r.name === 'Dealer_self');
+        const hedgeRow = todaySpot.find(r => r.name === 'Dealer_Hedging');
+        const selfAbs  = selfRow  ? Math.abs((+selfRow.buy||0)  - (+selfRow.sell||0))  : 0;
+        const hedgeAbs = hedgeRow ? Math.abs((+hedgeRow.buy||0) - (+hedgeRow.sell||0)) : 0;
+        const hedgeSurgeHtml = (hedgeAbs > 0 && hedgeAbs > selfAbs * 2)
+          ? `<div style="margin-top:3px;color:var(--fg3);font-size:.55rem;">⚠️ 今日自營商避險盤明顯放大（避險量約為自行買賣的${(hedgeAbs/Math.max(selfAbs,1)).toFixed(1)}倍），較可能是權證／可轉債造市避險造成，不計入方向性判斷，也不代表法人看多或看空。</div>`
+          : '';
         setHtml('futSpotDetail', totalYi != null
-          ? `${spotRowsHtml}<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--fg3);font-size:.56rem;">合計 ${totalYi>=0?'+':''}${totalYi.toFixed(1)} 億<br>資料日期：${latestSpotDate}</div>`
+          ? `${spotRowsHtml}${hedgeSurgeHtml}<div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--border);color:var(--fg3);font-size:.56rem;">合計 ${totalYi>=0?'+':''}${totalYi.toFixed(1)} 億<br>資料日期：${latestSpotDate}</div>`
           : '資料不足');
       } catch(e) { console.warn('[期貨模組] 現貨明細計算失敗', e.message); setTx('futSpotDetail', '計算失敗'); }
 
