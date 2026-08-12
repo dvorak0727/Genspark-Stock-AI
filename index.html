@@ -59358,15 +59358,17 @@ function wallisRenderLog() {
               : curr < prev ? ' <span style="color:#ef4444;">↓</span>' : '';
       }
 
-      return `<div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 52px 80px auto;
+      return `<div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 1fr 1fr 52px 80px auto;
           gap:0;padding:6px 10px;border-bottom:1px solid var(--border);background:${rowBg};
           align-items:center;font-size:.62rem;${isLast?'border-bottom:none;':''}">
         <!-- 日期時間 -->
         <div style="color:var(--fg3);">${r.date}<br><span style="font-size:.56rem;">${r.time}</span></div>
-        <!-- 三燈 -->
+        <!-- 五燈（v7.60 修正：原本只顯示燈1~3，燈4/5的資料其實早就存了，只是沒畫出來） -->
         <div style="text-align:center;">${r.l1}<br><span style="color:var(--fg3);font-size:.55rem;">${r.l1Val}</span></div>
         <div style="text-align:center;">${r.l2}<br><span style="color:var(--fg3);font-size:.55rem;">${r.l2Val}</span></div>
         <div style="text-align:center;">${r.l3}<br><span style="color:var(--fg3);font-size:.55rem;">${r.l3Val}</span></div>
+        <div style="text-align:center;">${r.l4 || '⬜'}<br><span style="color:var(--fg3);font-size:.55rem;">${r.l4Val || '—'}</span></div>
+        <div style="text-align:center;">${r.l5 || '⬜'}<br><span style="color:var(--fg3);font-size:.55rem;">${r.l5Val || '—'}</span></div>
         <!-- 收斂% -->
         <div style="text-align:right;font-weight:800;color:${col};">${r.score}${arrow}</div>
         <!-- 狀態 -->
@@ -59390,11 +59392,12 @@ function wallisRenderLog() {
         <div style="font-size:.65rem;">${lightLabel(latestGreen)}</div>
         <div style="font-size:.6rem;color:var(--fg3);">${g.rows.length}筆記錄</div>
       </div>
-      <!-- 欄位標頭 -->
-      <div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 52px 80px auto;
+      <!-- 欄位標頭（v7.60：補上燈4價格位置／燈5籌碼連縮，原本只畫燈1~3） -->
+      <div style="display:grid;grid-template-columns:90px 1fr 1fr 1fr 1fr 1fr 52px 80px auto;
           padding:4px 10px;background:var(--bg2);gap:0;font-size:.56rem;color:var(--fg3);font-weight:600;">
         <div>日期</div><div style="text-align:center;">燈1振幅</div>
         <div style="text-align:center;">燈2量能</div><div style="text-align:center;">燈3法人</div>
+        <div style="text-align:center;">燈4價格</div><div style="text-align:center;">燈5籌碼</div>
         <div style="text-align:right;">收斂%</div><div>狀態</div><div></div>
       </div>
       ${rowsHtml}`;
@@ -59418,8 +59421,9 @@ function wallisToggleLog() {
 function wallisExportCSV() {
   const log = wallisGetLog();
   if (!log.length) { alert('尚無記錄可匯出'); return; }
-  const hdr = ['日期','時間','股票名稱','代號','燈1','燈1值','燈2','燈2值','燈3','燈3值','綠燈數','收斂%','狀態','研判摘要','隔日漲跌%'];
-  const rows = log.map(r=>[r.date,r.time,r.stockName,r.stockId,r.l1,r.l1Val,r.l2,r.l2Val,r.l3,r.l3Val,r.greenCount,r.score,r.badge,`"${r.verdict.replace(/"/g,'""')}"`,r.nextDayPct||''].join(','));
+  // v7.60：CSV匯出原本漏了燈4(價格位置)/燈5(籌碼連縮)，資料早就存了，只是沒匯出
+  const hdr = ['日期','時間','股票名稱','代號','燈1','燈1值','燈2','燈2值','燈3','燈3值','燈4','燈4值','燈5','燈5值','綠燈數','收斂%','狀態','研判摘要','隔日漲跌%'];
+  const rows = log.map(r=>[r.date,r.time,r.stockName,r.stockId,r.l1,r.l1Val,r.l2,r.l2Val,r.l3,r.l3Val,r.l4||'',r.l4Val||'',r.l5||'',r.l5Val||'',r.greenCount,r.score,r.badge,`"${r.verdict.replace(/"/g,'""')}"`,r.nextDayPct||''].join(','));
   const csv = '﻿' + [hdr.join(','),...rows].join('\n');
   const a = Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'})),download:`沃利斯研究記錄_${new Date().toISOString().slice(0,10)}.csv`});
   a.click();
