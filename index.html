@@ -17477,7 +17477,7 @@ a.module-nav-item.acc-active {
               <div class="ai-meta-val" id="aiConf">—</div>
             </div>
             <div class="ai-meta-box">
-              <div class="ai-meta-lbl">目標價</div>
+              <div class="ai-meta-lbl" data-tip="近5日外資+投信合計買超加權平均成本（真實籌碼資料，不是系統推算的價格預測）">近5日法人成本</div>
               <div class="ai-meta-val" id="aiTarget">—</div>
             </div>
             <div class="ai-meta-box">
@@ -35973,6 +35973,20 @@ function calcInstCost(instMap, instDays, closes, dates) {
   };
 }
 
+// v7.60：近5日法人（外資+投信）合計買超加權平均成本——取代原本內部算式編出來的「目標價」
+// fS/tS：外資/投信近5日淨買超序列（張），closes：對應的收盤價序列，兩者依日期對齊、同長度
+function calcInst5DayCost(fS, tS, closes) {
+  const n = Math.min(5, closes.length, fS.length, tS.length);
+  let totalNet = 0, weightedSum = 0;
+  for (let i = closes.length - n; i < closes.length; i++) {
+    const net = (fS[i] || 0) + (tS[i] || 0); // 外資+投信 合計買超（張）
+    const price = closes[i];
+    if (net > 0 && price) { weightedSum += net * price; totalNet += net; }
+  }
+  if (totalNet <= 0) return { cost: closes.at(-1) || 0, reliable: false };
+  return { cost: weightedSum / totalNet, reliable: true };
+}
+
 /**
  * detectFITDivergence(fSeries, tSeries, qEnd, instCost, lc)
  * 偵測外資/投信方向背離，輸出 ABCD 狀態
@@ -47576,8 +47590,14 @@ function renderAI(stockId, info, price, fS, tS, rsi, K, D, hist, ma5, ma20, macd
     score, label, conf: conf.toFixed(0)+'%',
     cls: score >= 65 ? 'bull' : score >= 40 ? 'warn' : 'bear'
   };
-  const tm = score>=60 ? 1+(score-50)/500 : 1-(50-score)/500;
-  document.getElementById('aiTarget').textContent  = '$ '+(price*tm).toFixed(1);
+  // v7.60：原本這裡是「目標價 = 現價 × 內部評分算出的乘數」，是系統自己編出來的數字，
+  // 不是真實外資機構預估值，包裝成「目標價」容易讓人誤以為有權威來源背書。
+  // 改成「近5日法人（外資+投信）合計買超加權平均成本」——有真實籌碼資料支撐，
+  // 只陳述法人買在哪個價位這個事實，不做未來價格預測。
+  const instCost5d = calcInst5DayCost(fS, tS, closes);
+  document.getElementById('aiTarget').textContent = instCost5d.reliable
+    ? '$ ' + instCost5d.cost.toFixed(1)
+    : '近5日無買超';
   document.getElementById('aiRisk').textContent    = score>=65?'中低 🟡':score>=40?'中等 🟠':'偏高 🔴';
 
   const fSI = calcStreak([...fS].reverse()), tSI = calcStreak([...tS].reverse());
