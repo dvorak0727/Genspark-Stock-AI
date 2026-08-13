@@ -17493,6 +17493,65 @@ a.module-nav-item.acc-active {
         </div>
       </div>
 
+      <!-- v7.60 外資評等查詢與記錄：cnyes/cmnews含付費授權資料，程式不自動抓取，
+           改為「連結查詢＋自己動手記錄」，並標示時效，避免用過期評等誤判 -->
+      <div class="etfcal-card" id="analystRatingCard" style="margin-top:14px;">
+        <div class="etfcal-header">
+          <div class="etfcal-header-icon">🏦</div>
+          <div class="etfcal-header-text">
+            <div class="etfcal-header-title">外資評等查詢與記錄</div>
+            <div class="etfcal-header-sub">自己查、自己記，附上時效——不是系統自動抓的</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+            <button class="etfcal-add-btn" onclick="arRatingToggleForm()">＋ 新增記錄</button>
+          </div>
+        </div>
+
+        <div class="ob-concept-bar" style="margin-bottom:14px;">
+          🔗 <b>連結查詢</b>（點開後自己看，程式不自動抓取——這兩個來源含付費授權資料）：
+          <a href="https://www.cnyes.com/twstock/board/ratediff.aspx" target="_blank" rel="noopener">鉅亨網・外資評等總表</a>
+          　・
+          <a href="https://cmnews.com.tw/tag/%E5%88%B8%E5%95%86%E8%A9%95%E7%AD%89%E5%A0%B1%E5%91%8A%E5%BD%99%E6%95%B4" target="_blank" rel="noopener">券商評等報告彙整</a>
+          <br>📌 看到想記錄的評等，複製「券商／評等／目標價／報告日期」，在下面手動填入——你記的才算數，程式不幫你編。
+        </div>
+
+        <div class="etfcal-form-wrap" id="arRatingForm">
+          <div class="etfcal-form-grid">
+            <div><label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">股票代號</label>
+              <input type="text" id="arStockId" placeholder="e.g. 2330" maxlength="6" /></div>
+            <div><label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">股票名稱</label>
+              <input type="text" id="arStockName" placeholder="台積電" /></div>
+            <div><label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">券商</label>
+              <input type="text" id="arBroker" placeholder="e.g. 高盛 / 摩根士丹利" /></div>
+            <div><label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">評等</label>
+              <select id="arRating">
+                <option value="強力買進">強力買進</option>
+                <option value="買進">買進</option>
+                <option value="中立">中立</option>
+                <option value="持有">持有</option>
+                <option value="賣出">賣出</option>
+              </select></div>
+            <div><label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">目標價</label>
+              <input type="number" id="arTarget" placeholder="e.g. 1500" step="0.5" /></div>
+            <div><label style="font-size:0.72rem;color:var(--text-muted);font-weight:600;">報告發布日期</label>
+              <input type="date" id="arReportDate" /></div>
+          </div>
+          <div>
+            <button class="etfcal-form-save" onclick="arRatingSave()">💾 儲存記錄</button>
+            <button class="etfcal-form-cancel" onclick="arRatingToggleForm()">取消</button>
+          </div>
+        </div>
+
+        <div class="etfcal-event-list" id="arRatingList">
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.85rem;">尚無記錄</div>
+        </div>
+
+        <div class="earncal-notice" style="margin-top:14px;">
+          ⚠️ 時效提醒：評等報告通常反映發布當下的判斷，超過90天視為「已過期」（灰色標示），
+          過期不代表評等本身錯了，是提醒你該去查有沒有更新的報告，不要拿舊資料當現在的參考。
+        </div>
+      </div>
+
       <!-- 🌊 v6.23 CFD 雙軌覆核列 -->
       <div class="ai-cfd-bar" id="aiCFDBar">
         <span class="ai-cfd-bar-label">🌊 CFD 覆核</span>
@@ -65379,6 +65438,100 @@ function etfCheckBuffer() {
     </div>
   </div>`;
 }
+
+// ══════════════════════════════════════════════
+//  v7.60 外資評等查詢與記錄——只做「連結查詢＋手動記錄」，不自動抓取授權資料
+// ══════════════════════════════════════════════
+const AR_RATING_KEY = 'tsai_analyst_ratings_v1';
+const AR_STALE_DAYS = 90; // 超過幾天視為評等已過期
+
+function arRatingGetLog() {
+  try { return JSON.parse(localStorage.getItem(AR_RATING_KEY) || '[]'); }
+  catch { return []; }
+}
+function arRatingSaveLog(arr) { localStorage.setItem(AR_RATING_KEY, JSON.stringify(arr)); }
+
+function arRatingToggleForm() {
+  const form = document.getElementById('arRatingForm');
+  if (!form) return;
+  form.classList.toggle('show');
+}
+
+function arRatingSave() {
+  const stockId     = document.getElementById('arStockId')?.value.trim();
+  const stockName   = document.getElementById('arStockName')?.value.trim();
+  const broker      = document.getElementById('arBroker')?.value.trim();
+  const rating      = document.getElementById('arRating')?.value;
+  const target      = parseFloat(document.getElementById('arTarget')?.value);
+  const reportDate  = document.getElementById('arReportDate')?.value;
+
+  if (!stockId || !broker || !reportDate || !target) {
+    alert('請至少填寫股票代號、券商、目標價、報告發布日期');
+    return;
+  }
+
+  const record = {
+    id: Date.now(),
+    stockId, stockName: stockName || stockId, broker, rating, target,
+    reportDate,                                   // 該份報告本身的發布日期（時效判斷依據）
+    recordedAt: new Date().toISOString(),          // 你記錄下來的時間（可能晚於報告發布日）
+  };
+
+  const log = arRatingGetLog();
+  log.unshift(record);
+  arRatingSaveLog(log);
+
+  ['arStockId','arStockName','arBroker','arTarget'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('arReportDate').value = '';
+
+  arRatingRenderLog();
+  document.getElementById('arRatingForm')?.classList.remove('show');
+}
+
+function arRatingDelete(id) {
+  arRatingSaveLog(arRatingGetLog().filter(r => r.id !== id));
+  arRatingRenderLog();
+}
+
+function arRatingRenderLog() {
+  const panel = document.getElementById('arRatingList');
+  if (!panel) return;
+  const log = arRatingGetLog();
+
+  if (!log.length) {
+    panel.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.85rem;">尚無記錄，開連結查完後按「＋新增記錄」</div>';
+    return;
+  }
+
+  const now = new Date();
+  panel.innerHTML = log.map(r => {
+    const reportDay = new Date(r.reportDate);
+    const ageDays = Math.floor((now - reportDay) / 86400000);
+    const stale = ageDays > AR_STALE_DAYS;
+    const ratingColor = /買進/.test(r.rating) ? 'var(--up, #E8343A)'
+                       : /賣出/.test(r.rating) ? 'var(--down, #10B981)'
+                       : 'var(--fg3)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);${stale ? 'opacity:.55;' : ''}">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:700;font-size:0.85rem;">
+          ${r.stockName}<span style="color:var(--text-muted);font-weight:400;margin-left:4px;">${r.stockId}</span>
+          <span style="margin-left:8px;font-size:0.72rem;color:${ratingColor};font-weight:700;">${r.rating}</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;">
+          ${r.broker}　目標價 <b style="color:var(--fg);">$${r.target}</b>
+          報告日 ${r.reportDate}（${ageDays}天前）
+          ${stale ? '<span style="color:#ef4444;font-weight:700;">⚠️ 已過期</span>' : '<span style="color:#22c55e;font-weight:700;">✅ 有效</span>'}
+        </div>
+      </div>
+      <button onclick="arRatingDelete(${r.id})" style="font-size:0.7rem;color:var(--text-muted);background:none;border:none;cursor:pointer;padding:2px 6px;">✕</button>
+    </div>`;
+  }).join('');
+}
+
+document.addEventListener('DOMContentLoaded', arRatingRenderLog);
 
 function etfCalToggleForm() {
   const form = document.getElementById('etfCalForm');
