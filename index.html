@@ -36032,17 +36032,29 @@ function calcInstCost(instMap, instDays, closes, dates) {
   };
 }
 
-// v7.60：近5日法人（外資+投信）合計買超加權平均成本——取代原本內部算式編出來的「目標價」
-// fS/tS：外資/投信近5日淨買超序列（張），closes：對應的收盤價序列，兩者依日期對齊、同長度
-function calcInst5DayCost(fS, tS, closes) {
-  const n = Math.min(5, closes.length, fS.length, tS.length);
-  let totalNet = 0, weightedSum = 0;
-  for (let i = closes.length - n; i < closes.length; i++) {
-    const net = (fS[i] || 0) + (tS[i] || 0); // 外資+投信 合計買超（張）
-    const price = closes[i];
-    if (net > 0 && price) { weightedSum += net * price; totalNet += net; }
+// v7.60(fix)：近5日法人（外資+投信）合計買超加權平均成本——取代原本內部算式編出來的「目標價」
+// ★ 修正一個對位錯誤：不能用陣列位置對位 fS[i] vs closes[i]。
+//   fSeries/tSeries 是依「instDays」（籌碼有資料的天數，最多10天）排列，
+//   closes 是依「dates」（完整交易日，可能240多筆）排列，兩者長度、起始日完全不同，
+//   位置對位會抓到不同天的資料，導致近5日買超被算成0。
+//   正確做法跟 calcInstCost 一樣，直接用「日期」去 instMap 查、去 dates 找對應收盤價。
+function calcInst5DayCost() {
+  const d = window.aData;
+  if (!d || !d.instMap || !d.instDays || !d.dates || !d.closes) {
+    return { cost: 0, reliable: false };
   }
-  if (totalNet <= 0) return { cost: closes.at(-1) || 0, reliable: false };
+  const recentDays = d.instDays.slice(-5);
+  let totalNet = 0, weightedSum = 0;
+  recentDays.forEach(day => {
+    const net = ((d.instMap[day]?.Foreign_Investor?.net || 0) + (d.instMap[day]?.Investment_Trust?.net || 0)) / 1000; // 張
+    if (net <= 0) return; // 只計算淨買入日
+    const idx = d.dates.indexOf(day);
+    const price = idx >= 0 ? d.closes[idx] : null;
+    if (!price) return;
+    weightedSum += net * price;
+    totalNet += net;
+  });
+  if (totalNet <= 0) return { cost: d.closes.at(-1) || 0, reliable: false };
   return { cost: weightedSum / totalNet, reliable: true };
 }
 
@@ -47653,7 +47665,7 @@ function renderAI(stockId, info, price, fS, tS, rsi, K, D, hist, ma5, ma20, macd
   // 不是真實外資機構預估值，包裝成「目標價」容易讓人誤以為有權威來源背書。
   // 改成「近5日法人（外資+投信）合計買超加權平均成本」——有真實籌碼資料支撐，
   // 只陳述法人買在哪個價位這個事實，不做未來價格預測。
-  const instCost5d = calcInst5DayCost(fS, tS, closes);
+  const instCost5d = calcInst5DayCost();
   document.getElementById('aiTarget').textContent = instCost5d.reliable
     ? '$ ' + instCost5d.cost.toFixed(1)
     : '近5日無買超';
