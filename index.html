@@ -33447,6 +33447,7 @@ const STOCK_DB = {
   '3081': { name:'聯亞',        industry:'化合物半導體' },
   '2449': { name:'京元電子',    industry:'測試' },
   '6510': { name:'精測',        industry:'測試座' },
+  '2451': { name:'創見',        industry:'記憶體模組' },
   // ── 電子代工/組裝 ──
   '2317': { name:'鴻海',        industry:'電子代工' },
   '2382': { name:'廣達',        industry:'電腦硬體' },
@@ -59560,11 +59561,15 @@ function wallisBatchRenderList() {
     box.innerHTML = '<div style="font-size:.62rem;color:var(--fg3);">追蹤清單是空的，先去把想掃描的股票加入追蹤清單。</div>';
     return;
   }
-  box.innerHTML = list.map(w => `
-    <label style="display:flex;align-items:center;gap:6px;font-size:.66rem;color:var(--fg2);cursor:pointer;padding:2px 0;">
+  // v7.60：追蹤清單存的 name 有時是空的（沒填就加進清單），
+  // 這裡補一層 STOCK_DB 查表 fallback，讓名字能顯示出來就不要只顯示代號
+  box.innerHTML = list.map(w => {
+    const dispName = (w.name && w.name !== w.id) ? w.name : (STOCK_DB[w.id]?.name || w.id);
+    return `<label style="display:flex;align-items:center;gap:6px;font-size:.66rem;color:var(--fg2);cursor:pointer;padding:2px 0;">
       <input type="checkbox" class="wallis-batch-cb" value="${w.id}" />
-      <span style="font-weight:700;">${w.name || w.id}</span><span style="color:var(--fg3);">${w.id}</span>
-    </label>`).join('');
+      <span style="font-weight:700;">${dispName}</span><span style="color:var(--fg3);">${w.id}</span>
+    </label>`;
+  }).join('');
 }
 
 function wallisBatchToggleAll(checked) {
@@ -59578,7 +59583,10 @@ async function wallisBatchRun() {
   const btn = document.getElementById('wallisBatchRunBtn');
   const statusEl = document.getElementById('wallisBatchStatus');
   const list = loadWatchlist();
-  const nameOf = id => (list.find(w => w.id === id)?.name) || id;
+  const nameOf = id => {
+    const w = list.find(x => x.id === id);
+    return (w?.name && w.name !== id) ? w.name : (STOCK_DB[id]?.name || id);
+  };
 
   btn.disabled = true;
   btn.textContent = '⏳ 掃描中…';
