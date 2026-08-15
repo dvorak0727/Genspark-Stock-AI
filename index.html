@@ -52661,9 +52661,33 @@ let _screenerIndustry  = '';         // 板塊篩選（空=全部）
 //  v7.60 動態市值前50大——用證交所OpenAPI真實資料算，不用猜的
 //  發行股數（t187ap03_L，上市公司基本資料）× 收盤價（STOCK_DAY_ALL）= 市值，排序取前50
 //  兩支API都免費、不需要token；FinMind的TaiwanStockMarketValue是付費層級抓不到，
-//  這裡改用證交所官方資料自己算，親測可行。
+//  這裡改用證交所官方資料自己算。
+//  ⚠️ v7.60 修正：openapi.twse.com.tw 沒有回傳CORS header，瀏覽器直接fetch會被擋
+//  （用curl/Node測試不會擋，因為CORS只在瀏覽器裡生效，這就是本機驗證過但上線失敗的原因）。
+//  改用系統既有的CORS proxy機制（跟美股新聞/個股新聞同一套 allorigins.win + 備援清單）。
 // ══════════════════════════════════════════════════════════════
 const DYNAMIC50_CACHE_KEY = 'tsai_dynamic_top50_v1';
+
+// 依序嘗試多個proxy，第一個失敗換下一個，避免單一proxy掛掉就整個功能報廢
+async function _twseCorsFetch(url, ms = 12000) {
+  const proxies = [
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  ];
+  for (const mkP of proxies) {
+    try {
+      const r = await fetch(mkP(url), { signal: AbortSignal.timeout(ms) });
+      if (!r.ok) continue;
+      const raw = await r.text();
+      let content = raw;
+      try { const j = JSON.parse(raw); if (j?.contents) content = j.contents; } catch (_) {}
+      return JSON.parse(content);
+    } catch (e) {
+      console.warn('[動態市值前50] proxy失敗，換下一個', e?.message || e);
+    }
+  }
+  throw new Error('所有CORS proxy都連不上，證交所資料抓不到');
+}
 
 async function fetchDynamicTop50Ids() {
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -52678,8 +52702,8 @@ async function fetchDynamicTop50Ids() {
   if (typeof showEpicToast === 'function') showEpicToast('🔄 正在計算市值排名（今日第一次跑，較慢）…', '#7c3aed');
 
   const [basicRaw, priceRaw] = await Promise.all([
-    fetch('https://openapi.twse.com.tw/v1/opendata/t187ap03_L').then(r => r.json()),
-    fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL').then(r => r.json()),
+    _twseCorsFetch('https://openapi.twse.com.tw/v1/opendata/t187ap03_L'),
+    _twseCorsFetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL'),
   ]);
 
   const priceMap = {};
@@ -52725,7 +52749,9 @@ async function startScreener() {
   if (!pool) { console.error('screener: unknown pool', poolKey); return; }
 
   // v7.60：dynamic50 要先即時算出市值前50，算不出來就老實告知並退回固定清單，不能悄悄用空清單跑
+  // 同時記錄是否真的用了動態清單，結果標題才不會明明退回固定清單、卻還顯示「即時計算」
   let ids = pool.ids;
+  window._screenerDynamicFallback = false;
   if (poolKey === 'dynamic50') {
     try {
       ids = await fetchDynamicTop50Ids();
@@ -52733,6 +52759,7 @@ async function startScreener() {
       console.error('[海選] 動態市值清單計算失敗', e);
       if (typeof showEpicToast === 'function') showEpicToast('⚠️ 市值排名計算失敗，改用精選50檔固定清單', '#dc2626');
       ids = SCREENER_POOLS.all50.ids;
+      window._screenerDynamicFallback = true;
     }
   }
 
@@ -58631,7 +58658,11 @@ function renderScreenerCards(showStats=false) {
 
   const poolKey2  = document.getElementById('screenerPool')?.value || 'core20';
   const modeKey2  = document.getElementById('screenerMode')?.value || 'bottom';
-  const poolName  = SCREENER_POOLS[poolKey2]?.label || '';
+  // v7.60：動態市值清單算失敗時已經退回固定清單跑掃描，標題要照實講，
+  // 不能還顯示「即時計算」誤導使用者以為看到的是真的市值排名結果
+  const poolName  = window._screenerDynamicFallback
+    ? `${SCREENER_POOLS.all50.label}（市值排名計算失敗，已改用固定清單）`
+    : (SCREENER_POOLS[poolKey2]?.label || '');
   const modeMeta  = SCREENER_MODE_META[modeKey2] || SCREENER_MODE_META.bottom;
   // 標題加上篩選後/總數提示
   const filterSuffix = (filteredCount < totalCount)
