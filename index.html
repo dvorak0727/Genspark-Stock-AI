@@ -61042,6 +61042,12 @@ function fmtMoney(v) {
 // ============================================================
 function renderWatchlist() {
   let list = loadWatchlist();
+  // v7.60：追蹤清單存的name有時是空的或等於代號本身（當初用代號直接加入時沒補到名字），
+  // 這裡統一用STOCK_DB查表補上，畫面才不會顯示「2451 2451」這種代號充當股名的情況
+  list = list.map(w => ({
+    ...w,
+    name: (w.name && w.name !== w.id) ? w.name : (STOCK_DB[w.id]?.name || w.name || w.id),
+  }));
   const keyword = (document.getElementById('wlSearch')?.value || '').toLowerCase();
 
   // 篩選：關鍵字
@@ -61487,7 +61493,11 @@ function wlOpenAlertForStock(id) {
 
 // 渲染警示面板（所有追蹤股票各自的條件列表）
 function renderAlertPanel() {
-  const list   = loadWatchlist();
+  // v7.60：同 renderWatchlist()，補上 STOCK_DB 名稱 fallback
+  const list = loadWatchlist().map(w => ({
+    ...w,
+    name: (w.name && w.name !== w.id) ? w.name : (STOCK_DB[w.id]?.name || w.name || w.id),
+  }));
   const alerts = loadAlerts();
   const el = document.getElementById('wlAlertStockList');
   if (!el) return;
