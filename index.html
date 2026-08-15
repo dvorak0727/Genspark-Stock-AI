@@ -25332,12 +25332,19 @@ a.module-nav-item.acc-active {
           <li>當振幅收斂到 1×ATR 附近，等同沃利斯乘積趨近極限值</li>
         </ul>
 
-        <p><strong>三燈判斷邏輯：</strong></p>
+        <p><strong>五燈判斷邏輯（v7.60 更新，跟實際畫面同步）：</strong></p>
+        <p style="font-size:.78rem;color:var(--fg3);margin:0 0 8px;">
+          原本是三燈，後來拆成五個各自獨立的維度——不合併不同意義的東西，
+          才不會出現「兩個好、一個爛，加起來看起來還行」的假訊號。
+        </p>
         <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:.8rem;align-items:start;margin:8px 0;">
-          <span style="color:#7c3aed;font-weight:700;">🟢 燈一</span><span><b>振幅收斂 ≥ 60%</b>：近期各波振幅（ATR正規化後）呈現明顯下降趨勢</span>
-          <span style="color:#0ea5e9;font-weight:700;">🟢 燈二</span><span><b>量能收縮</b>：近5日成交量 / 近20日均量 &lt; 80%，代表換手沉澱</span>
-          <span style="color:#10b981;font-weight:700;">🟢 燈三</span><span><b>法人轉向買超</b>：外資＋投信近5日淨買入 &gt; 前5日，機構資金悄悄回流</span>
+          <span style="color:#7c3aed;font-weight:700;">🟢 燈一 振幅收斂</span><span><b>收斂度 ≥ 60%</b>：近期各波振幅（ATR正規化後）呈現明顯下降趨勢；35~60% 為部分達標，&lt;35% 未達標——對應波動維度</span>
+          <span style="color:#0ea5e9;font-weight:700;">🟢 燈二 法人方向</span><span><b>轉買超</b>：外資＋投信近5日淨買超 &gt; 前5日，機構資金悄悄回流——對應籌碼意圖維度</span>
+          <span style="color:#10b981;font-weight:700;">🟢 燈三 價格位置</span><span><b>站上MA20</b>：現價 ≥ 20日均線，代表價格結構還沒破壞——對應空間結構維度</span>
+          <span style="color:#f59e0b;font-weight:700;">🟢 燈四 大盤環境</span><span><b>大盤近5日偏多</b>：優先用加權指數近5日報酬率，沒有大盤資料時退回用外資近10日整體方向代理——對應系統性風險維度</span>
+          <span style="color:#ec4899;font-weight:700;">🟢 燈五 籌碼連縮</span><span><b>量能連續收縮≥3日，或近5日均量/近20日均量&lt;0.75</b>：換手沉澱、浮額出清——對應時間累積維度</span>
         </div>
+        <p style="font-size:.75rem;color:var(--fg3);">五燈全綠＝洗盤尾聲；3~4燈綠＝收斂中；0~2燈綠＝洗盤進行中。每盞燈各自獨立判斷，缺哪一項，畫面會直接列出來，不會用一個模糊的總分蓋過去。</p>
 
         <p><strong>為什麼不直接看 KD / MACD 就好？</strong></p>
         <p>傳統指標是「快照」——只看當下；沃利斯偵測器是「序列分析」——看<em>一連串波動的趨勢</em>是否在收斂。前者告訴你「現在超賣」，後者告訴你「洗盤快結束了」。兩者互補，不互斥。</p>
@@ -25348,7 +25355,7 @@ a.module-nav-item.acc-active {
           <div style="padding:8px;background:var(--bg2);border-radius:6px;"><div style="font-weight:700;color:var(--fg);">中型股</div><div style="color:var(--fg3);">每波約 7–15 天</div></div>
           <div style="padding:8px;background:var(--bg2);border-radius:6px;"><div style="font-weight:700;color:var(--fg);">大型股</div><div style="color:var(--fg3);">每波約 15–25 天</div></div>
         </div>
-        <p style="font-size:.75rem;color:var(--fg3);">⚠️ 地緣政治不確定性高（如川普關稅期間）會壓縮波長，使大型股也出現類似小型股的短波洗盤。觀察三燈是否全亮比預測天數更可靠。</p>
+        <p style="font-size:.75rem;color:var(--fg3);">⚠️ 地緣政治不確定性高（如川普關稅期間）會壓縮波長，使大型股也出現類似小型股的短波洗盤。觀察五燈是否全亮比預測天數更可靠。</p>
       </div>
     </div>
 
