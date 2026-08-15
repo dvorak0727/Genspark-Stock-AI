@@ -19363,6 +19363,9 @@ a.module-nav-item.acc-active {
             ⚠️ 會依序（不是同時）抓每檔股票的資料，避免打太快被API限流，數量多的話請耐心等待，
             過程中不要切換到別的股票，否則批次會被中斷。
           </div>
+          <!-- v7.60：批次掃描排行榜，掃完自動顯示，跑一次就沒了（不快取），
+               要看歷史比較請去下面「記錄」查已存的資料 -->
+          <div id="wallisRankBoard" style="display:none;"></div>
         </div>
 
         <!-- 歷史記錄表格（預設隱藏） -->
@@ -59719,6 +59722,7 @@ async function wallisBatchRun() {
   const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
   const log = wallisGetLog();
+  const rankResults = []; // v7.60：批次掃描結果另存一份，用來畫排行榜（不只存記錄，也要能一眼比較誰最接近啟動）
   let okCount = 0, skipCount = 0;
 
   for (let i = 0; i < checked.length; i++) {
@@ -59736,6 +59740,7 @@ async function wallisBatchRun() {
         l3: core.l3, l3Val: core.l3Val, l4: core.l4, l4Val: core.l4Val, l5: core.l5, l5Val: core.l5Val,
         greenCount, badge: core.badge, verdict: core.verdict, nextDayPct: '',
       });
+      rankResults.push({ stockId, stockName: nameOf(stockId), greenCount, ...core });
       okCount++;
     } catch (e) {
       skipCount++;
@@ -59749,9 +59754,37 @@ async function wallisBatchRun() {
   wallisRenderLog();
   document.getElementById('wallisLogPanel').style.display = 'block';
 
+  // 依「幾燈亮」優先、同燈數再比收斂分數，最接近啟動的排最前面
+  rankResults.sort((a, b) => b.greenCount - a.greenCount || b.wallisScore - a.wallisScore);
+  wallisRenderRankBoard(rankResults);
+
   btn.disabled = false;
   btn.textContent = '🚀 開始批次掃描並存入記錄';
   statusEl.textContent = `✅ 完成：成功 ${okCount} 檔${skipCount ? `，跳過 ${skipCount} 檔（資料不足或抓取失敗）` : ''}`;
+}
+
+// v7.60：批次掃描排行榜——把這次掃描的股票依「幾燈亮」排序，一眼看出誰最接近啟動
+function wallisRenderRankBoard(results) {
+  const board = document.getElementById('wallisRankBoard');
+  if (!board) return;
+  if (!results.length) { board.style.display = 'none'; return; }
+  board.style.display = 'block';
+
+  const lightDot = icon => `<span style="font-size:.8rem;">${icon}</span>`;
+  board.innerHTML = `
+    <div style="font-size:.65rem;font-weight:800;color:var(--fg);margin:10px 0 6px;">🏆 本次掃描排行（依幾燈亮排序，越前面越接近啟動）</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${results.map((r, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);${i===0 && r.greenCount===5 ? 'border-color:#10b981;box-shadow:0 0 0 1px #10b981;' : ''}">
+          <div style="font-size:.7rem;color:var(--fg3);width:20px;text-align:center;">${i+1}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:.72rem;">${r.stockName}<span style="color:var(--fg3);font-weight:400;margin-left:4px;">${r.stockId}</span></div>
+            <div style="font-size:.6rem;color:var(--fg3);">${r.badge}　收斂度 ${r.wallisScore}%</div>
+          </div>
+          <div style="display:flex;gap:2px;">${lightDot(r.l1)}${lightDot(r.l2)}${lightDot(r.l3)}${lightDot(r.l4)}${lightDot(r.l5)}</div>
+          <div style="font-size:.85rem;font-weight:900;color:${r.greenCount===5?'#10b981':r.greenCount>=3?'#ca8a04':'var(--fg3)'};width:34px;text-align:right;">${r.greenCount}/5</div>
+        </div>`).join('')}
+    </div>`;
 }
 
 function wallisRenderLog() {
