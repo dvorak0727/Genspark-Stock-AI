@@ -128,6 +128,34 @@ export default {
       }
     }
 
+    // GET /twse-openapi?path=/v1/opendata/t187ap03_L
+    //   → 代理 openapi.twse.com.tw（解決瀏覽器 CORS 限制，openapi.twse.com.tw 不回 CORS header）
+    //   白名單限制路徑，避免變成任意開放代理；目前給「動態市值前50大」用：
+    //     /v1/opendata/t187ap03_L        上市公司基本資料（含發行股數，變動很少，可長快取）
+    //     /v1/exchangeReport/STOCK_DAY_ALL  上市個股日成交資訊（每日收盤價，短快取）
+    if (url.pathname === "/twse-openapi") {
+      const TWSE_PATH_TTL = {
+        "/v1/opendata/t187ap03_L": 21600,           // 6小時，發行股數不會天天變
+        "/v1/exchangeReport/STOCK_DAY_ALL": 900,     // 15分鐘，收盤價要跟得上當天
+      };
+      const path = url.searchParams.get("path") || "";
+      if (!(path in TWSE_PATH_TTL)) {
+        return json({ error: "path_not_allowed", msg: "此路徑不在白名單內" }, 400);
+      }
+      try {
+        const res = await fetch(`https://openapi.twse.com.tw${path}`, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+          cf: { cacheTtl: TWSE_PATH_TTL[path], cacheEverything: true },
+        });
+        const data = await res.json();
+        return new Response(JSON.stringify(data), {
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return json({ error: "twse_openapi_fetch_failed", message: e.message }, 502);
+      }
+    }
+
     return json({ error: "not_found" }, 404);
   },
 };
