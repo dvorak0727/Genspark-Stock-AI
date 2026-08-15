@@ -15894,7 +15894,8 @@ a.module-nav-item.acc-active {
           <option value="leo">🛰️ SpaceX/LEO衛星供應鏈</option>
           <option value="arglasses">🕶️ AI智慧眼鏡族群</option>
           <option value="quantum">⚛️ 量子電腦族群</option>
-          <option value="all50">全市場50檔</option>
+          <option value="all50">精選50檔權值股（固定清單）</option>
+          <option value="dynamic50">🔄 市值前50大（即時計算）</option>
         </select>
         <div class="screener-mode-divider">▸</div>
         <select class="screener-mode-select" id="screenerMode" onchange="onScreenerModeChange()">
@@ -16147,7 +16148,8 @@ a.module-nav-item.acc-active {
           <option value="ai">AI相關族群</option>
           <option value="finance">金融族群</option>
           <option value="ship">航運族群</option>
-          <option value="all50">全市場50檔</option>
+          <option value="all50">精選50檔權值股（固定清單）</option>
+          <option value="dynamic50">🔄 市值前50大（即時計算）</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -52624,8 +52626,11 @@ const SCREENER_POOLS = {
     //  2412 中華電  — 量子通訊網路基礎設施，後量子密碼佈建
     //  2330 台積電  — 2nm以下先進製程，量子晶片代工最終受益方
   },
+  // v7.60：原本叫「全市場50檔」，但這其實是2026年之前手動列出的固定清單，
+  // 不是即時從全市場篩出來的，名字容易誤導，改叫「精選50檔權值股」講清楚它是什麼。
+  // 真正動態的版本見下面 dynamic50。
   all50: {
-    label: '全市場50檔',
+    label: '精選50檔權值股（固定清單）',
     ids: ['2330','2317','2454','2382','0050','2303','3711','2308',
           '2412','2882','2881','2891','6505','1301','2609','2603',
           '2357','2395','2002','3008','2379','6669','3231','2408',
@@ -52633,6 +52638,12 @@ const SCREENER_POOLS = {
           '2885','2883','2892','5880','1303','1326','2006','2207',
           '2337','2474','2409','3481','2301','2492','2327','2344',
           '1605','0056']
+  },
+  // v7.60：真正動態的市值前50大——ids留空，實際清單由 fetchDynamicTop50Ids()
+  // 即時從證交所OpenAPI（發行股數 × 收盤價）算出來，每次呼叫看 startScreener() 怎麼處理 poolKey
+  dynamic50: {
+    label: '市值前50大（即時計算）',
+    ids: []
   }
 };
 
@@ -52646,6 +52657,62 @@ let _reelSelected    = new Set(); // 輪播圖選取的股票 ID
 let _screenerMinScore  = 0;          // 分數門檻（0=全部）
 let _screenerIndustry  = '';         // 板塊篩選（空=全部）
 
+// ══════════════════════════════════════════════════════════════
+//  v7.60 動態市值前50大——用證交所OpenAPI真實資料算，不用猜的
+//  發行股數（t187ap03_L，上市公司基本資料）× 收盤價（STOCK_DAY_ALL）= 市值，排序取前50
+//  兩支API都免費、不需要token；FinMind的TaiwanStockMarketValue是付費層級抓不到，
+//  這裡改用證交所官方資料自己算，親測可行。
+// ══════════════════════════════════════════════════════════════
+const DYNAMIC50_CACHE_KEY = 'tsai_dynamic_top50_v1';
+
+async function fetchDynamicTop50Ids() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  try {
+    const cached = JSON.parse(localStorage.getItem(DYNAMIC50_CACHE_KEY) || 'null');
+    if (cached && cached.date === todayStr && Array.isArray(cached.ids) && cached.ids.length >= 40) {
+      console.log('[動態市值前50] 使用今日快取', cached.top);
+      return cached.ids;
+    }
+  } catch (e) {}
+
+  if (typeof showEpicToast === 'function') showEpicToast('🔄 正在計算市值排名（今日第一次跑，較慢）…', '#7c3aed');
+
+  const [basicRaw, priceRaw] = await Promise.all([
+    fetch('https://openapi.twse.com.tw/v1/opendata/t187ap03_L').then(r => r.json()),
+    fetch('https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL').then(r => r.json()),
+  ]);
+
+  const priceMap = {};
+  priceRaw.forEach(r => {
+    const p = parseFloat(r.ClosingPrice);
+    if (r.Code && p > 0) priceMap[r.Code] = p;
+  });
+
+  const capList = [];
+  basicRaw.forEach(r => {
+    const code   = r['公司代號'];
+    const shares = parseFloat(r['已發行普通股數或TDR原股發行股數']);
+    const price  = priceMap[code];
+    if (!code || !shares || !price) return; // 抓不到股價或股數的直接跳過，不用0或猜的數字頂替
+    capList.push({ id: code, name: r['公司簡稱'] || code, marketCap: shares * price });
+  });
+
+  if (capList.length < 100) {
+    throw new Error(`證交所資料回傳異常，只算出${capList.length}檔的市值，可能API暫時不穩定`);
+  }
+
+  capList.sort((a, b) => b.marketCap - a.marketCap);
+  const top50 = capList.slice(0, 50);
+  const ids = top50.map(x => x.id);
+
+  localStorage.setItem(DYNAMIC50_CACHE_KEY, JSON.stringify({
+    date: todayStr, ids, computedAt: new Date().toISOString(),
+    top: top50.slice(0, 5).map(x => `${x.name}(${x.id})`),
+  }));
+  console.log('[動態市值前50] 計算完成，前5大：', top50.slice(0, 5));
+  return ids;
+}
+
 // ── 啟動海選 ──
 async function startScreener() {
   if (_screenerRunning) {
@@ -52656,7 +52723,19 @@ async function startScreener() {
   const poolKey  = document.getElementById('screenerPool').value;
   const pool     = SCREENER_POOLS[poolKey];
   if (!pool) { console.error('screener: unknown pool', poolKey); return; }
-  const ids      = pool.ids;
+
+  // v7.60：dynamic50 要先即時算出市值前50，算不出來就老實告知並退回固定清單，不能悄悄用空清單跑
+  let ids = pool.ids;
+  if (poolKey === 'dynamic50') {
+    try {
+      ids = await fetchDynamicTop50Ids();
+    } catch (e) {
+      console.error('[海選] 動態市值清單計算失敗', e);
+      if (typeof showEpicToast === 'function') showEpicToast('⚠️ 市值排名計算失敗，改用精選50檔固定清單', '#dc2626');
+      ids = SCREENER_POOLS.all50.ids;
+    }
+  }
+
   const modeKey  = document.getElementById('screenerMode')?.value || 'bottom';
 
   _screenerRunning = true;
