@@ -19331,6 +19331,36 @@ a.module-nav-item.acc-active {
             id="wallisLogToggleBtn">
             📋 記錄 <span id="wallisLogCount" style="color:#7c3aed;">0</span>
           </button>
+          <button onclick="wallisBatchToggle()" title="不用一檔一檔跑，勾選清單一次掃完"
+            style="font-size:.68rem;font-weight:700;padding:6px 10px;border-radius:8px;
+            background:rgba(234,179,8,.12);color:#ca8a04;border:1.5px solid rgba(234,179,8,.4);cursor:pointer;">
+            📡 批次掃描
+          </button>
+        </div>
+
+        <!-- v7.60 批次掃描面板（預設隱藏）：勾選追蹤清單裡的股票，
+             一次把每檔的五燈都跑完存進研究記錄，不用一檔一檔切換再手動存 -->
+        <div id="wallisBatchPanel" style="display:none;margin-top:10px;padding:10px 12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <span style="font-size:.65rem;font-weight:800;color:var(--fg);">📡 批次掃描（來源：追蹤清單）</span>
+            <label style="font-size:.62rem;color:var(--fg2);display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="checkbox" id="wallisBatchSelectAll" onchange="wallisBatchToggleAll(this.checked)" />
+              全選
+            </label>
+          </div>
+          <div id="wallisBatchList" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;margin-bottom:8px;">
+            <div style="font-size:.62rem;color:var(--fg3);">載入中…</div>
+          </div>
+          <button onclick="wallisBatchRun()" id="wallisBatchRunBtn"
+            style="width:100%;font-size:.68rem;font-weight:700;padding:7px 12px;border-radius:8px;
+            background:rgba(234,179,8,.18);color:#ca8a04;border:1.5px solid rgba(234,179,8,.5);cursor:pointer;">
+            🚀 開始批次掃描並存入記錄
+          </button>
+          <div id="wallisBatchStatus" style="font-size:.6rem;color:var(--fg3);margin-top:6px;text-align:center;"></div>
+          <div style="font-size:.56rem;color:var(--fg3);margin-top:6px;line-height:1.6;">
+            ⚠️ 會依序（不是同時）抓每檔股票的資料，避免打太快被API限流，數量多的話請耐心等待，
+            過程中不要切換到別的股票，否則批次會被中斷。
+          </div>
         </div>
 
         <!-- 歷史記錄表格（預設隱藏） -->
@@ -51946,6 +51976,133 @@ function renderWashDetect(closes, opens, highs, lows, vols, dates,
 }
 
 // ══════════════════════════════════════════════════════════════
+//  v7.60 沃利斯五燈 — 純運算版（供批次掃描使用）
+//  跟上面 wallisDetect() 裡的公式是同一套邏輯，只是抽出來、不寫DOM，
+//  這樣批次掃描很多檔股票時，才不用真的把每檔股票都渲染到畫面上再讀DOM。
+//  ⚠️ 維護提醒：這裡的 Step1~8 公式是照 wallisDetect() 手動複製一份，
+//  以後如果調整五燈判斷規則，這兩個地方要一起改，否則單股跟批次結果會兜不起來。
+// ══════════════════════════════════════════════════════════════
+function computeWallisCore(closes, vols, highs, lows, fSeries, tSeries) {
+  const N = Math.min(60, closes.length);
+  const C = closes.slice(-N), V = vols.slice(-N), H = highs.slice(-N), L = lows.slice(-N);
+  if (C.length < 10) return null; // 資料太少，不夠算
+
+  const atrArr = [];
+  for (let i = 1; i < C.length; i++) {
+    atrArr.push(Math.max(H[i]-L[i], Math.abs(H[i]-C[i-1]), Math.abs(L[i]-C[i-1])));
+  }
+  const atr14 = atrArr.slice(-14).reduce((s,v)=>s+v,0) / Math.min(14, atrArr.length) || 1;
+  const atrPct = atr14 / (C.at(-1)||1) * 100;
+
+  const peaks = [], troughs = [];
+  for (let i = 5; i < C.length - 5; i++) {
+    const hi = Math.max(...C.slice(i-5, i+6)), lo = Math.min(...C.slice(i-5, i+6));
+    if (C[i] === hi && C[i] > C[i-1] && C[i] > C[i+1]) peaks.push({ i, v: C[i] });
+    if (C[i] === lo && C[i] < C[i-1] && C[i] < C[i+1]) troughs.push({ i, v: C[i] });
+  }
+
+  const waves = [];
+  const minAmpPct = Math.max(1.5, atrPct * 1.2);
+  for (const p of peaks) {
+    const nextT = troughs.find(t => t.i > p.i);
+    if (!nextT) continue;
+    const rawAmp = (p.v - nextT.v) / p.v * 100;
+    if (rawAmp < minAmpPct) continue;
+    waves.push({ amp: +rawAmp.toFixed(2), norm: +(rawAmp / atrPct).toFixed(2) });
+  }
+
+  let slope = 0;
+  if (waves.length >= 3) {
+    const xs = waves.map((_, i) => i), ys = waves.map(w => w.norm);
+    const xMean = xs.reduce((s,v)=>s+v,0)/xs.length, yMean = ys.reduce((s,v)=>s+v,0)/ys.length;
+    const num = xs.reduce((s,x,i)=>s+(x-xMean)*(ys[i]-yMean),0);
+    const den = xs.reduce((s,x)=>s+(x-xMean)**2,0)||1;
+    slope = num/den;
+  }
+  let convergePairs = 0, totalPairs = 0;
+  for (let i = 1; i < waves.length; i++) { totalPairs++; if (waves[i].norm < waves[i-1].norm) convergePairs++; }
+  const pairRatio = totalPairs > 0 ? convergePairs / totalPairs : 0;
+  const slopeBonus = slope < 0 ? Math.min(0.25, Math.abs(slope) * 5) : 0;
+  const last3 = waves.slice(-3);
+  const last3ok = last3.length >= 2 && last3.every((w,i) => i===0 || w.norm < last3[i-1].norm);
+  const lastBonus = last3ok ? 0.2 : 0;
+  const wallisScore = Math.min(100, Math.round((pairRatio * 0.55 + slopeBonus + lastBonus) * 100));
+
+  const instR5  = (fSeries.slice(-5).reduce((s,v)=>s+v,0) + tSeries.slice(-5).reduce((s,v)=>s+v,0));
+  const instR10 = (fSeries.slice(-10,-5).reduce((s,v)=>s+v,0) + tSeries.slice(-10,-5).reduce((s,v)=>s+v,0));
+  const instTurning = instR5 > instR10;
+
+  const ma20 = C.slice(-20).reduce((s,v)=>s+v,0) / Math.min(20, C.length) || 1;
+  const priceAboveMa20 = C.at(-1) >= ma20;
+  const pricePosPct = ((C.at(-1) - ma20) / ma20 * 100);
+
+  let marketOk = false, marketVal = '無資料';
+  if (window._twiiSeries && window._twiiSeries.length >= 6) {
+    const tw = window._twiiSeries;
+    const twRet5 = (tw.at(-1) - tw.at(-6)) / tw.at(-6) * 100;
+    marketOk = twRet5 > 0;
+    marketVal = (twRet5 >= 0 ? '+' : '') + twRet5.toFixed(1) + '%';
+  } else {
+    const fTotal10 = fSeries.slice(-10).reduce((s,v)=>s+v,0);
+    marketOk = fTotal10 > 0;
+    marketVal = fTotal10 > 0 ? '外資買超' : '外資賣超';
+  }
+
+  let volShrinkStreak = 0;
+  for (let i = V.length - 1; i >= 1; i--) { if (V[i] < V[i-1]) volShrinkStreak++; else break; }
+  const vol5  = V.slice(-5).reduce((s,v)=>s+v,0)/5 || 1;
+  const vol20 = V.slice(-20).reduce((s,v)=>s+v,0)/20 || 1;
+  const volRatio = vol5 / vol20;
+
+  const l1ok = wallisScore >= 60, l2ok = instTurning, l3ok = priceAboveMa20, l4ok = marketOk;
+  const l5ok = volShrinkStreak >= 3 || volRatio < 0.75;
+  const litCount = [l1ok, l2ok, l3ok, l4ok, l5ok].filter(Boolean).length;
+
+  return {
+    wallisScore, litCount,
+    l1: l1ok ? '🟢' : wallisScore >= 35 ? '🟡' : '🔴', l1Val: wallisScore + '%',
+    l2: l2ok ? '🟢' : instR5 > -500 ? '🟡' : '🔴', l2Val: instTurning ? '轉買超' : '仍賣超',
+    l3: l3ok ? '🟢' : pricePosPct > -2 ? '🟡' : '🔴', l3Val: (pricePosPct>=0?'+':'') + pricePosPct.toFixed(1) + '%均線',
+    l4: l4ok ? '🟢' : '🔴', l4Val: marketVal,
+    l5: l5ok ? '🟢' : volShrinkStreak >= 1 ? '🟡' : '🔴', l5Val: volShrinkStreak + '日連縮',
+    badge: litCount === 5 ? '🚀 洗盤尾聲' : litCount >= 3 ? '⚡ 收斂中' : '🌊 洗盤進行',
+    verdict: litCount === 5 ? '五燈全亮，洗盤尾聲，留意量增長紅K啟動訊號'
+           : litCount >= 3  ? `收斂進行中（${litCount}/5燈），耐心等五燈全綠`
+                             : `洗盤進行中（${litCount}/5燈），持續觀察勿追漲殺跌`,
+  };
+}
+
+// v7.60：批次掃描用——抓某檔股票近90天資料，重建 instMap/closes/fSeries/tSeries，
+// 跟 startAnalysis() 用同一套 fetchFM，但不動畫面、不影響目前正在看的股票
+async function wallisFetchAndCompute(stockId) {
+  const end = new Date(); const start = new Date(); start.setDate(end.getDate() - 90);
+  const [r1, r2] = await Promise.allSettled([
+    fetchFM('TaiwanStockInstitutionalInvestorsBuySell', stockId, start, end),
+    fetchFM('TaiwanStockPrice', stockId, start, end),
+  ]);
+  const instData  = r1.status === 'fulfilled' ? (r1.value || []) : [];
+  const priceData = r2.status === 'fulfilled' ? (r2.value || []) : [];
+  if (priceData.length < 10) return null; // 資料不足，老實跳過，不編數字
+
+  const sorted = [...priceData].sort((a,b)=>a.date.localeCompare(b.date));
+  const closes = sorted.map(d => +d.close), highs = sorted.map(d => +d.max);
+  const lows   = sorted.map(d => +d.min),   vols  = sorted.map(d => +d.Trading_Volume);
+  const dates  = sorted.map(d => d.date);
+
+  const instMap = {};
+  instData.forEach(r => {
+    if (!instMap[r.date]) instMap[r.date] = {};
+    instMap[r.date][r.name] = { net: (+r.buy||0) - (+r.sell||0) };
+  });
+  const instDays = Object.keys(instMap).sort().filter(d => d <= dates.at(-1)).slice(-10);
+  const fSeries = instDays.map(d => (instMap[d]?.Foreign_Investor?.net || 0) / 1000);
+  const tSeries = instDays.map(d => (instMap[d]?.Investment_Trust?.net  || 0) / 1000);
+
+  const core = computeWallisCore(closes, vols, highs, lows, fSeries, tSeries);
+  return core;
+}
+
+// ══════════════════════════════════════════════════════════════
 //  📋 v7.37 條件式掛單規劃模組
 // ══════════════════════════════════════════════════════════════
 function _renderWashOrderSection(p) {
@@ -59381,6 +59538,90 @@ function wallisSnapshot() {
   const orig = btn.innerHTML;
   btn.innerHTML = '✅ 已記錄！'; btn.style.color = '#10b981';
   setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; }, 1400);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  v7.60 沃利斯批次掃描——勾選追蹤清單裡的股票，一次跑完五燈並存入記錄，
+//  不用一檔一檔切換再手動按「存入研究記錄」
+// ══════════════════════════════════════════════════════════════
+function wallisBatchToggle() {
+  const panel = document.getElementById('wallisBatchPanel');
+  if (!panel) return;
+  const willShow = panel.style.display === 'none';
+  panel.style.display = willShow ? 'block' : 'none';
+  if (willShow) wallisBatchRenderList();
+}
+
+function wallisBatchRenderList() {
+  const box = document.getElementById('wallisBatchList');
+  if (!box) return;
+  const list = loadWatchlist();
+  if (!list.length) {
+    box.innerHTML = '<div style="font-size:.62rem;color:var(--fg3);">追蹤清單是空的，先去把想掃描的股票加入追蹤清單。</div>';
+    return;
+  }
+  box.innerHTML = list.map(w => `
+    <label style="display:flex;align-items:center;gap:6px;font-size:.66rem;color:var(--fg2);cursor:pointer;padding:2px 0;">
+      <input type="checkbox" class="wallis-batch-cb" value="${w.id}" />
+      <span style="font-weight:700;">${w.name || w.id}</span><span style="color:var(--fg3);">${w.id}</span>
+    </label>`).join('');
+}
+
+function wallisBatchToggleAll(checked) {
+  document.querySelectorAll('.wallis-batch-cb').forEach(cb => { cb.checked = checked; });
+}
+
+async function wallisBatchRun() {
+  const checked = [...document.querySelectorAll('.wallis-batch-cb:checked')].map(cb => cb.value);
+  if (!checked.length) { alert('請至少勾選一檔股票'); return; }
+
+  const btn = document.getElementById('wallisBatchRunBtn');
+  const statusEl = document.getElementById('wallisBatchStatus');
+  const list = loadWatchlist();
+  const nameOf = id => (list.find(w => w.id === id)?.name) || id;
+
+  btn.disabled = true;
+  btn.textContent = '⏳ 掃描中…';
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  const log = wallisGetLog();
+  let okCount = 0, skipCount = 0;
+
+  for (let i = 0; i < checked.length; i++) {
+    const stockId = checked[i];
+    statusEl.textContent = `(${i+1}/${checked.length}) 正在算 ${nameOf(stockId)} ${stockId}…`;
+    try {
+      const core = await wallisFetchAndCompute(stockId);
+      if (!core) { skipCount++; statusEl.textContent = `⚠️ ${stockId} 資料不足，跳過`; continue; }
+      const greenCount = [core.l1, core.l2, core.l3, core.l4, core.l5].filter(i => i === '🟢').length;
+      log.unshift({
+        id: Date.now() + i, // 避免同一批次時間戳撞號
+        date: dateStr, time: timeStr,
+        stockId, stockName: nameOf(stockId), score: core.wallisScore + '%',
+        l1: core.l1, l1Val: core.l1Val, l2: core.l2, l2Val: core.l2Val,
+        l3: core.l3, l3Val: core.l3Val, l4: core.l4, l4Val: core.l4Val, l5: core.l5, l5Val: core.l5Val,
+        greenCount, badge: core.badge, verdict: core.verdict, nextDayPct: '',
+      });
+      okCount++;
+    } catch (e) {
+      skipCount++;
+      console.warn(`[沃利斯批次] ${stockId} 失敗：`, e.message);
+    }
+    // 每檔之間停頓一下，避免打太快被API限流
+    if (i < checked.length - 1) await sleep(400);
+  }
+
+  wallisSaveLog(log);
+  wallisRenderLog();
+  document.getElementById('wallisLogPanel').style.display = 'block';
+
+  btn.disabled = false;
+  btn.textContent = '🚀 開始批次掃描並存入記錄';
+  statusEl.textContent = `✅ 完成：成功 ${okCount} 檔${skipCount ? `，跳過 ${skipCount} 檔（資料不足或抓取失敗）` : ''}`;
 }
 
 function wallisRenderLog() {
