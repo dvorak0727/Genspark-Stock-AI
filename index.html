@@ -16858,6 +16858,7 @@ a.module-nav-item.acc-active {
             <span data-tip="獲利品質檢查" style="cursor:pointer;font-size:.7rem;color:#059669;font-weight:700;">?</span>
           </div>
           <div style="font-size:.62rem;color:var(--fg3);">EPS vs 營業現金流 — 帳上賺的錢，是不是真的收到現金</div>
+          <div id="pqTechTag" style="display:none;margin-top:4px;font-size:.62rem;font-weight:700;color:#7c3aed;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);border-radius:12px;padding:2px 9px;width:fit-content;cursor:help;"></div>
         </div>
         <div id="pqBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</div>
       </div>
@@ -63526,11 +63527,64 @@ function pqToggleRaw(type) {
   area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+// v7.60：核心技術標籤——只標「市值前50大」裡真的有代表性先進技術/製程的公司，
+// 金控/銀行/電信/食品/海運這類本來就不是技術公司，故意不標，不硬掰。
+// 內容來源：這些都是台股長期公開報導、市場公認的公司定位（非冷門公司臆測），
+// 屬於一般產業知識整理，不是即時查證的個股研究報告，若用於投資決策建議自行核對最新狀況。
+const STOCK_TECH_TAGS = {
+  '2330': '2nm先進製程／CoWoS先進封裝',
+  '2454': '旗艦手機SoC／衛星通訊晶片設計',
+  '3711': 'SiP系統級封裝／先進測試（含CoWoS封測協作）',
+  '2303': '成熟製程晶圓代工／特殊製程IC',
+  '2344': '低功耗記憶體IC設計',
+  '2408': 'DRAM記憶體模組製造',
+  '3037': 'ABF載板／IC載板高階製程',
+  '8046': 'ABF載板（先進封裝關鍵材料）',
+  '3189': 'IC載板',
+  '3017': 'AI伺服器液冷散熱模組',
+  '3653': '散熱模組／導線架精密製造',
+  '2308': '電源管理／散熱模組（AI伺服器供應鏈）',
+  '2382': 'AI伺服器／雲端伺服器ODM代工',
+  '6669': '高階雲端伺服器代工（北美CSP大客戶）',
+  '3231': '伺服器代工（AI伺服器版圖擴張中）',
+  '2317': '電子代工／AI伺服器機殼與系統整合',
+  '2345': '網路設備／交換器（資料中心網通）',
+  '3008': '手機光學鏡頭／車用鏡頭精密製造',
+  '3443': 'ASIC/SoC設計服務（客製化晶片，含CoWoS客戶）',
+  '3665': '高速傳輸連接器／線材（AI伺服器互連）',
+  '4958': 'PCB／軟板（蘋果供應鏈）',
+  '2383': '高頻高速CCL（伺服器/AI板材關鍵材料）',
+  '2357': '筆電/AI PC品牌與代工',
+  '2327': '被動元件（MLCC電容）',
+  '3481': '面板製造（含車用/利基型面板）',
+  '2395': '工業電腦（自動化/邊緣運算）',
+  '2059': '精密減速機構件（伺服器機構）',
+  '2301': 'LED/光電模組與電子零組件',
+  '6446': '創新生物製劑（罕見血液疾病新藥）',
+  '6949': '生技醫材（新創階段）',
+  '2360': '精密測試量測儀器',
+  '2368': 'PCB印刷電路板',
+  '7769': '半導體封測設備',
+};
+
 async function renderProfitQuality(stockId) {
   const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
   const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
   const badge = document.getElementById('pqBadge');
   const healthy = '#059669', danger = '#dc2626', warn = '#d97706';
+
+  // v7.60：技術標籤顯示（有資料才顯示，金控/電信/食品/海運等本來就沒有標籤，正常不顯示）
+  const techEl = document.getElementById('pqTechTag');
+  if (techEl) {
+    const tag = STOCK_TECH_TAGS[stockId];
+    if (tag) {
+      techEl.textContent = '🔬 ' + tag;
+      techEl.title = '整理自公開產業報導的公司定位，非即時查證，投資決策請自行核對最新狀況';
+      techEl.style.display = 'block';
+    } else {
+      techEl.style.display = 'none';
+    }
+  }
 
   const fmt = d => d.toISOString().split('T')[0];
   const end = new Date();
