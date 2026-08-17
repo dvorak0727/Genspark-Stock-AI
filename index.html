@@ -53053,23 +53053,29 @@ async function startScreener() {
         result._instRaw = instRaw; result._priceRaw = priceRaw;
 
       } else if (modeKey === 'obi') {
-        // 外盤強勢掃描：TaiwanStockMoneyFlow + TaiwanStockPrice 並行（OBI 用 10 秒超時）
+        // 外盤強勢掃描：TaiwanStockMoneyFlow + TaiwanStockPrice + 三大法人 並行（OBI 用 10 秒超時）
+        // v7.60 修正：原本沒抓法人籌碼資料，導致點卡片「法人連買」時一定跳「資料不足」警告
+        // （其實不是FinMind連線壞了，是這個模式從一開始就沒去抓這份資料）。
+        // 現在跟其他掃描模式一樣一併抓，讓法人連買badge跟展開面板顯示真實資料。
         const _obiTimeout = (p) => Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('obiTimeout')),10000))]);
         const mfStart = new Date(); mfStart.setDate(mfStart.getDate() - 10);
-        const [r1, r2] = await Promise.allSettled([
+        const [r1, r2, r3] = await Promise.allSettled([
           _obiTimeout(fetchFM('TaiwanStockMoneyFlow', sid, mfStart, _scrEnd)),
-          _obiTimeout(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd))
+          _obiTimeout(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd)),
+          _obiTimeout(fetchInstFM(sid))
         ]);
         const mfRows   = r1.status === 'fulfilled' ? r1.value : [];
         const priceRaw = r2.status === 'fulfilled' ? r2.value : [];
-        console.log(`[OBI scan] ${sid} mfRows=${mfRows.length} priceRows=${priceRaw.length}`);
+        const instRaw  = r3.status === 'fulfilled' ? r3.value : [];
+        console.log(`[OBI scan] ${sid} mfRows=${mfRows.length} priceRows=${priceRaw.length} instRaw=${instRaw.length}`);
         if (!priceRaw.length) {
           _screenerResults.push({ stockId:sid, score:-1, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _apiMissing:true });
           renderScreenerCards(); processed++; continue;
         }
-        result = calcOBIScanScore(sid, mfRows, priceRaw);
+        result = calcOBIScanScore(sid, mfRows, priceRaw, instRaw);
         if (result._skip) { processed++; continue; }
         result._priceRaw = priceRaw;
+        result._instRaw  = instRaw;
 
       } else {
         // 並行取兩支 API：海選用4秒超時（避免每支卡15秒）
@@ -54173,9 +54179,23 @@ function renderBacktestResult(btResults, selectedMode, holdDays, threshold) {
 }
 
 // ── v7.44 外盤強勢掃描評分引擎 ────────────────────────────────────
-function calcOBIScanScore(stockId, mfRows, priceRows) {
+// v7.60：新增 instRaw 參數，計算真實法人連買天數（原本一律回傳fCons:0,tCons:0佔位，
+// 導致卡片點「法人連買」一定顯示資料不足，即使FinMind本身連得到）
+function calcOBIScanScore(stockId, mfRows, priceRows, instRaw) {
   const _skip = { stockId, score:0, obiPct:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _skip:true };
   if (!priceRows.length) return _skip;
+
+  // 法人連買天數（跟其他掃描模式同一套算法：buildInstMap → 近10日 → 從最新往回數連續正值）
+  let fCons = 0, tCons = 0;
+  if (instRaw && instRaw.length) {
+    const instMap  = buildInstMap([...instRaw].sort((a,b)=>a.date.localeCompare(b.date)));
+    const instDays = Object.keys(instMap).sort().slice(-10);
+    const fSeries  = instDays.map(d => (instMap[d]?.Foreign_Investor?.net||0)/1000);
+    const tSeries  = instDays.map(d => (instMap[d]?.Investment_Trust?.net||0)/1000);
+    const revF = [...fSeries].reverse(), revT = [...tSeries].reverse();
+    for (const v of revF) { if (v > 0) fCons++; else break; }
+    for (const v of revT) { if (v > 0) tCons++; else break; }
+  }
 
   // 股價資訊（TaiwanStockPrice）
   const priceSorted = [...priceRows].sort((a,b)=>a.date>b.date?1:-1);
@@ -54237,7 +54257,7 @@ function calcOBIScanScore(stockId, mfRows, priceRows) {
   // 沒對齊導致分數超過分母，卡片顯示「10 /5」這種矛盾數字。改除以20，分數範圍變回0~5，
   // 也才對得上圖例「4分=強烈」「3分=明確」「2分=部分」這套跨模式共用的門檻定義。
   const score = parseFloat((obiPct / 20).toFixed(1));
-  return { stockId, score, obiPct, buyVol, sellVol, checks, lc, chgPct, fCons:0, tCons:0 };
+  return { stockId, score, obiPct, buyVol, sellVol, checks, lc, chgPct, fCons, tCons };
 }
 
 const SCREENER_MODE_META = {
