@@ -16928,13 +16928,28 @@ a.module-nav-item.acc-active {
         <div class="cs-verdict-badge neut" id="csVerdictBadge">分析中…</div>
         <!-- v6.21u OBV 能量潮按鈕 -->
         <button class="cs-obv-btn" id="csOBVBtn" onclick="toggleOBVPanel()">📊 OBV</button>
-        <!-- v7.18 3日意圖長條移至此 header 右側空白區 -->
-        <div class="cs-header-3d" id="csHeader3d">
+        <!-- v7.60 股份金字塔按鈕（千張大戶持股分級，需FinMind Sponsor付費token） -->
+        <button class="cs-obv-btn" id="csPyramidBtn" onclick="toggleSharePyramidPanel()" style="border-color:#7c3aed;color:#7c3aed;">🔺 股份金字塔</button>
+        <!-- v7.18 3日意圖長條移至此 header 右側空白區（v7.60：縮小，讓位給股份金字塔按鈕） -->
+        <div class="cs-header-3d" id="csHeader3d" style="transform:scale(0.82);transform-origin:right center;">
           <div class="cs-header-3d-label">⚖️ 3日意圖 <span id="cs3dText" style="color:var(--fg);font-weight:900;">—</span></div>
           <div class="cs-intent-bar cs-intent-bar-sm">
             <div class="cs-intent-buy" id="cs3dIntentBuy" style="width:50%">買</div>
             <div class="cs-intent-sell" id="cs3dIntentSell" style="width:50%">賣</div>
           </div>
+        </div>
+      </div>
+
+      <!-- v7.60 股份金字塔展開面板 -->
+      <div class="cs-obv-panel" id="csPyramidPanel" style="border-color:#DDD6FE;background:linear-gradient(135deg,rgba(124,58,237,0.06),rgba(139,92,246,0.04));">
+        <div class="cs-obv-header">
+          <div class="cs-obv-title" style="color:#6D28D9;">🔺 股份金字塔 — 持股分級（千張大戶動向）
+            <span data-tip="股份金字塔" style="cursor:pointer;">?</span>
+          </div>
+          <button class="cs-obv-close" onclick="toggleSharePyramidPanel()">✕ 收合</button>
+        </div>
+        <div id="csPyramidBody">
+          <div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">點擊「🔺 股份金字塔」載入…</div>
         </div>
       </div>
 
@@ -38222,6 +38237,117 @@ function toggleOBVPanel() {
   const isOpen = panel.classList.toggle('open');
   if (btn) btn.classList.toggle('active', isOpen);
   if (isOpen) _renderOBVPanel();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  v7.60 股份金字塔——持股分級（TaiwanStockHoldingSharesPer，需FinMind Sponsor付費token）
+//  資料是集保結算所股權分散表，通常每週更新一次，不是每日；
+//  最高級距（依HoldingSharesLevel起始數字排序取最大）視為「千張大戶」。
+//  抓不到真實資料（沒token/免費帳號被擋）時，老實顯示需要付費，不編數字頂替。
+// ══════════════════════════════════════════════════════════════
+function toggleSharePyramidPanel() {
+  const panel = document.getElementById('csPyramidPanel');
+  const btn   = document.getElementById('csPyramidBtn');
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if (btn) btn.classList.toggle('active', isOpen);
+  if (isOpen) _renderSharePyramid();
+}
+
+async function _renderSharePyramid() {
+  const body = document.getElementById('csPyramidBody');
+  if (!body) return;
+  const stockId = window._currentStockId || document.getElementById('searchInput')?.value?.trim();
+  if (!stockId) { body.innerHTML = '<div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">請先查詢個股</div>'; return; }
+
+  const token = getToken();
+  if (!token) {
+    body.innerHTML = `<div style="font-size:.66rem;color:#DC2626;line-height:1.7;padding:8px 10px;background:#FEE2E2;border-radius:8px;">
+      ⚠️ 股份金字塔需要 FinMind <b>Sponsor 付費方案</b> Token（免費帳號查不到 TaiwanStockHoldingSharesPer 這支資料）。
+      有付費Token的話，請到設定裡貼上，這裡才會顯示真實的千張大戶持股分級。
+    </div>`;
+    return;
+  }
+
+  body.innerHTML = '<div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">⏳ 抓取股權分散表中…</div>';
+
+  const fmt = d => d.toISOString().split('T')[0];
+  const end = new Date();
+  const start = new Date(); start.setDate(end.getDate() - 60); // 抓60天，確保至少涵蓋近2次每週更新
+
+  try {
+    const r = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockHoldingSharesPer&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${encodeURIComponent(token)}`);
+    const j = await r.json();
+    if (j.msg && /free/i.test(j.msg)) {
+      body.innerHTML = `<div style="font-size:.66rem;color:#DC2626;line-height:1.7;padding:8px 10px;background:#FEE2E2;border-radius:8px;">
+        ⚠️ 這個Token是免費層級，抓不到股權分散表。官方訊息：「${j.msg}」
+      </div>`;
+      return;
+    }
+    const rows = j.data || [];
+    if (!rows.length) {
+      body.innerHTML = '<div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">查無資料（可能該股票近期沒有股權分散表更新）</div>';
+      return;
+    }
+
+    // 依日期分組，取最新與次新兩個日期做比較
+    const byDate = {};
+    rows.forEach(row => { (byDate[row.date] ||= []).push(row); });
+    const dates = Object.keys(byDate).sort();
+    const latestDate = dates.at(-1);
+    const prevDate = dates.length >= 2 ? dates.at(-2) : null;
+    const latestRows = byDate[latestDate];
+    const prevRows = prevDate ? byDate[prevDate] : null;
+
+    // 解析級距字串開頭數字，用來排序（不同版本字串格式可能略有差異，用數字排序比對字串更穩）
+    const levelStart = lvl => {
+      const m = String(lvl).replace(/,/g, '').match(/(\d+)/);
+      return m ? parseInt(m[1], 10) : -1;
+    };
+    const sorted = [...latestRows].filter(r => r.HoldingSharesLevel && !/total|合計|差異/i.test(r.HoldingSharesLevel))
+      .sort((a, b) => levelStart(a.HoldingSharesLevel) - levelStart(b.HoldingSharesLevel));
+
+    if (!sorted.length) {
+      body.innerHTML = '<div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">資料格式無法解析級距，可能官方欄位有變動</div>';
+      return;
+    }
+
+    const topLevel = sorted.at(-1); // 最高級距 = 千張大戶（>1,000,000股）
+    const prevTop = prevRows ? prevRows.find(r => r.HoldingSharesLevel === topLevel.HoldingSharesLevel) : null;
+    const peopleDelta = prevTop ? (+topLevel.people - +prevTop.people) : null;
+    const unitDelta = prevTop ? (+topLevel.unit - +prevTop.unit) : null;
+    const lotsDelta = unitDelta !== null ? Math.round(unitDelta / 1000) : null; // 股轉張
+
+    const maxPct = Math.max(...sorted.map(r => +r.percent || 0), 0.1);
+    const pyramidHtml = sorted.map((r, i) => {
+      const isTop = i === sorted.length - 1;
+      const w = Math.max(6, (+r.percent || 0) / maxPct * 100);
+      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+        <div style="width:88px;flex-shrink:0;font-size:.56rem;color:${isTop?'#6D28D9':'var(--fg3)'};font-weight:${isTop?800:500};text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.HoldingSharesLevel}</div>
+        <div style="flex:1;background:var(--bg2);border-radius:4px;overflow:hidden;height:14px;position:relative;">
+          <div style="width:${w}%;height:100%;background:${isTop?'linear-gradient(90deg,#7c3aed,#a78bfa)':'#94A3B8'};border-radius:4px;"></div>
+        </div>
+        <div style="width:70px;flex-shrink:0;font-size:.58rem;color:var(--fg2);text-align:right;">${(+r.percent||0).toFixed(2)}%（${(+r.people||0).toLocaleString()}人）</div>
+      </div>`;
+    }).join('');
+
+    const deltaHtml = prevTop
+      ? `<div style="margin-top:8px;padding:7px 10px;border-radius:8px;background:${lotsDelta>=0?'rgba(220,38,38,.1)':'rgba(16,185,129,.1)'};border-left:3px solid ${lotsDelta>=0?'#DC2626':'#10B981'};font-size:.66rem;">
+          🏔️ <b>千張大戶</b>（${topLevel.HoldingSharesLevel}）：${latestDate} 對比 ${prevDate}，
+          人數${peopleDelta>=0?'+':''}${peopleDelta}人，持股${lotsDelta>=0?'+':''}${lotsDelta.toLocaleString()}張
+        </div>`
+      : `<div style="margin-top:8px;font-size:.6rem;color:var(--fg3);">目前只有一筆快照（${latestDate}），下次更新後才能算出增減。</div>`;
+
+    body.innerHTML = `
+      <div style="font-size:.6rem;color:var(--fg3);margin-bottom:6px;">資料日期：${latestDate}（集保結算所股權分散表，通常每週更新一次）</div>
+      ${pyramidHtml}
+      ${deltaHtml}
+      <div style="margin-top:6px;font-size:.55rem;color:var(--fg3);">💡 金字塔由下到上：持股張數越小的散戶區間在下方，最上面（紫色）是千張以上大戶，越接近頂端佔比越高，代表籌碼越集中在少數大戶手上。</div>
+    `;
+  } catch (e) {
+    body.innerHTML = `<div style="font-size:.66rem;color:#DC2626;padding:8px;">抓取失敗：${e.message}</div>`;
+    console.warn('[股份金字塔]', e);
+  }
 }
 
 // ==============================================================
