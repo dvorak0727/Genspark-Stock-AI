@@ -54232,7 +54232,11 @@ function calcOBIScanScore(stockId, mfRows, priceRows) {
     { ok: chgPct >= 0,     label: `收漲 ${chgPct.toFixed(2)}%` },
   ];
 
-  const score = parseFloat((obiPct / 10).toFixed(1));
+  // v7.60 修正：obiPct 範圍是 0~100（百分比），原本除以10得到0~10分，
+  // 但畫面卡片顯示的是全站統一的「/5分制」（renderScreenerCards的_scoreMax_label預設'/5'），
+  // 沒對齊導致分數超過分母，卡片顯示「10 /5」這種矛盾數字。改除以20，分數範圍變回0~5，
+  // 也才對得上圖例「4分=強烈」「3分=明確」「2分=部分」這套跨模式共用的門檻定義。
+  const score = parseFloat((obiPct / 20).toFixed(1));
   return { stockId, score, obiPct, buyVol, sellVol, checks, lc, chgPct, fCons:0, tCons:0 };
 }
 
