@@ -38299,11 +38299,26 @@ async function _renderSharePyramid() {
     const latestRows = byDate[latestDate];
     const prevRows = prevDate ? byDate[prevDate] : null;
 
-    // 解析級距字串開頭數字，用來排序（不同版本字串格式可能略有差異，用數字排序比對字串更穩）
+    // 解析級距字串開頭數字，用來排序（原始單位是「股」）
     const levelStart = lvl => {
       const m = String(lvl).replace(/,/g, '').match(/(\d+)/);
       return m ? parseInt(m[1], 10) : -1;
     };
+    // v7.60：原始級距是「股」為單位，券商App慣例顯示「張」（1張=1000股），這裡換算成張，
+    // 換算後級距剛好對上大部分券商App的股權分散表分級（1~5張、5~10張…1000張以上）
+    const lvlToLots = lvl => {
+      const isTop = /more than|以上/i.test(lvl);
+      const nums = String(lvl).replace(/,/g, '').match(/\d+/g) || [];
+      if (!nums.length) return lvl;
+      const lowShares = parseInt(nums[0], 10);
+      const lowLots = Math.floor(lowShares / 1000);
+      if (isTop) return `${lowLots}張以上`;
+      const highShares = nums[1] ? parseInt(nums[1], 10) : null;
+      const highLots = highShares ? Math.floor(highShares / 1000) : null;
+      if (highLots !== null && highLots < 1) return '1張以下';
+      return `${lowLots}~${highLots}張`;
+    };
+
     const sorted = [...latestRows].filter(r => r.HoldingSharesLevel && !/total|合計|差異/i.test(r.HoldingSharesLevel))
       .sort((a, b) => levelStart(a.HoldingSharesLevel) - levelStart(b.HoldingSharesLevel));
 
@@ -38312,37 +38327,46 @@ async function _renderSharePyramid() {
       return;
     }
 
-    const topLevel = sorted.at(-1); // 最高級距 = 千張大戶（>1,000,000股）
-    const prevTop = prevRows ? prevRows.find(r => r.HoldingSharesLevel === topLevel.HoldingSharesLevel) : null;
-    const peopleDelta = prevTop ? (+topLevel.people - +prevTop.people) : null;
-    const unitDelta = prevTop ? (+topLevel.unit - +prevTop.unit) : null;
-    const lotsDelta = unitDelta !== null ? Math.round(unitDelta / 1000) : null; // 股轉張
+    // 每一級距都算週增減（不是只有千張大戶那一列），跟券商App「金字塔」頁一致
+    const prevByLevel = {};
+    if (prevRows) prevRows.forEach(r => { prevByLevel[r.HoldingSharesLevel] = r; });
 
-    const maxPct = Math.max(...sorted.map(r => +r.percent || 0), 0.1);
-    const pyramidHtml = sorted.map((r, i) => {
-      const isTop = i === sorted.length - 1;
-      const w = Math.max(6, (+r.percent || 0) / maxPct * 100);
-      return `<div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-        <div style="width:88px;flex-shrink:0;font-size:.56rem;color:${isTop?'#6D28D9':'var(--fg3)'};font-weight:${isTop?800:500};text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${r.HoldingSharesLevel}</div>
-        <div style="flex:1;background:var(--bg2);border-radius:4px;overflow:hidden;height:14px;position:relative;">
-          <div style="width:${w}%;height:100%;background:${isTop?'linear-gradient(90deg,#7c3aed,#a78bfa)':'#94A3B8'};border-radius:4px;"></div>
-        </div>
-        <div style="width:70px;flex-shrink:0;font-size:.58rem;color:var(--fg2);text-align:right;">${(+r.percent||0).toFixed(2)}%（${(+r.people||0).toLocaleString()}人）</div>
-      </div>`;
+    const rowsDesc = [...sorted].reverse(); // 由大到小排（千張大戶在最上面，跟券商App一致）
+    const totalPeople = sorted.reduce((s, r) => s + (+r.people || 0), 0);
+    const totalPrevPeople = prevRows ? prevRows.reduce((s, r) => s + (+r.people || 0), 0) : null;
+    const totalPeopleDelta = totalPrevPeople !== null ? totalPeople - totalPrevPeople : null;
+
+    const tableRows = rowsDesc.map(r => {
+      const isTop = /more than|以上/i.test(r.HoldingSharesLevel);
+      const prev = prevByLevel[r.HoldingSharesLevel];
+      const peopleDelta = prev ? (+r.people - +prev.people) : null;
+      const pctDelta = prev ? (+r.percent - +prev.percent) : null;
+      const arrow = v => v === null ? '' : v > 0 ? `<span style="color:#DC2626;">▲${Math.abs(v)}</span>` : v < 0 ? `<span style="color:#10B981;">▼${Math.abs(v)}</span>` : `<span style="color:var(--fg3);">—</span>`;
+      const pctArrow = v => v === null ? '' : v > 0 ? `<span style="color:#DC2626;">▲${Math.abs(v).toFixed(2)}</span>` : v < 0 ? `<span style="color:#10B981;">▼${Math.abs(v).toFixed(2)}</span>` : `<span style="color:var(--fg3);">—</span>`;
+      return `<tr style="${isTop?'background:rgba(124,58,237,.08);font-weight:800;':''}">
+        <td style="padding:3px 6px;text-align:right;white-space:nowrap;">${(+r.people||0).toLocaleString()}人　${arrow(peopleDelta)}</td>
+        <td style="padding:3px 8px;text-align:center;color:${isTop?'#6D28D9':'var(--fg)'};white-space:nowrap;">${lvlToLots(r.HoldingSharesLevel)}</td>
+        <td style="padding:3px 6px;text-align:left;white-space:nowrap;">${(+r.percent||0).toFixed(2)}%　${pctArrow(pctDelta)}</td>
+      </tr>`;
     }).join('');
 
-    const deltaHtml = prevTop
-      ? `<div style="margin-top:8px;padding:7px 10px;border-radius:8px;background:${lotsDelta>=0?'rgba(220,38,38,.1)':'rgba(16,185,129,.1)'};border-left:3px solid ${lotsDelta>=0?'#DC2626':'#10B981'};font-size:.66rem;">
-          🏔️ <b>千張大戶</b>（${topLevel.HoldingSharesLevel}）：${latestDate} 對比 ${prevDate}，
-          人數${peopleDelta>=0?'+':''}${peopleDelta}人，持股${lotsDelta>=0?'+':''}${lotsDelta.toLocaleString()}張
-        </div>`
-      : `<div style="margin-top:8px;font-size:.6rem;color:var(--fg3);">目前只有一筆快照（${latestDate}），下次更新後才能算出增減。</div>`;
-
     body.innerHTML = `
-      <div style="font-size:.6rem;color:var(--fg3);margin-bottom:6px;">資料日期：${latestDate}（集保結算所股權分散表，通常每週更新一次）</div>
-      ${pyramidHtml}
-      ${deltaHtml}
-      <div style="margin-top:6px;font-size:.55rem;color:var(--fg3);">💡 金字塔由下到上：持股張數越小的散戶區間在下方，最上面（紫色）是千張以上大戶，越接近頂端佔比越高，代表籌碼越集中在少數大戶手上。</div>
+      <div style="font-size:.6rem;color:var(--fg3);margin-bottom:6px;">資料日期：${latestDate}（集保結算所股權分散表，通常每週更新一次）${prevDate?`　對比上次：${prevDate}`:''}</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:.62rem;">
+          <thead><tr style="color:var(--fg3);border-bottom:1px solid var(--border);">
+            <th style="padding:3px 6px;text-align:right;">持股人數</th>
+            <th style="padding:3px 8px;text-align:center;">級距（張）</th>
+            <th style="padding:3px 6px;text-align:left;">持股比例</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;padding:6px 10px;border-radius:8px;background:var(--bg2);font-size:.64rem;display:flex;justify-content:space-between;">
+        <span>總人數：<b>${totalPeople.toLocaleString()}</b></span>
+        <span>週增減：${totalPeopleDelta===null?'—':totalPeopleDelta>0?`<b style="color:#DC2626;">+${totalPeopleDelta.toLocaleString()}人</b>`:totalPeopleDelta<0?`<b style="color:#10B981;">${totalPeopleDelta.toLocaleString()}人</b>`:'0人'}</span>
+      </div>
+      <div style="margin-top:6px;font-size:.55rem;color:var(--fg3);">💡 紫色那一列（1000張以上）是千張大戶；▲紅色代表增加、▼綠色代表減少，跟上一次股權分散表快照比較。</div>
     `;
   } catch (e) {
     body.innerHTML = `<div style="font-size:.66rem;color:#DC2626;padding:8px;">抓取失敗：${e.message}</div>`;
