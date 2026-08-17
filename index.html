@@ -38335,11 +38335,19 @@ async function _renderSharePyramid() {
 
     // 每一級距都算週增減（不是只有千張大戶那一列），跟券商App「金字塔」頁一致
     const prevByLevel = {};
-    if (prevRows) prevRows.forEach(r => { prevByLevel[r.HoldingSharesLevel] = r; });
+    if (prevRows) prevRows.filter(r => r.HoldingSharesLevel && !/total|合計|差異/i.test(r.HoldingSharesLevel))
+      .forEach(r => { prevByLevel[r.HoldingSharesLevel] = r; });
 
     const rowsDesc = [...sorted].reverse(); // 由大到小排（千張大戶在最上面，跟券商App一致）
     const totalPeople = sorted.reduce((s, r) => s + (+r.people || 0), 0);
-    const totalPrevPeople = prevRows ? prevRows.reduce((s, r) => s + (+r.people || 0), 0) : null;
+    // v7.60 修正：原本這裡直接加總 prevRows 全部列，但FinMind原始資料裡可能混著
+    // 「total/合計」這種官方自帶的加總列，沒濾掉的話會被重複計入，
+    // 導致總人數週增減算出一個跟各級距增減方向矛盾的誇張負數（明明各級距大多增加，卻顯示總數暴減）。
+    // 改成套用跟latest同一套過濾條件（排除total/合計/差異），兩邊口徑才一致。
+    const prevRowsFiltered = prevRows
+      ? prevRows.filter(r => r.HoldingSharesLevel && !/total|合計|差異/i.test(r.HoldingSharesLevel))
+      : null;
+    const totalPrevPeople = prevRowsFiltered ? prevRowsFiltered.reduce((s, r) => s + (+r.people || 0), 0) : null;
     const totalPeopleDelta = totalPrevPeople !== null ? totalPeople - totalPrevPeople : null;
 
     const tableRows = rowsDesc.map(r => {
