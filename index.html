@@ -38112,6 +38112,12 @@ function _calcAndCacheOBV(closes, vols) {
   // 若面板已開啟，立即更新
   const panel = document.getElementById('csOBVPanel');
   if (panel && panel.classList.contains('open')) _renderOBVPanel();
+
+  // v7.60 修正：股份金字塔面板原本只在「點擊按鈕從關→開」時抓資料，
+  // 如果面板本來就開著、使用者直接切換到下一檔股票，畫面會停在舊股票的資料不會更新。
+  // 這裡比照OBV面板的模式：換股票時若面板已開啟，強制重新抓取目前股票的資料。
+  const pyramidPanel = document.getElementById('csPyramidPanel');
+  if (pyramidPanel && pyramidPanel.classList.contains('open')) _renderSharePyramid();
 }
 
 /**
