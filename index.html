@@ -12274,6 +12274,10 @@
 .kannot-btn.kb-ma20.active   { background:#7C3AED; color:#fff; }
 .kannot-btn.kb-vol    { background:rgba(245,158,11,0.1);  color:#D97706; border-color:rgba(245,158,11,0.25); }
 .kannot-btn.kb-vol.active    { background:#D97706; color:#fff; }
+.kannot-btn.kb-swingLowM { background:rgba(14,165,233,0.1);  color:#0284C7; border-color:rgba(14,165,233,0.25); }
+.kannot-btn.kb-swingLowM.active { background:#0284C7; color:#fff; }
+.kannot-btn.kb-swingLowS { background:rgba(56,189,248,0.1);  color:#0EA5E9; border-color:rgba(56,189,248,0.25); }
+.kannot-btn.kb-swingLowS.active { background:#0EA5E9; color:#fff; }
 .kannot-reset {
   margin-left: auto;
   font-size: 0.55rem; color: var(--fg3); cursor: pointer;
@@ -18031,6 +18035,8 @@ a.module-nav-item.acc-active {
         <button class="kannot-btn kb-macd active"  id="kbMacd"  onclick="toggleKAnnot('macd')" title="MACD 金叉 / 死叉日">⚡ MACD叉</button>
         <button class="kannot-btn kb-ma20 active"  id="kbMa20"  onclick="toggleKAnnot('ma20')" title="突破 / 跌破 MA20">📈 MA20穿越</button>
         <button class="kannot-btn kb-vol  active"  id="kbVol"   onclick="toggleKAnnot('vol')" title="量能超過20日均量200%">🔥 爆量</button>
+        <button class="kannot-btn kb-swingLowM active" id="kbSwingLowM" onclick="toggleKAnnot('swingLowM')" title="前後10日最低價（中期轉折低點）">▽ 中期低點</button>
+        <button class="kannot-btn kb-swingLowS active" id="kbSwingLowS" onclick="toggleKAnnot('swingLowS')" title="前後3日最低價（短期擺動低點）">▿ 短期低點</button>
         <span class="kannot-reset" onclick="resetKAnnot()">全開</span>
       </div>
 
@@ -18046,6 +18052,8 @@ a.module-nav-item.acc-active {
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#7C3AED;"></span>突破MA20</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#9CA3AF;"></span>跌破MA20</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#F59E0B;width:10px;height:4px;border-radius:2px;"></span>爆量</span>
+        <span class="kannot-legend-item"><span class="kl-dot" style="background:#0EA5E9;"></span>中期低點(N=10)</span>
+        <span class="kannot-legend-item"><span class="kl-dot" style="background:#38BDF8;"></span>短期低點(N=3)</span>
       </div>
 
       <div class="chart-wrap h200" style="margin-top:8px;">
@@ -35942,7 +35950,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
   setTimeout(() => { if (!isStale() && typeof renderProfitQuality === 'function') renderProfitQuality(stockId); }, 300); // 💊 獲利品質檢查（個股分析第一站，季報資料不急，錯開避免搶頻寬）
   renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes, vols, lc, dates); // 籌碼總覽
 
-  buildKAnnotEvents(dates, closes, ma20, vols, instMap, instDays);           // [v6.40] K線標注事件
+  buildKAnnotEvents(dates, closes, ma20, vols, instMap, instDays, lows);     // [v6.40] K線標注事件（v7.7加入lows供前波低點偵測）
   renderTechCharts(dates, closes, ma5, ma20, boll, vols, pc);               // 技術圖
   renderOBI(dates, opens, highs, lows, closes, vols);                        // [v6.41] OBI 外盤強度指標
   renderIndCards(lRSI, lK, lD, lMACD, lSig, lHist, lU, lL, lc, lMA5, lMA20); // 指標卡
@@ -40740,7 +40748,7 @@ function renderInst(stockId, instMap, instDays, fS, tS, mS) {
 // ==============================================================
 //  📍 v6.40 K線標注層（afterDraw plugin）
 // ==============================================================
-const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true };
+const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true };
 let _kannotEvents = {}; // { dateLabel: [{type, color, symbol, tip}] }
 let _kannotHover  = null; // { lbl, ei, ev, date }
 
@@ -40769,7 +40777,7 @@ function _kannotShowTooltip(found, cx, cy, chart) {
   const rect = canvas.getBoundingClientRect();
   const px = rect.left + cx;
   const py = rect.top  + cy - 38;
-  const typeNames = {inst:'法人大量買',instS:'法人大量賣',macd:'MACD訊號',ma20:'均線穿越',vol:'爆量日'};
+  const typeNames = {inst:'法人大量買',instS:'法人大量賣',macd:'MACD訊號',ma20:'均線穿越',vol:'爆量日',swingLowS:'短期低點(N=3)',swingLowM:'中期低點(N=10)'};
   el.innerHTML = `<span style="color:${found.ev.color};font-size:0.8rem;">${found.ev.symbol==='🔥'?'🔥':found.ev.symbol}</span>  <strong>${typeNames[found.ev.type]||''}</strong><br/><span style="color:#CBD5E1;">${found.ev.tip}</span><br/><span style="color:#64748B;font-size:0.58rem;">${found.date} (近30日)</span>`;
   el.style.display = 'block';
   el.style.left = px + 'px';
@@ -40788,7 +40796,7 @@ function toggleKAnnot(key) {
   if (charts['priceChart']) charts['priceChart'].update();
 }
 function resetKAnnot() {
-  ['inst','instS','macd','ma20','vol'].forEach(k=>{
+  ['inst','instS','macd','ma20','vol','swingLowS','swingLowM'].forEach(k=>{
     _kannotState[k]=true;
     const id='kb'+k.charAt(0).toUpperCase()+k.slice(1);
     const b=document.getElementById(id); if(b) b.classList.add('active');
@@ -42174,7 +42182,7 @@ function _renderRadar_disabled() {
 } /* end _renderRadar_disabled */
 
 // 建立標注事件資料（在 renderTechCharts 呼叫前由 buildKAnnotEvents 準備）
-function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays) {
+function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows) {
   _kannotEvents = {};
   try {
     const N = dates.length;
@@ -42196,6 +42204,24 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays) {
       const sl=vols.slice(s,i+1);
       return sl.reduce((a,b)=>a+b,0)/sl.length||1;
     };
+
+    // ── v7.7 前波型態低點（Swing Low）：短期N=3 / 中期N=10 ──
+    // 邏輯：第i天的最低價，若比左右各N天都低（或持平最低），標記為局部低點
+    const lowArr = (lows && lows.length===N) ? lows : closes; // 無lows資料時退回用收盤價
+    const _findSwingLows = (win) => {
+      const set = new Set();
+      for(let i=win;i<N-win;i++){
+        const v = lowArr[i];
+        let isLow = true;
+        for(let k=1;k<=win;k++){
+          if(lowArr[i-k] < v || lowArr[i+k] < v){ isLow = false; break; }
+        }
+        if(isLow) set.add(i);
+      }
+      return set;
+    };
+    const swingLowS = _findSwingLows(3);  // 短期擺動低點
+    const swingLowM = _findSwingLows(10); // 中期轉折低點
 
     for(let i=1;i<N;i++){
       const d = dates[i];
@@ -42229,6 +42255,10 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays) {
 
       // ── 爆量（≥均量200%）──
       if(vols[i] >= avgVol20(i)*2) evts.push({type:'vol', color:'#F59E0B', symbol:'🔥', tip:`爆量 ${(vols[i]/1000).toFixed(0)}K（均量${(avgVol20(i)/1000).toFixed(0)}K）`});
+
+      // ── 前波型態低點（v7.7）：中期優先於短期顯示（避免同天重複兩顆點）──
+      if(swingLowM.has(i)) evts.push({type:'swingLowM', color:'#0EA5E9', symbol:'▽', tip:`中期低點 ${lowArr[i].toFixed(1)}（前後10日最低）`});
+      else if(swingLowS.has(i)) evts.push({type:'swingLowS', color:'#38BDF8', symbol:'▿', tip:`短期低點 ${lowArr[i].toFixed(1)}（前後3日最低）`});
 
       if(evts.length>0) _kannotEvents[lbl] = evts;
     }
