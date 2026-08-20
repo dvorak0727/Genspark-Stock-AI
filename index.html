@@ -64384,7 +64384,7 @@ async function fetchFuturesModule() {
         const avg5Vix = vixArr.slice(-5).reduce((a,b)=>a+b,0) / Math.min(5,vixArr.length);
         setTx('futVixVal', lastVix.toFixed(1));
         setTx('futVix5d', avg5Vix.toFixed(1));
-        if (lastVix > 20) { setHtml('futVixTag', `<span style="color:${upColor};">恐慌區(常伴短底)</span>`); tags.push(-1); }
+        if (lastVix > 30) { setHtml('futVixTag', `<span style="color:${upColor};">恐慌區(常伴短底)</span>`); tags.push(-1); }
         else if (lastVix < 15) { setHtml('futVixTag', `<span style="color:${dnColor};">低檔平靜</span>`); tags.push(1); }
         else { setHtml('futVixTag', '<span style="color:var(--fg3);">情緒中性</span>'); tags.push(0); }
         // VIX 也沒有天生的「0」，一樣用滾動均值當分界
@@ -67690,7 +67690,7 @@ const INDICATOR_TIP_DB = {
   'VIX': {
     title: '😨 VIX 恐慌指數',
     formula: 'VIX = 台指選擇權隱含波動率指數\n數值越高 = 市場預期未來波動越劇烈',
-    body: '🔍 這是什麼？\n用選擇權價格反推市場「預期」未來的波動程度，數字越高代表投資人越緊張、越願意付高價買保險，是最直接的市場情緒溫度計。\n\n📈 VIX > 20（恐慌區）：\n• 市場明顯緊張，常伴隨股價急殺\n• 但恐慌高點也常是短線的甜蜜買點（別人恐懼我貪婪）\n\n📉 VIX < 15（低檔平靜）：\n• 市場氣氛平靜甚至過度自滿\n• 過度平靜有時反而是風險累積的前兆\n\n✅ 怎麼看：\nVIX 適合搭配大盤走勢一起看：股價急跌 + VIX 急升到高檔，是經典的恐慌性拋售特徵，通常物極必反的機率較高。'
+    body: '🔍 這是什麼？\n用選擇權價格反推市場「預期」未來的波動程度，數字越高代表投資人越緊張、越願意付高價買保險，是最直接的市場情緒溫度計。\n\n🟢 VIX < 15（極度樂觀）：\n• 市場風平浪靜，股價緩步墊高\n• 但過度平靜、毫無防備，反而容易累積下一波崩盤的能量\n\n🟡 VIX 15~25（正常波動）：\n• 市場有些微雜音，呈現正常的上下震盪\n\n🔴 VIX > 30（極度恐慌）：\n• 市場已發生系統性風險，常伴隨股價連續急殺\n• 但恐慌高點也常是短線的甜蜜買點（別人恐懼我貪婪）\n\n🔥 VIX > 50（世紀末日級）：\n• 歷史上極少出現，僅 2008 金融海嘯、2020 新冠股災曾見\n\n✅ 怎麼看：\nVIX 適合搭配大盤走勢一起看：股價急跌 + VIX 急升到高檔，是經典的恐慌性拋售特徵，通常物極必反的機率較高。'
   },
 
   /* ── v7.60 獲利品質檢查 ── */
