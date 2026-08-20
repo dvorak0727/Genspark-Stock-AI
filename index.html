@@ -17254,8 +17254,11 @@ a.module-nav-item.acc-active {
             <div class="cs-matrix-head-title">⚖️ 法人加權成本矩陣</div>
             <div class="cs-matrix-tabs">
               <button class="cs-matrix-tab active" id="csMatTab1" onclick="switchCostMatTab(1)">1日</button>
+              <button class="cs-matrix-tab" id="csMatTab3" onclick="switchCostMatTab(3)">3日</button>
               <button class="cs-matrix-tab" id="csMatTab5" onclick="switchCostMatTab(5)">5日</button>
               <button class="cs-matrix-tab" id="csMatTab10" onclick="switchCostMatTab(10)">10日</button>
+              <button class="cs-matrix-tab" id="csMatTab15" onclick="switchCostMatTab(15)">15日</button>
+              <button class="cs-matrix-tab" id="csMatTab20" onclick="switchCostMatTab(20)">20日</button>
             </div>
           </div>
           <!-- 各法人成本彙總 -->
@@ -35883,8 +35886,8 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
   //           確保 instDays.at(-1) 永遠是最近一個有籌碼的交易日
   const _allInstDays = Object.keys(instMap).sort(); // 所有有籌碼的日期（升序）
   const _latestPriceDate = dates.at(-1) || '';      // priceRaw 最新收盤日（固定錨點）
-  // 取 instMap 中 <= 最新收盤日 的最後10天（避免未來日期干擾）
-  const instDays = _allInstDays.filter(d => d <= _latestPriceDate).slice(-10);
+  // 取 instMap 中 <= 最新收盤日 的最後20天（避免未來日期干擾；20天供成本矩陣3/5/10/15/20日 tab使用）
+  const instDays = _allInstDays.filter(d => d <= _latestPriceDate).slice(-20);
   console.log(`[v6.20d] instDays anchor=${_latestPriceDate} instDays[last]=${instDays.at(-1)} total=${_allInstDays.length}`);
 
   // Series (張，注意：/ 1000 後單位是「張」，comment 舊標「千張」為誤標)
@@ -38513,7 +38516,7 @@ function toggleCostMatrix() {
  */
 function switchCostMatTab(days) {
   _costMatrixDays = days;
-  [1,5,10].forEach(d => {
+  [1,3,5,10,15,20].forEach(d => {
     const t = document.getElementById('csMatTab' + d);
     if (t) t.classList.toggle('active', d === days);
   });
