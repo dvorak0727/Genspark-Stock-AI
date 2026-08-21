@@ -17747,6 +17747,36 @@ a.module-nav-item.acc-active {
       </div><!-- /#srContent -->
     </div><!-- /#srCard -->
 
+    <!-- 🔥 v7.60 股票市場熱力圖：市值前50大，區塊大小=市值、顏色=漲跌幅，依產業分群 -->
+    <div class="sr-card" id="heatmapCard">
+      <div class="sr-card-bar"></div>
+      <div class="sr-header">
+        <div class="sr-header-icon">🔥</div>
+        <div class="sr-header-text">
+          <div class="sr-header-title" data-tip="股票市場熱力圖">股票市場熱力圖</div>
+          <div class="sr-header-sub">區塊大小＝市值、顏色＝漲跌幅，一眼看出資金在哪裡</div>
+        </div>
+      </div>
+      <div style="padding:10px 14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <button class="etfcal-add-btn" onclick="loadHeatmap()" id="heatmapLoadBtn">🔥 載入熱力圖</button>
+          <div style="display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--border);">
+            <button class="hm-sort-btn active" id="hmSortCap" onclick="setHeatmapSort('cap')" style="border:none;padding:5px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;">依市值</button>
+            <button class="hm-sort-btn" id="hmSortVal" onclick="setHeatmapSort('val')" style="border:none;padding:5px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;background:var(--bg2);color:var(--fg2);">依成交額</button>
+          </div>
+          <span style="font-size:0.6rem;color:var(--text-muted);" id="heatmapUpdated"></span>
+        </div>
+        <div id="heatmapBody">
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">按「載入熱力圖」開始（取市值前50大，資料源同「市值前50大（即時計算）」那組API）</div>
+        </div>
+        <div style="margin-top:8px;display:flex;align-items:center;justify-content:center;gap:14px;font-size:0.6rem;color:var(--text-muted);">
+          <span>🟥 上漲（越深漲越多）</span>
+          <span>⬜ 平盤</span>
+          <span>🟩 下跌（越深跌越多）</span>
+        </div>
+      </div>
+    </div><!-- /#heatmapCard -->
+
     <!-- 🌍 板塊公司 Popup（JS動態插入，掛在 body 層級）-->
 
     <!-- 🌐 美股先行指標（v5.44）-->
@@ -52950,6 +52980,191 @@ async function fetchDynamicTop50Ids() {
   return ids;
 }
 
+// ══════════════════════════════════════════════════════════════
+//  v7.60 股票市場熱力圖——區塊大小=市值/成交額、顏色=漲跌幅、依產業分群
+//  資料源跟「市值前50大（即時計算）」同一套（t187ap03_L + STOCK_DAY_ALL，
+//  走 license-worker 的 /twse-openapi 白名單代理），這裡多讀 Change 欄位算漲跌%。
+// ══════════════════════════════════════════════════════════════
+const HEATMAP_CACHE_KEY = 'tsai_heatmap_v1';
+let _hmData = null;      // 快取住的股票資料（含市值/成交額/漲跌%/產業）
+let _hmSortKey = 'cap';  // 'cap'=市值 或 'val'=成交額
+
+async function fetchHeatmapData() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  try {
+    const cached = JSON.parse(localStorage.getItem(HEATMAP_CACHE_KEY) || 'null');
+    if (cached && cached.date === todayStr && Array.isArray(cached.list) && cached.list.length >= 40) {
+      return cached.list;
+    }
+  } catch (e) {}
+
+  const [basicRaw, priceRaw] = await Promise.all([
+    _twseCorsFetch('/v1/opendata/t187ap03_L'),
+    _twseCorsFetch('/v1/exchangeReport/STOCK_DAY_ALL'),
+  ]);
+
+  const priceMap = {};
+  priceRaw.forEach(r => {
+    const p = parseFloat(r.ClosingPrice);
+    if (r.Code && p > 0) priceMap[r.Code] = r;
+  });
+
+  const list = [];
+  basicRaw.forEach(r => {
+    const code   = r['公司代號'];
+    const shares = parseFloat(r['已發行普通股數或TDR原股發行股數']);
+    const pRow   = priceMap[code];
+    if (!code || !shares || !pRow) return; // 抓不到股價或股數就跳過，不編數字
+    const close  = parseFloat(pRow.ClosingPrice);
+    const change = parseFloat(pRow.Change || 0);
+    const prevClose = close - change;
+    const changePct = prevClose > 0 ? (change / prevClose * 100) : 0;
+    list.push({
+      id: code,
+      name: r['公司簡稱'] || code,
+      marketCap: shares * close,
+      tradeValue: parseFloat(pRow.TradeValue || 0),
+      changePct,
+      industry: (typeof STOCK_DB !== 'undefined' && STOCK_DB[code]?.industry) || '其他',
+    });
+  });
+
+  if (list.length < 100) throw new Error(`證交所資料異常，只算出${list.length}檔`);
+
+  list.sort((a, b) => b.marketCap - a.marketCap);
+  const top = list.slice(0, 50); // 市值前50大，跟系統其他地方口徑一致
+
+  localStorage.setItem(HEATMAP_CACHE_KEY, JSON.stringify({ date: todayStr, list: top, computedAt: new Date().toISOString() }));
+  return top;
+}
+
+// ── 簡化版 squarified treemap：把一組 {value} 項目塞進一個矩形，回傳各自的 x/y/w/h ──
+function _squarify(items, x, y, w, h) {
+  if (!items.length) return [];
+  if (items.length === 1) return [{ ...items[0], x, y, w, h }];
+
+  const total = items.reduce((s, it) => s + it.value, 0);
+  if (total <= 0) return items.map((it, i) => ({ ...it, x, y, w: w / items.length, h }));
+
+  // 依「短邊」決定切直的還是橫的
+  const vertical = w >= h;
+  const fullSize = vertical ? h : w;
+
+  // 貪婪法：從最大的開始，一批一批塞進同一條，讓長寬比盡量接近1（簡化版，不追求完美最佳解）
+  let rows = [], cur = [], curSum = 0;
+  const sorted = [...items].sort((a, b) => b.value - a.value);
+  sorted.forEach(it => {
+    cur.push(it); curSum += it.value;
+    const rowThickness = (curSum / total) * (vertical ? w : h);
+    const worstRatio = Math.max(...cur.map(c => {
+      const cSize = (c.value / curSum) * fullSize;
+      return Math.max(rowThickness / cSize, cSize / rowThickness);
+    }));
+    // 簡易判斷：如果這一列已經有多個項目且比例開始惡化，就切斷開新列
+    if (cur.length > 1 && worstRatio > 4) {
+      cur.pop(); curSum -= it.value;
+      rows.push({ items: cur, sum: curSum });
+      cur = [it]; curSum = it.value;
+    }
+  });
+  if (cur.length) rows.push({ items: cur, sum: curSum });
+
+  const rects = [];
+  let offset = 0;
+  rows.forEach(row => {
+    const thickness = (row.sum / total) * (vertical ? w : h);
+    let inner = 0;
+    row.items.forEach(it => {
+      const iSize = (it.value / row.sum) * fullSize;
+      if (vertical) rects.push({ ...it, x: x + offset, y: y + inner, w: thickness, h: iSize });
+      else          rects.push({ ...it, x: x + inner, y: y + offset, w: iSize, h: thickness });
+      inner += iSize;
+    });
+    offset += thickness;
+  });
+  return rects;
+}
+
+function setHeatmapSort(key) {
+  _hmSortKey = key;
+  document.getElementById('hmSortCap')?.classList.toggle('active', key === 'cap');
+  document.getElementById('hmSortVal')?.classList.toggle('active', key === 'val');
+  const capBtn = document.getElementById('hmSortCap'), valBtn = document.getElementById('hmSortVal');
+  if (capBtn) { capBtn.style.background = key==='cap' ? 'var(--accent)' : 'var(--bg2)'; capBtn.style.color = key==='cap' ? '#fff' : 'var(--fg2)'; }
+  if (valBtn) { valBtn.style.background = key==='val' ? 'var(--accent)' : 'var(--bg2)'; valBtn.style.color = key==='val' ? '#fff' : 'var(--fg2)'; }
+  if (_hmData) renderHeatmapTiles(_hmData);
+}
+
+function _hmColor(changePct) {
+  // 台股慣例：紅漲綠跌，幅度越大顏色越深
+  const a = Math.min(1, Math.abs(changePct) / 5); // ±5% 封頂到最深色
+  if (changePct > 0.05)  return `rgba(232,52,58,${0.15 + a*0.65})`;   // 紅
+  if (changePct < -0.05) return `rgba(22,163,74,${0.15 + a*0.65})`;  // 綠
+  return 'rgba(148,163,184,0.25)'; // 平盤：灰
+}
+
+function renderHeatmapTiles(list) {
+  const body = document.getElementById('heatmapBody');
+  if (!body) return;
+  const valueOf = it => _hmSortKey === 'val' ? Math.max(it.tradeValue, 1) : Math.max(it.marketCap, 1);
+
+  // 依產業分群，群組大小=群組內加總值，先橫向切條，再各條內部squarify個股
+  const groups = {};
+  list.forEach(it => { (groups[it.industry] ||= []).push(it); });
+  const groupList = Object.entries(groups).map(([industry, items]) => ({
+    industry, items, value: items.reduce((s, it) => s + valueOf(it), 0),
+  })).sort((a, b) => b.value - a.value);
+
+  const W = body.clientWidth || 900, H = 520;
+  const groupRects = _squarify(groupList, 0, 0, W, H);
+
+  let html = `<div style="position:relative;width:100%;height:${H}px;border-radius:8px;overflow:hidden;background:var(--bg2);">`;
+  groupRects.forEach(g => {
+    if (g.w < 2 || g.h < 2) return;
+    const stockItems = g.items.map(it => ({ ...it, value: valueOf(it) }));
+    const innerPad = 2;
+    const stockRects = _squarify(stockItems, g.x+innerPad, g.y+innerPad+14, Math.max(g.w-innerPad*2,1), Math.max(g.h-innerPad*2-14,1));
+
+    if (g.w > 40 && g.h > 20) {
+      html += `<div style="position:absolute;left:${g.x}px;top:${g.y}px;width:${g.w}px;height:14px;
+        font-size:9px;font-weight:800;color:var(--fg3);padding-left:3px;overflow:hidden;white-space:nowrap;">${g.industry}</div>`;
+    }
+    stockRects.forEach(r => {
+      if (r.w < 1 || r.h < 1) return;
+      const showText = r.w > 34 && r.h > 22;
+      const changeStr = (r.changePct>=0?'+':'') + r.changePct.toFixed(2) + '%';
+      html += `<div onclick="quickSearch && quickSearch('${r.id}')" title="${r.name}(${r.id}) ${changeStr}"
+        style="position:absolute;left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;
+        background:${_hmColor(r.changePct)};border:1px solid var(--bg2);box-sizing:border-box;cursor:pointer;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:filter .15s;"
+        onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter='none'">
+        ${showText ? `<div style="font-size:${Math.min(12, r.w/6)}px;font-weight:800;color:var(--fg);white-space:nowrap;">${r.name}</div>
+        <div style="font-size:${Math.min(10, r.w/7)}px;color:var(--fg);opacity:.85;">${changeStr}</div>` : ''}
+      </div>`;
+    });
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+async function loadHeatmap() {
+  const btn = document.getElementById('heatmapLoadBtn');
+  const body = document.getElementById('heatmapBody');
+  const updatedEl = document.getElementById('heatmapUpdated');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 載入中…'; }
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">⏳ 抓取市值前50大即時資料中…</div>';
+  try {
+    _hmData = await fetchHeatmapData();
+    renderHeatmapTiles(_hmData);
+    if (updatedEl) updatedEl.textContent = `資料日期：${new Date().toISOString().slice(0,10)}（市值前50大）`;
+  } catch (e) {
+    body.innerHTML = `<div style="text-align:center;padding:20px;color:#DC2626;font-size:0.8rem;">抓取失敗：${e.message}</div>`;
+    console.warn('[熱力圖]', e);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔥 重新整理'; }
+  }
+}
+
 // ── 啟動海選 ──
 async function startScreener() {
   if (_screenerRunning) {
@@ -74082,6 +74297,7 @@ if (typeof _origRenderSM === 'function') {
     { id:'futuresCard',   label:'期貨先行',  emoji:'📐', why:'期貨槓桿高、資訊靈敏，聰明錢常先在期貨表態。基差、外資未平倉、P/C Ratio、VIX 都是領先大盤的訊號。' },
     { id:'twseIndexCard', label:'大盤脈搏',  emoji:'🇹🇼', why:'個股再強，大盤逆風就是逆風。先看大盤MACD/KD，確認上游順風再選股。' },
     { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。',                 ksTab:'sectors' },
+    { id:'heatmapCard',   label:'熱力圖',    emoji:'🔥', why:'區塊大小＝市值、顏色＝漲跌幅，幾秒鐘看懂資金今天往哪個板塊跑。' },
 
     // ── 個股：基本面 → 籌碼 → 技術 → 週期 ──
     { id:'profitQualityCard', label:'獲利品質', emoji:'💊', why:'籌碼再強，體質有問題也是空話。先看EPS跟營業現金流是否同步，帳上賺錢但收不到現金是財報地雷的早期徵兆。' },
