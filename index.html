@@ -53038,51 +53038,81 @@ async function fetchHeatmapData() {
   return top;
 }
 
-// ── 簡化版 squarified treemap：把一組 {value} 項目塞進一個矩形，回傳各自的 x/y/w/h ──
+// ── v7.60 修正：改用正規的squarified treemap演算法（Bruls/Huizing/van Wijk）──
+// 原本的簡化版遇到「1個大值+一堆數值差很多的小項目」時（例如50檔股票分成20多個產業，
+// 大部分產業只有1~2檔小型股），會把小項目切成一整排又細又長的條狀，看不出內容。
+// 正規演算法每次只決定「一整排」該放幾個項目（讓這排的長寬比盡量接近正方形），
+// 排滿了才往下一排推進，不管項目數值差異多大都不會切出異常細長的區塊。
 function _squarify(items, x, y, w, h) {
-  if (!items.length) return [];
-  if (items.length === 1) return [{ ...items[0], x, y, w, h }];
+  const list = items.filter(it => it.value > 0).sort((a, b) => b.value - a.value);
+  const results = [];
+  if (!list.length) return results;
 
-  const total = items.reduce((s, it) => s + it.value, 0);
-  if (total <= 0) return items.map((it, i) => ({ ...it, x, y, w: w / items.length, h }));
+  // 把數值換算成「面積」，讓 sum(面積) 剛好等於整個矩形的面積，方便算長寬比
+  const totalValue = list.reduce((s, it) => s + it.value, 0) || 1;
+  const scale = (w * h) / totalValue;
+  const scaled = list.map(it => ({ ...it, _area: it.value * scale }));
 
-  // 依「短邊」決定切直的還是橫的
-  const vertical = w >= h;
-  const fullSize = vertical ? h : w;
-
-  // 貪婪法：從最大的開始，一批一批塞進同一條，讓長寬比盡量接近1（簡化版，不追求完美最佳解）
-  let rows = [], cur = [], curSum = 0;
-  const sorted = [...items].sort((a, b) => b.value - a.value);
-  sorted.forEach(it => {
-    cur.push(it); curSum += it.value;
-    const rowThickness = (curSum / total) * (vertical ? w : h);
-    const worstRatio = Math.max(...cur.map(c => {
-      const cSize = (c.value / curSum) * fullSize;
-      return Math.max(rowThickness / cSize, cSize / rowThickness);
-    }));
-    // 簡易判斷：如果這一列已經有多個項目且比例開始惡化，就切斷開新列
-    if (cur.length > 1 && worstRatio > 4) {
-      cur.pop(); curSum -= it.value;
-      rows.push({ items: cur, sum: curSum });
-      cur = [it]; curSum = it.value;
-    }
-  });
-  if (cur.length) rows.push({ items: cur, sum: curSum });
-
-  const rects = [];
-  let offset = 0;
-  rows.forEach(row => {
-    const thickness = (row.sum / total) * (vertical ? w : h);
-    let inner = 0;
-    row.items.forEach(it => {
-      const iSize = (it.value / row.sum) * fullSize;
-      if (vertical) rects.push({ ...it, x: x + offset, y: y + inner, w: thickness, h: iSize });
-      else          rects.push({ ...it, x: x + inner, y: y + offset, w: iSize, h: thickness });
-      inner += iSize;
+  // 算一排項目排起來的「最差長寬比」，數字越接近1代表越接近正方形
+  function worstAspect(row, sideLen) {
+    const sum = row.reduce((s, r) => s + r._area, 0);
+    if (sum <= 0 || sideLen <= 0) return Infinity;
+    const rowThickness = sum / sideLen;
+    let worst = 0;
+    row.forEach(r => {
+      const itemLen = r._area / rowThickness;
+      const ratio = Math.max(rowThickness / itemLen, itemLen / rowThickness);
+      if (ratio > worst) worst = ratio;
     });
-    offset += thickness;
-  });
-  return rects;
+    return worst;
+  }
+
+  // 把決定好的一整排，實際切成一個個矩形
+  function placeRow(row, rx, ry, rw, rh, horizontal) {
+    const sum = row.reduce((s, r) => s + r._area, 0);
+    let offset = 0;
+    row.forEach(r => {
+      if (horizontal) {
+        const itemW = sum > 0 ? (r._area / sum) * rw : 0;
+        results.push({ ...r, x: rx + offset, y: ry, w: itemW, h: rh });
+        offset += itemW;
+      } else {
+        const itemH = sum > 0 ? (r._area / sum) * rh : 0;
+        results.push({ ...r, x: rx, y: ry + offset, w: rw, h: itemH });
+        offset += itemH;
+      }
+    });
+  }
+
+  function recurse(remaining, rx, ry, rw, rh) {
+    if (!remaining.length || rw <= 0 || rh <= 0) return;
+    if (remaining.length === 1) {
+      results.push({ ...remaining[0], x: rx, y: ry, w: rw, h: rh });
+      return;
+    }
+    const side = Math.min(rw, rh); // 永遠沿著「短邊」排這一排，才不會切出細長條
+    let row = [remaining[0]];
+    let i = 1;
+    while (i < remaining.length) {
+      const nextRow = [...row, remaining[i]];
+      // 多加一個項目後，長寬比有沒有變得更好？變好才繼續塞，變差就停在這排
+      if (worstAspect(nextRow, side) <= worstAspect(row, side)) { row = nextRow; i++; }
+      else break;
+    }
+    const rowSum = row.reduce((s, r) => s + r._area, 0);
+    if (rw >= rh) {
+      const thickness = rh > 0 ? rowSum / rh : 0;
+      placeRow(row, rx, ry, thickness, rh, false);
+      recurse(remaining.slice(row.length), rx + thickness, ry, rw - thickness, rh);
+    } else {
+      const thickness = rw > 0 ? rowSum / rw : 0;
+      placeRow(row, rx, ry, rw, thickness, true);
+      recurse(remaining.slice(row.length), rx, ry + thickness, rw, rh - thickness);
+    }
+  }
+
+  recurse(scaled, x, y, w, h);
+  return results;
 }
 
 function setHeatmapSort(key) {
