@@ -53161,15 +53161,24 @@ function renderHeatmapTiles(list) {
     }
     stockRects.forEach(r => {
       if (r.w < 1 || r.h < 1) return;
-      const showText = r.w > 34 && r.h > 22;
+      // v7.60 修正：門檻太高，小格子完全沒字看起來像空的（其實色塊是對的，只是塞不下字）。
+      // 改成三個層級：夠大顯示「全名+漲跌%」，中等只顯示代號，太小才真的留白（但顏色還在，滑鼠移上去仍看得到title）。
       const changeStr = (r.changePct>=0?'+':'') + r.changePct.toFixed(2) + '%';
+      const showFull  = r.w > 44 && r.h > 26;
+      const showCode  = !showFull && r.w > 16 && r.h > 12;
+      let inner = '';
+      if (showFull) {
+        inner = `<div style="font-size:${Math.min(12, r.w/6)}px;font-weight:800;color:var(--fg);white-space:nowrap;">${r.name}</div>
+        <div style="font-size:${Math.min(10, r.w/7)}px;color:var(--fg);opacity:.85;">${changeStr}</div>`;
+      } else if (showCode) {
+        inner = `<div style="font-size:${Math.max(6, Math.min(9, r.w/4))}px;font-weight:700;color:var(--fg);line-height:1;white-space:nowrap;overflow:hidden;">${r.id}</div>`;
+      }
       html += `<div onclick="quickSearch && quickSearch('${r.id}')" title="${r.name}(${r.id}) ${changeStr}"
         style="position:absolute;left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;
         background:${_hmColor(r.changePct)};border:1px solid var(--bg2);box-sizing:border-box;cursor:pointer;
         display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:filter .15s;"
         onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter='none'">
-        ${showText ? `<div style="font-size:${Math.min(12, r.w/6)}px;font-weight:800;color:var(--fg);white-space:nowrap;">${r.name}</div>
-        <div style="font-size:${Math.min(10, r.w/7)}px;color:var(--fg);opacity:.85;">${changeStr}</div>` : ''}
+        ${inner}
       </div>`;
     });
   });
