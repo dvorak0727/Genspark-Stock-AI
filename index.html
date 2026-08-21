@@ -53171,7 +53171,9 @@ function renderHeatmapTiles(list) {
         inner = `<div style="font-size:${Math.min(12, r.w/6)}px;font-weight:800;color:var(--fg);white-space:nowrap;">${r.name}</div>
         <div style="font-size:${Math.min(10, r.w/7)}px;color:var(--fg);opacity:.85;">${changeStr}</div>`;
       } else if (showCode) {
-        inner = `<div style="font-size:${Math.max(6, Math.min(9, r.w/4))}px;font-weight:700;color:var(--fg);line-height:1;white-space:nowrap;overflow:hidden;">${r.id}</div>`;
+        // v7.60 修正：中等格子原本顯示代號（2368），改顯示股名（金像電）比較好認，
+        // 資料本身有股名（證交所API的公司簡稱），不是抓不到，純粹是顯示規則的選擇。
+        inner = `<div style="font-size:${Math.max(6, Math.min(9, r.w/4))}px;font-weight:700;color:var(--fg);line-height:1.1;white-space:nowrap;overflow:hidden;">${r.name}</div>`;
       }
       html += `<div onclick="quickSearch && quickSearch('${r.id}')" title="${r.name}(${r.id}) ${changeStr}"
         style="position:absolute;left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;
