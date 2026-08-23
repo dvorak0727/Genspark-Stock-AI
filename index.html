@@ -16907,6 +16907,60 @@ a.module-nav-item.acc-active {
       </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════
+         📐 本益比檢查（v7.60）— 貴不貴，不是看絕對數字，是看跟自己過去比
+    ══════════════════════════════════════════════════ -->
+    <div id="peRatioCard" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(37,99,235,.06));border:1.5px solid rgba(37,99,235,.2);border-radius:14px;padding:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span style="font-size:1.3rem;">📐</span>
+        <div style="flex:1;">
+          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">本益比檢查
+            <span data-tip="本益比檢查" style="cursor:pointer;font-size:.7rem;color:#2563EB;font-weight:700;">?</span>
+          </div>
+          <div style="font-size:.62rem;color:var(--fg3);">PER/PBR/殖利率 — 貴不貴不是看絕對值，是看跟自己過去一年比</div>
+        </div>
+        <div id="peBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;cursor:pointer;" data-tip="本益比檢查">📐 本益比 PER <span style="opacity:.6;">?</span></div>
+          <div style="font-size:1.1rem;font-weight:900;" id="peVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pePctTag">—</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;cursor:pointer;" data-tip="本益比檢查">📗 股價淨值比 PBR <span style="opacity:.6;">?</span></div>
+          <div style="font-size:1.1rem;font-weight:900;" id="pbrVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">股價 ÷ 每股淨值</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;cursor:pointer;" data-tip="本益比檢查">💰 殖利率 <span style="opacity:.6;">?</span></div>
+          <div style="font-size:1.1rem;font-weight:900;" id="dyVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">近一年現金股利 ÷ 股價</div>
+        </div>
+      </div>
+
+      <!-- 近1年PER區間長條 -->
+      <div id="peRangeArea" style="margin-bottom:10px;background:var(--bg2);border-radius:10px;padding:10px;">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">近1年PER區間（目前位置用箭頭標示）</div>
+        <div style="position:relative;height:20px;">
+          <div style="position:absolute;left:0;right:0;top:8px;height:4px;border-radius:2px;background:linear-gradient(90deg,#10B981,#F59E0B,#DC2626);"></div>
+          <div id="peRangeArrow" style="position:absolute;top:0;font-size:.9rem;transform:translateX(-50%);">▼</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.55rem;color:var(--fg3);margin-top:2px;">
+          <span id="peRangeLo">低—</span><span id="peRangeMid">中位—</span><span id="peRangeHi">高—</span>
+        </div>
+      </div>
+
+      <div id="peVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #2563EB;margin-bottom:8px;">
+        載入中…
+      </div>
+
+      <div style="font-size:.58rem;color:var(--fg3);text-align:right;">
+        數字對不上？<a href="https://www.twse.com.tw/zh/trading/historical/bwibbu-day.html" target="_blank" rel="noopener" style="color:#2563EB;text-decoration:underline;">🔗 到證交所查原始本益比資料 →</a>
+      </div>
+    </div>
+
     <!-- 2. 💼 籌碼總覽 -->
     <div class="cs-card" id="csCard">
       <!-- 標題列 -->
@@ -35978,6 +36032,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
   renderHero(stockId, info, lc, chg, chgPct, priceRaw.at(-1), lVol);       // hero
   renderSignalBar(lRSI, lK, lD, lHist, lc, lMA5, lMA20, fSeries, tSeries); // ⚡ 動能掃描橫幅
   setTimeout(() => { if (!isStale() && typeof renderProfitQuality === 'function') renderProfitQuality(stockId); }, 300); // 💊 獲利品質檢查（個股分析第一站，季報資料不急，錯開避免搶頻寬）
+  setTimeout(() => { if (!isStale() && typeof renderPeRatio === 'function') renderPeRatio(stockId); }, 450); // 📐 本益比檢查
   renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes, vols, lc, dates); // 籌碼總覽
 
   buildKAnnotEvents(dates, closes, ma20, vols, instMap, instDays, lows);     // [v6.40] K線標注事件（v7.7加入lows供前波低點偵測）
@@ -64044,6 +64099,73 @@ const STOCK_TECH_TAGS = {
   '7769': '半導體封測設備',
 };
 
+// ══════════════════════════════════════════════════════════════
+//  v7.60 本益比檢查——TaiwanStockPER（免費層級可用，親測回傳PER/PBR/殖利率）
+//  「貴不貴」不用固定門檻（PER<15算便宜這種），因為不同產業合理本益比差很多，
+//  改成跟這檔股票「自己過去一年」的PER分佈比百分位，同一把尺量自己，不跨產業比較。
+// ══════════════════════════════════════════════════════════════
+async function renderPeRatio(stockId) {
+  const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  const badge = document.getElementById('peBadge');
+  const cheap = '#059669', expensive = '#dc2626', mid = '#d97706';
+  if (!badge) return; // 面板不在畫面上（例如尚未展開手風琴），不用做事
+
+  const fmt = d => d.toISOString().split('T')[0];
+  const end = new Date();
+  const start = new Date(); start.setFullYear(start.getFullYear() - 1); // 近1年，用來算百分位
+
+  try {
+    const r = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPER&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=`);
+    const j = await r.json();
+    const rows = (j.data || []).filter(x => x.PER != null && x.PER > 0).sort((a,b)=>a.date.localeCompare(b.date));
+
+    if (!rows.length) {
+      badge.textContent = '無資料'; badge.style.color = 'var(--fg3)';
+      const vEl = document.getElementById('peVerdict');
+      if (vEl) vEl.textContent = '查無本益比資料，可能是這檔股票近一年沒有正式公告EPS（例如剛上市、虧損中無法計算PER）。';
+      return;
+    }
+
+    const today = rows.at(-1);
+    setTx('peVal', today.PER.toFixed(1) + '倍');
+    setTx('pbrVal', today.PBR != null ? today.PBR.toFixed(2) + '倍' : '—');
+    setTx('dyVal', today.dividend_yield != null ? today.dividend_yield.toFixed(2) + '%' : '—');
+
+    // 近1年PER百分位（今天的PER在過去一年裡，贏過幾%的交易日）
+    const pers = rows.map(x => x.PER).sort((a,b)=>a-b);
+    const rank = pers.filter(v => v <= today.PER).length;
+    const pct = Math.round((rank / pers.length) * 100);
+    const lo = pers[0], hi = pers.at(-1), mid_ = pers[Math.floor(pers.length/2)];
+
+    setTx('peRangeLo', `低 ${lo.toFixed(1)}`);
+    setTx('peRangeMid', `中位 ${mid_.toFixed(1)}`);
+    setTx('peRangeHi', `高 ${hi.toFixed(1)}`);
+    const arrowEl = document.getElementById('peRangeArrow');
+    if (arrowEl) arrowEl.style.left = `${Math.max(2, Math.min(98, pct))}%`;
+
+    let label, color, verdictTxt;
+    if (pct <= 30) {
+      label = '相對便宜'; color = cheap;
+      verdictTxt = `目前PER ${today.PER.toFixed(1)}倍，落在近1年最低的${pct}%區間，比自己過去一年大部分時間都便宜——但便宜不等於該買，要先確認是不是獲利也同步變差（回頭看上面的獲利品質卡片）。`;
+    } else if (pct >= 70) {
+      label = '相對偏貴'; color = expensive;
+      verdictTxt = `目前PER ${today.PER.toFixed(1)}倍，落在近1年最高的${100-pct}%區間，比自己過去一年大部分時間都貴——偏貴不等於該賣，可能是市場對未來成長性給了更高期待，但追高的風險也更高。`;
+    } else {
+      label = '區間中段'; color = mid;
+      verdictTxt = `目前PER ${today.PER.toFixed(1)}倍，落在近1年PER分佈的中段（${pct}百分位），既不算特別便宜也不算特別貴，屬於這檔股票近期的正常估值範圍。`;
+    }
+    setTx('pePctTag', `近1年百分位 ${pct}%`);
+    badge.textContent = label; badge.style.color = color; badge.style.background = 'transparent'; badge.style.border = `1px solid ${color}`;
+    const vEl = document.getElementById('peVerdict');
+    if (vEl) { vEl.textContent = verdictTxt; vEl.style.borderLeftColor = color; }
+  } catch (e) {
+    badge.textContent = '抓取失敗'; badge.style.color = '#dc2626';
+    const vEl = document.getElementById('peVerdict');
+    if (vEl) vEl.textContent = `本益比資料抓取失敗：${e.message}`;
+    console.warn('[本益比]', e);
+  }
+}
+
 async function renderProfitQuality(stockId) {
   const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
   const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
@@ -74342,6 +74464,7 @@ if (typeof _origRenderSM === 'function') {
 
     // ── 個股：基本面 → 籌碼 → 技術 → 週期 ──
     { id:'profitQualityCard', label:'獲利品質', emoji:'💊', why:'籌碼再強，體質有問題也是空話。先看EPS跟營業現金流是否同步，帳上賺錢但收不到現金是財報地雷的早期徵兆。' },
+    { id:'peRatioCard',    label:'本益比',    emoji:'📐', why:'貴不貴不是看絕對數字，是看跟自己過去一年比。同樣PER=20，對某些產業是便宜，對某些產業是天花板。' },
     { id:'csCard',        label:'籌碼總覽',  emoji:'💼', why:'先看籌碼！外資、自營、投信三方動向是一切分析的地基，沒有籌碼什麼都是空話。',       ksTab:'chips' },
     { id:'techCard',      label:'技術指標',  emoji:'📈', why:'RSI、KD、布林通道——這是大多數散戶在看的東西，也是你需要知道別人在想什麼的原因。', ksTab:'indicators' },
     { id:'phaseCard',     label:'籌碼週期',  emoji:'🔬', why:'主力有其慣性，吸籌→拉升→出貨→洗盤是標準劇本，這裡告訴你現在在哪個章節。底部探測與高點偵測同步收在此處。', ksTab:'wyckoff', before:'cfdCard' },
