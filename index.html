@@ -33959,15 +33959,18 @@ async function startAnalysis() {
     const start = new Date(); start.setDate(end.getDate() - 90);
 
     updLoad('🌐 連線 FinMind API…');
-    const [r1, r2] = await Promise.allSettled([
+    const [r1, r2, r3] = await Promise.allSettled([
       fetchFM('TaiwanStockInstitutionalInvestorsBuySell', stockId, start, end),
       fetchFM('TaiwanStockPrice', stockId, start, end),
+      fetchFM('TaiwanStockMarginPurchaseShortSale', stockId, start, end),
     ]);
     // ★ v6.20d：API 回來後先確認是否仍為最新分析，避免舊次覆蓋新次
     if (myGen !== _analysisGeneration) return;
 
     if (r1.status === 'fulfilled') instData  = r1.value || [];
     if (r2.status === 'fulfilled') priceData = r2.value || [];
+    // v7.52：法人成本矩陣的「融資」列改抓真實融資買賣超（原本是用總成交量代理估算）
+    const marginData = (r3.status === 'fulfilled') ? (r3.value || []) : [];
 
     updLoad('📊 計算技術指標…');
     await sleep(250);
@@ -33989,7 +33992,7 @@ async function startAnalysis() {
       }
     }
 
-    renderAll(stockId, instData, priceData, myGen);
+    renderAll(stockId, instData, priceData, myGen, marginData);
     document.getElementById('welcomeMsg').style.display   = 'none';
     document.getElementById('analysisResult').style.display = 'block';
     document.getElementById('analysisResult').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -34007,7 +34010,7 @@ async function startAnalysis() {
     const sim = genSim(stockId);
     if (sim) {
       _fallback = true;
-      renderAll(stockId, sim.inst, sim.price, myGen);
+      renderAll(stockId, sim.inst, sim.price, myGen, []);
       document.getElementById('welcomeMsg').style.display   = 'none';
       document.getElementById('analysisResult').style.display = 'block';
       // 模擬資料也記錄查詢
@@ -36038,7 +36041,7 @@ function srPopupGo(code) {
 // ==============================================================
 //  RENDER ALL
 // ==============================================================
-function renderAll(stockId, instRaw, priceRaw, _gen) {
+function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   // ── v6.20c：generation token 防重入，背景任務執行前先確認是否已過期 ──
   const gen = _gen ?? _analysisGeneration; // 若直接呼叫（如 genSim fallback）使用當前 gen
   const isStale = () => gen !== _analysisGeneration; // 若已過期則不更新 DOM
@@ -36084,10 +36087,23 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
   const fSeries = instDays.map(d => (instMap[d]?.Foreign_Investor?.net || 0) / 1000);
 
   const tSeries = instDays.map(d => (instMap[d]?.Investment_Trust?.net  || 0) / 1000);
-  // v6.14：mSeries = 純自營（自行+避險），移除誤包外資的舊邏輯
+  // v7.52 修復：mSeries 過去誤把 Dealer_Hedging（自營商避險，市場中立對沖，
+  // 不代表方向性判斷）併入「自營」一起算，跟公理二（CFD理論排除避險）矛盾。
+  // 改回只用 Dealer_self（自營自行買賣），才是真正代表方向性判斷的自營籌碼。
   const mSeries = instDays.map(d => {
-    return ((instMap[d]?.Dealer_self?.net||0) + (instMap[d]?.Dealer_Hedging?.net||0)) / 1000;
+    return (instMap[d]?.Dealer_self?.net||0) / 1000;
   });
+
+  // v7.52：真實融資買賣超（原本法人成本矩陣的「融資」列是用總成交量代理
+  // 估算，不是真的融資資料）。TaiwanStockMarginPurchaseShortSale 的
+  // MarginPurchaseBuy/Sell 單位本身已經是「張」，不用再除以1000。
+  const marginMap = {};
+  (marginRaw||[]).forEach(r => {
+    if (!r || !r.date) return;
+    marginMap[r.date] = (+r.MarginPurchaseBuy||0) - (+r.MarginPurchaseSell||0);
+  });
+  const marginSeries = instDays.map(d => marginMap[d] !== undefined ? marginMap[d] : 0);
+  const hasRealMarginData = Object.keys(marginMap).length > 0;
 
   const ma5  = calcMA(closes, 5);
   const ma20 = calcMA(closes, 20);
@@ -36127,6 +36143,8 @@ function renderAll(stockId, instRaw, priceRaw, _gen) {
   // ── 第一批：核心視覺（同步，立即顯示）──
   window._gmPriceRaw = priceRaw; // v6.20q：橋接 priceRaw 供 renderChipSummary 建 priceMap
   window._gmDates    = dates;    // v6.28：橋接 dates 供 renderFITPanel 使用
+  window._gmMarginSeries = marginSeries; // v7.52：橋接真實融資買賣超序列，供 renderChipSummary 建成本矩陣快取
+  window._gmHasRealMarginData = hasRealMarginData;
   renderHero(stockId, info, lc, chg, chgPct, priceRaw.at(-1), lVol);       // hero
   renderSignalBar(lRSI, lK, lD, lHist, lc, lMA5, lMA20, fSeries, tSeries); // ⚡ 動能掃描橫幅
   setTimeout(() => { if (!isStale() && typeof renderProfitQuality === 'function') renderProfitQuality(stockId); }, 300); // 💊 獲利品質檢查（個股分析第一站，季報資料不急，錯開避免搶頻寬）
@@ -37198,7 +37216,9 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
   if (priceDates && closes) {
     priceDates.forEach((d, i) => { _dateCloseMap[d] = closes[i]; });
   }
-  _costMatrixCache = { instMap, instDays, fSeries, tSeries, mSeries, closes, vols, stockId: _gmStockId, priceMap: _priceMap, dateCloseMap: _dateCloseMap };
+  _costMatrixCache = { instMap, instDays, fSeries, tSeries, mSeries,
+    marginSeries: window._gmMarginSeries || [], hasRealMarginData: !!window._gmHasRealMarginData,
+    closes, vols, stockId: _gmStockId, priceMap: _priceMap, dateCloseMap: _dateCloseMap };
   _costMatrixDays  = 1;  // 預設1日
 
   // 重設矩陣面板（確保面板關閉）
@@ -38720,11 +38740,13 @@ function switchCostMatTab(days) {
  * 渲染成本矩陣 UI（成本彙總 + 熱力表格）
  */
 function _renderCostMatrixUI(cache, days) {
-  const { instMap, instDays, fSeries, tSeries, mSeries, closes, vols, priceMap, dateCloseMap } = cache;
+  const { instMap, instDays, fSeries, tSeries, mSeries, marginSeries, hasRealMarginData, closes, vols, priceMap, dateCloseMap } = cache;
 
-  // ── 融資/散戶成本估算 ──────────────────────────────────────
-  // 融資：用成交量加權平均收盤（量大的日子融資成本較重）
-  // 散戶：用 (1-bigPct) × 成交量加權
+  // ── 融資成本 ──────────────────────────────────────
+  // v7.52 修復：改用真實 TaiwanStockMarginPurchaseShortSale 逐日融資買賣超，
+  // 跟外資/投信/自營同一套 _calcInstCost 公式（淨買超加權），不再用「總成交量
+  // 加權平均價」這種代理估算。抓不到真實融資資料時（hasRealMarginData=false），
+  // 才退回舊的量加權代理值，並標註「估」讓畫面上看得出差異。
   function _calcVolWeightedCost(vSeries, cSeries, days) {
     const n = Math.min(days, vSeries.length, cSeries.length);
     const vs = vSeries.slice(-n);
@@ -38735,27 +38757,34 @@ function _renderCostMatrixUI(cache, days) {
     }
     return vSum > 0 ? wSum / vSum : null;
   }
-  const marginCost = vols ? _calcVolWeightedCost(vols, closes, days) : null;
-  const retailCost = marginCost; // 散戶與融資使用同一量加權基準
+  const marginCostReal = (hasRealMarginData && marginSeries)
+    ? _calcInstCost(marginSeries, instDays, closes, days, dateCloseMap) : null;
+  const marginCostEst  = vols ? _calcVolWeightedCost(vols, closes, days) : null;
+  const marginCost = marginCostReal !== null ? marginCostReal : marginCostEst;
+  const marginIsEst = marginCostReal === null;
+  // 散戶：FinMind 沒有公開的純散戶買賣資料集，仍是量加權代理估算，
+  // 沒有真實資料可以取代，誠實維持「估」標記，不假裝是真數字。
+  const retailCost = marginCostEst;
 
   // ── I. 成本彙總格子 ─────────────────────────────────────
   const majorSeries = fSeries.map((v,i) => v + (tSeries[i]||0));
   const instDefs = [
-    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, instDays, closes, days, dateCloseMap) },
-    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, closes, days, dateCloseMap) },
-    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, closes, days, dateCloseMap) },
-    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, closes, days, dateCloseMap) },
-    { label:'💳 融資', series: null,        cost: marginCost },
-    { label:'👥 散戶', series: null,        cost: retailCost },
+    { label:'🌍 外資', series: fSeries,     cost: _calcInstCost(fSeries, instDays, closes, days, dateCloseMap), isEst:false },
+    { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, closes, days, dateCloseMap), isEst:false },
+    { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, closes, days, dateCloseMap), isEst:false },
+    { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, closes, days, dateCloseMap), isEst:false },
+    { label:'💳 融資', series: null,        cost: marginCost, isEst: marginIsEst },
+    { label:'👥 散戶', series: null,        cost: retailCost, isEst: true },
   ];
   const grid = document.getElementById('csCostSummaryGrid');
   if (grid) {
     grid.innerHTML = instDefs.map(def => {
       const cost = def.cost;
-      const valTxt = cost !== null ? '＄' + cost.toFixed(1) : '—';
+      const valTxt = cost !== null ? '＄' + cost.toFixed(1) + (def.isEst ? '（估）' : '') : '—';
       const valCls = cost !== null ? '' : 'na';
-      const note = (def.label.includes('融資') || def.label.includes('散戶'))
-        ? `${days}日量加權` : `${days}日淨買加權`;
+      const note = def.label.includes('散戶') ? `${days}日量加權估算`
+        : (def.label.includes('融資') && def.isEst) ? `${days}日量加權估算`
+        : (def.label.includes('融資') ? `${days}日真實融資淨買加權` : `${days}日淨買加權`);
       return `<div class="cs-cost-item">
         <div class="cs-cost-item-label">${def.label}</div>
         <div class="cs-cost-item-val ${valCls}">${valTxt}</div>
@@ -38777,7 +38806,10 @@ function _renderCostMatrixUI(cache, days) {
     { label:'🏦 投信', series: tSeries,     cost: _calcInstCost(tSeries, instDays, closes, days, dateCloseMap) },
     { label:'🏛 自營', series: mSeries,     cost: _calcInstCost(mSeries, instDays, closes, days, dateCloseMap) },
     { label:'💰 主力', series: majorSeries, cost: _calcInstCost(majorSeries, instDays, closes, days, dateCloseMap) },
-    { label:'💳 融資', series: vols ? vols.map((v,i) => v > 0 ? +(v/1000).toFixed(1) : 0) : [], cost: marginCost, isVol: true },
+    { label:'💳 融資' + (marginIsEst ? '（估）' : ''),
+      series: (hasRealMarginData && marginSeries) ? marginSeries.map(v => +v.toFixed(1))
+        : (vols ? vols.map((v,i) => v > 0 ? +(v/1000).toFixed(1) : 0) : []),
+      cost: marginCost, isVol: marginIsEst },
     { label:'👥 散戶', series: vols ? vols.map((v,i) => {
         const fv = fSeries[i]||0, tv = tSeries[i]||0, mv = mSeries[i]||0;
         const bigNet = fv+tv+mv;
