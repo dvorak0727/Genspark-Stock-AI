@@ -33451,7 +33451,11 @@ a.module-nav-item.acc-active {
 // ==============================================================
 //  CONSTANTS
 // ==============================================================
-const FINMIND = 'https://stock-api-214539875795.asia-east1.run.app';
+// v7.51 修復：舊的 Cloud Run 代理（stock-api-214539875795.asia-east1.run.app）
+// 完全忽略前端傳入的 token 參數，永遠使用它自己內部寫死、現已失效的 token，
+// 導致「Token is illegal」及股價抓不到真實資料、退回錯誤/模擬值（如2303顯示166而非真實124.5）。
+// 已改用會正確轉發 token 的 license-worker /finmind 代理（已用curl驗證回傳真實資料）。
+const FINMIND = 'https://license-worker.dvorak0727.workers.dev/finmind';
 const TOKEN   = '';
 // ── 選項Q v6.99：全站 debug log 開關 ──────────────────────────
 // false（預設）= 關閉 KS-DIAG/KS-DEEP/KS-CLICK-TEST log
