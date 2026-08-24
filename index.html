@@ -34713,17 +34713,43 @@ function srFindSector(stockId) {
 const SR_CACHE = {}; // 快取，避免重複拉取
 let SR_LAST_DATE = '';
 
+// v7.51 修復：原本「避風港」篩選完全依賴 SR_SECTOR_DEF 裡手動寫死的
+// corrToSemi 常數（很久以前手動填的估計值，從未用真實股價驗證過）。
+// 現在改成用近20個交易日的真實股價、算逐日漲跌幅序列，對每個板塊
+// 跟「當前震央」直接算皮爾森相關係數——數字改成真的算出來的，不是猜的。
+// 靜態 corrToSemi 保留當作抓不到足夠資料時的備援，不再是主要依據。
+function _srPearson(seriesA, seriesB) {
+  // seriesA/seriesB: [{date, chg}]，先用日期對齊再算皮爾森相關係數
+  const mapB = new Map(seriesB.map(d => [d.date, d.chg]));
+  const pairs = seriesA.filter(d => mapB.has(d.date)).map(d => [d.chg, mapB.get(d.date)]);
+  if (pairs.length < 10) return null; // 資料太少，相關係數不可靠，回傳 null 交給呼叫端 fallback
+  const n = pairs.length;
+  const meanA = pairs.reduce((s,p)=>s+p[0],0) / n;
+  const meanB = pairs.reduce((s,p)=>s+p[1],0) / n;
+  let cov = 0, varA = 0, varB = 0;
+  for (const [a,b] of pairs) {
+    const da = a - meanA, db = b - meanB;
+    cov += da*db; varA += da*da; varB += db*db;
+  }
+  const denom = Math.sqrt(varA * varB);
+  return denom < 1e-9 ? null : cov / denom;
+}
+
 async function srFetchSectorData() {
   const cacheKey = new Date().toDateString();
   if (SR_CACHE[cacheKey] && SR_CACHE[cacheKey].ready) return SR_CACHE[cacheKey];
 
   const end   = new Date();
   const start = new Date(); start.setDate(end.getDate() - 7);
+  // 相關係數計算需要較長的歷史序列（至少20個交易日）才穩定，
+  // 用另一個更早的起始日單獨拉，不影響原本「近7日」的漲跌/量比計算
+  const corrStart = new Date(); corrStart.setDate(end.getDate() - 35);
   const fmtD  = d => d.toISOString().slice(0,10);
 
   // 拉每個板塊所有代表股（精確版，與 sector-detector.html 對齊）
   const allCodes = [...new Set(SR_SECTOR_DEF.flatMap(s => s.stocks))];
   const priceMap = {};
+  const corrPriceMap = {};
   let fetchOK = 0;
 
   for (const code of allCodes) {
@@ -34740,6 +34766,12 @@ async function srFetchSectorData() {
     } catch(e) {
       console.warn('[SR] price', code, e.message);
       priceMap[code] = null;
+    }
+    try {
+      const corrRows = await fetchFM('TaiwanStockPrice', code, corrStart, end);
+      if (corrRows.length > 0) corrPriceMap[code] = corrRows;
+    } catch(e) {
+      console.warn('[SR] corr price', code, e.message);
     }
   }
 
@@ -34783,20 +34815,53 @@ async function srFetchSectorData() {
     }
   }
 
-  // 避風港（低相關 + 未跌）— 與 sector-detector.html 邏輯統一
-  // 修復：不再用差值比較，改用絕對 corrToSemi < 0.35 篩選
-  // 若震央本身非半導體，則以該震央 corrToSemi 為基準，取差值仍 < 0.35 的板塊
-  const epicCorrVal = SR_SECTOR_DEF.find(s => s.id === epicId).corrToSemi;
+  // 板塊逐日漲跌幅序列（跟震央算真實皮爾森相關係數要用的）
+  const sectorChangeSeries = {};
+  for (const sec of SR_SECTOR_DEF) {
+    const byDate = {};
+    for (const code of sec.stocks) {
+      const rows = corrPriceMap[code];
+      if (!rows || rows.length < 2) continue;
+      for (let i = 1; i < rows.length; i++) {
+        const prevC = +rows[i-1].close, curC = +rows[i].close;
+        if (prevC <= 0) continue;
+        const chg = (curC - prevC) / prevC * 100;
+        const date = rows[i].date;
+        (byDate[date] = byDate[date] || []).push(chg);
+      }
+    }
+    sectorChangeSeries[sec.id] = Object.entries(byDate)
+      .map(([date, chgs]) => ({ date, chg: chgs.reduce((a,b)=>a+b,0)/chgs.length }))
+      .sort((a,b) => a.date.localeCompare(b.date));
+  }
+
+  // 避風港（低相關 + 未跌）
+  // v7.51：優先用真實股價算出來的皮爾森相關係數（跟「當前震央」直接算，
+  // 不再繞經半導體當中介），只有資料不足（<10個共同交易日）才退回舊的
+  // 靜態 corrToSemi 估計值當備援，並在結果標註 isEstimate，讓畫面上
+  // 看得出這筆是「真算的」還是「估計的」。
+  const epicSeries = sectorChangeSeries[epicId] || [];
+  const epicCorrValStatic = SR_SECTOR_DEF.find(s => s.id === epicId).corrToSemi;
+  const sectorCorr = {}; // { [secId]: { r, isEstimate } }
+  for (const sec of SR_SECTOR_DEF) {
+    if (sec.id === epicId) { sectorCorr[sec.id] = { r: 1, isEstimate: false }; continue; }
+    const r = epicSeries.length ? _srPearson(epicSeries, sectorChangeSeries[sec.id] || []) : null;
+    if (r !== null) {
+      sectorCorr[sec.id] = { r: +r.toFixed(2), isEstimate: false };
+    } else {
+      // fallback：資料不足，退回舊的靜態估計值（跟舊版行為一致）
+      const est = epicId === 'semi'
+        ? sec.corrToSemi
+        : Math.abs(sec.corrToSemi - epicCorrValStatic);
+      sectorCorr[sec.id] = { r: +est.toFixed(2), isEstimate: true };
+    }
+  }
+
   const safeHavens = SR_SECTOR_DEF.filter(sec => {
     if (sec.id === epicId) return false;
     const d = sectorData[sec.id];
     if (!d || d.change < -0.3) return false;
-    // 若震央是半導體(corrToSemi=1.00)，直接用絕對值 < 0.35
-    // 若震央是其他板塊，用「與震央的差值 < 0.35」來確保低相關
-    const corrToEpic = epicId === 'semi'
-      ? sec.corrToSemi
-      : Math.abs(sec.corrToSemi - epicCorrVal);
-    return corrToEpic < 0.35;
+    return Math.abs(sectorCorr[sec.id].r) < 0.35;
   }).map(s => s.id).slice(0, 3);
 
   // 輪動天數（估算）
@@ -34811,7 +34876,7 @@ async function srFetchSectorData() {
     rotDay = Math.max(1, d);
   }
 
-  const result = { ready:true, sectorData, epicId, safeHavens, rotDay, isLive: fetchOK >= 5 };
+  const result = { ready:true, sectorData, epicId, safeHavens, rotDay, isLive: fetchOK >= 5, sectorCorr };
   SR_CACHE[cacheKey] = result;
   return result;
 }
@@ -34833,8 +34898,12 @@ function srSimulateFallback() {
     const strength = Math.round(Math.max(0, -chg*14));
     sectorData[sec.id] = { change:chg, volRatio:chg<-1?1.8:1.1, state, strength };
   }
+  const sectorCorr = {};
+  for (const sec of SR_SECTOR_DEF) {
+    sectorCorr[sec.id] = { r: sec.id==='semi' ? 1 : sec.corrToSemi, isEstimate: true };
+  }
   return { ready:true, sectorData, epicId:'semi', safeHavens:['finance','telecom'],
-    rotDay:2, isLive:false };
+    rotDay:2, isLive:false, sectorCorr };
 }
 
 /* ── 主渲染函數 ── */
@@ -34869,7 +34938,7 @@ async function renderSectorRotation(stockId) {
   loadEl.style.display = 'none';
   contentEl.style.display = 'block';
 
-  const { sectorData, epicId, safeHavens, rotDay, isLive } = result;
+  const { sectorData, epicId, safeHavens, rotDay, isLive, sectorCorr } = result;
   const epicSec  = SR_SECTOR_DEF.find(s=>s.id===epicId);
   // 存到 window 供決策樹讀取
   window._dtreeEpicData = { id: epicId, name: epicSec?.name||epicId, change: sectorData[epicId]?.change??0, emoji: epicSec?.emoji||'🎯' };
@@ -34968,17 +35037,20 @@ async function renderSectorRotation(stockId) {
     advRow.className = 'sr-advice-row safe';
     advIcon.textContent = '🛡️';
     advTit.textContent  = '本股屬於避風港板塊！資金可能流入';
-    advDesc.textContent = '與震央（'+epicSec.name+'）相關性低（'+stockSec.corrToSemi+'），符合輪動進場條件。當前輪動 D+'+rotDay+'，D+2~D+3 是黃金進場窗口。';
+    { const c = sectorCorr?.[stockSec.id]; const corrTxt = c ? (c.r + (c.isEstimate?'（估）':'')) : '—';
+    advDesc.textContent = '與震央（'+epicSec.name+'）相關性低（'+corrTxt+'），符合輪動進場條件。當前輪動 D+'+rotDay+'，D+2~D+3 是黃金進場窗口。'; }
   } else if (stockD?.state === 'flee' || stockD?.state === 'warn') {
     advRow.className = 'sr-advice-row alert';
     advIcon.textContent = '⚠️';
     advTit.textContent  = '本股板塊（'+stockSec.name+'）受震波傳導，注意風險';
-    advDesc.textContent = '與震央（'+epicSec.name+'）相關性 '+stockSec.corrToSemi+'，震波已傳導至本板塊。建議觀察避風港板塊：' + (safeNames||'金融/電信') + '。';
+    { const c = sectorCorr?.[stockSec.id]; const corrTxt = c ? (c.r + (c.isEstimate?'（估）':'')) : '—';
+    advDesc.textContent = '與震央（'+epicSec.name+'）相關性 '+corrTxt+'，震波已傳導至本板塊。建議觀察避風港板塊：' + (safeNames||'金融/電信') + '。'; }
   } else {
     advRow.className = 'sr-advice-row neut';
     advIcon.textContent = '💡';
     advTit.textContent  = '本股板塊（'+stockSec.name+'）暫未受輪動明顯影響';
-    advDesc.textContent = '震央在 '+epicSec.name+'（震波'+(epicD ? epicD.strength : 0)+'分），本板塊與震央相關性'+stockSec.corrToSemi+'，保持正常操作策略。';
+    { const c = sectorCorr?.[stockSec.id]; const corrTxt = c ? (c.r + (c.isEstimate?'（估）':'')) : '—';
+    advDesc.textContent = '震央在 '+epicSec.name+'（震波'+(epicD ? epicD.strength : 0)+'分），本板塊與震央相關性'+corrTxt+'，保持正常操作策略。'; }
   }
 
   // 更新 header 子標題
