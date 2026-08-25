@@ -156,6 +156,35 @@ export default {
       }
     }
 
+    // GET /yahoo?ticker=SPY
+    //   → 代理 Yahoo Finance chart API（解決瀏覽器 CORS 限制）。
+    //   原本前端用 corsproxy.io / api.codetabs.com 這兩個公開免費代理，
+    //   2026-08 起雙雙掛掉（corsproxy.io 改成要API key才能用、codetabs連不上），
+    //   導致開盤壓力表永遠顯示「模擬」。改用自己的 worker，白名單限制
+    //   ticker，避免變成任意開放代理。
+    if (url.pathname === "/yahoo") {
+      const YAHOO_TICKERS = new Set(["SPY", "QQQ", "SOXX", "TSM", "EWJ", "EWY"]);
+      const ticker = url.searchParams.get("ticker") || "";
+      if (!YAHOO_TICKERS.has(ticker)) {
+        return json({ error: "ticker_not_allowed", msg: "此代號不在白名單內" }, 400);
+      }
+      try {
+        const res = await fetch(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=5d&interval=1d&includePrePost=false`,
+          {
+            headers: { "User-Agent": "Mozilla/5.0" },
+            cf: { cacheTtl: 300, cacheEverything: true }, // 5分鐘快取，跟盤中報價更新頻率相稱
+          }
+        );
+        const data = await res.json();
+        return new Response(JSON.stringify(data), {
+          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return json({ error: "yahoo_fetch_failed", message: e.message }, 502);
+      }
+    }
+
     return json({ error: "not_found" }, 404);
   },
 };

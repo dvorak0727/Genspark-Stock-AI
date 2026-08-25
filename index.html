@@ -72850,28 +72850,29 @@ const OPP_STOCKS = [
   { ticker:'EWY',  name:'韓股ETF',  base:72.0,  weight:1, label:'韓國' },
 ];
 
-/* ── 抓取單一 Yahoo 報價（複用既有 proxy 架構）── */
+/* ── 抓取單一 Yahoo 報價 ──
+   v7.53 修復：原本走 US_PROXIES（corsproxy.io / api.codetabs.com 兩個
+   公開免費代理），2026-08起兩個都掛了（corsproxy.io改成要API key、
+   codetabs連不上），導致開盤壓力表永遠顯示「模擬」。改用自己的
+   license-worker /yahoo 路由（已用curl驗證能拿到真實SPY報價）。 */
 async function _oppFetchOne(stock) {
-  // 直接嘗試 proxy（不依賴 _usProxyStatus 全域狀態，壓力表獨立嘗試）
-  const yUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stock.ticker}?range=5d&interval=1d&includePrePost=false`;
-  for (const mkProxy of US_PROXIES) {
-    try {
-      const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 6000);
-      const r    = await fetch(mkProxy(yUrl), { signal: ctrl.signal }).finally(() => clearTimeout(tid));
-      if (!r.ok) continue;
-      const text = await r.text();
-      const raw  = (() => { try { const j=JSON.parse(text); return j?.contents ? JSON.parse(j.contents) : j; } catch(e){return null;} })();
+  try {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), 6000);
+    const r    = await fetch(`https://license-worker.dvorak0727.workers.dev/yahoo?ticker=${stock.ticker}`, { signal: ctrl.signal }).finally(() => clearTimeout(tid));
+    if (r.ok) {
+      const raw    = await r.json();
       const meta   = raw?.chart?.result?.[0]?.meta;
       const quotes = raw?.chart?.result?.[0]?.indicators?.quote?.[0];
-      if (!meta) continue;
-      const closes = (quotes?.close || []).filter(Boolean);
-      const last   = meta.regularMarketPrice ?? closes.at(-1) ?? 0;
-      const prev   = closes.length >= 2 ? closes.at(-2) : last;
-      const chg    = prev > 0 ? (last - prev) / prev * 100 : 0;
-      if (last > 0) return { ...stock, price: last, chg: +chg.toFixed(2), sim: false };
-    } catch(_) { /* 靜默 fallback */ }
-  }
+      if (meta) {
+        const closes = (quotes?.close || []).filter(Boolean);
+        const last   = meta.regularMarketPrice ?? closes.at(-1) ?? 0;
+        const prev   = closes.length >= 2 ? closes.at(-2) : last;
+        const chg    = prev > 0 ? (last - prev) / prev * 100 : 0;
+        if (last > 0) return { ...stock, price: last, chg: +chg.toFixed(2), sim: false };
+      }
+    }
+  } catch(_) { /* 靜默 fallback */ }
   // 備援：定錨模擬（同 _usSimPrice 邏輯）
   const today    = new Date();
   const dateSeed = today.getFullYear()*10000 + (today.getMonth()+1)*100 + today.getDate();
