@@ -36153,7 +36153,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes, vols, lc, dates); // 籌碼總覽
 
   buildKAnnotEvents(dates, closes, ma20, vols, instMap, instDays, lows);     // [v6.40] K線標注事件（v7.7加入lows供前波低點偵測）
-  renderTechCharts(dates, closes, ma5, ma20, boll, vols, pc);               // 技術圖
+  renderTechCharts(dates, closes, ma5, ma20, boll, vols, pc, opens, highs, lows); // 技術圖（v7.53加入OHLC畫K棒+支撐壓力）
   renderOBI(dates, opens, highs, lows, closes, vols);                        // [v6.41] OBI 外盤強度指標
   renderIndCards(lRSI, lK, lD, lMACD, lSig, lHist, lU, lL, lc, lMA5, lMA20); // 指標卡
   renderCandlePatterns(opens, highs, lows, closes);                           // 📉 K線形態
@@ -42574,12 +42574,121 @@ const _kannotPlugin = {
 };
 
 // ==============================================================
-function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose) {
+// v7.53：近期低點/高點聚集偵測 → 候選支撐/壓力水平線
+// ⚠️ 這是啟發式演算法（找局部低點/高點裡價位相近、重複出現的區域），
+// 不是精確公式，畫出來的是「候選區」，不保證股價一定會撐住或壓回。
+function detectSupportResistance(highs, lows, lookback = 60, tolerancePct = 0.015, minTouches = 2) {
+  const h = highs.slice(-lookback), l = lows.slice(-lookback);
+  const n = l.length;
+  if (n < 5) return { support: [], resistance: [] };
+
+  // 找局部極值（左右各一天都比自己高/低，才算轉折點，避免雜訊）
+  const swingLows = [], swingHighs = [];
+  for (let i = 1; i < n - 1; i++) {
+    if (l[i] < l[i-1] && l[i] < l[i+1]) swingLows.push(l[i]);
+    if (h[i] > h[i-1] && h[i] > h[i+1]) swingHighs.push(h[i]);
+  }
+
+  // 把價位相近（誤差在 tolerancePct 內）的轉折點分到同一群，
+  // 群內點數 >= minTouches 才算候選支撐/壓力，取群內平均當水平線的值
+  function cluster(vals) {
+    const sorted = [...vals].sort((a,b)=>a-b);
+    const groups = [];
+    let cur = [];
+    sorted.forEach(v => {
+      if (cur.length === 0 || (v - cur[cur.length-1]) / cur[cur.length-1] <= tolerancePct) {
+        cur.push(v);
+      } else {
+        if (cur.length >= minTouches) groups.push(cur);
+        cur = [v];
+      }
+    });
+    if (cur.length >= minTouches) groups.push(cur);
+    return groups.map(g => ({
+      level: g.reduce((a,b)=>a+b,0) / g.length,
+      touches: g.length,
+    }));
+  }
+
+  return { support: cluster(swingLows), resistance: cluster(swingHighs) };
+}
+
+// v7.53：自訂 Chart.js 外掛，在收盤線圖的座標系統上疊畫K棒（開高低收）
+// 跟支撐/壓力水平線——不依賴任何外部K棒繪圖套件，純手刻，資料源不變。
+const _candlestickPlugin = {
+  id: '_candlestickPlugin',
+  beforeDatasetsDraw(chart) {
+    const { ctx, scales, chartArea } = chart;
+    const meta = chart.$candleData;
+    if (!meta) return;
+    const xScale = scales.x, yScale = scales.y;
+    const { opens, highs, lows, closes } = meta;
+    const barCount = closes.length;
+    const slotW = chartArea.width / barCount;
+    const bodyW = Math.max(2, slotW * 0.6);
+
+    ctx.save();
+    for (let i = 0; i < barCount; i++) {
+      const xCenter = xScale.getPixelForValue(i);
+      const yOpen = yScale.getPixelForValue(opens[i]);
+      const yClose = yScale.getPixelForValue(closes[i]);
+      const yHigh = yScale.getPixelForValue(highs[i]);
+      const yLow = yScale.getPixelForValue(lows[i]);
+      const up = closes[i] >= opens[i]; // 台股慣例：收漲紅、收跌綠
+      const color = up ? '#E8343A' : '#16A34A';
+
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 1;
+      // 上下影線
+      ctx.beginPath();
+      ctx.moveTo(xCenter, yHigh);
+      ctx.lineTo(xCenter, yLow);
+      ctx.stroke();
+      // 實體（開盤/收盤之間的箱體）
+      const bodyTop = Math.min(yOpen, yClose);
+      const bodyH = Math.max(1, Math.abs(yClose - yOpen));
+      ctx.fillRect(xCenter - bodyW/2, bodyTop, bodyW, bodyH);
+    }
+
+    // 候選支撐/壓力水平線
+    (meta.resLines || []).forEach(({ level, touches, type }) => {
+      const y = yScale.getPixelForValue(level);
+      if (y < chartArea.top || y > chartArea.bottom) return;
+      ctx.strokeStyle = type === 'support' ? 'rgba(22,163,74,0.55)' : 'rgba(232,52,58,0.55)';
+      ctx.setLineDash([5,3]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(chartArea.left, y);
+      ctx.lineTo(chartArea.right, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = type === 'support' ? '#16A34A' : '#E8343A';
+      ctx.font = '10px sans-serif';
+      ctx.fillText((type === 'support' ? '候選支撐 ' : '候選壓力 ') + level.toFixed(1) + '（' + touches + '次）',
+        chartArea.left + 4, y - 4);
+    });
+    ctx.restore();
+  }
+};
+
+function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens, highs, lows) {
   const n = 30;
   const dl = dates.slice(-n).map(d=>d.slice(5).replace('-','/'));
   const cl = closes.slice(-n), m5=ma5.slice(-n), m20=ma20.slice(-n);
   const bu=boll.upper.slice(-n), bl=boll.lower.slice(-n);
   const vl=vols.slice(-n);
+  const hasOHLC = Array.isArray(opens) && Array.isArray(highs) && Array.isArray(lows);
+  const op = hasOHLC ? opens.slice(-n) : [];
+  const hi = hasOHLC ? highs.slice(-n) : [];
+  const lo = hasOHLC ? lows.slice(-n) : [];
+
+  // 支撐/壓力用比畫面範圍長一點的視窗算（近60天），避免只看30天樣本太少
+  const sr = hasOHLC ? detectSupportResistance(highs, lows) : { support: [], resistance: [] };
+  const resLines = [
+    ...sr.support.map(s => ({ ...s, type: 'support' })),
+    ...sr.resistance.map(s => ({ ...s, type: 'resistance' })),
+  ];
 
   destroyChart('priceChart');
   const c1 = document.getElementById('priceChart').getContext('2d');
@@ -42587,16 +42696,27 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose) {
     type:'line', data:{
       labels: dl,
       datasets:[
-        { label:'收盤價', data:cl, borderColor:'#1976D2', borderWidth:2, pointRadius:0, fill:false, tension:0.1 },
+        // 收盤線改成極淡的輔助線（K棒本身已經表現收盤價），保留線是方便看整體趨勢
+        { label:'收盤價', data:cl, borderColor:'rgba(25,118,210,0.25)', borderWidth:1, pointRadius:0, fill:false, tension:0.1 },
         { label:'MA5',   data:m5, borderColor:'#FF7043', borderWidth:1.5, pointRadius:0, fill:false, tension:0.3, borderDash:[] },
         { label:'MA20',  data:m20,borderColor:'#6C5CE7', borderWidth:1.5, pointRadius:0, fill:false, tension:0.3 },
         { label:'BB上',  data:bu, borderColor:'rgba(255,193,7,0.5)', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:false, tension:0.3 },
         { label:'BB下',  data:bl, borderColor:'rgba(255,193,7,0.5)', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,193,7,0.05)', tension:0.3 },
+        // 隱形資料集，純粹讓 y 軸自動縮放涵蓋K棒完整高低範圍（K棒本身是自訂plugin畫的，不吃Chart.js自己的資料集渲染）
+        ...(hasOHLC ? [
+          { label:'_high', data:hi, borderWidth:0, pointRadius:0, fill:false, hidden:false, borderColor:'transparent', backgroundColor:'transparent' },
+          { label:'_low',  data:lo, borderWidth:0, pointRadius:0, fill:false, hidden:false, borderColor:'transparent', backgroundColor:'transparent' },
+        ] : []),
       ]
     },
-    plugins: [_kannotPlugin],
-    options: lightChartOpts('收盤價 + MA5/MA20 + 布林通道', false, true),
+    plugins: [_kannotPlugin, _candlestickPlugin],
+    options: (() => {
+      const opts = lightChartOpts('K棒 + MA5/MA20 + 布林通道 + 候選支撐壓力（啟發式偵測，非保證）', false, true);
+      opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
+      return opts;
+    })(),
   });
+  charts['priceChart'].$candleData = hasOHLC ? { opens: op, highs: hi, lows: lo, closes: cl, resLines } : null;
 
   destroyChart('volChart');
   const c2 = document.getElementById('volChart').getContext('2d');
