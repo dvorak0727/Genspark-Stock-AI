@@ -91,7 +91,14 @@ td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle
 <!-- 用戶清單 -->
 <div class="card">
   <h2>👥 目前授權用戶</h2>
-  <button class="btn-sm" onclick="loadKeys()" style="margin-bottom:12px;">🔄 重新載入</button>
+  <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px; flex-wrap:wrap;">
+    <button class="btn-sm" onclick="loadKeys()">🔄 重新載入</button>
+    <span id="bulkBar" style="display:none; gap:8px; align-items:center;">
+      <span id="bulkCount" style="color:#94a3b8; font-size:0.82rem;"></span>
+      <button class="btn-danger" onclick="bulkRevoke()">批次撤銷</button>
+      <button class="btn-danger" style="background:#7f1d1d;" onclick="bulkDelete()">批次刪除</button>
+    </span>
+  </div>
   <div id="keyTable">載入中…</div>
 </div>
 
@@ -213,6 +220,7 @@ async function loadKeys() {
     else if (rank === 1) badge = '<span class="badge expired">已過期</span>';
     else badge = '<span class="badge active">有效</span>';
     return `<tr>
+      <td><input type="checkbox" class="row-check" value="${k.key}" onchange="updateBulkBar()"></td>
       <td><span class="key-val" onclick="navigator.clipboard.writeText('${k.key}');this.style.color='#86efac';setTimeout(()=>this.style.color='',800)" title="點擊複製">${k.key}</span></td>
       <td>${k.user || '—'}</td>
       <td>${TIER_LABEL[k.tier] || k.tier || '—'}</td>
@@ -225,9 +233,13 @@ async function loadKeys() {
     </tr>`;
   }).join('');
   el.innerHTML = `<table>
-    <thead><tr><th>授權碼</th><th>用戶</th><th>等級</th><th>到期日</th><th>狀態</th><th></th></tr></thead>
+    <thead><tr>
+      <th><input type="checkbox" id="checkAll" onchange="toggleAllChecks(this.checked)"></th>
+      <th>授權碼</th><th>用戶</th><th>等級</th><th>到期日</th><th>狀態</th><th></th>
+    </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+  updateBulkBar();
 }
 
 async function revokeKey(key) {
@@ -244,6 +256,53 @@ async function deleteKey(key) {
   const j = await r.json();
   if (j.ok) loadKeys();
   else alert('刪除失敗：' + JSON.stringify(j));
+}
+
+// ── 批次勾選 / 批次執行 ──
+function getCheckedKeys() {
+  return Array.from(document.querySelectorAll('.row-check:checked')).map(cb => cb.value);
+}
+function toggleAllChecks(checked) {
+  document.querySelectorAll('.row-check').forEach(cb => cb.checked = checked);
+  updateBulkBar();
+}
+function updateBulkBar() {
+  const n = getCheckedKeys().length;
+  const bar = document.getElementById('bulkBar');
+  document.getElementById('bulkCount').textContent = n ? `已勾選 ${n} 筆` : '';
+  bar.style.display = n ? 'inline-flex' : 'none';
+  // 全選框：勾選數等於總筆數時打勾，部分勾選時顯示「部分勾選」樣式
+  const all = document.querySelectorAll('.row-check');
+  const checkAll = document.getElementById('checkAll');
+  if (checkAll) {
+    checkAll.checked = n > 0 && n === all.length;
+    checkAll.indeterminate = n > 0 && n < all.length;
+  }
+}
+
+async function bulkRevoke() {
+  const keys = getCheckedKeys();
+  if (!keys.length) return;
+  if (!confirm(`確定要一次撤銷這 ${keys.length} 筆授權碼嗎？撤銷後這些用戶會立刻失去存取權限。`)) return;
+  const results = await Promise.allSettled(keys.map(key =>
+    fetch(`${API}/admin/revoke?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&key=${encodeURIComponent(key)}`).then(r => r.json())
+  ));
+  const failed = results.filter(r => r.status === 'rejected' || !r.value?.ok).length;
+  alert(`批次撤銷完成：成功 ${keys.length - failed} 筆${failed ? `，失敗 ${failed} 筆` : ''}`);
+  loadKeys();
+}
+
+async function bulkDelete() {
+  const keys = getCheckedKeys();
+  if (!keys.length) return;
+  if (!confirm(`⚠️ 確定要一次永久刪除這 ${keys.length} 筆授權碼嗎？這個動作無法復原！`)) return;
+  if (!confirm(`再次確認：真的要永久刪除 ${keys.length} 筆嗎？刪除後資料完全消失，撤銷還能保留紀錄，刪除不行。`)) return;
+  const results = await Promise.allSettled(keys.map(key =>
+    fetch(`${API}/admin/delete?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&key=${encodeURIComponent(key)}`).then(r => r.json())
+  ));
+  const failed = results.filter(r => r.status === 'rejected' || !r.value?.ok).length;
+  alert(`批次刪除完成：成功 ${keys.length - failed} 筆${failed ? `，失敗 ${failed} 筆` : ''}`);
+  loadKeys();
 }
 
 // ── 一次性遷移：舊 Cloud Run/Firestore 系統 → license-worker ──
