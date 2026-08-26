@@ -81,13 +81,25 @@
           驗證授權碼
         </button>
         <div id="lgMsg" style="margin-top:12px;font-size:0.82rem;color:#f87171;min-height:20px;"></div>
-        <p style="color:#475569;font-size:0.75rem;margin:20px 0 0;">如需購買授權，請聯繫管理員</p>
+        <button id="lgDemoBtn"
+          style="width:100%;padding:12px;border-radius:8px;border:1px solid #3b82f6;background:transparent;color:#93c5fd;font-size:0.9rem;cursor:pointer;font-weight:600;margin-top:14px;">
+          🎁 免費體驗 Demo 版（台積電／統一／富邦媒）
+        </button>
+        <p style="color:#475569;font-size:0.75rem;margin:14px 0 0;">如需購買授權，請聯繫管理員</p>
       </div>`;
     document.body.appendChild(div);
 
-    const input = div.querySelector('#lgInput');
-    const btn   = div.querySelector('#lgBtn');
-    const msg   = div.querySelector('#lgMsg');
+    const input   = div.querySelector('#lgInput');
+    const btn     = div.querySelector('#lgBtn');
+    const msg     = div.querySelector('#lgMsg');
+    const demoBtn = div.querySelector('#lgDemoBtn');
+
+    // ★ 一鍵進 Demo：不用打授權碼，直接加 ?demo=1 重整進站（v7.55）
+    demoBtn.addEventListener('click', () => {
+      const url = new URL(location.href);
+      url.searchParams.set('demo', '1');
+      location.href = url.toString();
+    });
 
     async function tryValidate() {
       const key = input.value.trim();
@@ -114,6 +126,8 @@
   }
 
   async function _checkLicense() {
+    // ★ Demo 模式（?demo=1）：跳過授權碼驗證，直接放行體驗版（v7.55 本機試作）
+    if (new URLSearchParams(location.search).get('demo') === '1') return;
     // v7.27：改用 sessionStorage — 關閉分頁/瀏覽器即自動登出，每次重開需重新輸入授權碼
     localStorage.removeItem(_LK); // 清除舊版 localStorage 殘留，強制走 session
     const stored = sessionStorage.getItem(_LK);
@@ -6993,15 +7007,15 @@
     /* ====== 籌碼博弈矩陣 gm-* ====== */
     /* v7.51 模擬資料強警示橫幅 */
     .gm-sim-banner {
-      margin:8px 10px 0; padding:9px 12px;
-      background:repeating-linear-gradient(135deg,rgba(239,68,68,.22),rgba(239,68,68,.22) 10px,rgba(217,119,6,.22) 10px,rgba(217,119,6,.22) 20px);
-      border:1.5px solid rgba(239,68,68,.85); border-radius:8px;
+      margin:8px 10px 0; padding:10px 12px;
+      background:#fef3c7;
+      border:1.5px solid #f59e0b; border-radius:8px;
       display:flex; align-items:center; gap:8px;
-      font-size:0.68rem; font-weight:800; color:#fca5a5;
-      line-height:1.4;
+      font-size:0.72rem; font-weight:700; color:#78350f;
+      line-height:1.5;
     }
-    .gm-sim-banner .gm-sim-icon { font-size:1rem; flex-shrink:0; }
-    .gm-sim-banner b { color:#fecaca; }
+    .gm-sim-banner .gm-sim-icon { font-size:1.1rem; flex-shrink:0; }
+    .gm-sim-banner b { color:#92400e; font-weight:900; }
     /* 表格區域浮水印（模擬資料時顯示） */
     .gm-matrix-wrap.gm-sim-mode { position:relative; }
     .gm-matrix-wrap.gm-sim-mode::after {
@@ -15246,6 +15260,16 @@
   opacity:.7;
   cursor:pointer;
 }
+/* ── Demo 體驗版鎖定樣式（v7.55） ── */
+.mod-demo-badge {
+  flex-shrink:0; font-size:.6rem; font-weight:800;
+  padding:2px 8px; border-radius:12px; margin-left:4px;
+  background:rgba(148,163,184,0.25); color:var(--fg3); letter-spacing:.04em;
+}
+.mod-acc-wrap.demo-locked .mod-acc-header {
+  opacity:.55;
+  cursor:pointer;
+}
 /* VIP 啟用 modal */
 #vipModal {
   display:none; position:fixed; inset:0; z-index:9999;
@@ -16500,6 +16524,17 @@ a.module-nav-item.acc-active {
   </div>
 </div>
 
+<!-- Demo 模式切換列（僅 ?demo=1 時顯示，v7.55 本機試作） -->
+<div id="demoModeBar" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;
+     padding:10px 16px;background:linear-gradient(90deg,#2a1a3a,#1a2a3a);
+     border-bottom:1px solid rgba(255,255,255,0.1);">
+  <span style="font-size:0.78rem;font-weight:800;color:#ffd54a;">🔒 體驗版：僅開放以下 3 檔代表股</span>
+  <button class="chip" onclick="quickSearch('2330')" style="cursor:pointer;">2330 台積電｜大型權值股</button>
+  <button class="chip" onclick="quickSearch('1216')" style="cursor:pointer;">1216 統一｜中型股</button>
+  <button class="chip" onclick="quickSearch('8454')" style="cursor:pointer;">8454 富邦媒｜中小型股</button>
+  <span style="font-size:0.68rem;color:var(--fg3);">切換股票，觀察系統如何自動調整籌碼權重</span>
+</div>
+
 <!-- Search -->
 <div class="search-bar">
   <div class="search-inner">
@@ -17360,7 +17395,7 @@ a.module-nav-item.acc-active {
           <!-- v7.51 模擬資料強警示橫幅 -->
           <div class="gm-sim-banner" id="gmSimBanner" style="display:none;">
             <span class="gm-sim-icon">⚠️</span>
-            <span>本表為 <b>模擬推算資料</b>，非真實券商分點數字（FinMind 免費方案不提供分點明細，需付費方案）。數字由系統演算法生成，僅供功能展示，<b>請勿作為買賣依據</b>。</span>
+            <span><b>模擬資料，非真實券商分點數字。</b>FinMind 免費方案不提供分點明細（需付費方案），本表由系統演算法推算生成，僅供功能展示，<b>請勿作為買賣依據</b>。</span>
           </div>
           <!-- 頂部摘要卡 -->
           <div class="gm-summary-row" id="gmSummaryRow">
@@ -33746,6 +33781,7 @@ const STOCK_DB = {
   '6533': { name:'晶心科',      industry:'IC設計' },
   // ── 其他常見台股 ── v7.17 補入
   '1216': { name:'統一',        industry:'食品' },
+  '8454': { name:'富邦媒',      industry:'電子商務' }, // v7.55 Demo 三檔代表股之一（中小型股）
   '2105': { name:'正新',        industry:'輪胎' },
   '2103': { name:'台橡',        industry:'橡膠' },
   '1102': { name:'亞泥',        industry:'水泥' },
@@ -33771,6 +33807,41 @@ for (const [id, v] of Object.entries(STOCK_DB)) NAME_TO_ID[v.name] = id;
 let charts = {};
 let aData  = {};
 let _fallback = false;
+
+// ==============================================================
+//  DEMO 模式（v7.55 試作，僅限硬碟本機測試，尚未串連正式部署流程）
+//  用途：給還沒付費的潛在客戶一個「只能看這三支股票」的體驗版，
+//  三支分別代表 CFD 規模分類的三種情況（大型權值/中型/中小型股），
+//  展示同一套系統換股票會自動切換權重邏輯，而不是列功能清單。
+//  切換方式：網址加 ?demo=1（例如 index.html?demo=1），
+//  正式上線前這裡還需要決定要不要跟 VIP/tier 系統掛鉤。
+// ==============================================================
+const DEMO_MODE = new URLSearchParams(location.search).get('demo') === '1';
+const DEMO_ALLOWED_STOCKS = {
+  '2330': '台積電（大型權值股）',
+  '1216': '統一（中型股）',
+  '8454': '富邦媒（中小型股）',
+};
+
+function _initDemoMode() {
+  if (!DEMO_MODE) return;
+  const bar = document.getElementById('demoModeBar');
+  if (bar) bar.style.display = 'flex';
+  const input = document.getElementById('searchInput');
+  if (input) input.placeholder = 'Demo版只能查這三支股票，見上方切換鈕';
+  // 體驗版：隱藏快速切換 chips（會誤導成可查任意股票），只留 Demo 切換列
+  const chips = document.querySelector('.quick-chips');
+  if (chips) chips.style.display = 'none';
+}
+_initDemoMode();
+
+// ★ 多股票掃描類功能（海選/熱力圖/控盤矩陣…）在 Demo 模式一律鎖住。
+//   在每個掃描函式最前面呼叫 if (_demoBlockMultiStock()) return; 即可。
+function _demoBlockMultiStock() {
+  if (!DEMO_MODE) return false;
+  alert('這是全市場多股票掃描功能，體驗版尚未開放。\n體驗版僅能查詢：2330 台積電／1216 統一／8454 富邦媒。\n如需完整功能請升級付費方案。');
+  return true;
+}
 
 // ==============================================================
 //  SEARCH ENTRY
@@ -33950,6 +34021,13 @@ async function startAnalysis() {
   if (_tabCost) _tabCost.classList.add('active');
 
   const stockId = resolveStockId(raw);
+
+  // ★ Demo 模式限制：只能查這三檔代表股（v7.55 本機試作）
+  if (DEMO_MODE && !DEMO_ALLOWED_STOCKS[stockId]) {
+    alert('體驗版僅開放查詢：2330 台積電／1216 統一／8454 富邦媒\n請點選上方切換鈕選擇股票。');
+    return;
+  }
+
   showLoad('AI 分析啟動中…', '串接 FinMind API');
   _fallback = false;
 
@@ -53495,6 +53573,7 @@ function renderHeatmapTiles(list) {
 }
 
 async function loadHeatmap() {
+  if (_demoBlockMultiStock()) return;
   const btn = document.getElementById('heatmapLoadBtn');
   const body = document.getElementById('heatmapBody');
   const updatedEl = document.getElementById('heatmapUpdated');
@@ -53514,6 +53593,7 @@ async function loadHeatmap() {
 
 // ── 啟動海選 ──
 async function startScreener() {
+  if (_demoBlockMultiStock()) return;
   if (_screenerRunning) {
     if (typeof showEpicToast === 'function') showEpicToast('⏳ 掃描中，請稍候…', '#d97706');
     return;
@@ -61572,6 +61652,7 @@ function closeWatchlist() {
 let _wlScanning = false;
 
 async function wlScanBreakout() {
+  if (_demoBlockMultiStock()) return;
   if (_wlScanning) return;
   const list = loadWatchlist();
   if (list.length === 0) { showEpicToast('⚠️ 追蹤清單是空的，請先加入股票', '#B45309'); return; }
@@ -64076,6 +64157,10 @@ const NOTES_KEY  = 'tsai_notes_v1';
 
 // 取得有效 Token（優先 localStorage，fallback 空字串）
 function getToken() {
+  // ★ Demo 體驗版：一律用免費額度查詢，不吃瀏覽器裡殘留的舊/失效付費 Token
+  //   （常見情境：這台瀏覽器之前登入過真實付費帳號，token 後來過期或被撤銷，
+  //   FinMind 會直接整包拒絕，導致 demo 使用者一查就卡住/失敗）
+  if (typeof DEMO_MODE !== 'undefined' && DEMO_MODE) return '';
   return window._userToken || TOKEN || '';
 }
 
@@ -64535,10 +64620,17 @@ async function renderProfitQuality(stockId) {
   const start = new Date(); start.setFullYear(start.getFullYear() - 6); // 抓6年，確保現金流5年趨勢+去年同期都夠用
   const token = getToken();
 
-  const fmFetch = async (dataset) => {
+  const fmFetch = async (dataset, tok) => {
     try {
-      const r = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=${dataset}&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${encodeURIComponent(token)}`);
+      const r = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=${dataset}&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${encodeURIComponent(tok)}`);
       const j = await r.json();
+      // v7.55：帶了的 token 若已失效（過期的舊 Sponsor 金鑰殘留在 localStorage），
+      // FinMind 會整包拒絕（status 400 / 無 data）——這種情況改用空 token（免費額度）重打一次，
+      // 免得使用者明明有資料卻被判「資料不足」。
+      if ((!j.data || j.data.length === 0) && tok) {
+        console.warn('[獲利品質]', dataset, 'token 可能失效，改用免費額度重試', j.msg || '');
+        return fmFetch(dataset, '');
+      }
       return j.data || [];
     } catch(e) { console.warn('[獲利品質]', dataset, e.message); return []; }
   };
@@ -64547,8 +64639,8 @@ async function renderProfitQuality(stockId) {
     if (badge) { badge.textContent = '載入中'; badge.style.background = 'var(--bg2)'; badge.style.color = 'var(--fg3)'; }
 
     const [finRows, cfRows] = await Promise.all([
-      fmFetch('TaiwanStockFinancialStatements'),
-      fmFetch('TaiwanStockCashFlowsStatement'),
+      fmFetch('TaiwanStockFinancialStatements', token),
+      fmFetch('TaiwanStockCashFlowsStatement', token),
     ]);
 
     const epsRows = finRows.filter(r => r.type === 'EPS').sort((a,b) => a.date.localeCompare(b.date));
@@ -69599,6 +69691,7 @@ function _roleGuideRenderTab(role) {
 
 // 掃描主函數
 async function ctrl14Scan() {
+  if (_demoBlockMultiStock()) return;
   if (_ctrl14Scanning) return;
 
   // v5.95 Task 5：快取檢查（TTL 4h）
@@ -72664,6 +72757,7 @@ function macdClearCache() {
    主掃描函數：macdScanAll()
 ────────────────────────────────────────────────────────────────── */
 async function macdScanAll() {
+  if (_demoBlockMultiStock()) return;
   if (_macdScanning) return;
 
   // ── 快取檢查（v2：含 histArr 品質驗證） ──
@@ -74844,6 +74938,12 @@ if (typeof _origRenderSM === 'function') {
     { id:'knowledgeStation', label:'知識站', emoji:'📖', why:'創作者把所有判讀邏輯的底層原理放在這裡。看不懂某個數字？來這裡找答案。', vip:true },
   ];
 
+  // ★ Demo 體驗版：只開放這 7 個核心模組（v7.55），其餘一律鎖住
+  const DEMO_ALLOWED_MOD_IDS = [
+    'opPressureCard', 'twseIndexCard', 'profitQualityCard',
+    'peRatioCard', 'csCard', 'techCard', 'phaseCard',
+  ];
+
   // href → card id 對應表（有些 nav href 和 card id 不一致）
   const HREF_MAP = {
     'biCard':           'bigIntentCard',
@@ -74874,15 +74974,25 @@ if (typeof _origRenderSM === 'function') {
         ? `<button class="mod-ks-btn" onclick="event.stopPropagation();${mod.vip ? `if(!isVIP()){vipModalOpen('${mod.id}');return;}` : ''}goKsTab('${mod.ksTab}'${mod.ksAnchor ? `,'${mod.ksAnchor}'` : ''})" title="跳到知識庫了解原理">📖 理論</button>`
         : '';
       const vipBadge = mod.vip ? `<span class="mod-vip-badge">👑 VIP</span>` : '';
+      const isDemoLocked = typeof DEMO_MODE !== 'undefined' && DEMO_MODE && !DEMO_ALLOWED_MOD_IDS.includes(mod.id);
+      const demoBadge = isDemoLocked ? `<span class="mod-demo-badge">🔒 完整版</span>` : '';
       header.innerHTML =
         `<span class="mod-acc-emoji">${mod.emoji}</span>` +
         `<span class="mod-acc-label">${mod.label}</span>` +
         vipBadge +
+        demoBadge +
         `<span class="mod-acc-why">💡 ${mod.why}</span>` +
         ksBtn +
         `<span class="mod-acc-toggle">▼</span>`;
       if (mod.vip) wrap.classList.add('vip-locked');
-      header.addEventListener('click', () => toggleMod(mod.id, mod.vip));
+      if (isDemoLocked) wrap.classList.add('demo-locked');
+      header.addEventListener('click', () => {
+        if (isDemoLocked) {
+          alert(`「${mod.label}」是完整版功能，體驗版尚未開放。\n體驗版開放：開盤壓力表／大盤脈搏／獲利品質／本益比／籌碼總覽／技術指標／籌碼週期。`);
+          return;
+        }
+        toggleMod(mod.id, mod.vip);
+      });
 
       const body = document.createElement('div');
       body.className = 'mod-acc-body';
@@ -74960,6 +75070,11 @@ if (typeof _origRenderSM === 'function') {
   }
 
   function toggleMod(id, isVipRequired) {
+    if (typeof DEMO_MODE !== 'undefined' && DEMO_MODE && !DEMO_ALLOWED_MOD_IDS.includes(id)) {
+      const label = (MODS.find(m => m.id === id) || {}).label || id;
+      alert(`「${label}」是完整版功能，體驗版尚未開放。\n體驗版開放：開盤壓力表／大盤脈搏／獲利品質／本益比／籌碼總覽／技術指標／籌碼週期。`);
+      return;
+    }
     if (isVipRequired && !isVIP()) {
       vipModalOpen(id);
       return;
@@ -74975,6 +75090,11 @@ if (typeof _origRenderSM === 'function') {
   }
 
   function activateMod(id) {
+    if (typeof DEMO_MODE !== 'undefined' && DEMO_MODE && !DEMO_ALLOWED_MOD_IDS.includes(id)) {
+      const label = (MODS.find(m => m.id === id) || {}).label || id;
+      alert(`「${label}」是完整版功能，體驗版尚未開放。\n體驗版開放：開盤壓力表／大盤脈搏／獲利品質／本益比／籌碼總覽／技術指標／籌碼週期。`);
+      return;
+    }
     MODS.forEach(m => {
       const w = document.getElementById(`accWrap_${m.id}`);
       if (w) w.classList.remove('acc-open');
@@ -74988,7 +75108,9 @@ if (typeof _origRenderSM === 'function') {
   }
 
   function expandAllMods() {
+    const demoOn = typeof DEMO_MODE !== 'undefined' && DEMO_MODE;
     MODS.forEach(m => {
+      if (demoOn && !DEMO_ALLOWED_MOD_IDS.includes(m.id)) return;
       const w = document.getElementById(`accWrap_${m.id}`);
       if (w) w.classList.add('acc-open');
     });
