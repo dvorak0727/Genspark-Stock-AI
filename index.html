@@ -15881,16 +15881,16 @@ a.module-nav-item.acc-active {
       <span class="ks-sb-icon">👑</span> VIP
       <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:0.48rem;font-weight:800;padding:1px 5px;border-radius:99px;border:1px solid #f59e0b88;letter-spacing:.04em;white-space:nowrap;">升級</span>
     </button>
-    <button class="ks-shortcut-btn" onclick="if(!isVIP()){vipModalOpen('teachCard');return;}_openTeachPanel()" title="每日5股教學操盤 (👑 VIP)" style="position:relative;border:1.5px solid #10b981;color:#10b981;">
+    <button class="ks-shortcut-btn" onclick="if(typeof DEMO_MODE!=='undefined'&&DEMO_MODE){alert('教學操盤是完整版功能，體驗版尚未開放。');return;}if(!isVIP()){vipModalOpen('teachCard');return;}_openTeachPanel()" title="每日5股教學操盤 (👑 VIP)" style="position:relative;border:1.5px solid #10b981;color:#10b981;">
       <span class="ks-sb-icon">📚</span> 教學操盤
       <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff;font-size:0.45rem;font-weight:800;padding:1px 4px;border-radius:99px;letter-spacing:.03em;white-space:nowrap;">VIP</span>
     </button>
-    <button class="ks-shortcut-btn" onclick="openStockSim()" title="股市大富翁模擬操盤 (👑 VIP)" style="position:relative;border:1.5px solid #f59e0b;color:#f59e0b;">
+    <button class="ks-shortcut-btn" onclick="if(typeof DEMO_MODE!=='undefined'&&DEMO_MODE){alert('大富翁模擬操盤是完整版功能，體驗版尚未開放。');return;}openStockSim()" title="股市大富翁模擬操盤 (👑 VIP)" style="position:relative;border:1.5px solid #f59e0b;color:#f59e0b;">
       <span class="ks-sb-icon">🎲</span> 大富翁
       <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff;font-size:0.45rem;font-weight:800;padding:1px 4px;border-radius:99px;letter-spacing:.03em;white-space:nowrap;">VIP</span>
     </button>
     <a class="ks-shortcut-btn" href="#knowledgeStation"
-       onclick="if(!isVIP()){vipModalOpen('knowledgeStation');return false;}setTimeout(()=>{const t=document.getElementById('knowledgeStation');if(t){window.scrollTo({top:t.getBoundingClientRect().top+window.pageYOffset-70,behavior:'smooth'});}},10);return false;"
+       onclick="if(typeof DEMO_MODE!=='undefined'&&DEMO_MODE){alert('知識站是完整版功能，體驗版尚未開放。');return false;}if(!isVIP()){vipModalOpen('knowledgeStation');return false;}setTimeout(()=>{const t=document.getElementById('knowledgeStation');if(t){window.scrollTo({top:t.getBoundingClientRect().top+window.pageYOffset-70,behavior:'smooth'});}},10);return false;"
        title="跳至知識站 (👑 VIP)" style="position:relative;">
       <span class="ks-sb-icon">📖</span> 知識站
       <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff;font-size:0.45rem;font-weight:800;padding:1px 4px;border-radius:99px;letter-spacing:.03em;white-space:nowrap;">VIP</span>
@@ -74563,6 +74563,7 @@ function _tRenderCard(s, ind, isSim) {
 
 // ─── 股市大富翁 ───
 function openStockSim() {
+  if (typeof DEMO_MODE !== 'undefined' && DEMO_MODE) { alert('大富翁模擬操盤是完整版功能，體驗版尚未開放。'); return; }
   if (!isVIP()) { vipModalOpen('stockSim'); return; }
   window.open('stock-sim.html', '_blank');
 }
