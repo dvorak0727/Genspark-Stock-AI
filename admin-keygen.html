@@ -199,10 +199,18 @@ async function loadKeys() {
     return;
   }
   const today = new Date().toISOString().slice(0,10);
-  const rows = j.keys.map(k => {
+  // 排序：有效 → 已過期 → 已撤銷（撤銷的往下移，不要跟還有效的混在一起）
+  const statusRank = k => {
+    if (k.status === 'revoked') return 2;
+    if (k.tier !== 'admin' && k.expiry && k.expiry < today) return 1;
+    return 0;
+  };
+  const sortedKeys = [...j.keys].sort((a, b) => statusRank(a) - statusRank(b));
+  const rows = sortedKeys.map(k => {
+    const rank = statusRank(k);
     let badge;
-    if (k.status === 'revoked') badge = '<span class="badge revoked">已撤銷</span>';
-    else if (k.tier !== 'admin' && k.expiry && k.expiry < today) badge = '<span class="badge expired">已過期</span>';
+    if (rank === 2) badge = '<span class="badge revoked">已撤銷</span>';
+    else if (rank === 1) badge = '<span class="badge expired">已過期</span>';
     else badge = '<span class="badge active">有效</span>';
     return `<tr>
       <td><span class="key-val" onclick="navigator.clipboard.writeText('${k.key}');this.style.color='#86efac';setTimeout(()=>this.style.color='',800)" title="點擊複製">${k.key}</span></td>
@@ -210,7 +218,10 @@ async function loadKeys() {
       <td>${TIER_LABEL[k.tier] || k.tier || '—'}</td>
       <td>${k.tier === 'admin' ? '永久' : (k.expiry || '—')}</td>
       <td>${badge}</td>
-      <td>${k.status === 'revoked' ? '' : `<button class="btn-danger" onclick="revokeKey('${k.key}')">撤銷</button>`}</td>
+      <td style="white-space:nowrap;">
+        ${rank !== 2 ? `<button class="btn-danger" onclick="revokeKey('${k.key}')">撤銷</button>` : ''}
+        <button class="btn-danger" style="background:#7f1d1d;" onclick="deleteKey('${k.key}')">刪除</button>
+      </td>
     </tr>`;
   }).join('');
   el.innerHTML = `<table>
@@ -220,11 +231,19 @@ async function loadKeys() {
 }
 
 async function revokeKey(key) {
-  if (!confirm(`確定要撤銷授權碼 ${key} 嗎？撤銷後該用戶會立刻失去存取權限。`)) return;
+  if (!confirm(`確定要撤銷授權碼 ${key} 嗎？撤銷後該用戶會立刻失去存取權限。（撤銷是保留紀錄、標記停用，還想恢復可以再處理；如果確定以後都不會用到，用「刪除」直接永久移除）`)) return;
   const r = await fetch(`${API}/admin/revoke?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&key=${encodeURIComponent(key)}`);
   const j = await r.json();
   if (j.ok) loadKeys();
   else alert('撤銷失敗：' + JSON.stringify(j));
+}
+
+async function deleteKey(key) {
+  if (!confirm(`⚠️ 確定要永久刪除授權碼 ${key} 嗎？這個動作無法復原，紀錄會從資料庫整個消失，不是只是停用。`)) return;
+  const r = await fetch(`${API}/admin/delete?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&key=${encodeURIComponent(key)}`);
+  const j = await r.json();
+  if (j.ok) loadKeys();
+  else alert('刪除失敗：' + JSON.stringify(j));
 }
 
 // ── 一次性遷移：舊 Cloud Run/Firestore 系統 → license-worker ──

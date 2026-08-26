@@ -109,6 +109,18 @@ export default {
       return json({ ok: true, key });
     }
 
+    // GET /admin/delete?admin_secret=&key=
+    // 跟 /admin/revoke 不同：這個是永久從 KV 拿掉，不是標記停用。
+    if (url.pathname === "/admin/delete") {
+      if (!checkAdmin(url)) return json({ error: "unauthorized" }, 401);
+      const key = (url.searchParams.get("key") || "").trim().toUpperCase();
+      if (!key) return json({ error: "missing_key" }, 400);
+      const record = await env.LICENSE_KV.get(key, { type: "json" });
+      if (!record) return json({ error: "not_found" }, 404);
+      await env.LICENSE_KV.delete(key);
+      return json({ ok: true, key, deleted: true });
+    }
+
     // POST /admin/import  → 一次性把舊系統（Firestore）的授權碼資料
     // 搬進 LICENSE_KV，body 格式：{ admin_secret, records: [{key,user,expiry,tier,status}, ...] }
     // 只用來做一次性遷移，之後新碼一律用 /admin/generate 產生。
