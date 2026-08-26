@@ -43,7 +43,93 @@ export default {
       record.last_used = new Date().toISOString();
       await env.LICENSE_KV.put(key, JSON.stringify(record));
 
-      return json({ valid: true, plan: record.plan || "basic", name: record.name || "" });
+      return json({ valid: true, plan: record.plan || "standard", name: record.name || "", expires: record.expires || "" });
+    }
+
+    // ══════════════════════════════════════════════════
+    //  管理員授權碼發放（v7.54 新增）
+    //  這一批路由是把 admin-keygen.html 原本打的舊 Cloud Run 服務
+    //  （來源不明、無法查證是否支援 tier 欄位）遷移到這裡，改用
+    //  已經在跑的 /verify 同一套 LICENSE_KV，並且真正支援
+    //  standard / vip / premium 三級 tier（存成 record.plan）。
+    // ══════════════════════════════════════════════════
+    function checkAdmin(url) {
+      const secret = url.searchParams.get("admin_secret") || "";
+      return env.ADMIN_SECRET && secret === env.ADMIN_SECRET;
+    }
+    function genKey() {
+      const hex = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+        .map(b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+      return "TSAIU-" + hex;
+    }
+
+    // GET /admin/generate?admin_secret=&user=&expiry=YYYY-MM-DD&tier=standard|vip|premium
+    if (url.pathname === "/admin/generate") {
+      if (!checkAdmin(url)) return json({ error: "unauthorized" }, 401);
+      const user = url.searchParams.get("user") || "user";
+      const expiry = url.searchParams.get("expiry") || "";
+      const tier = url.searchParams.get("tier") || "standard";
+      if (!["standard", "vip", "premium", "admin"].includes(tier)) {
+        return json({ error: "invalid_tier", msg: "tier 必須是 standard/vip/premium/admin 其中之一" }, 400);
+      }
+      if (!expiry) return json({ error: "missing_expiry" }, 400);
+
+      const key = genKey();
+      const record = { user, plan: tier, expires: expiry, status: "active", created: new Date().toISOString() };
+      await env.LICENSE_KV.put(key, JSON.stringify(record));
+      return json({ key, user, expiry, tier });
+    }
+
+    // GET /admin/list?admin_secret=
+    if (url.pathname === "/admin/list") {
+      if (!checkAdmin(url)) return json({ error: "unauthorized" }, 401);
+      const listed = await env.LICENSE_KV.list({ limit: 1000 });
+      const keys = await Promise.all(listed.keys.map(async k => {
+        const record = await env.LICENSE_KV.get(k.name, { type: "json" });
+        return {
+          key: k.name,
+          user: record?.user || "",
+          expiry: record?.expires || "",
+          tier: record?.plan || "standard",
+          status: record?.status || "unknown",
+        };
+      }));
+      return json({ keys });
+    }
+
+    // GET /admin/revoke?admin_secret=&key=
+    if (url.pathname === "/admin/revoke") {
+      if (!checkAdmin(url)) return json({ error: "unauthorized" }, 401);
+      const key = (url.searchParams.get("key") || "").trim().toUpperCase();
+      if (!key) return json({ error: "missing_key" }, 400);
+      const record = await env.LICENSE_KV.get(key, { type: "json" });
+      if (!record) return json({ error: "not_found" }, 404);
+      record.status = "revoked";
+      await env.LICENSE_KV.put(key, JSON.stringify(record));
+      return json({ ok: true, key });
+    }
+
+    // POST /admin/import  → 一次性把舊系統（Firestore）的授權碼資料
+    // 搬進 LICENSE_KV，body 格式：{ admin_secret, records: [{key,user,expiry,tier,status}, ...] }
+    // 只用來做一次性遷移，之後新碼一律用 /admin/generate 產生。
+    if (request.method === "POST" && url.pathname === "/admin/import") {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: "invalid_request" }, 400); }
+      if (!env.ADMIN_SECRET || body.admin_secret !== env.ADMIN_SECRET) return json({ error: "unauthorized" }, 401);
+      const records = Array.isArray(body.records) ? body.records : [];
+      let imported = 0, skipped = 0;
+      for (const r of records) {
+        const key = (r.key || "").trim().toUpperCase();
+        if (!key || !r.expiry) { skipped++; continue; }
+        const tier = ["standard","vip","premium","admin"].includes(r.tier) ? r.tier : "standard";
+        await env.LICENSE_KV.put(key, JSON.stringify({
+          user: r.user || "", plan: tier, expires: r.expiry,
+          status: r.status === false || r.status === "revoked" ? "revoked" : "active",
+          created: new Date().toISOString(), migratedFrom: "firestore",
+        }));
+        imported++;
+      }
+      return json({ imported, skipped, total: records.length });
     }
 
     // GET /health

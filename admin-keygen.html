@@ -77,16 +77,15 @@ td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle
       <input id="genExpiry" type="date" />
     </div>
   </div>
+  <label>會員等級</label>
+  <select id="genTier">
+    <option value="standard">Standard（一般會員）</option>
+    <option value="vip">VIP</option>
+    <option value="premium">尊爵</option>
+    <option value="admin">Admin（永久，管理員專用）</option>
+  </select>
   <button class="btn-primary" onclick="generateKey()">產生授權碼</button>
   <div id="genResult" class="result"></div>
-  <div class="notice" id="genNotice" style="display:none;">
-    <strong>⚠️ 新增到 Cloud Run 環境變數步驟：</strong><br/>
-    1. 前往 <strong>Cloud Run → stock-api → 編輯及部署新的修訂版本</strong><br/>
-    2. 找到「容器、磁碟區、網路、安全性」→「變數與密鑰」<br/>
-    3. 找到環境變數 <code>VALID_KEYS</code>，把下方這行加到末尾（用逗號分隔）：<br/>
-    <div id="genEntry" style="margin-top:8px;padding:8px;background:#0f172a;border-radius:6px;font-family:monospace;word-break:break-all;"></div>
-    4. 按「部署」，約30秒後生效。
-  </div>
 </div>
 
 <!-- 用戶清單 -->
@@ -94,6 +93,31 @@ td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle
   <h2>👥 目前授權用戶</h2>
   <button class="btn-sm" onclick="loadKeys()" style="margin-bottom:12px;">🔄 重新載入</button>
   <div id="keyTable">載入中…</div>
+</div>
+
+<!-- 一次性遷移（舊 Firestore/Cloud Run 系統 → license-worker） -->
+<div class="card">
+  <h2>🚚 一次性遷移舊系統資料</h2>
+  <p class="sub" style="margin-bottom:12px;">把舊系統（Cloud Run + Firestore）裡的授權碼搬進這個新的
+    license-worker 後台。⚠️ 只需要執行一次，執行前會先預覽清單、
+    需要你確認後才會真的寫入，重複執行同一筆資料會覆蓋成同樣的內容
+    （不會造成重複）。</p>
+  <label>舊系統管理密碼（Cloud Run 那組，跟這個後台的登入密碼不同）</label>
+  <input id="oldAdminSecret" type="password" placeholder="舊系統的 admin_secret" />
+  <label>遷移後預設等級（舊資料沒有 tier 概念，統一先給這個等級，之後可以再個別調整）</label>
+  <select id="migrateDefaultTier">
+    <option value="standard">Standard（一般會員）</option>
+    <option value="vip" selected>VIP</option>
+    <option value="premium">尊爵</option>
+  </select>
+  <button class="btn-primary" onclick="previewMigration()" style="margin-top:12px;">① 預覽舊系統資料</button>
+  <div id="migratePreview" style="display:none;margin-top:12px;">
+    <div id="migratePreviewTable" style="max-height:240px;overflow:auto;"></div>
+    <button class="btn-primary" onclick="runMigration()" style="background:#f59e0b;margin-top:10px;">
+      ② 確認無誤，執行遷移
+    </button>
+  </div>
+  <div id="migrateResult" class="result"></div>
 </div>
 
 <!-- 月份碼（共用） -->
@@ -110,15 +134,19 @@ td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle
 </div>
 
 <script>
-const API = 'https://stock-api-214539875795.asia-east1.run.app';
+// v7.54：改接自己的 license-worker（Cloudflare Worker），不再打來源不明、
+// 無法查證是否支援 tier 欄位的舊 Cloud Run 服務。
+const API = 'https://license-worker.dvorak0727.workers.dev';
+const OLD_API = 'https://stock-api-214539875795.asia-east1.run.app'; // 只有「遷移」功能還會用到
 let ADMIN_SECRET = '';
+const TIER_LABEL = { standard:'Standard', vip:'VIP', premium:'尊爵', admin:'Admin' };
 
 function adminLogin() {
   const pw = document.getElementById('adminPwInput').value.trim();
   if (!pw) return;
   ADMIN_SECRET = pw;
   // 測試是否正確
-  fetch(`${API}?action=list&admin_secret=${encodeURIComponent(pw)}`)
+  fetch(`${API}/admin/list?admin_secret=${encodeURIComponent(pw)}`)
     .then(r => r.json())
     .then(j => {
       if (Array.isArray(j.keys)) {
@@ -142,20 +170,19 @@ document.getElementById('adminPwInput').addEventListener('keydown', e => {
 async function generateKey() {
   const user   = document.getElementById('genUser').value.trim() || 'user';
   const expiry = document.getElementById('genExpiry').value;
+  const tier   = document.getElementById('genTier').value;
   if (!expiry) { alert('請選擇有效期限'); return; }
 
-  const r = await fetch(`${API}?action=generate&admin_secret=${encodeURIComponent(ADMIN_SECRET)}&user=${encodeURIComponent(user)}&expiry=${expiry}`);
+  const r = await fetch(`${API}/admin/generate?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&user=${encodeURIComponent(user)}&expiry=${expiry}&tier=${tier}`);
   const j = await r.json();
   const el = document.getElementById('genResult');
   if (j.key) {
     el.className = 'result ok';
     el.style.display = 'block';
-    el.innerHTML = `✅ 授權碼：<strong>${j.key}</strong><br/>用戶：${j.user}　有效期：${j.expiry}<br/><br/>
+    el.innerHTML = `✅ 授權碼：<strong>${j.key}</strong><br/>用戶：${j.user}　有效期：${j.expiry}　等級：${TIER_LABEL[j.tier]||j.tier}<br/><br/>
       <span style="color:#64748b;font-size:0.75rem;">點擊複製授權碼</span>`;
     el.onclick = () => { navigator.clipboard.writeText(j.key); el.style.background='#1a2e1a'; setTimeout(()=>el.style.background='',800); };
-
-    document.getElementById('genNotice').style.display = 'block';
-    document.getElementById('genEntry').textContent = j.entry;
+    loadKeys();
   } else {
     el.className = 'result err';
     el.style.display = 'block';
@@ -164,7 +191,7 @@ async function generateKey() {
 }
 
 async function loadKeys() {
-  const r = await fetch(`${API}?action=list&admin_secret=${encodeURIComponent(ADMIN_SECRET)}`);
+  const r = await fetch(`${API}/admin/list?admin_secret=${encodeURIComponent(ADMIN_SECRET)}`);
   const j = await r.json();
   const el = document.getElementById('keyTable');
   if (!j.keys || j.keys.length === 0) {
@@ -173,19 +200,84 @@ async function loadKeys() {
   }
   const today = new Date().toISOString().slice(0,10);
   const rows = j.keys.map(k => {
-    const expired = k.expiry < today;
-    const badge = expired ? '<span class="badge expired">已過期</span>' : '<span class="badge active">有效</span>';
+    let badge;
+    if (k.status === 'revoked') badge = '<span class="badge revoked">已撤銷</span>';
+    else if (k.tier !== 'admin' && k.expiry && k.expiry < today) badge = '<span class="badge expired">已過期</span>';
+    else badge = '<span class="badge active">有效</span>';
     return `<tr>
       <td><span class="key-val" onclick="navigator.clipboard.writeText('${k.key}');this.style.color='#86efac';setTimeout(()=>this.style.color='',800)" title="點擊複製">${k.key}</span></td>
       <td>${k.user || '—'}</td>
-      <td>${k.expiry}</td>
+      <td>${TIER_LABEL[k.tier] || k.tier || '—'}</td>
+      <td>${k.tier === 'admin' ? '永久' : (k.expiry || '—')}</td>
       <td>${badge}</td>
+      <td>${k.status === 'revoked' ? '' : `<button class="btn-danger" onclick="revokeKey('${k.key}')">撤銷</button>`}</td>
     </tr>`;
   }).join('');
   el.innerHTML = `<table>
-    <thead><tr><th>授權碼</th><th>用戶</th><th>到期日</th><th>狀態</th></tr></thead>
+    <thead><tr><th>授權碼</th><th>用戶</th><th>等級</th><th>到期日</th><th>狀態</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+}
+
+async function revokeKey(key) {
+  if (!confirm(`確定要撤銷授權碼 ${key} 嗎？撤銷後該用戶會立刻失去存取權限。`)) return;
+  const r = await fetch(`${API}/admin/revoke?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&key=${encodeURIComponent(key)}`);
+  const j = await r.json();
+  if (j.ok) loadKeys();
+  else alert('撤銷失敗：' + JSON.stringify(j));
+}
+
+// ── 一次性遷移：舊 Cloud Run/Firestore 系統 → license-worker ──
+let _migrationData = null;
+
+async function previewMigration() {
+  const oldSecret = document.getElementById('oldAdminSecret').value.trim();
+  const el = document.getElementById('migrateResult');
+  if (!oldSecret) { alert('請輸入舊系統的管理密碼'); return; }
+  el.className = 'result'; el.style.display = 'none';
+  try {
+    const r = await fetch(`${OLD_API}?action=list&admin_secret=${encodeURIComponent(oldSecret)}`);
+    const j = await r.json();
+    if (!Array.isArray(j.keys)) throw new Error('舊系統回傳格式不對，或密碼錯誤：' + JSON.stringify(j));
+    _migrationData = j.keys;
+    const rows = j.keys.map(k => `<tr>
+      <td>${k.key}</td><td>${k.user || '—'}</td><td>${k.expiry || '—'}</td>
+    </tr>`).join('');
+    document.getElementById('migratePreviewTable').innerHTML = `<table>
+      <thead><tr><th>授權碼</th><th>用戶</th><th>到期日</th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+    document.getElementById('migratePreview').style.display = 'block';
+    el.className = 'result ok'; el.style.display = 'block';
+    el.textContent = `✅ 讀到舊系統 ${j.keys.length} 筆資料，確認上面清單無誤後按下面「執行遷移」。`;
+  } catch (e) {
+    el.className = 'result err'; el.style.display = 'block';
+    el.textContent = '讀取舊系統失敗：' + e.message;
+  }
+}
+
+async function runMigration() {
+  if (!_migrationData || !_migrationData.length) { alert('請先預覽資料'); return; }
+  if (!confirm(`確定要把這 ${_migrationData.length} 筆資料寫進 license-worker 嗎？`)) return;
+  const defaultTier = document.getElementById('migrateDefaultTier').value;
+  const records = _migrationData.map(k => ({
+    key: k.key, user: k.user || '', expiry: k.expiry || '',
+    tier: defaultTier, status: 'active',
+  }));
+  const el = document.getElementById('migrateResult');
+  try {
+    const r = await fetch(`${API}/admin/import`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_secret: ADMIN_SECRET, records }),
+    });
+    const j = await r.json();
+    el.className = 'result ok'; el.style.display = 'block';
+    el.textContent = `✅ 遷移完成：匯入 ${j.imported} 筆，跳過 ${j.skipped} 筆（缺授權碼或到期日）。`;
+    document.getElementById('migratePreview').style.display = 'none';
+    loadKeys();
+  } catch (e) {
+    el.className = 'result err'; el.style.display = 'block';
+    el.textContent = '遷移失敗：' + e.message;
+  }
 }
 
 async function genHmac() {

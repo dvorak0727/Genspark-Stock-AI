@@ -60714,20 +60714,24 @@ document.addEventListener('DOMContentLoaded', ()=>{ const e=document.getElementB
 // ==============================================================
 const VIP_KEY = 'vip_activated_v1';
 
-// ── VIP 驗證：直接用 REST API 打 databases/licenses ──
+// v7.54：改打自己的 license-worker /verify，不再直接連 Firestore。
+// 原本的做法是前端內嵌 Firebase API key 直接查 Firestore，改用
+// license-worker 之後，授權碼資料統一存在 LICENSE_KV，跟
+// admin-keygen.html 產生/遷移的資料是同一份，不會再對不起來。
 async function _vipFetchLicense(code) {
-  const base = 'https://firestore.googleapis.com/v1/projects/genspark-ai-stock/databases/licenses/documents';
-  const key  = 'AIzaSyA16i5bWaK3mJyEBN0ATv9Dln-A3xtRoZY';
-  const r    = await fetch(`${base}/licenses/${encodeURIComponent(code)}?key=${key}`);
-  if (r.status === 404) return null;
+  const r = await fetch('https://license-worker.dvorak0727.workers.dev/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: code }),
+  });
   const j = await r.json();
-  if (!r.ok) throw new Error(j.error?.message || '驗證失敗');
-  // 解析 Firestore REST 格式
-  const f = j.fields || {};
-  const parse = v => 'stringValue' in v ? v.stringValue : 'booleanValue' in v ? v.booleanValue : null;
-  const out = {};
-  for (const [k, v] of Object.entries(f)) out[k] = parse(v);
-  return out;
+  if (!j.valid) {
+    if (j.reason === 'not_found') return null;
+    // expired / revoked / inactive 等狀態，回傳一個 active:false 的結構，
+    // 讓 vipActivate() 用同一套邏輯顯示對應的錯誤訊息
+    return { active: false, reason: j.reason };
+  }
+  return { active: true, user: j.name || '', tier: j.plan || 'standard', expiry: j.expires || '' };
 }
 
 // ── 本地快取驗證（避免每次都打 API）──
@@ -60776,7 +60780,12 @@ async function vipActivate() {
   try {
     const data = await _vipFetchLicense(code);
     if (!data) { errEl.textContent = '❌ 序號不存在，請確認後再試'; return; }
-    if (data.active === false) { errEl.textContent = '⛔ 此序號已停用，請聯絡管理員'; return; }
+    if (data.active === false) {
+      errEl.textContent = data.reason === 'expired' ? '⏰ 此序號已到期，請續訂'
+        : data.reason === 'revoked' ? '⛔ 此序號已被撤銷，請聯絡管理員'
+        : '⛔ 此序號目前無法使用，請聯絡管理員';
+      return;
+    }
     const today = new Date().toISOString().slice(0,10);
     if (data.expiry && data.expiry < today) {
       errEl.textContent = `⏰ 序號已於 ${data.expiry} 到期，請續訂`; return;
