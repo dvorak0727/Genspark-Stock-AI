@@ -18807,7 +18807,7 @@ a.module-nav-item.acc-active {
             載入中…
           </div>
           <div style="font-size:.56rem;color:var(--fg3);margin-top:6px;">
-            💡 「頭/底」由近期相對高低點自動偵測（左右各2日都更低/更高才算轉折），偏多/偏空判斷是規則比較（頭部+底部同步走低=偏空、同步走高=偏多），不是AI主觀判讀型態學，僅供參考，不構成買賣建議。
+            💡 「頭/底」由近期相對高低點自動偵測（左右各2日都更低/更高才算轉折），偏多/偏空判斷是規則比較（頭部+底部同步走低=偏空、同步走高=偏多）。虛線「候選支撐/壓力」是近期轉折點價位聚集偵測（啟發式，非保證）。都不是AI主觀判讀型態學，僅供參考，不構成買賣建議。
           </div>
         </div>
       </div>
@@ -65207,7 +65207,7 @@ function renderTwseCandleChart() {
     return;
   }
 
-  const n = 60; // 近60日K棒，跟個股K棒圖看齊
+  const n = 30; // 近30日K棒——跟個股技術指標卡片的K棒圖同一個窗口大小，視覺比例才會一致
   const dates  = cache.dates.slice(-n);
   const opens  = cache.opens.slice(-n);
   const highs  = cache.highs.slice(-n);
@@ -65220,7 +65220,15 @@ function renderTwseCandleChart() {
   const ma20 = calcMA(cache.closes, 20).slice(-n);
   const ma60 = calcMA(cache.closes, 60).slice(-n);
 
-  // 轉折點偵測用完整歷史（近90日）算，避免視窗邊緣漏抓，畫的時候只顯示落在近60日視窗內的
+  // 候選支撐/壓力——沿用個股頁面同一套 detectSupportResistance（近60日轉折點聚類），
+  // 樣本窗口比顯示窗口（近30日）更長，避免只看30天沒抓到夠多轉折點
+  const sr = detectSupportResistance(cache.highs, cache.lows);
+  const resLines = [
+    ...sr.support.map(s => ({ ...s, type: 'support' })),
+    ...sr.resistance.map(s => ({ ...s, type: 'resistance' })),
+  ];
+
+  // 轉折點偵測（頭/底標記）也用完整歷史算，避免視窗邊緣漏抓，畫的時候只顯示落在近30日視窗內的
   const offset = cache.closes.length - n;
   const { peaks, troughs } = detectSwingPoints(cache.highs, cache.lows, 2);
   const verdict = _twseTrendVerdict(peaks, troughs);
@@ -65248,13 +65256,14 @@ function renderTwseCandleChart() {
     },
     plugins: [_candlestickPlugin, _peakTroughPlugin],
     options: (() => {
-      const opts = lightChartOpts('加權指數K棒 + MA5/10/20/60 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true);
+      const opts = lightChartOpts('加權指數K棒 + MA5/10/20/60 + 候選支撐壓力 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
       return opts;
     })(),
   });
-  charts['twseCandleChart'].$candleData = { opens, highs, lows, closes, resLines: [] };
+  charts['twseCandleChart'].$candleData = { opens, highs, lows, closes, resLines };
   charts['twseCandleChart'].$peakTroughData = { peaks, troughs, offset };
+  charts['twseCandleChart'].update('none'); // 強制立即重繪一次，$candleData 設完才有東西給plugin畫
 
   // 成交金額（億元）— 紅漲綠跌，跟K棒同一批日期對齊
   const volCanvas = document.getElementById('twseVolChart');
