@@ -55193,8 +55193,12 @@ async function calcWhaleIncreaseScore(stockId) {
 
     return {
       stockId, score, checks,
-      lc: 0, chgPct: 0, fCons: 0, tCons: Math.round(cur.unitPct),
+      // ⚠️ fCons/tCons 是全站共用欄位，卡片會直接顯示成「法人連買N日」，
+      // 千張大戶佔比絕對不能塞進這兩個欄位（塞了會被誤讀成連買天數，
+      // 例如70%被顯示成「連買70日」）。佔比另外放在 _whalePct。
+      lc: 0, chgPct: 0, fCons: 0, tCons: 0,
       _whaleRaw: cache.parsed, _whaleDelta: delta, _peopleDelta: peopleDelta,
+      _whalePct: cur.unitPct,
     };
   } catch(e) {
     console.warn('[千張大戶增 screener]', stockId, e.message);
@@ -59556,9 +59560,13 @@ function renderScreenerCards(showStats=false) {
           ? buildMiniCandles(r.candles.closes, r.candles.opens, r.candles.highs, r.candles.lows, r.candles.dates, r.candles.vols)
           : '');
 
-    // ── v5.69 法人連買 badge（v7.30：broker 模式改為囤貨強度標籤）──
+    // ── v5.69 法人連買 badge（v7.30：broker 模式改為囤貨強度標籤；v7.55：whale 模式改為籌碼集中標籤）──
     let instBadge = '';
-    if (_curMode === 'broker') {
+    if (_curMode === 'whale') {
+      const _pct = r._whalePct || 0;
+      const _delta = r._whaleDelta || 0;
+      instBadge = `<span class="sc-inst-badge strong" title="千張大戶持股佔比（不是連買天數）">🐋 大戶佔比${_pct}%（週+${_delta}%）</span>`;
+    } else if (_curMode === 'broker') {
       const _streak  = r.fCons || 0;
       const _concPct = r.tCons || 0;
       if (_streak >= 4 || _concPct >= 55) {
