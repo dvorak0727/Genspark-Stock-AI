@@ -15954,6 +15954,7 @@ a.module-nav-item.acc-active {
           <option value="broker">🏦 券商囤貨掃描</option>
           <option value="exdiv">🎯 除息填息候選雷達</option>
           <option value="obi">📡 外盤強勢掃描</option>
+          <option value="whale">🐋 千張大戶增掃描（需付費Token）</option>
         </select>
         <button class="screener-btn" id="screenerBtn" onclick="startScreener()">
           🔭 開始海選
@@ -16211,6 +16212,7 @@ a.module-nav-item.acc-active {
           <option value="broker">🏦 券商囤貨掃描</option>
           <option value="exdiv">🎯 除息填息候選雷達</option>
           <option value="obi">📡 外盤強勢掃描</option>
+          <option value="whale">🐋 千張大戶增掃描（需付費Token）</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -53807,6 +53809,22 @@ async function startScreener() {
         result._priceRaw = priceRaw;
         result._instRaw  = instRaw;
 
+      } else if (modeKey === 'whale') {
+        // 千張大戶增掃描：直接呼叫 calcWhaleIncreaseScore，不走技術指標/價格 API
+        // （fetchHoldingShares 內部有自己的週級快取，這裡不用額外處理逾時）
+        result = await calcWhaleIncreaseScore(sid);
+        if (result._skip) { processed++; continue; } // 沒增/沒資料，不列入結果
+        // 補充現價：跟 broker 模式一樣，用 TaiwanStockPrice 補 lc/chgPct
+        try {
+          const priceRaw = await _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd));
+          const closes = (priceRaw || []).map(d => +d.close);
+          if (closes.length >= 2) {
+            result.lc = closes.at(-1);
+            const pc = closes.at(-2) || result.lc;
+            result.chgPct = pc ? (result.lc - pc) / pc * 100 : 0;
+          }
+        } catch(e) { /* 抓不到現價不影響大戶增判斷，維持lc=0 */ }
+
       } else {
         // 並行取兩支 API：海選用4秒超時（避免每支卡15秒）
         const [r1, r2] = await Promise.allSettled([
@@ -53892,7 +53910,12 @@ async function startScreener() {
   const _cntB3  = _isBrokerFinish ? _screenerResults.filter(r => r.score >= 3 && r.score < 4).length : 0;
   const _cntO70 = _isObiFinish ? _screenerResults.filter(r => r.obiPct >= 70).length : 0;
   const _cntO60 = _isObiFinish ? _screenerResults.filter(r => r.obiPct >= 60 && r.obiPct < 70).length : 0;
-  const _finishMsg = _isObiFinish
+  const _isWhaleFinish = modeKey === 'whale';
+  const _finishMsg = _isWhaleFinish
+    ? (_screenerResults.length === 0
+        ? `⚠️ 千張大戶增掃描完成，共 ${processed} 檔沒有找到任何一檔——最可能的原因是這支資料集（TaiwanStockHoldingSharesPer）需要 FinMind Sponsor 付費方案 Token，免費帳號查不到，不是沒有股票大戶增。`
+        : `✅ 千張大戶增掃描完成！共 ${processed} 檔 · 找到 ${_screenerResults.length} 檔千張大戶週增（僅列出有增加的，沒增加的不會出現）`)
+    : _isObiFinish
     ? `✅ 外盤強勢掃描完成！共 ${processed} 檔 · 🔴 超強(外盤≥70%)：${_cntO70} 檔 · 🟡 偏強(60-70%)：${_cntO60} 檔`
     : _isMacdFinish
     ? `✅ MACD 矩陣掃描完成！共 ${processed} 檔 · 🔥 極強(≥5/6)：${_cntSuper} 檔 · 🔴 強烈(≥4/6)：${_cntStrong} 檔 · 🟡 明確(≥3/6)：${_cntMid} 檔`
@@ -55004,6 +55027,7 @@ const SCREENER_MODE_META = {
   broker:     { title:'券商囤貨掃描',           subtitle:'C1 累積淨買超 · C2 連買天數 · C3 籌碼集中度 · C4 近5日加速 · C5 主力成本低於現價', badge:'🏦 囤貨' },
   exdiv:      { title:'除息填息候選雷達',        subtitle:'投信除息前佈局 · 外資製造恐懼換手 · 殖利率誘人 · 跌不下去確認 · 入場甜蜜點偵測', badge:'🎯 填息候選' },
   obi:        { title:'外盤強勢掃描',            subtitle:'收盤外盤比率排行 · 主動買盤強度確認 · 外盤>內盤篩選 · 資金動能方向', badge:'📡 外盤強' },
+  whale:      { title:'千張大戶增掃描',          subtitle:'C1 週增為正 · C2 增幅≥0.5% · C3 連續兩週增 · C4 散戶同步減碼 · C5 大戶佔比過半（⚠️需FinMind Sponsor付費Token）', badge:'🐋 大戶增' },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -55110,6 +55134,63 @@ async function calcBrokerHoardScore(stockId) {
     };
   } catch(e) {
     console.warn('[broker screener]', stockId, e.message);
+    return EMPTY;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  🐋 v7.55 千張大戶增掃描
+//  五維度評分：C1週增為正 C2增幅≥0.5% C3連續兩週增 C4散戶同步減碼 C5大戶佔比過半
+//  總分 0~5 分。資料來源 TaiwanStockHoldingSharesPer（週更），跟股份金字塔/
+//  籌碼金字塔共用同一份 fetchHoldingShares() 快取，不會重複打API。
+//  ⚠️ 這支資料集需要 FinMind Sponsor 付費方案 Token，免費帳號打會被拒絕
+//  （401/level錯誤），沒token時每檔都會落空，不是程式壞掉。
+// ═══════════════════════════════════════════════════════════════
+async function calcWhaleIncreaseScore(stockId) {
+  const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _whaleRaw:null, _skip:true };
+  try {
+    const cache = await fetchHoldingShares(stockId);
+    if (!cache.parsed) return EMPTY;
+    const { whaleTrend, retailTrend } = cache.parsed;
+    if (!whaleTrend || whaleTrend.length < 2) return EMPTY;
+
+    const cur = whaleTrend.at(-1), prev = whaleTrend.at(-2);
+    const delta = +(cur.unitPct - prev.unitPct).toFixed(2);
+    if (delta <= 0) return EMPTY; // 只列「增」的，沒增就跳過，不算掃描失敗
+
+    let twoWeekUp = false;
+    if (whaleTrend.length >= 3) {
+      const prev2 = whaleTrend.at(-3);
+      twoWeekUp = (prev.unitPct - prev2.unitPct) > 0;
+    }
+    let retailDown = false;
+    if (retailTrend && retailTrend.length >= 2) {
+      const rCur = retailTrend.at(-1), rPrev = retailTrend.at(-2);
+      retailDown = (rCur.unitPct - rPrev.unitPct) < 0;
+    }
+
+    const c1 = true; // 已經在上面篩過 delta>0，能走到這裡一定成立
+    const c2 = delta >= 0.5;
+    const c3 = twoWeekUp;
+    const c4 = retailDown;
+    const c5 = cur.unitPct >= 50;
+
+    const checks = [
+      { label:'C1 千張大戶週增', hit:c1, val:`${delta>=0?'+':''}${delta}%` },
+      { label:'C2 增幅≥0.5%',    hit:c2, val:`本週佔比${cur.unitPct}%` },
+      { label:'C3 連續兩週增',   hit:c3, val: twoWeekUp?'連續增加':'僅本週增加' },
+      { label:'C4 散戶同步減碼', hit:c4, val: retailDown?'散戶籌碼流出':'散戶未同步減少' },
+      { label:'C5 大戶佔比過半', hit:c5, val:`${cur.unitPct}%` },
+    ];
+    const score = checks.filter(c => c.hit).length;
+
+    return {
+      stockId, score, checks,
+      lc: 0, chgPct: 0, fCons: 0, tCons: Math.round(cur.unitPct),
+      _whaleRaw: cache.parsed, _whaleDelta: delta,
+    };
+  } catch(e) {
+    console.warn('[千張大戶增 screener]', stockId, e.message);
     return EMPTY;
   }
 }
