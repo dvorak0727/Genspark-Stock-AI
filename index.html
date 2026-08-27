@@ -255,6 +255,7 @@
     }
 
     /* ====== HEADER — 統一淡色主題 v5.62 ====== */
+    .header-right-scroll > * { flex-shrink: 0; }
     .header {
       background: var(--surface);
       border-bottom: 1.5px solid var(--border);
@@ -15866,7 +15867,7 @@ a.module-nav-item.acc-active {
       <span>🎨</span>
     </button>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+  <div class="header-right-scroll" style="display:flex;align-items:center;gap:8px;flex-shrink:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:2px;">
     <div class="header-badge">💬 支援公司名稱查詢</div>
     <!-- 選項F v6.99：收盤價過期提示 badge -->
     <span class="stale-base-badge" id="staleBaseBadge"
