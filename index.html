@@ -17061,6 +17061,7 @@ a.module-nav-item.acc-active {
         <div class="cs-obv-header">
           <div class="cs-obv-title" style="color:#6D28D9;">🔺 股份金字塔 — 持股分級（千張大戶動向）
             <span data-tip="股份金字塔" style="cursor:pointer;">?</span>
+            <span id="csWhaleBadge" style="margin-left:6px;"></span>
           </div>
           <button class="cs-obv-close" onclick="toggleSharePyramidPanel()">✕ 收合</button>
         </div>
@@ -37332,20 +37333,22 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
 //  資料：fetchHoldingShares → 金字塔5層 + 千張大戶4週趨勢
 // ==============================================================
 async function renderHoldingPyramid(stockId) {
-  const el = document.getElementById('csHoldingPyramid');
-  if (!el || !stockId) return;
-
-  // 載入中佔位
-  el.innerHTML = `<div style="font-size:0.62rem;color:var(--fg3);padding:3px 2px;">📊 持股分級載入中...</div>`;
+  // v7.55：籌碼金字塔（免費估算）跟股份金字塔（付費真實分級表）用的是同一份
+  // TaiwanStockHoldingSharesPer 資料，畫兩份圖表是重覆功能——保留股份金字塔
+  // 完整表格，這裡只留下「鯨魚訊號」小徽章，掛在股份金字塔面板標題旁。
+  const badgeEl = document.getElementById('csWhaleBadge');
+  const el = document.getElementById('csHoldingPyramid'); // 舊容器保留但不再填內容
+  if (el) el.innerHTML = '';
+  if (!badgeEl || !stockId) return;
 
   const cache = await fetchHoldingShares(stockId);
-  if (!cache.parsed) {
-    el.innerHTML = `<div style="font-size:0.62rem;color:var(--fg3);padding:3px 2px;">持股分級：${cache.error||'暫無資料'}（週更資料，首次可能較慢）</div>`;
-    return;
-  }
+  if (!cache.parsed) { badgeEl.innerHTML = ''; return; }
 
   const { groups, whaleTrend, whaleSignal, latestDate } = cache.parsed;
   const wMeta = _whaleSignalMeta(whaleSignal);
+  badgeEl.innerHTML = `<span title="千張大戶持股趨勢訊號（資料日期：${latestDate}）" style="font-size:0.6rem;font-weight:700;padding:1px 6px;border-radius:4px;
+    background:${wMeta.bg};color:${wMeta.color};border:1px solid ${wMeta.border};">${wMeta.icon} ${wMeta.label}</span>`;
+  return; // 以下橫條圖／趨勢圖計算已不再輸出，保留變數僅供舊碼相容，直接略過
 
   // ── 金字塔橫條圖 ──
   // 上方：持股佔比（量級）；下方：持有人數佔比（廣度）
