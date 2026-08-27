@@ -17003,6 +17003,19 @@ a.module-nav-item.acc-active {
         </div>
       </div>
 
+      <!-- v7.55 PEG（本益成長比）— PER只答貴不貴，PEG把「成長速度」也考慮進去 -->
+      <div id="pegArea" style="margin-bottom:10px;background:var(--bg2);border-radius:10px;padding:10px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;cursor:pointer;" data-tip="PEG本益成長比">📈 PEG（本益成長比）<span style="opacity:.6;">?</span></div>
+          <span id="pegBadge" style="font-size:.6rem;font-weight:800;padding:1px 8px;border-radius:20px;background:var(--surface2);color:var(--fg3);">計算中</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px;">
+          <span id="pegVal" style="font-size:1.1rem;font-weight:900;">—</span>
+          <span id="pegSub" style="font-size:.58rem;color:var(--fg3);">PER ÷ EPS年增率</span>
+        </div>
+        <div id="pegNote" style="font-size:.6rem;color:var(--fg2);line-height:1.5;margin-top:4px;"></div>
+      </div>
+
       <div id="peVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #2563EB;margin-bottom:8px;">
         載入中…
       </div>
@@ -64506,12 +64519,79 @@ async function renderPeRatio(stockId) {
     badge.textContent = label; badge.style.color = color; badge.style.background = 'transparent'; badge.style.border = `1px solid ${color}`;
     const vEl = document.getElementById('peVerdict');
     if (vEl) { vEl.textContent = verdictTxt; vEl.style.borderLeftColor = color; }
+
+    // v7.55 PEG（本益成長比）= PER ÷ EPS年增率(%)
+    // 「貴不貴」加上「有沒有成長撐得起這個貴」——同樣PER=20，成長30%的公司比成長0%的公司划算得多。
+    // ⚠️ 這裡刻意防呆：若去年同期TTM EPS是虧損（負值/接近0），年增率公式會被除以一個
+    // 負/趨近0的基期，算出「+1000%」這種失真數字，PEG會變得毫無意義（不能用猜的硬套一個公式）。
+    _renderPeg(stockId, today.PER).catch(e => console.warn('[PEG]', e.message));
   } catch (e) {
     badge.textContent = '抓取失敗'; badge.style.color = '#dc2626';
     const vEl = document.getElementById('peVerdict');
     if (vEl) vEl.textContent = `本益比資料抓取失敗：${e.message}`;
     console.warn('[本益比]', e);
   }
+}
+
+async function _renderPeg(stockId, per) {
+  const pegBadge = document.getElementById('pegBadge');
+  const pegVal   = document.getElementById('pegVal');
+  const pegNote  = document.getElementById('pegNote');
+  if (!pegBadge) return;
+
+  const fmt = d => d.toISOString().split('T')[0];
+  const end = new Date();
+  const start = new Date(); start.setFullYear(start.getFullYear() - 2); // 抓2年，湊近8季EPS算年增率
+
+  const r = await fetch(`${FINMIND}?dataset=TaiwanStockFinancialStatements&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${encodeURIComponent(getToken())}`);
+  const j = await r.json();
+  const epsRows = (j.data || []).filter(x => x.type === 'EPS').sort((a,b)=>a.date.localeCompare(b.date));
+
+  if (epsRows.length < 8) {
+    pegBadge.textContent = '資料不足'; pegBadge.style.color = 'var(--fg3)';
+    pegVal.textContent = '—';
+    pegNote.textContent = '近2年季EPS資料不滿8季，無法計算年增率（可能是新股或財報尚未齊全）。';
+    return;
+  }
+
+  const last8 = epsRows.slice(-8);
+  const ttmNow  = last8.slice(-4).reduce((s,r)=>s+r.value, 0);
+  const ttmPrev = last8.slice(0,4).reduce((s,r)=>s+r.value, 0);
+
+  // 防呆①：去年同期是虧損或接近0 → 年增率公式失真，PEG不能算
+  if (ttmPrev <= 0) {
+    pegBadge.textContent = '不適用'; pegBadge.style.color = '#d97706';
+    pegVal.textContent = '—';
+    pegNote.textContent = `去年同期TTM EPS為虧損（${ttmPrev.toFixed(2)}元），由虧轉盈的年增率會失真（除以負/趨近0的基期），PEG在這種情況下沒有意義，不能拿來當「便宜/貴」的依據。`;
+    return;
+  }
+
+  const growthPct = (ttmNow - ttmPrev) / Math.abs(ttmPrev) * 100;
+
+  // 防呆②：獲利年增率≤0（真的在衰退，不是失真）→ PEG公式假設有成長，衰退時算出來的PEG沒有解讀意義
+  if (growthPct <= 0) {
+    pegBadge.textContent = '獲利衰退'; pegBadge.style.color = '#dc2626';
+    pegVal.textContent = '—';
+    pegNote.textContent = `近4季EPS年增率為 ${growthPct.toFixed(1)}%（獲利在衰退），PEG公式是拿「本益比」除以「成長率」，成長率不是正數時算出來的數字沒有解讀意義，不要用PEG，直接看獲利品質卡片確認衰退原因。`;
+    return;
+  }
+
+  const peg = per / growthPct;
+  pegVal.textContent = peg.toFixed(2);
+
+  let label, color, note;
+  if (peg <= 0.75) {
+    label = '相對便宜'; color = '#059669';
+    note = `近4季EPS年增率 ${growthPct.toFixed(1)}%，PER ${per.toFixed(1)}倍，PEG=${peg.toFixed(2)}（<1）——用傳統PEG判讀，成長速度贏過股價漲幅，相對划算，但仍要搭配獲利品質確認成長是不是真的收得到現金。`;
+  } else if (peg <= 1.3) {
+    label = '成長與股價同步'; color = '#d97706';
+    note = `近4季EPS年增率 ${growthPct.toFixed(1)}%，PER ${per.toFixed(1)}倍，PEG=${peg.toFixed(2)}（≈1）——股價大致反映了目前的成長速度，不算特別便宜也不算特別貴。`;
+  } else {
+    label = '股價領先成長'; color = '#dc2626';
+    note = `近4季EPS年增率 ${growthPct.toFixed(1)}%，PER ${per.toFixed(1)}倍，PEG=${peg.toFixed(2)}（>1.3）——股價漲幅已經超前目前的獲利成長速度，代表市場在賭「未來會更好」，不是反映已發生的獲利，風險相對較高。`;
+  }
+  pegBadge.textContent = label; pegBadge.style.color = color; pegBadge.style.background = 'transparent'; pegBadge.style.border = `1px solid ${color}`;
+  pegNote.textContent = note;
 }
 
 // ══════════════════════════════════════════════════════════════
