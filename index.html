@@ -18791,6 +18791,22 @@ a.module-nav-item.acc-active {
         </div>
       </div>
 
+      <!-- v7.55 大盤K棒圖＋頭/底轉折偵測（規則式，不是AI型態判讀） -->
+      <div style="margin-bottom:10px;">
+        <button id="twseCandleBtn" onclick="toggleTwseCandle()" style="width:100%;text-align:left;font-size:.62rem;padding:8px 10px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;color:var(--fg);font-weight:700;">
+          📊 大盤K棒圖＋頭/底轉折偵測 <span style="opacity:.6;font-weight:400;">▼ 點擊展開</span>
+        </button>
+        <div id="twseCandleArea" style="display:none;margin-top:6px;background:var(--bg2);border-radius:10px;padding:10px;">
+          <canvas id="twseCandleChart" height="180" style="width:100%;display:block;"></canvas>
+          <div id="twseCandleVerdict" style="font-size:.66rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--surface2);border-radius:8px;border-left:3px solid #1e3a8a;margin-top:8px;">
+            載入中…
+          </div>
+          <div style="font-size:.56rem;color:var(--fg3);margin-top:6px;">
+            💡 「頭/底」由近期相對高低點自動偵測（左右各2日都更低/更高才算轉折），偏多/偏空判斷是規則比較（頭部+底部同步走低=偏空、同步走高=偏多），不是AI主觀判讀型態學，僅供參考，不構成買賣建議。
+          </div>
+        </div>
+      </div>
+
       <!-- 圖表展開區 -->
       <div id="twseChartArea" style="display:none;margin-bottom:10px;background:var(--bg2);border-radius:10px;padding:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -65053,9 +65069,19 @@ async function fetchTWSEIndex() {
       verdictTxt = `⚠️ <b>大盤偏空</b>：逆風環境，個股即使強勢也難拉升。建議縮手等待大盤轉向。`;
     }
     setHtml('twseVerdict', verdictTxt);
-    _twseIndexCache = { closes, kd, dif, macdLine, osc };
+    _twseIndexCache = {
+      closes, kd, dif, macdLine, osc,
+      dates: rows.map(r => r.date),
+      opens: rows.map(r => +r.open),
+      highs: rows.map(r => +r.max),
+      lows:  rows.map(r => +r.min),
+    };
     window._twiiSeries = closes;
     window._twseChartData = { osc, dif, macdLine, kd, rows };
+    // 若K棒面板已展開過，資料更新時同步重繪
+    if (document.getElementById('twseCandleArea')?.style.display !== 'none' && document.getElementById('twseCandleArea')) {
+      renderTwseCandleChart();
+    }
 
     // v7.55：全市場真實三大法人買賣金額（TWSE BFI82U，免token、無CORS限制）
     // 取代原本用台積電(2330)買賣超代理全市場的估算法——這支是官方逐日
@@ -65079,6 +65105,150 @@ async function fetchTWSEIndex() {
   } catch(e) {
     document.getElementById('twseVerdict').textContent = '載入失敗：' + e.message;
   }
+}
+
+// ══════════════════════════════════════════════════
+//  v7.55 大盤K棒圖＋頭/底轉折偵測
+//  規則式偵測，不是AI型態學判讀：局部極值（左右各N日都更低/更高）
+//  當作「頭」「底」，再比較最近兩個頭、最近兩個底的高低，判斷偏多/偏空。
+//  跟個股K棒圖共用同一套 _candlestickPlugin 手繪引擎，資料源同 fetchTWSEIndex 的 TAIEX。
+// ══════════════════════════════════════════════════
+function detectSwingPoints(highs, lows, leftRight = 2) {
+  const peaks = [], troughs = [];
+  const n = highs.length;
+  for (let i = leftRight; i < n - leftRight; i++) {
+    let isPeak = true, isTrough = true;
+    for (let k = 1; k <= leftRight; k++) {
+      if (highs[i] <= highs[i-k] || highs[i] <= highs[i+k]) isPeak = false;
+      if (lows[i]  >= lows[i-k]  || lows[i]  >= lows[i+k])  isTrough = false;
+    }
+    if (isPeak)   peaks.push({ i, val: highs[i] });
+    if (isTrough) troughs.push({ i, val: lows[i] });
+  }
+  return { peaks, troughs };
+}
+
+function _twseTrendVerdict(peaks, troughs) {
+  if (peaks.length < 2 || troughs.length < 2) {
+    return { text: '近期轉折點不足（頭/底都要至少2個才能比較），暫時無法判斷頭部/底部趨勢，可能是盤整期。', tone: '#64748b' };
+  }
+  const p1 = peaks.at(-2), p2 = peaks.at(-1);
+  const t1 = troughs.at(-2), t2 = troughs.at(-1);
+  const peakDown   = p2.val < p1.val;
+  const troughDown = t2.val < t1.val;
+  if (peakDown && troughDown) {
+    return {
+      text: `頭部走低（${p1.val.toFixed(0)} → ${p2.val.toFixed(0)}）且底部也走低（${t1.val.toFixed(0)} → ${t2.val.toFixed(0)}），符合「頭頭低、底底低」的空頭排列規則，趨勢偏空。`,
+      tone: '#dc2626',
+    };
+  } else if (!peakDown && !troughDown) {
+    return {
+      text: `頭部走高（${p1.val.toFixed(0)} → ${p2.val.toFixed(0)}）且底部也走高（${t1.val.toFixed(0)} → ${t2.val.toFixed(0)}），符合「頭頭高、底底高」的多頭排列規則，趨勢偏多。`,
+      tone: '#059669',
+    };
+  } else {
+    return {
+      text: `頭部${peakDown?'走低':'走高'}（${p1.val.toFixed(0)}→${p2.val.toFixed(0)}）但底部${troughDown?'走低':'走高'}（${t1.val.toFixed(0)}→${t2.val.toFixed(0)}），頭底方向不一致，趨勢尚未明確，建議觀望。`,
+      tone: '#d97706',
+    };
+  }
+}
+
+// 在K棒圖上疊畫頭/底文字標記（沿用 _candlestickPlugin 的座標換算方式）
+const _peakTroughPlugin = {
+  id: '_peakTroughPlugin',
+  afterDatasetsDraw(chart) {
+    const meta = chart.$peakTroughData;
+    if (!meta) return;
+    const { scales, ctx, chartArea } = chart;
+    const xScale = scales.x, yScale = scales.y;
+    ctx.save();
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    meta.peaks.forEach(p => {
+      if (p.i < meta.offset) return;
+      const x = xScale.getPixelForValue(p.i - meta.offset);
+      const y = yScale.getPixelForValue(p.val);
+      ctx.fillStyle = '#dc2626';
+      ctx.fillText('頭', x, y - 8);
+    });
+    meta.troughs.forEach(t => {
+      if (t.i < meta.offset) return;
+      const x = xScale.getPixelForValue(t.i - meta.offset);
+      const y = yScale.getPixelForValue(t.val);
+      ctx.fillStyle = '#059669';
+      ctx.fillText('底', x, y + 14);
+    });
+    ctx.restore();
+  }
+};
+
+function toggleTwseCandle() {
+  const area = document.getElementById('twseCandleArea');
+  if (!area) return;
+  const opening = area.style.display === 'none';
+  area.style.display = opening ? 'block' : 'none';
+  if (opening) renderTwseCandleChart();
+}
+
+function renderTwseCandleChart() {
+  const verdictEl = document.getElementById('twseCandleVerdict');
+  const canvasEl = document.getElementById('twseCandleChart');
+  if (!canvasEl) return;
+  const cache = _twseIndexCache;
+  if (!cache || !cache.opens || !cache.opens.length) {
+    if (verdictEl) verdictEl.textContent = '尚未載入大盤資料，請先點上方「🔄 更新」。';
+    return;
+  }
+
+  const n = 60; // 近60日K棒，跟個股K棒圖看齊
+  const dates  = cache.dates.slice(-n);
+  const opens  = cache.opens.slice(-n);
+  const highs  = cache.highs.slice(-n);
+  const lows   = cache.lows.slice(-n);
+  const closes = cache.closes.slice(-n);
+  const dl = dates.map(d => d.slice(5).replace('-', '/'));
+
+  const ma5  = calcMA(cache.closes, 5).slice(-n);
+  const ma10 = calcMA(cache.closes, 10).slice(-n);
+  const ma20 = calcMA(cache.closes, 20).slice(-n);
+  const ma60 = calcMA(cache.closes, 60).slice(-n);
+
+  // 轉折點偵測用完整歷史（近90日）算，避免視窗邊緣漏抓，畫的時候只顯示落在近60日視窗內的
+  const offset = cache.closes.length - n;
+  const { peaks, troughs } = detectSwingPoints(cache.highs, cache.lows, 2);
+  const verdict = _twseTrendVerdict(peaks, troughs);
+  if (verdictEl) {
+    verdictEl.innerHTML = `📊 <b>頭/底轉折判讀</b>：${verdict.text}`;
+    verdictEl.style.borderLeftColor = verdict.tone;
+  }
+
+  destroyChart('twseCandleChart');
+  const ctx = canvasEl.getContext('2d');
+  charts['twseCandleChart'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dl,
+      datasets: [
+        { label: '收盤價', data: closes, borderColor: 'rgba(30,58,138,0.2)', borderWidth: 1, pointRadius: 0, fill: false, tension: 0.1 },
+        { label: 'MA5',  data: ma5,  borderColor: '#FF7043', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'MA10', data: ma10, borderColor: '#22C55E', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'MA20', data: ma20, borderColor: '#6C5CE7', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'MA60', data: ma60, borderColor: '#D97706', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0.3 },
+        // 隱形資料集，讓 y 軸涵蓋K棒完整高低範圍
+        { label: '_high', data: highs, borderWidth: 0, pointRadius: 0, fill: false, borderColor: 'transparent', backgroundColor: 'transparent' },
+        { label: '_low',  data: lows,  borderWidth: 0, pointRadius: 0, fill: false, borderColor: 'transparent', backgroundColor: 'transparent' },
+      ],
+    },
+    plugins: [_candlestickPlugin, _peakTroughPlugin],
+    options: (() => {
+      const opts = lightChartOpts('加權指數K棒 + MA5/10/20/60 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true);
+      opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
+      return opts;
+    })(),
+  });
+  charts['twseCandleChart'].$candleData = { opens, highs, lows, closes, resLines: [] };
+  charts['twseCandleChart'].$peakTroughData = { peaks, troughs, offset };
 }
 
 // ══════════════════════════════════════════════════
