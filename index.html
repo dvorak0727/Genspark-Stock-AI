@@ -64590,6 +64590,15 @@ async function _renderPeg(stockId, per) {
     label = '股價領先成長'; color = '#dc2626';
     note = `近4季EPS年增率 ${growthPct.toFixed(1)}%，PER ${per.toFixed(1)}倍，PEG=${peg.toFixed(2)}（>1.3）——股價漲幅已經超前目前的獲利成長速度，代表市場在賭「未來會更好」，不是反映已發生的獲利，風險相對較高。`;
   }
+
+  // 防呆③：成長率異常高（>80%）時，PEG 會被算得很低看起來「超便宜」，
+  // 但很可能是去年同期基期偏低撐出來的數字，不是真的能延續的成長速度——
+  // 跟虧轉盈是同一種病，只是沒虧到負值那麼極端，容易被誤讀成「超划算」。
+  if (growthPct > 80) {
+    label += '（基期偏低？）'; color = '#d97706';
+    note += ` ⚠️ 成長率高達${growthPct.toFixed(1)}%，PEG因此被算得很低，但這種高成長率常常是「去年同期基期偏低」撐出來的，不代表這個成長速度能一直延續——務必回頭比對去年同期EPS絕對值是否異常偏低，再判斷這個「便宜」可不可信。`;
+  }
+
   pegBadge.textContent = label; pegBadge.style.color = color; pegBadge.style.background = 'transparent'; pegBadge.style.border = `1px solid ${color}`;
   pegNote.textContent = note;
 }
