@@ -18804,7 +18804,7 @@ a.module-nav-item.acc-active {
       <div style="background:var(--bg2);border-radius:10px;padding:8px 12px;margin-bottom:8px;cursor:pointer;" onclick="twseToggleChart('inst')" title="點擊查看法人籌碼圖">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
           <span style="font-size:.62rem;color:var(--fg3);font-weight:700;">🏦 大盤法人籌碼（近5日）<span style="font-size:.5rem;opacity:.6;">▼ 點擊看圖</span></span>
-          <span style="font-size:.55rem;padding:2px 6px;background:rgba(234,179,8,.15);color:#ca8a04;border-radius:10px;border:1px solid rgba(234,179,8,.3);">⚠️ 以台積電(2330)代理——台積電佔加權指數逾30%，外資買賣台積電近似買賣大盤</span>
+          <span style="font-size:.55rem;padding:2px 6px;background:rgba(16,185,129,.12);color:#059669;border-radius:10px;border:1px solid rgba(16,185,129,.3);">✅ 全市場真實買賣金額（TWSE三大法人統計表）</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:.68rem;text-align:center;">
           <div>外資<br><span id="twseForeign5" style="font-weight:900;color:var(--fg);">—</span></div>
@@ -64899,6 +64899,41 @@ async function renderProfitQuality(stockId) {
 // ══════════════════════════════════════════════════
 let _twseIndexCache = null;
 
+// v7.55：TWSE 官方「三大法人買賣金額統計表」單日抓取
+// 端點是 www.twse.com.tw/rwd/...（不是 openapi.twse.com.tw），實測有 CORS: *，免token直接前端打。
+// ⚠️ 參數要用 dayDate（不是 date）才會真的回傳指定那天的資料，這個是實測踩出來的雷。
+// 非交易日（假日）會回傳 stat 不是 'OK'，用這個特性自然跳過假日，不用自己維護假日表。
+async function fetchTwseInstOneDay(dayDateStr) {
+  const r = await fetch(`https://www.twse.com.tw/rwd/zh/fund/BFI82U?response=json&dayDate=${dayDateStr}&type=day`);
+  const j = await r.json();
+  if (j.stat !== 'OK' || !Array.isArray(j.data)) return null;
+  const findNet = label => {
+    const row = j.data.find(r => r[0] === label);
+    return row ? parseFloat(String(row[3]).replace(/,/g, '')) : 0;
+  };
+  return {
+    date: dayDateStr,
+    dealer: findNet('自營商(自行買賣)') + findNet('自營商(避險)'),
+    trust:  findNet('投信'),
+    foreign: findNet('外資及陸資(不含外資自營商)'),
+  };
+}
+
+// 往回找到最近 5 個「有資料」的交易日（最多回溯12天，涵蓋連假）
+async function fetchTwseInst5d() {
+  const results = [];
+  const today = new Date();
+  for (let i = 0; i < 12 && results.length < 5; i++) {
+    const dt = new Date(today); dt.setDate(today.getDate() - i);
+    const ds = dt.toISOString().slice(0, 10).replace(/-/g, '');
+    try {
+      const row = await fetchTwseInstOneDay(ds);
+      if (row) results.push(row);
+    } catch (e) { /* 單日失敗不中斷，繼續找前一天 */ }
+  }
+  return results;
+}
+
 async function fetchTWSEIndex() {
   const token = getToken();
   const setTx = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
@@ -65022,28 +65057,24 @@ async function fetchTWSEIndex() {
     window._twiiSeries = closes;
     window._twseChartData = { osc, dif, macdLine, kd, rows };
 
-    // 台積電法人代理（免token公開資料）
+    // v7.55：全市場真實三大法人買賣金額（TWSE BFI82U，免token、無CORS限制）
+    // 取代原本用台積電(2330)買賣超代理全市場的估算法——這支是官方逐日
+    // 「三大法人買賣金額統計表」，抓近5個「有資料」的交易日（自動跳過假日）加總。
     try {
-      const instRes = await fetch(
-        `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=2330&start_date=${fmt(start)}&token=`
-      );
-      const instJson = await instRes.json();
-      const instRows = (instJson.data || []).sort((a,b) => a.date > b.date ? 1 : -1);
-      _twseInstRows = instRows;
-      const last5dates = [...new Set(instRows.map(r=>r.date))].slice(-5);
-      const filter5 = instRows.filter(r => last5dates.includes(r.date));
-      const sum = (name) => filter5.filter(r=>r.name===name).reduce((s,r)=>s+(+r.buy - +r.sell),0);
-      const fNet = sum('Foreign_Investor');
-      const tNet = sum('Investment_Trust');
-      const dNet = sum('Dealer_self') + sum('Dealer_Hedging');
-      const fmt3 = v => (v>=0?'+':'')+Math.round(Math.abs(v)/1000)+'K張';
+      const rows5 = await fetchTwseInst5d();
+      _twseInstRows = rows5;
+      const sumField = f => rows5.reduce((s,r)=>s+r[f], 0);
+      const fNet = sumField('foreign');
+      const tNet = sumField('trust');
+      const dNet = sumField('dealer');
+      const fmt3 = v => (v>=0?'+':'') + Math.round(Math.abs(v)/1e8) + '億';
       const fColor = fNet>=0?'#dc2626':'#059669';
       const tColor = tNet>=0?'#dc2626':'#059669';
       const dColor = dNet>=0?'#dc2626':'#059669';
       setHtml('twseForeign5', `<span style="color:${fColor};font-weight:900;">${fmt3(fNet)}</span>`);
       setHtml('twseTrust5',   `<span style="color:${tColor};font-weight:900;">${fmt3(tNet)}</span>`);
       setHtml('twseDealer5',  `<span style="color:${dColor};font-weight:900;">${fmt3(dNet)}</span>`);
-    } catch(e) {}
+    } catch(e) { console.warn('[大盤法人籌碼]', e.message); }
 
   } catch(e) {
     document.getElementById('twseVerdict').textContent = '載入失敗：' + e.message;
@@ -65530,16 +65561,12 @@ function twseToggleChart(type) {
     ctx.fillStyle = '#3b82f6'; ctx.fillText('D', W-30, 22);
 
   } else if (type === 'inst') {
-    title.textContent = '台積電法人籌碼（近20日，代理大盤）';
-    const rows = _twseInstRows;
+    title.textContent = '全市場三大法人買賣金額（近5日）';
+    const rows = (_twseInstRows || []).slice().sort((a,b) => a.date.localeCompare(b.date));
     if (!rows.length) { title.textContent += '（無資料）'; return; }
-    const dates = [...new Set(rows.map(r=>r.date))].slice(-20);
-    const getNet = (date, name) => {
-      const r = rows.find(x=>x.date===date && x.name===name);
-      return r ? (+r.buy - +r.sell) : 0;
-    };
-    const fArr = dates.map(d => getNet(d, 'Foreign_Investor'));
-    const tArr = dates.map(d => getNet(d, 'Investment_Trust'));
+    const dates = rows.map(r => r.date);
+    const fArr = rows.map(r => r.foreign / 1e8); // 換算成億元，跟卡片上的顯示單位一致
+    const tArr = rows.map(r => r.trust / 1e8);
     const max = Math.max(...[...fArr,...tArr].map(Math.abs), 1);
     const pad = 8, bw = (W - pad*2) / dates.length / 2;
     const mid = H / 2;
@@ -65554,8 +65581,8 @@ function twseToggleChart(type) {
       });
     });
     ctx.font = '9px sans-serif';
-    ctx.fillStyle = '#dc2626'; ctx.fillText('外資', W-60, 12);
-    ctx.fillStyle = '#f97316'; ctx.fillText('投信', W-60, 22);
+    ctx.fillStyle = '#dc2626'; ctx.fillText('外資（億元）', W-70, 12);
+    ctx.fillStyle = '#f97316'; ctx.fillText('投信（億元）', W-70, 22);
   }
 }
 
