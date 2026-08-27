@@ -15954,7 +15954,7 @@ a.module-nav-item.acc-active {
           <option value="broker">🏦 券商囤貨掃描</option>
           <option value="exdiv">🎯 除息填息候選雷達</option>
           <option value="obi">📡 外盤強勢掃描</option>
-          <option value="whale">🐋 千張大戶增掃描（需付費Token）</option>
+          <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
         </select>
         <button class="screener-btn" id="screenerBtn" onclick="startScreener()">
           🔭 開始海選
@@ -16212,7 +16212,7 @@ a.module-nav-item.acc-active {
           <option value="broker">🏦 券商囤貨掃描</option>
           <option value="exdiv">🎯 除息填息候選雷達</option>
           <option value="obi">📡 外盤強勢掃描</option>
-          <option value="whale">🐋 千張大戶增掃描（需付費Token）</option>
+          <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -53913,8 +53913,8 @@ async function startScreener() {
   const _isWhaleFinish = modeKey === 'whale';
   const _finishMsg = _isWhaleFinish
     ? (_screenerResults.length === 0
-        ? `⚠️ 千張大戶增掃描完成，共 ${processed} 檔沒有找到任何一檔——最可能的原因是這支資料集（TaiwanStockHoldingSharesPer）需要 FinMind Sponsor 付費方案 Token，免費帳號查不到，不是沒有股票大戶增。`
-        : `✅ 千張大戶增掃描完成！共 ${processed} 檔 · 找到 ${_screenerResults.length} 檔千張大戶週增（僅列出有增加的，沒增加的不會出現）`)
+        ? `⚠️ 千張大戶籌碼集中掃描完成，共 ${processed} 檔沒有找到任何一檔——最可能的原因是這支資料集（TaiwanStockHoldingSharesPer）需要 FinMind Sponsor 付費方案 Token，免費帳號查不到，不是沒有股票籌碼集中。`
+        : `✅ 千張大戶籌碼集中掃描完成！共 ${processed} 檔 · 找到 ${_screenerResults.length} 檔持股比例週增（量的是持股比例，不是人數，兩者可能反著走，請看卡片內「人數」欄位）`)
     : _isObiFinish
     ? `✅ 外盤強勢掃描完成！共 ${processed} 檔 · 🔴 超強(外盤≥70%)：${_cntO70} 檔 · 🟡 偏強(60-70%)：${_cntO60} 檔`
     : _isMacdFinish
@@ -55027,7 +55027,7 @@ const SCREENER_MODE_META = {
   broker:     { title:'券商囤貨掃描',           subtitle:'C1 累積淨買超 · C2 連買天數 · C3 籌碼集中度 · C4 近5日加速 · C5 主力成本低於現價', badge:'🏦 囤貨' },
   exdiv:      { title:'除息填息候選雷達',        subtitle:'投信除息前佈局 · 外資製造恐懼換手 · 殖利率誘人 · 跌不下去確認 · 入場甜蜜點偵測', badge:'🎯 填息候選' },
   obi:        { title:'外盤強勢掃描',            subtitle:'收盤外盤比率排行 · 主動買盤強度確認 · 外盤>內盤篩選 · 資金動能方向', badge:'📡 外盤強' },
-  whale:      { title:'千張大戶增掃描',          subtitle:'C1 週增為正 · C2 增幅≥0.5% · C3 連續兩週增 · C4 散戶同步減碼 · C5 大戶佔比過半（⚠️需FinMind Sponsor付費Token）', badge:'🐋 大戶增' },
+  whale:      { title:'千張大戶籌碼集中掃描',    subtitle:'量的是「持股比例」增加，不是人數增加（常常人數變少但籌碼更集中）— C1 佔比週增為正 · C2 增幅≥0.5% · C3 連續兩週增 · C4 散戶同步減碼 · C5 大戶佔比過半（⚠️需FinMind Sponsor付費Token）', badge:'🐋 籌碼集中' },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -55158,6 +55158,13 @@ async function calcWhaleIncreaseScore(stockId) {
     const delta = +(cur.unitPct - prev.unitPct).toFixed(2);
     if (delta <= 0) return EMPTY; // 只列「增」的，沒增就跳過，不算掃描失敗
 
+    // ⚠️ 這裡量的是「持股比例」（千張大戶總持股佔全體流通股比例）增加，
+    // 不是「人數」增加——這兩件事常常是反著走的：大戶人數變少，但剩下
+    // 的人籌碼更集中（總持股佔比反而上升）。這是更強的籌碼集中訊號，
+    // 不是掃描抓錯，但名字容易讓人誤會成人數在增加，所以把人數變化
+    // 也攤開顯示，不藏起來讓使用者自己判斷。
+    const peopleDelta = cur.people - prev.people;
+
     let twoWeekUp = false;
     if (whaleTrend.length >= 3) {
       const prev2 = whaleTrend.at(-3);
@@ -55176,7 +55183,7 @@ async function calcWhaleIncreaseScore(stockId) {
     const c5 = cur.unitPct >= 50;
 
     const checks = [
-      { label:'C1 千張大戶週增', hit:c1, val:`${delta>=0?'+':''}${delta}%` },
+      { label:'C1 千張大戶持股比例週增', hit:c1, val:`佔比${delta>=0?'+':''}${delta}%（人數${peopleDelta>=0?'+':''}${peopleDelta}人）` },
       { label:'C2 增幅≥0.5%',    hit:c2, val:`本週佔比${cur.unitPct}%` },
       { label:'C3 連續兩週增',   hit:c3, val: twoWeekUp?'連續增加':'僅本週增加' },
       { label:'C4 散戶同步減碼', hit:c4, val: retailDown?'散戶籌碼流出':'散戶未同步減少' },
@@ -55187,7 +55194,7 @@ async function calcWhaleIncreaseScore(stockId) {
     return {
       stockId, score, checks,
       lc: 0, chgPct: 0, fCons: 0, tCons: Math.round(cur.unitPct),
-      _whaleRaw: cache.parsed, _whaleDelta: delta,
+      _whaleRaw: cache.parsed, _whaleDelta: delta, _peopleDelta: peopleDelta,
     };
   } catch(e) {
     console.warn('[千張大戶增 screener]', stockId, e.message);
