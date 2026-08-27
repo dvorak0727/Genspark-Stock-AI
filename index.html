@@ -18800,6 +18800,9 @@ a.module-nav-item.acc-active {
           <div class="chart-wrap h200" style="position:relative;">
             <canvas id="twseCandleChart"></canvas>
           </div>
+          <div class="chart-wrap" style="position:relative;height:90px;margin-top:4px;">
+            <canvas id="twseVolChart"></canvas>
+          </div>
           <div id="twseCandleVerdict" style="font-size:.66rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--surface2);border-radius:8px;border-left:3px solid #1e3a8a;margin-top:8px;">
             載入中…
           </div>
@@ -65077,6 +65080,7 @@ async function fetchTWSEIndex() {
       opens: rows.map(r => +r.open),
       highs: rows.map(r => +r.max),
       lows:  rows.map(r => +r.min),
+      vols:  rows.map(r => +r.Trading_money || 0), // 大盤成交金額（元），畫圖時換算成億元
     };
     window._twiiSeries = closes;
     window._twseChartData = { osc, dif, macdLine, kd, rows };
@@ -65251,6 +65255,19 @@ function renderTwseCandleChart() {
   });
   charts['twseCandleChart'].$candleData = { opens, highs, lows, closes, resLines: [] };
   charts['twseCandleChart'].$peakTroughData = { peaks, troughs, offset };
+
+  // 成交金額（億元）— 紅漲綠跌，跟K棒同一批日期對齊
+  const volCanvas = document.getElementById('twseVolChart');
+  if (volCanvas && cache.vols) {
+    const vols = cache.vols.slice(-n).map(v => +(v / 1e8).toFixed(1));
+    const volColors = closes.map((c, i) => c >= (i > 0 ? closes[i-1] : opens[0]) ? 'rgba(232,52,58,0.65)' : 'rgba(22,163,74,0.65)');
+    destroyChart('twseVolChart');
+    charts['twseVolChart'] = new Chart(volCanvas.getContext('2d'), {
+      type: 'bar',
+      data: { labels: dl, datasets: [{ label: '成交金額(億元)', data: vols, backgroundColor: volColors, borderRadius: 2 }] },
+      options: lightChartOpts('成交金額（億元）', true),
+    });
+  }
 }
 
 // ══════════════════════════════════════════════════
