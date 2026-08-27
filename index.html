@@ -74257,7 +74257,10 @@ async function _tFetch(id, token) {
   const end=new Date(), start=new Date(); start.setDate(start.getDate()-130);
   const s30=new Date(); s30.setDate(s30.getDate()-40);
   const fmt=d=>d.toISOString().slice(0,10);
-  const base=`https://stock-api-214539875795.asia-east1.run.app`;
+  // v7.55修正：原本打的是舊版已棄用的Cloud Run後端，這支後端狀態未知，
+  // 導致法人籌碼常常抓不到、streak算出來變成undefined，卡片顯示「連賣NaN天」。
+  // 改成跟全站其他模組一致的 license-worker /finmind 代理。
+  const base=FINMIND;
   const [priceRes,instRes,marginRes]=await Promise.allSettled([
     fetch(`${base}?dataset=TaiwanStockPrice&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(7000)}).then(r=>r.json()),
     fetch(`${base}?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${id}&start_date=${fmt(s30)}&end_date=${fmt(end)}&token=${token}`,{signal:AbortSignal.timeout(6000)}).then(r=>r.json()),
@@ -74878,6 +74881,7 @@ function _tRenderCard(s, ind, isSim) {
 
   // 籌碼連動區塊
   function streakHtml(label, n) {
+    if(!Number.isFinite(n)) n = 0; // v7.55防呆：undefined/NaN一律當作「無連續方向」，不要顯示NaN
     if(n===0) return `<span style="font-size:0.62rem;color:var(--fg3);">${label}：— 無連續方向</span>`;
     const abs=Math.abs(n), isBuy=n>0;
     const col=isBuy?'#10b981':'#ef4444';
@@ -74888,6 +74892,7 @@ function _tRenderCard(s, ind, isSim) {
     return `${icon} <b>${label}</b>：<b style="color:${col}">${txt}</b>${badge}`;
   }
   function marginStreakHtml(n) {
+    if(!Number.isFinite(n)) n = 0; // v7.55防呆：同 streakHtml
     if(n===0) return `<span style="font-size:0.62rem;color:var(--fg3);">融資：— 無連續方向</span>`;
     const abs=Math.abs(n), isUp=n>0;
     const col=isUp?'#f59e0b':'#10b981';
@@ -75143,7 +75148,11 @@ async function _openTeachPanel(mode='select') {
         const sr=_teachSeededRand(seed+i*7919);
         const rsi=35+sr()*45, k=20+sr()*55, d=Math.max(10,k-5+sr()*14-7);
         const hist=(sr()-0.5)*2, ma20=s.price*(0.96+sr()*0.08);
-        ind={lc:s.price,rsi,k,d,kSlope:sr()*1-0.5,dSlope:sr()*0.6-0.3,hist,histSlope:sr()*0.5-0.25,ma20,daysToCrossKD:null,daysToCrossMACD:null,bt:null};
+        ind={lc:s.price,rsi,k,d,kSlope:sr()*1-0.5,dSlope:sr()*0.6-0.3,hist,histSlope:sr()*0.5-0.25,ma20,daysToCrossKD:null,daysToCrossMACD:null,bt:null,
+             // v7.55修正：模擬備援資料原本沒給這幾個欄位，streakHtml()看到undefined
+             // 會算出NaN、顯示成「連賣NaN天」。模擬資料本來就沒有真實籌碼可算，
+             // 統一給0（=streakHtml會顯示「無連續方向」），不要留空造成NaN。
+             fStreak:0,tStreak:0,mStreak:0,marginStreak:0};
       }
       const html=mode==='cond'?_tRenderCondCard(s,ind,isSim,_condPhases[i]):_tRenderCard(s,ind,isSim);
       const ph=document.getElementById(`tcard_${i}`);
