@@ -40970,6 +40970,11 @@ function renderHero(id, info, price, chg, chgPct, row, vol) {
   const priceEl = document.getElementById('shPrice');
   priceEl.textContent = price.toFixed(2);
   priceEl.className = 'sh-price ' + (up ? 'up' : 'down');
+  // v7.55修正：即時報價（⚡即時ON）原本只會更新「海選」結果卡片上的價格
+  // （靠 data-rt-price 屬性配對），個股分析頁自己的大字報價從來沒被接進去，
+  // 導致有效Sponsor Token、即時模式開著，個股頁還是卡在FinMind免費層級
+  // 的昨日收盤價，「0檔」代表_rtApply()根本找不到可更新的目標元素。
+  priceEl.setAttribute('data-rt-price', id);
   const chgEl = document.getElementById('shChange');
   chgEl.textContent = `${up?'▲':'▼'} ${Math.abs(chg).toFixed(2)} (${Math.abs(chgPct).toFixed(2)}%)`;
   chgEl.className = 'sh-change ' + (up ? 'up' : 'down');
@@ -64522,7 +64527,11 @@ function _rtApply(rows) {
   document.querySelectorAll('[data-rt-price]').forEach(el => {
     const q = byId[el.getAttribute('data-rt-price')];
     if (!q || !(q.close > 0)) return;
-    const txt = '$' + (q.close >= 100 ? q.close.toFixed(0) : q.close.toFixed(1));
+    // 個股分析頁的大字報價（#shPrice）原本就不帶「$」，海選卡片的小字報價
+    // 才帶「$」；沿用各自原本的格式，不要讓即時更新改變視覺樣式。
+    const isHero = el.id === 'shPrice';
+    const numTxt = q.close >= 100 ? q.close.toFixed(0) : q.close.toFixed(1);
+    const txt = isHero ? numTxt : ('$' + numTxt);
     if (el.textContent !== txt) {
       el.textContent = txt;
       el.style.transition = 'background 0.1s';
