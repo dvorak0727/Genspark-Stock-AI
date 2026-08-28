@@ -17936,6 +17936,8 @@ a.module-nav-item.acc-active {
             <button class="hm-sort-btn active" id="hmSortCap" onclick="setHeatmapSort('cap')" style="border:none;padding:5px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;background:var(--accent);color:#fff;">依市值</button>
             <button class="hm-sort-btn" id="hmSortVal" onclick="setHeatmapSort('val')" style="border:none;padding:5px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;background:var(--bg2);color:var(--fg2);">依成交額</button>
           </div>
+          <!-- v7.55：顏色（漲跌幅）可切成即時，格子大小（市值）維持當天固定值不變 -->
+          <button id="heatmapRtBtn" onclick="hmRtToggle()" title="開啟後顏色改用即時報價更新（需FinMind贊助會員Token），格子大小仍是當天市值排名，不會即時變動" style="border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;background:var(--bg2);color:var(--fg2);">⚡ 即時 OFF</button>
           <span style="font-size:0.6rem;color:var(--text-muted);" id="heatmapUpdated"></span>
         </div>
         <div id="heatmapBody">
@@ -53751,6 +53753,71 @@ async function loadHeatmap() {
     if (btn) { btn.disabled = false; btn.textContent = '🔥 重新整理'; }
   }
 }
+
+// ══════════════════════════════════════════════════
+//  v7.55 熱力圖即時模式
+//  格子大小（市值）用當天固定的官方收盤資料，不需要即時；
+//  顏色（漲跌幅）開啟後改抓即時報價——跟個股頁「⚡即時ON」共用
+//  同一支 /snapshot 快照API（一次拿全市場，不用50檔各打一次）。
+// ══════════════════════════════════════════════════
+let _hmRtTimer = null;
+let _hmRtOn = false;
+
+async function _hmRtTick() {
+  if (!_hmData || !_hmData.length) return;
+  try {
+    const rows = await _rtFetchSnapshot();
+    const byId = {};
+    rows.forEach(r => { byId[r.stock_id] = r; });
+    let matched = 0;
+    _hmData.forEach(it => {
+      const q = byId[it.id];
+      if (q && typeof q.change_rate === 'number') { it.changePct = q.change_rate; matched++; }
+    });
+    renderHeatmapTiles(_hmData);
+    const updatedEl = document.getElementById('heatmapUpdated');
+    if (updatedEl) updatedEl.textContent =
+      `⚡ 即時 ${new Date().toTimeString().slice(0,8)}（顏色${matched}/${_hmData.length}檔已更新，格子大小仍是當日市值排名）`;
+  } catch (e) {
+    if (/level|illegal|token/i.test(e.message)) {
+      _hmRtSetEnabled(false);
+      if (typeof _frShowToast === 'function') _frShowToast(`熱力圖即時更新需要 FinMind 贊助會員：${e.message}`);
+    }
+  }
+}
+
+function _hmRtSetEnabled(on) {
+  const btn = document.getElementById('heatmapRtBtn');
+  if (_hmRtTimer) { clearInterval(_hmRtTimer); _hmRtTimer = null; }
+
+  if (on && !getToken()) {
+    if (typeof _frShowToast === 'function') _frShowToast('請先設定 FinMind Token（右上角 🔑）');
+    on = false;
+  }
+  _hmRtOn = on;
+  if (btn) {
+    btn.style.background = on ? '#059669' : 'var(--bg2)';
+    btn.style.color = on ? '#fff' : 'var(--fg2)';
+    btn.textContent = on ? '⚡ 即時 ON' : '⚡ 即時 OFF';
+  }
+  if (!on) return;
+
+  if (!_hmData || !_hmData.length) {
+    // 還沒載入過熱力圖，先載入再開始即時更新
+    loadHeatmap().then(_hmRtTick);
+  } else {
+    _hmRtTick();
+  }
+  _hmRtTimer = setInterval(() => {
+    if (_rtIsMarketOpen()) _hmRtTick();
+    else {
+      const updatedEl = document.getElementById('heatmapUpdated');
+      if (updatedEl) updatedEl.textContent = '⚡ 非交易時段（09:00–13:30），暫停即時更新';
+    }
+  }, RT_INTERVAL);
+}
+
+function hmRtToggle() { _hmRtSetEnabled(!_hmRtOn); }
 
 // ── 啟動海選 ──
 async function startScreener() {
