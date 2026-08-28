@@ -54,13 +54,23 @@
 
   <!-- ✨ v7.20 LicenseGuard：後端驗證授權金鑰 -->
   <script>
-  const _API = 'https://stock-api-214539875795.asia-east1.run.app';
+  // v7.55修正：這裡原本打的是舊版已棄用的Cloud Run後端，跟admin-keygen.html
+  // 產生金鑰寫進去的 license-worker KV 根本不是同一個資料庫，導致新產生的
+  // 授權碼一律顯示「授權碼無效」。改成打 license-worker 真正在用的 /verify。
+  const _API = 'https://license-worker.dvorak0727.workers.dev';
   const _LK  = 'tsai_license_v3';
 
   async function _validateWithBackend(key) {
     try {
-      const r = await fetch(`${_API}?action=validate&key=${encodeURIComponent(key)}`);
-      return await r.json();
+      const r = await fetch(`${_API}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+      const j = await r.json();
+      // license-worker 回傳欄位是 expires，這裡沿用舊版呼叫端期待的 expiry 命名，
+      // 避免要動到下面 tryValidate()/_checkLicense() 裡既有的讀取邏輯。
+      return { valid: !!j.valid, reason: j.reason, expiry: j.expires, plan: j.plan, name: j.name };
     } catch(e) { return { valid: false }; }
   }
 
