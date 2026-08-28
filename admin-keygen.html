@@ -49,6 +49,27 @@ td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle
 </head>
 <body>
 
+<!-- 改等級浮層 -->
+<div id="tierEditWall" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:98;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:14px;padding:28px;width:320px;">
+    <h2 style="color:#f8fafc;font-size:1rem;margin-bottom:4px;">✏️ 修改會員等級</h2>
+    <p style="color:#64748b;font-size:0.8rem;margin-bottom:16px;">授權碼不變，只改等級，用戶不用重新輸入。</p>
+    <div style="font-family:monospace;font-size:0.8rem;color:#93c5fd;margin-bottom:14px;" id="tierEditKeyLabel"></div>
+    <label>新的會員等級</label>
+    <select id="tierEditSelect">
+      <option value="standard">Standard（一般會員）</option>
+      <option value="vip">VIP</option>
+      <option value="premium">尊爵</option>
+      <option value="admin">Admin（永久，管理員專用）</option>
+    </select>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn-sm" style="flex:1;" onclick="closeTierEditor()">取消</button>
+      <button class="btn-primary" style="flex:1;margin-top:0;" onclick="saveTierEdit()">儲存</button>
+    </div>
+    <div id="tierEditMsg" style="font-size:0.8rem;margin-top:10px;min-height:18px;"></div>
+  </div>
+</div>
+
 <!-- 登入牆 -->
 <div id="loginWall">
   <div id="loginBox">
@@ -227,6 +248,7 @@ async function loadKeys() {
       <td>${k.tier === 'admin' ? '永久' : (k.expiry || '—')}</td>
       <td>${badge}</td>
       <td style="white-space:nowrap;">
+        ${rank !== 2 ? `<button class="btn-sm" onclick="openTierEditor('${k.key}','${k.tier}')">改等級</button>` : ''}
         ${rank !== 2 ? `<button class="btn-danger" onclick="revokeKey('${k.key}')">撤銷</button>` : ''}
         <button class="btn-danger" style="background:#7f1d1d;" onclick="deleteKey('${k.key}')">刪除</button>
       </td>
@@ -248,6 +270,41 @@ async function revokeKey(key) {
   const j = await r.json();
   if (j.ok) loadKeys();
   else alert('撤銷失敗：' + JSON.stringify(j));
+}
+
+// ── 改等級（不重新產生授權碼，就地修改）──
+let _tierEditKey = null;
+function openTierEditor(key, currentTier) {
+  _tierEditKey = key;
+  document.getElementById('tierEditKeyLabel').textContent = key;
+  document.getElementById('tierEditSelect').value = currentTier || 'standard';
+  document.getElementById('tierEditMsg').textContent = '';
+  document.getElementById('tierEditWall').style.display = 'flex';
+}
+function closeTierEditor() {
+  document.getElementById('tierEditWall').style.display = 'none';
+  _tierEditKey = null;
+}
+async function saveTierEdit() {
+  if (!_tierEditKey) return;
+  const newTier = document.getElementById('tierEditSelect').value;
+  const msg = document.getElementById('tierEditMsg');
+  msg.style.color = '#94a3b8';
+  msg.textContent = '儲存中…';
+  try {
+    const r = await fetch(`${API}/admin/update?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&key=${encodeURIComponent(_tierEditKey)}&tier=${newTier}`);
+    const j = await r.json();
+    if (j.ok) {
+      closeTierEditor();
+      loadKeys();
+    } else {
+      msg.style.color = '#f87171';
+      msg.textContent = '儲存失敗：' + (j.msg || j.error || JSON.stringify(j));
+    }
+  } catch (e) {
+    msg.style.color = '#f87171';
+    msg.textContent = '連線失敗：' + e.message;
+  }
 }
 
 async function deleteKey(key) {

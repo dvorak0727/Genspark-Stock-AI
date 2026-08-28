@@ -109,6 +109,29 @@ export default {
       return json({ ok: true, key });
     }
 
+    // GET /admin/update?admin_secret=&key=&tier=&expiry=
+    //   → 就地修改既有授權碼的等級/到期日，key本身不變，不用重新產生。
+    //   tier/expiry 都是可選：只給tier就只改等級，只給expiry就只改到期日，
+    //   兩個都給就一起改。至少要給一個，不然沒東西可改。
+    if (url.pathname === "/admin/update") {
+      if (!checkAdmin(url)) return json({ error: "unauthorized" }, 401);
+      const key = (url.searchParams.get("key") || "").trim().toUpperCase();
+      if (!key) return json({ error: "missing_key" }, 400);
+      const tier = url.searchParams.get("tier");
+      const expiry = url.searchParams.get("expiry");
+      if (!tier && !expiry) return json({ error: "nothing_to_update", msg: "至少要給 tier 或 expiry 其中一個" }, 400);
+      if (tier && !["standard", "vip", "premium", "admin"].includes(tier)) {
+        return json({ error: "invalid_tier", msg: "tier 必須是 standard/vip/premium/admin 其中之一" }, 400);
+      }
+      const record = await env.LICENSE_KV.get(key, { type: "json" });
+      if (!record) return json({ error: "not_found" }, 404);
+      if (tier) record.plan = tier;
+      if (expiry) record.expires = expiry;
+      record.updated = new Date().toISOString();
+      await env.LICENSE_KV.put(key, JSON.stringify(record));
+      return json({ ok: true, key, user: record.user, tier: record.plan, expiry: record.expires });
+    }
+
     // GET /admin/delete?admin_secret=&key=
     // 跟 /admin/revoke 不同：這個是永久從 KV 拿掉，不是標記停用。
     if (url.pathname === "/admin/delete") {
