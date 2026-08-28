@@ -61030,6 +61030,11 @@ function isVIP() {
     const d = JSON.parse(localStorage.getItem(VIP_KEY)||'null');
     if (!d || !d.activated || !d.expiry) return false;
     if (d.tier === 'admin') return true; // 管理人永久通過，不看到期日
+    // v7.55修正：這裡原本只檢查「有效期還沒過」，沒檢查 tier 本身是不是VIP，
+    // 導致 standard（一般會員）序號驗證通過後也會被判定成isVIP()=true，
+    // 直接看到所有VIP限定內容（教學操盤/大富翁/知識站）。
+    // 只有 vip/premium/admin 這幾個付費等級才算通過。
+    if (d.tier !== 'vip' && d.tier !== 'premium') return false;
     return d.expiry >= new Date().toISOString().slice(0,10);
   } catch { return false; }
 }
@@ -61090,8 +61095,16 @@ async function vipActivate() {
     }));
     vipModalClose();
     const name = data.user ? `${data.user}，` : '';
-    showEpicToast(`👑 ${name}商務會員已啟用！知識站 × 教學操盤 已解鎖`, '#059669');
-    _vipUnlock();
+    const _tier = data.tier || 'standard';
+    // v7.55修正：原本不管什麼tier都秀「VIP已解鎖」還呼叫_vipUnlock()去掉鎖定樣式，
+    // standard（一般會員）序號驗證通過後畫面看起來像解鎖了VIP，但點進去其實還是
+    // 會被isVIP()擋下來——視覺跟實際權限不一致。改成只有真的vip/premium才解鎖。
+    if (_tier === 'vip' || _tier === 'premium' || _tier === 'admin') {
+      showEpicToast(`👑 ${name}商務會員已啟用！知識站 × 教學操盤 已解鎖`, '#059669');
+      _vipUnlock();
+    } else {
+      showEpicToast(`✅ ${name}授權碼驗證成功（一般會員）。知識站/教學操盤/大富翁為VIP限定，如需使用請升級方案`, '#2563eb');
+    }
   } catch(e) {
     errEl.textContent = '⚠️ 驗證失敗：' + e.message;
   }
