@@ -299,17 +299,28 @@ export default {
         "ZIM", "MATX", "XOM", "CVX",
         "IONQ", "RGTI", "QBTS", "QUBT", "IBM",
         "TSLA", "ABB",
+        // v7.56：總經層（macro）指標 — VIX恐慌指數、10年期公債殖利率、
+        // 13週(3個月)國庫券殖利率（10Y-3M利差是常用的殖利率曲線倒掛/衰退指標）
+        "^VIX", "^TNX", "^IRX",
       ]);
       const ticker = url.searchParams.get("ticker") || "";
       if (!YAHOO_TICKERS.has(ticker)) {
         return json({ error: "ticker_not_allowed", msg: "此代號不在白名單內" }, 400);
       }
+      // v7.55：新增可選 range 參數，給「美股 vs 台股板塊 連動強度」功能用
+      // （需要抓近3個月的歷史序列才夠算相關係數，不是只要最新5天報價）。
+      // 白名單限制在幾個常見值，避免被亂帶參數打爆快取。
+      const RANGE_WHITELIST = new Set(["5d", "1mo", "3mo", "6mo", "1y"]);
+      const rangeParam = url.searchParams.get("range") || "5d";
+      const range = RANGE_WHITELIST.has(rangeParam) ? rangeParam : "5d";
       try {
         const res = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=5d&interval=1d&includePrePost=false`,
+          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=${range}&interval=1d&includePrePost=false`,
           {
             headers: { "User-Agent": "Mozilla/5.0" },
-            cf: { cacheTtl: 300, cacheEverything: true }, // 5分鐘快取，跟盤中報價更新頻率相稱
+            // range=5d（即時報價用途）維持5分鐘短快取；其他長區間（連動強度計算用）
+            // 資料變動慢，用6小時快取，減少不必要的重複打Yahoo。
+            cf: { cacheTtl: range === "5d" ? 300 : 21600, cacheEverything: true },
           }
         );
         const data = await res.json();
