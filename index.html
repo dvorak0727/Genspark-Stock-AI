@@ -18083,48 +18083,6 @@ a.module-nav-item.acc-active {
     </div>
 
     <!-- ══════════════════════════════════════════════════
-         🌡️ 總經氣氛層（v7.56）— 美股先行的第3點：VIX恐慌指數 + 殖利率曲線
-         這是「大盤級」的體溫計，不分板塊、不分個股，跟前面「美股先行」抓
-         的個股/供應鏈連動是互補關係：那邊看的是「明天開盤怎麼走」，
-         這裡看的是「現在整體系統風險高不高」。
-    ══════════════════════════════════════════════════ -->
-    <div id="macroCard" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(180,83,9,.06));border:1.5px solid rgba(180,83,9,.2);border-radius:14px;padding:16px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-        <span style="font-size:1.3rem;">🌡️</span>
-        <div style="flex:1;">
-          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">總經氣氛層
-            <span data-tip="總經氣氛層" style="cursor:pointer;font-size:.7rem;color:#B45309;font-weight:700;">?</span>
-          </div>
-          <div style="font-size:.62rem;color:var(--fg3);">美股VIX恐慌指數 · 10年期-3個月殖利率利差 — 系統性風險的體溫計，比單一個股更早嗅出大盤級風暴</div>
-        </div>
-        <span id="macroApiBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</span>
-        <button onclick="fetchMacroLayer(true)" style="font-size:.62rem;padding:4px 10px;border-radius:8px;background:rgba(180,83,9,.12);color:#B45309;border:1px solid rgba(180,83,9,.3);cursor:pointer;font-weight:700;">🔄 更新</button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;">
-        <!-- VIX -->
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">😨 美股 VIX 恐慌指數（CBOE）</div>
-          <div style="font-size:1.3rem;font-weight:900;" id="macroVixVal">—</div>
-          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="macroVixTag">—</div>
-        </div>
-        <!-- 殖利率曲線利差 -->
-        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">📉 10年期－3個月 殖利率利差</div>
-          <div style="font-size:1.3rem;font-weight:900;" id="macroSpreadVal">—</div>
-          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="macroSpreadTag">—</div>
-        </div>
-      </div>
-
-      <div id="macroVerdict" style="font-size:.68rem;padding:8px 10px;border-radius:8px;background:var(--bg2);color:var(--fg2);line-height:1.6;">
-        載入中...
-      </div>
-      <div style="font-size:.55rem;color:var(--fg3);margin-top:6px;">
-        資料來源：Yahoo Finance（^VIX 恐慌指數 / ^TNX 10年期公債殖利率 / ^IRX 13週國庫券殖利率）· 每次分析自動更新一次（快取30分鐘）· 僅供參考，非投資建議
-      </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
          📐 期貨市場先行指標（v7.54）— 放在美股先行與大盤脈搏之間
          基差 · 外資期貨未平倉 · Put/Call Ratio · VIX
     ══════════════════════════════════════════════════ -->
@@ -36391,7 +36349,6 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   initBacktest(dates, closes, stockId, info.name);                              // 💹 回測初始化
   if (!isStale()) renderSectorRotation(stockId);                               // 🌍 板塊輪動脈絡
   setTimeout(() => { if (!isStale() && typeof renderUSLeading === 'function') renderUSLeading(stockId); }, 600);  // 🌐 美股先行指標
-  setTimeout(() => { if (!isStale() && typeof fetchMacroLayer === 'function') fetchMacroLayer(false); }, 650);   // 🌡️ 總經氣氛層（v7.56，不分股票，30分鐘快取）
   setLoadStep(1, 'done');
 
   // ── 第二批：AI + 評分（rAF 下一幀，確保核心 UI 先繪製完成）──
@@ -64067,52 +64024,12 @@ function _renderMcClellan(results) {
 }
 
 // ══════════════════════════════════════════════════
-//  🌡️ 總經氣氛層（v7.56）— 美股先行3點計劃的第3點
+//  🌡️ 總經氣氛層（v7.57：併入開盤壓力表，不再獨立開一個摺頁）
 //  VIX恐慌指數 + 殖利率曲線（10年期-3個月利差，NY Fed常用的衰退先行指標）
-//  這是「大盤級」訊號，不分板塊/個股，跟美股先行卡的「個股連動」互補。
-//  跟前面連動強度一樣，全部走真實 Yahoo Finance 資料，沒資料就老實說沒資料，
+//  由 fetchOpeningPressure() 呼叫 _fetchMacroSnapshot()，跟其他開盤壓力
+//  指標一起抓、一起顯示在同一張卡片的格子裡。沒資料就老實說沒資料，
 //  不做模擬備援（總經數字亂猜比不顯示更危險，容易誤導判斷）。
 // ══════════════════════════════════════════════════
-let _macroCache = null; // { ts, vix, spread }
-const MACRO_CACHE_MS = 30 * 60 * 1000; // 30分鐘內不重複打Yahoo
-
-async function fetchMacroLayer(force) {
-  const badge   = document.getElementById('macroApiBadge');
-  const vixVal  = document.getElementById('macroVixVal');
-  const vixTag  = document.getElementById('macroVixTag');
-  const spVal   = document.getElementById('macroSpreadVal');
-  const spTag   = document.getElementById('macroSpreadTag');
-  const verdEl  = document.getElementById('macroVerdict');
-  if (!vixVal) return; // 頁面上沒有這個卡片就跳過
-
-  if (!force && _macroCache && (Date.now() - _macroCache.ts) < MACRO_CACHE_MS) {
-    _renderMacroLayer(_macroCache);
-    return;
-  }
-
-  if (badge) badge.textContent = '載入中';
-  try {
-    // 這裡要看的是「絕對水位」（VIX是幾點、殖利率是幾%），不是漲跌%序列，
-    // 所以直接打 chart API 拿最新一筆收盤值，不走 fetchUSPriceSeries()。
-    const [vixRaw, tnxRaw, irxRaw] = await Promise.all([
-      _fetchYahooLatestClose('%5EVIX'),
-      _fetchYahooLatestClose('%5ETNX'),
-      _fetchYahooLatestClose('%5EIRX'),
-    ]);
-
-    if (vixRaw == null || tnxRaw == null || irxRaw == null) {
-      throw new Error('資料不完整');
-    }
-    const spread = tnxRaw - irxRaw; // 10Y - 3M 利差
-    _macroCache = { ts: Date.now(), vix: vixRaw, spread };
-    if (badge) { badge.textContent = '✅ Yahoo Finance'; badge.style.background = 'rgba(5,150,105,0.12)'; badge.style.color = '#059669'; }
-    _renderMacroLayer(_macroCache);
-  } catch (e) {
-    console.warn('[總經氣氛層]', e.message);
-    if (badge) { badge.textContent = '⚠️ 無法取得資料'; badge.style.background = 'rgba(220,38,38,0.12)'; badge.style.color = '#DC2626'; }
-    if (verdEl) verdEl.innerHTML = '目前無法連線 Yahoo Finance 取得 VIX/殖利率資料，稍後再點「🔄 更新」重試。這裡不提供模擬數字——總經指標亂猜比不顯示更容易誤導判斷。';
-  }
-}
 
 // 直接打 Yahoo chart API（透過license-worker代理）拿最新一筆收盤值（絕對水位，非漲跌%）
 async function _fetchYahooLatestClose(ticker) {
@@ -64126,47 +64043,20 @@ async function _fetchYahooLatestClose(ticker) {
   return null;
 }
 
-function _renderMacroLayer(data) {
-  const vixVal  = document.getElementById('macroVixVal');
-  const vixTag  = document.getElementById('macroVixTag');
-  const spVal   = document.getElementById('macroSpreadVal');
-  const spTag   = document.getElementById('macroSpreadTag');
-  const verdEl  = document.getElementById('macroVerdict');
-  if (!vixVal) return;
-
-  const { vix, spread } = data;
-
-  // VIX 判讀（沿用卡片內既有的VIX教學門檻：<15樂觀 / 15~25正常 / 25~35謹慎 / >35恐慌）
-  let vixCls, vixLabel;
-  if (vix < 15)      { vixCls = '#059669'; vixLabel = '🟢 極度樂觀（留意過度平靜）'; }
-  else if (vix < 25) { vixCls = '#6366F1'; vixLabel = '🟡 正常波動'; }
-  else if (vix < 35) { vixCls = '#D97706'; vixLabel = '🟠 偏謹慎'; }
-  else                { vixCls = '#DC2626'; vixLabel = '🔴 極度恐慌'; }
-  vixVal.textContent = vix.toFixed(2);
-  vixVal.style.color = vixCls;
-  vixTag.textContent = vixLabel;
-
-  // 殖利率曲線判讀：10Y-3M利差 < 0 = 倒掛（衰退先行指標，NY Fed常用門檻）
-  let spCls, spLabel;
-  if (spread < 0)        { spCls = '#DC2626'; spLabel = '🔴 倒掛中 — 歷史上常領先衰退約6~18個月'; }
-  else if (spread < 0.5) { spCls = '#D97706'; spLabel = '🟠 利差收斂 — 留意是否走向倒掛'; }
-  else                    { spCls = '#059669'; spLabel = '🟢 正常曲線'; }
-  spVal.textContent = (spread >= 0 ? '+' : '') + spread.toFixed(2) + '%';
-  spVal.style.color = spCls;
-  spTag.textContent = spLabel;
-
-  // 綜合判讀
-  let verdict;
-  if (vix >= 35 && spread < 0) {
-    verdict = '⚠️ VIX恐慌 + 殖利率倒掛同時出現：市場情緒與總經結構雙重示警，這種組合歷史上通常伴隨系統性風險升溫，操作上宜提高現金部位、降低槓桿。';
-  } else if (vix < 15 && spread > 1) {
-    verdict = '✅ VIX低檔 + 殖利率曲線正常：整體總經氣氛偏平穩，但VIX過低本身也是一種警訊（市場可能過度自滿），不代表沒有風險，仍要搭配個股/板塊訊號一起看。';
-  } else if (spread < 0) {
-    verdict = '📉 殖利率曲線倒掛，但VIX尚未反映恐慌：市場短期情緒還算平靜，但總經結構已亮黃燈，這類「結構先行、情緒後到」的組合值得列入中長期觀察名單。';
-  } else {
-    verdict = '📊 目前總經氣氛屬於正常區間，沒有明顯系統性風險訊號，可持續搭配「美股先行」板塊連動與個股籌碼判斷進出場時機。';
+// 抓 VIX + 殖利率曲線，回傳 { vix, spread } 或 null（抓失敗時不亂猜）
+async function _fetchMacroSnapshot() {
+  try {
+    const [vixRaw, tnxRaw, irxRaw] = await Promise.all([
+      _fetchYahooLatestClose('%5EVIX'),
+      _fetchYahooLatestClose('%5ETNX'),
+      _fetchYahooLatestClose('%5EIRX'),
+    ]);
+    if (vixRaw == null || tnxRaw == null || irxRaw == null) return null;
+    return { vix: vixRaw, spread: tnxRaw - irxRaw }; // spread = 10Y - 3M 利差
+  } catch (e) {
+    console.warn('[總經氣氛層]', e.message);
+    return null;
   }
-  verdEl.innerHTML = verdict;
 }
 
 /** 折疊/展開 qlSection */
@@ -74071,10 +73961,11 @@ async function fetchOpeningPressure() {
     `<div class="opp-item" style="border-style:dashed;"><div class="opp-item-name">🌙 台指夜盤</div><div class="opp-item-price">—</div></div>`
   ].join('');
 
-  // 並行抓取（全球指數 + 夜盤台指期）
-  const [results, nightFut] = await Promise.all([
+  // 並行抓取（全球指數 + 夜盤台指期 + 總經氣氛層：VIX/殖利率曲線，v7.57併入這張卡）
+  const [results, nightFut, macroSnap] = await Promise.all([
     Promise.all(OPP_STOCKS.map(s => _oppFetchOne(s))),
-    _fetchNightFutures()
+    _fetchNightFutures(),
+    _fetchMacroSnapshot()
   ]);
   const anyLive = results.some(r => !r.sim);
 
@@ -74114,6 +74005,29 @@ async function fetchOpeningPressure() {
       <div class="opp-item-name">🌙 台指夜盤</div>
       <div class="opp-item-price">—</div>
       <div class="opp-item-sim">無資料</div>
+    </div>`;
+  }
+
+  // 🌡️ 總經氣氛層格子（VIX + 殖利率曲線，v7.57 併入開盤壓力表，不再獨立開摺頁）
+  if (macroSnap) {
+    const { vix, spread } = macroSnap;
+    const vixCls = vix >= 25 ? 'bear' : '';
+    gridEl.innerHTML += `<div class="opp-item ${vixCls}">
+      <div class="opp-item-name">😨 美股VIX</div>
+      <div class="opp-item-price">${vix.toFixed(1)}</div>
+      <div class="opp-item-sim">${vix < 15 ? '極度樂觀' : vix < 25 ? '正常波動' : vix < 35 ? '偏謹慎' : '極度恐慌'}</div>
+    </div>`;
+    const spCls = spread < 0 ? 'bear' : '';
+    gridEl.innerHTML += `<div class="opp-item ${spCls}">
+      <div class="opp-item-name">📉 10Y-3M利差</div>
+      <div class="opp-item-price">${spread>=0?'+':''}${spread.toFixed(2)}%</div>
+      <div class="opp-item-sim">${spread < 0 ? '倒掛中' : spread < 0.5 ? '利差收斂' : '正常曲線'}</div>
+    </div>`;
+  } else {
+    gridEl.innerHTML += `<div class="opp-item" style="opacity:0.5;">
+      <div class="opp-item-name">🌡️ 總經氣氛層</div>
+      <div class="opp-item-price">—</div>
+      <div class="opp-item-sim">無法取得資料</div>
     </div>`;
   }
 
@@ -74164,9 +74078,22 @@ async function fetchOpeningPressure() {
     nightNote = `🌙 台指夜盤 ${nsg}${nightFut.chg.toFixed(1)}%（${Math.round(nightFut.close).toLocaleString()} 點），${trend}，可作為今日開盤參考。`;
   }
 
+  // 🌡️ 總經氣氛層附加提示（v7.57）：只在有明顯訊號時才多講一句，避免每次都塞一堆字
+  let macroNote = '';
+  if (macroSnap) {
+    const { vix, spread } = macroSnap;
+    if (vix >= 35 && spread < 0) {
+      macroNote = `⚠️ 美股VIX(${vix.toFixed(1)})恐慌 + 10Y-3M殖利率倒掛(${spread.toFixed(2)}%) 同時出現，系統性風險升溫，建議降低槓桿。`;
+    } else if (spread < 0) {
+      macroNote = `📉 殖利率曲線倒掛中（10Y-3M ${spread.toFixed(2)}%），總經結構已亮黃燈，值得列入中長期觀察。`;
+    } else if (vix >= 25) {
+      macroNote = `😨 美股VIX ${vix.toFixed(1)} 偏高，市場情緒轉謹慎。`;
+    }
+  }
+
   verdictEl.innerHTML =
     `<div class="vd-main">${vdMain}</div>` +
-    `<div class="vd-sub">${vdSub}${tsmNote ? '<br>'+tsmNote : ''}${nightNote ? '<br>'+nightNote : ''}</div>`;
+    `<div class="vd-sub">${vdSub}${tsmNote ? '<br>'+tsmNote : ''}${nightNote ? '<br>'+nightNote : ''}${macroNote ? '<br>'+macroNote : ''}</div>`;
   badgeEl.textContent = badgeTxt;
   badgeEl.className   = `opp-badge ${badgeCls}`;
   updEl.textContent   = `更新：${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}${anyLive?'（即時）':'（模擬）'}`;
