@@ -261,7 +261,22 @@ export default {
     //   導致開盤壓力表永遠顯示「模擬」。改用自己的 worker，白名單限制
     //   ticker，避免變成任意開放代理。
     if (url.pathname === "/yahoo") {
-      const YAHOO_TICKERS = new Set(["SPY", "QQQ", "SOXX", "TSM", "EWJ", "EWY"]);
+      // v7.55：補齊「美股先行」模組 US_LEAD_MAP 裡所有板塊會用到的美股代號
+      // （原本只有開盤壓力表在用這支route，美股先行漏掉，一直走死掉的
+      // corsproxy.io/codetabs.com 舊代理，永遠顯示模擬值）。
+      // 這份清單是從 index.html 的 US_LEAD_MAP 陣列整批抓出來的，
+      // 都是站內寫死的固定代號，不是使用者可任意輸入，符合原本
+      // 「白名單限制、避免變成任意開放代理」的設計初衷。
+      const YAHOO_TICKERS = new Set([
+        "SPY", "QQQ", "SOXX", "EWJ", "EWY",
+        "NVDA", "AMD", "AVGO", "ARM", "QCOM", "INTC", "MU", "TSM", "AMAT", "LRCX",
+        "MSFT", "GOOG", "GOOGL", "META", "AMZN", "SMCI", "AAPL",
+        "SPCE", "RKLB", "ASTS", "TSAT", "SNAP",
+        "JPM", "GS", "T", "VZ", "TXN", "MRVL",
+        "ZIM", "MATX", "XOM", "CVX",
+        "IONQ", "RGTI", "QBTS", "QUBT", "IBM",
+        "TSLA", "ABB",
+      ]);
       const ticker = url.searchParams.get("ticker") || "";
       if (!YAHOO_TICKERS.has(ticker)) {
         return json({ error: "ticker_not_allowed", msg: "此代號不在白名單內" }, 400);
