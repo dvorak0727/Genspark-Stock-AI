@@ -36329,6 +36329,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
     renderCycleFilter(stockId, closes, vols, fSeries, tSeries, lc, _cfConf);            // ⚙️ 週期濾波
     renderBigIntent(closes, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, lc, lRSI, lK, lD, lHist, lMA5, lMA20); // 大戶意圖
     renderBigPlayerChip(closes, opens, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, lc, lRSI, lK, lMA5, lMA20); // 券商
+    _renderBpcRealBrokers(stockId); // v7.55：非同步嘗試補上真實分點資料，抓得到才覆蓋AI推算卡片
     renderWashDetect(closes, opens, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, ma20, lc, lRSI, lK, lD, lL, lM, lMA5); // 洗盤估算
     // ── 下單清單出場評分資料 ──
     window._tlExitData = {
@@ -51279,6 +51280,54 @@ function renderBigIntent(closes, highs, lows, vols, dates,
 // ==============================================================
 //  💎 主力五大券商籌碼解析 · 黃金節律計算器
 // ==============================================================
+
+// v7.55：五大券商卡片原本100%是AI推算模型（法人籌碼×量能分配），
+// 顯示的「外資A券商」「投信系」這種是角色分類標籤，不是真的券商名字。
+// 使用者若有 FinMind Sponsor 付費Token，能抓到真實分點資料
+// （_fetchBrokerData → TaiwanStockBroker），這裡非同步嘗試抓一次，
+// 抓到真的資料才覆蓋掉AI推算的卡片；抓不到（沒token/資料不足）
+// 就完全不動，維持原本已經誠實標示「AI推算」的畫面，不會混著顯示。
+async function _renderBpcRealBrokers(stockId) {
+  const grid = document.getElementById('bpcBrokerGrid');
+  const footnote = document.getElementById('bpcFootnote');
+  if (!grid) return;
+  try {
+    const { rows, live } = await _fetchBrokerData(stockId, 10);
+    if (!live || !rows || rows.length < 5) return; // 沒真實資料，維持AI推算卡片不動
+
+    const byBroker = {};
+    rows.forEach(r => {
+      const id = r.broker_id || '未知分點';
+      if (!byBroker[id]) byBroker[id] = { name: id, buy: 0, sell: 0 };
+      byBroker[id].buy  += r.buy;
+      byBroker[id].sell += r.sell;
+    });
+    const ranked = Object.values(byBroker)
+      .map(b => ({ ...b, net: b.buy - b.sell }))
+      .sort((a, b) => Math.abs(b.net) - Math.abs(a.net))
+      .slice(0, 5);
+    if (ranked.length < 3) return; // 資料太零散，不足以取代AI推算版本
+
+    grid.innerHTML = ranked.map((b, i) => {
+      const netCls = b.net > 0 ? 'buy' : b.net < 0 ? 'sell' : 'neut';
+      const netColor = b.net > 0 ? '#dc2626' : b.net < 0 ? '#059669' : '#94a3b8';
+      return `<div class="bpc-broker-item ${netCls}">
+        <div style="font-size:.6rem;color:var(--fg3);font-weight:700;">Top ${i+1} 主力（真實分點）</div>
+        <div style="font-weight:900;font-size:.85rem;margin:2px 0;">${b.name}</div>
+        <div style="color:${netColor};font-weight:900;font-size:.9rem;">${b.net>=0?'+':''}${b.net.toLocaleString()} 張</div>
+        <div style="font-size:.58rem;color:var(--fg3);margin-top:2px;">買${b.buy.toLocaleString()} / 賣${b.sell.toLocaleString()}（近10日）</div>
+      </div>`;
+    }).join('');
+
+    if (footnote) {
+      footnote.innerHTML = `<strong style="color:#059669;">✅ 已切換為真實券商分點資料（近10日，來源：FinMind TaiwanStockBroker）</strong><br>
+        以上為近10日該股票實際成交的前5大券商分點淨買賣，不是估算值。`;
+    }
+  } catch(e) {
+    console.warn('[五大券商真實分點]', e.message); // 靜默失敗，維持AI推算版本，不影響主流程
+  }
+}
+
 function renderBigPlayerChip(closes, opens, highs, lows, vols, dates,
                               fSeries, tSeries, instMap, instDays, lc, lRSI, lK, lMA5, lMA20) {
   try {
