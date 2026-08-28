@@ -158,6 +158,37 @@
   }
 
   document.addEventListener('DOMContentLoaded', _checkLicense);
+
+  // v7.55：登出改用自製確認視窗，不用瀏覽器原生 confirm()。
+  // 原因：有回報「按登出沒反應」，最可能的原因是某些瀏覽器設定/擴充
+  // 套件/安全政策會讓 confirm() 直接悄悄回傳 false（畫面上什麼提示都
+  // 不會跳出來），使用者完全看不出發生了什麼事。自己刻一個浮層，
+  // 不依賴瀏覽器原生對話框，徹底避開這個不可控的風險。
+  function _logoutConfirm() {
+    if (document.getElementById('logoutConfirmWall')) return; // 避免重複點擊疊出多層
+    const div = document.createElement('div');
+    div.id = 'logoutConfirmWall';
+    div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100000;display:flex;align-items:center;justify-content:center;font-family:sans-serif;';
+    div.innerHTML = `
+      <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:28px;max-width:340px;width:90%;text-align:center;">
+        <div style="font-size:2rem;margin-bottom:10px;">🔒</div>
+        <div style="color:#f8fafc;font-size:1rem;font-weight:700;margin-bottom:8px;">確定要登出？</div>
+        <div style="color:#94a3b8;font-size:0.82rem;margin-bottom:20px;">登出後需重新輸入授權碼。</div>
+        <div style="display:flex;gap:10px;">
+          <button id="logoutCancelBtn" style="flex:1;padding:10px;border-radius:8px;border:1px solid #475569;background:transparent;color:#cbd5e1;font-size:0.9rem;cursor:pointer;">取消</button>
+          <button id="logoutOkBtn" style="flex:1;padding:10px;border-radius:8px;border:none;background:#dc2626;color:#fff;font-size:0.9rem;font-weight:700;cursor:pointer;">確定登出</button>
+        </div>
+      </div>`;
+    document.body.appendChild(div);
+    document.getElementById('logoutCancelBtn').addEventListener('click', () => div.remove());
+    document.getElementById('logoutOkBtn').addEventListener('click', () => {
+      sessionStorage.removeItem(_LK);
+      const u = new URL(location.href);
+      const hadDemo = u.searchParams.has('demo');
+      u.searchParams.delete('demo');
+      if (hadDemo) { location.href = u.toString(); } else { location.reload(); }
+    });
+  }
   </script>
 
   <style>
@@ -15914,7 +15945,7 @@ a.module-nav-item.acc-active {
     <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淡色模式">
       <span id="themeIcon">🌙</span>
     </button>
-    <button class="theme-toggle-btn" onclick="if(confirm('確定要登出？登出後需重新輸入授權碼。')){sessionStorage.removeItem(_LK);const u=new URL(location.href);const hadDemo=u.searchParams.has('demo');u.searchParams.delete('demo');if(hadDemo){location.href=u.toString();}else{location.reload();}}" title="登出授權" style="color:#f87171;">
+    <button class="theme-toggle-btn" onclick="_logoutConfirm()" title="登出授權" style="color:#f87171;">
       🔒 登出
     </button>
   </div>
