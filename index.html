@@ -1873,6 +1873,12 @@
     .us-lead-chg.up   { color: var(--up);   }
     .us-lead-chg.dn   { color: var(--down); }
     .us-lead-chg.flat { color: var(--fg3);  }
+    /* v7.55：連動強度標籤（強連動用主色、中度用中性色、弱連動用淡色） */
+    .us-lead-corr      { font-weight: 700; }
+    .us-lead-corr.up   { color: #4338CA; }
+    .us-lead-corr.flat { color: var(--fg3); }
+    .us-lead-corr.dn   { color: #9CA3AF; }
+    .dark .us-lead-corr.up { color: #A5B4FC; }
     .us-lead-name {
       font-size: 0.62rem;
       color: var(--fg3);
@@ -34589,7 +34595,7 @@ function _whaleSignalMeta(sig) {
 const SR_SECTOR_DEF = [
   {
     id:'semi', name:'半導體', emoji:'💾',
-    stocks:['2330','2454','2303'], corrToSemi:1.00, dependency:'震央',
+    stocks:['2330','2454','2303','3711','3034','6770','2337','3443','5347','2449'], corrToSemi:1.00, dependency:'震央',
     keyStocks:[
       {code:'2330',name:'台積電',  role:'晶圓代工龍頭'},
       {code:'2454',name:'聯發科',  role:'IC設計'},
@@ -34605,7 +34611,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'ai_server', name:'AI伺服器', emoji:'🤖',
-    stocks:['2382','2317','2356'], corrToSemi:0.86, dependency:'高度依賴',  // 英業達替換鴻準(2354不在STOCK_DB)
+    stocks:['2382','2317','2356','3231','6669','2308','2395','4938','2376','2377'], corrToSemi:0.86, dependency:'高度依賴',  // 英業達替換鴻準(2354不在STOCK_DB)
     keyStocks:[
       {code:'2382',name:'廣達',    role:'AI伺服器'},
       {code:'2317',name:'鴻海',    role:'代工龍頭'},
@@ -34621,7 +34627,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'pcb', name:'PCB/電子', emoji:'🔌',
-    stocks:['2367','2368','3037'], corrToSemi:0.68, dependency:'中度相關',
+    stocks:['2367','2368','3037','2301','2492','2327','3008','2474','2344','6415'], corrToSemi:0.68, dependency:'中度相關',
     keyStocks:[
       {code:'2367',name:'燿華',    role:'PCB'},
       {code:'2368',name:'金像電',  role:'PCB'},
@@ -34637,7 +34643,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'finance', name:'金融/銀行', emoji:'🏦',
-    stocks:['2882','2881','2891'], corrToSemi:0.13, dependency:'幾乎不相關',
+    stocks:['2882','2881','2891','2886','2884','2885','2887','2892','5880','2890'], corrToSemi:0.13, dependency:'幾乎不相關',
     keyStocks:[
       {code:'2882',name:'國泰金',  role:'保險/銀行'},
       {code:'2881',name:'富邦金',  role:'保險/銀行'},
@@ -34653,7 +34659,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'telecom', name:'電信/網通', emoji:'📡',
-    stocks:['2412','4904','3045'], corrToSemi:0.09, dependency:'極低相關',
+    stocks:['2412','4904','3045','2379','2357','2353','3019','00881'], corrToSemi:0.09, dependency:'極低相關',
     keyStocks:[
       {code:'2412',name:'中華電',  role:'電信龍頭'},
       {code:'4904',name:'遠傳',    role:'電信'},
@@ -34667,7 +34673,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'pharma', name:'生技醫療', emoji:'💊',
-    stocks:['4711','6547','4967'], corrToSemi:0.07, dependency:'不相關',  // 與sector-detector同步(移除中碳1723,改十銓4967)
+    stocks:['4711','6547','4967','2395'], corrToSemi:0.07, dependency:'不相關',  // 與sector-detector同步(移除中碳1723,改十銓4967)
     keyStocks:[
       {code:'4711',name:'旭富',    role:'醫藥原料'},
       {code:'6547',name:'高端疫苗',role:'疫苗生技'},
@@ -34677,7 +34683,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'energy', name:'能源/原物料', emoji:'⚡',
-    stocks:['1301','1303','1326'], corrToSemi:0.24, dependency:'低度相關',
+    stocks:['1301','1303','1326','6505','2002','2006','1605','1504','1603','1402','1418'], corrToSemi:0.24, dependency:'低度相關',
     keyStocks:[
       {code:'6505',name:'台塑化',  role:'石化煉油'},
       {code:'1301',name:'台塑',    role:'塑膠化工'},
@@ -34694,7 +34700,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'transport', name:'航運', emoji:'🚢',
-    stocks:['2603','2609','2615'], corrToSemi:0.31, dependency:'中低相關',
+    stocks:['2603','2609','2615','2610','2618','2207','2204','1536'], corrToSemi:0.31, dependency:'中低相關',
     keyStocks:[
       {code:'2603',name:'長榮',    role:'貨櫃海運'},
       {code:'2609',name:'陽明',    role:'貨櫃海運'},
@@ -34708,7 +34714,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'consumer', name:'民生消費', emoji:'🛒',
-    stocks:['1216','2912','2882'], corrToSemi:0.15, dependency:'不相關',  // 與sector-detector同步(遠百→國泰金2882)
+    stocks:['1216','2912','2882','2903','5522','2915','2801'], corrToSemi:0.15, dependency:'不相關',  // 與sector-detector同步(遠百→國泰金2882)
     keyStocks:[
       {code:'1216',name:'統一',    role:'食品飲料'},
       {code:'2912',name:'統一超',  role:'超商零售'},
@@ -34721,7 +34727,7 @@ const SR_SECTOR_DEF = [
   },
   {
     id:'memory', name:'記憶體/面板', emoji:'📱',
-    stocks:['2408','3481','2324'], corrToSemi:0.52, dependency:'中度相關',
+    stocks:['2408','3481','2324','2409','2344','2498','2357','2353'], corrToSemi:0.52, dependency:'中度相關',
     keyStocks:[
       {code:'2408',name:'南亞科',  role:'DRAM'},
       {code:'3481',name:'群創',    role:'面板'},
@@ -34761,7 +34767,7 @@ const SR_SECTOR_DEF = [
   {
     id:'ar_glass', name:'AI智慧眼鏡', emoji:'🕶️',
     // v6.35b stocks[] 擴充至 6 支（與 genSim cfgs + srFindSector arGlassCodes 同步）
-    stocks:['3088','5285','4968','3515','3293','3006'],
+    stocks:['3088','5285','4968','3515','3293','3006','2382','2377'],
     corrToSemi:0.68, dependency:'中高度相關',
     keyStocks:[
       {code:'3088',name:'藍天',    role:'AR眼鏡/MR頭戴代工'},
@@ -34783,7 +34789,7 @@ const SR_SECTOR_DEF = [
   // 5. 量子材料/特殊基板：拓撲量子/超導材料 → 台虹、欣興ABF
   {
     id:'quantum', name:'量子電腦', emoji:'⚛️',
-    stocks:['6510','3661','3443','3081','6451','3037','8039','2344'],
+    stocks:['6510','3661','3443','3081','6451','3037','8039','2344','2412','2330'],
     corrToSemi:0.78, dependency:'高度相關',
     keyStocks:[
       {code:'6510',name:'精測',    role:'IC測試介面板，量子晶片測試設備核心'},
@@ -34807,7 +34813,7 @@ const SR_SECTOR_DEF = [
   {
     id:'ai_pc', name:'AI PC/Edge AI', emoji:'💻',
     // v6.35d 新增板塊定義（stocks[] = genSim 已有 + v6.35d 新增）
-    stocks:['2357','2377','2382','2353','2324','2454'],
+    stocks:['2357','2377','2382','2353','2324','2454','2376','3515'],
     corrToSemi:0.75, dependency:'中高度相關',
     keyStocks:[
       {code:'2357',name:'華穩',    role:'Copilot+ PC OEM品牌龍頭'},
@@ -34831,7 +34837,7 @@ const SR_SECTOR_DEF = [
   //    已改回正確代號 1526/1597，並透過WebSearch重新驗證兩家2026年機器人業務仍成立
   {
     id:'humanoid', name:'人形機器人', emoji:'🦾',
-    stocks:['2308','2049','2317','1526','2464','4915'],
+    stocks:['2308','2049','2317','1526','2464','4915','1504','1597'],
     corrToSemi:0.58, dependency:'中度相關',
     keyStocks:[
       {code:'2308',name:'台達電', role:'馬達/電源/機器人驅動器全球龍頭'},
@@ -41002,7 +41008,12 @@ function renderHero(id, info, price, chg, chgPct, row, vol) {
     <span class="sh-meta-item">最低 <b>${row?.min||'—'}</b></span>
   `;
   // 記錄當前查詢股票資訊（供追蹤清單使用）
+  // v7.55 fix：頂層 let 宣告不會自動掛到 window 上，但 usLeadRetry() 等處是用
+  // window._currentAnalysisId 讀值，導致「嘗試即時報價」永遠讀到 undefined、
+  // 退回預設值'2330'（台積電/半導體），完全忽略使用者當下查的股票。
+  // 這裡同步寫一份到 window，讓所有讀 window._currentAnalysisId 的地方也生效。
   _currentAnalysisId       = id;
+  window._currentAnalysisId = id;
   _currentAnalysisName     = info.name;
   _currentAnalysisIndustry = info.industry || '';
   _currentAnalysisPrice    = price.toFixed(2);
@@ -63656,6 +63667,70 @@ function _usLeadSignal(results) {
 }
 
 // ── 手動重試即時報價 ─────────────────────────────────────
+// ══════════════════════════════════════════════════
+//  v7.55 美股 × 台股 連動強度（真實皮爾森相關係數，取代手寫rel文字的排序依據）
+//  沿用 _srPearson()（原本是台股板塊互相比對用的），這裡改吃「美股日漲跌%序列」
+//  vs「台股個股日漲跌%序列」，用「同一個交易日」對齊比對——注意這是量「共同
+//  波動強度」，不是「領先幾天」的時間落差分析（那是更複雜的下一步，還沒做）。
+// ══════════════════════════════════════════════════
+const _usCorrCache = {}; // { 'stockId|YYYY-MM-DD': { ticker: corr, ... } }
+
+// 把 Yahoo chart API 回傳的 timestamp/close 陣列轉成 [{date, chg}]（日漲跌%序列）
+function _usChartToChgSeries(chartResult) {
+  const res = chartResult?.chart?.result?.[0];
+  if (!res) return [];
+  const ts = res.timestamp || [];
+  const closes = res.indicators?.quote?.[0]?.close || [];
+  const out = [];
+  for (let i = 1; i < ts.length; i++) {
+    const c0 = closes[i-1], c1 = closes[i];
+    if (c0 == null || c1 == null || c0 <= 0) continue;
+    // Yahoo timestamp 是美東時區的秒數，轉成日期字串（不用太精確到時區，
+    // 只是拿來跟台股日期字串對齊，抓大方向的同步關係）
+    const d = new Date(ts[i] * 1000);
+    out.push({ date: d.toISOString().slice(0,10), chg: (c1 - c0) / c0 * 100 });
+  }
+  return out;
+}
+
+async function fetchUSPriceSeries(ticker) {
+  const r = await fetch(`https://license-worker.dvorak0727.workers.dev/yahoo?ticker=${encodeURIComponent(ticker)}&range=3mo`);
+  const j = await r.json();
+  return _usChartToChgSeries(j);
+}
+
+// 算「這檔台股 vs 這幾支美股」的真實相關係數，回傳 { ticker: corr|null }
+async function _computeUSCorrelation(stockId, usTickers) {
+  const cacheKey = `${stockId}|${new Date().toDateString()}`;
+  if (_usCorrCache[cacheKey]) return _usCorrCache[cacheKey];
+
+  try {
+    const end = new Date();
+    const start = new Date(); start.setMonth(end.getMonth() - 3);
+    const twRows = await fetchFM('TaiwanStockPrice', stockId, start, end);
+    const twSorted = [...twRows].sort((a,b) => a.date.localeCompare(b.date));
+    const twSeries = [];
+    for (let i = 1; i < twSorted.length; i++) {
+      const c0 = +twSorted[i-1].close, c1 = +twSorted[i].close;
+      if (c0 > 0) twSeries.push({ date: twSorted[i].date, chg: (c1-c0)/c0*100 });
+    }
+    if (twSeries.length < 10) return {}; // 台股資料太少，算不出可靠相關係數
+
+    const out = {};
+    await Promise.all(usTickers.map(async ticker => {
+      try {
+        const usSeries = await fetchUSPriceSeries(ticker);
+        out[ticker] = _srPearson(usSeries, twSeries);
+      } catch (e) { out[ticker] = null; }
+    }));
+    _usCorrCache[cacheKey] = out;
+    return out;
+  } catch (e) {
+    console.warn('[美股連動強度]', e.message);
+    return {};
+  }
+}
+
 async function usLeadRetry() {
   _usProxyStatus = 'unknown'; // 重置，允許重新嘗試 proxy
   const btn = document.getElementById('usLeadRetryBtn');
@@ -63721,6 +63796,16 @@ async function renderUSLeading(stockId) {
     apiBadge.textContent = isLive ? '✅ Yahoo Finance' : '🟡 模擬定錨 07-03';
   }
 
+  // v7.55：算真實連動強度（皮爾森相關係數），取代手寫 rel 文字排序
+  // 模擬報價時不做（算了也沒意義，美股本身就是假的），真實報價時才算
+  let corrMap = {};
+  if (isLive) {
+    try {
+      corrMap = await _computeUSCorrelation(stockId, results.map(r => r.ticker));
+    } catch (e) { corrMap = {}; }
+  }
+  results.forEach(r => { r.corr = (corrMap[r.ticker] ?? null); });
+
   // 選項K v6.99：holiday badge — 07-04 美股休市期間顯示提示
   (function _showHolidayBadge() {
     const hb = document.getElementById('usHolidayBadge');
@@ -63749,20 +63834,36 @@ async function renderUSLeading(stockId) {
     sigRowEl.innerHTML = chips.join('') + overallChip;
   }
 
-  // 連動說明（取最相關前2支）
-  const topRelev = results.slice(0, 2);
+  // 連動說明（取「真實相關係數」最高前2支；若無真實數據則退回今日漲跌排序）
+  const hasCorr = results.some(r => typeof r.corr === 'number');
+  const byRelevance = [...results].sort((a, b) => {
+    const ca = typeof a.corr === 'number' ? Math.abs(a.corr) : -1;
+    const cb = typeof b.corr === 'number' ? Math.abs(b.corr) : -1;
+    if (cb !== ca) return cb - ca;
+    return b.chg - a.chg; // 相關係數打平或都沒有時，退回今日漲跌排序
+  });
+  const topRelev = byRelevance.slice(0, 2);
   if (impactEl && impactTxt && topRelev.length > 0) {
     impactEl.style.display = 'flex';
     const stockInfo = STOCK_DB[stockId];
     const stockName = stockInfo?.name || stockId;
-    const relTxt = topRelev.map(r => `${r.ticker}(${r.chg>=0?'+':''}${r.chg.toFixed(2)}%) ${r.rel}`).join('；');
-    impactTxt.innerHTML = `<strong>${stockName}</strong> 的主要美股先行指標：${relTxt}`;
+    const relTxt = topRelev.map(r => {
+      const corrTxt = typeof r.corr === 'number' ? `，近3月相關係數 ${r.corr.toFixed(2)}` : '';
+      return `${r.ticker}(${r.chg>=0?'+':''}${r.chg.toFixed(2)}%) ${r.rel}${corrTxt}`;
+    }).join('；');
+    impactTxt.innerHTML = `<strong>${stockName}</strong> 的主要美股先行指標：${relTxt}${hasCorr ? '' : '（相關係數需即時報價才能計算，目前為模擬/退回今日漲跌排序）'}`;
   }
 
   // 依板塊分組渲染
   if (groupsEl) {
-    // 按 24h 漲跌排序（高→低）
-    results.sort((a, b) => b.chg - a.chg);
+    // v7.55：優先按「真實相關係數」絕對值排序（連動最強排最前）；
+    // 沒有相關係數（模擬報價或資料不足）時退回原本的今日漲跌排序
+    results.sort((a, b) => {
+      const ca = typeof a.corr === 'number' ? Math.abs(a.corr) : -1;
+      const cb = typeof b.corr === 'number' ? Math.abs(b.corr) : -1;
+      if (cb !== ca) return cb - ca;
+      return b.chg - a.chg;
+    });
 
     const allSim = results.every(r => r.sim);
 
@@ -63774,15 +63875,23 @@ async function renderUSLeading(stockId) {
       const simNote = r.sim
         ? `<span style="font-size:0.48rem;color:#9CA3AF;margin-left:3px;" title="無法取得即時報價，此為日期種子模擬值，僅供板塊邏輯參考，不代表真實漲跌">🔘模擬</span>`
         : '';
+      // v7.55：真實相關係數標籤（|r|≥0.5 強連動、≥0.3 中度、其餘弱，null 代表資料不足或模擬報價無法計算）
+      let corrNote = '';
+      if (typeof r.corr === 'number') {
+        const av = Math.abs(r.corr);
+        const corrCls = av >= 0.5 ? 'up' : av >= 0.3 ? 'flat' : 'dn';
+        const corrLabel = av >= 0.5 ? '強連動' : av >= 0.3 ? '中度連動' : '弱連動';
+        corrNote = `<span class="us-lead-corr ${corrCls}" style="font-size:0.5rem;margin-left:4px;opacity:0.85;" title="近3個月每日漲跌%的皮爾森相關係數，非因果關係，僅供參考">r=${r.corr.toFixed(2)} ${corrLabel}</span>`;
+      }
       return `
         <div class="us-lead-item${r.sim ? ' sim' : ''}"
-             title="${r.name} (${r.ticker})\n${r.role}\n${r.rel}${r.sim ? '\n定錨基準：2026-06-20 美東收盤\n\n⚠️ 此為模擬值，非真實報價' : ''}"
+             title="${r.name} (${r.ticker})\n${r.role}\n${r.rel}${typeof r.corr === 'number' ? `\n近3月相關係數：${r.corr.toFixed(2)}` : ''}${r.sim ? '\n定錨基準：2026-06-20 美東收盤\n\n⚠️ 此為模擬值，非真實報價' : ''}"
              onclick="window.open('https://finance.yahoo.com/quote/${r.ticker}','_blank')">
           <div class="us-lead-item-top">
             <span class="us-lead-ticker">${r.ticker}</span>
             <span class="us-lead-chg ${r.sim ? 'flat' : chgCls}" style="${r.sim ? 'opacity:0.55;' : ''}">${chgStr}${simNote}</span>
           </div>
-          <div class="us-lead-name">${r.name}</div>
+          <div class="us-lead-name">${r.name}${corrNote}</div>
           <div class="us-lead-price" style="${r.sim ? 'color:var(--fg3);' : ''}">${priceStr} · ${r.role}</div>
         </div>`;
     }).join('');
