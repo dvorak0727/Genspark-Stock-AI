@@ -40978,6 +40978,13 @@ function renderHero(id, info, price, chg, chgPct, row, vol) {
   const chgEl = document.getElementById('shChange');
   chgEl.textContent = `${up?'▲':'▼'} ${Math.abs(chg).toFixed(2)} (${Math.abs(chgPct).toFixed(2)}%)`;
   chgEl.className = 'sh-change ' + (up ? 'up' : 'down');
+  // v7.55再修正：上面只把股價本身接上即時更新，漲跌幅這行沒有跟著動，
+  // 導致即時模式下股價已經更新到當下報價，漲跌卻還是用舊收盤價算出來的
+  // 數字，兩者對不起來（甚至方向相反，例如股價明明漲停卻顯示下跌）。
+  // 用「今日開盤前的基準收盤價」= price - chg 存起來，即時更新時用
+  // 最新成交價重新算一次漲跌，兩個數字才會是同一個時間點的。
+  chgEl.setAttribute('data-rt-chgbase', id);
+  chgEl.dataset.rtPrevclose = (price - chg).toFixed(2);
   const meta = document.getElementById('shMeta');
   // Trading_Volume 單位為「股」，÷1000 = 張
   const volK = vol ? (vol >= 1000 ? (vol/1000).toFixed(0) : vol.toFixed(0)) : '—';
@@ -64547,6 +64554,24 @@ function _rtApply(rows) {
     const up = q.change_rate >= 0;
     el.textContent = (up ? '▲' : '▼') + Math.abs(q.change_rate).toFixed(1) + '%';
     el.style.color = up ? 'var(--up)' : 'var(--down)';
+  });
+
+  // 個股分析頁的漲跌幅（#shChange）：用即時成交價 vs 昨日收盤基準
+  // 自己重新算一次，不依賴快照API自帶的change_rate（欄位命名可能跟
+  // 個股頁原本用的公式不一致），確保跟上面剛更新的即時股價是同一個
+  // 基準算出來的，不會出現「股價漲停、漲跌卻顯示下跌」這種矛盾。
+  document.querySelectorAll('[data-rt-chgbase]').forEach(el => {
+    const q = byId[el.getAttribute('data-rt-chgbase')];
+    const prevClose = parseFloat(el.dataset.rtPrevclose);
+    if (!q || !(q.close > 0) || !(prevClose > 0)) return;
+    const chg = q.close - prevClose;
+    const chgPct = chg / prevClose * 100;
+    const up = chg >= 0;
+    el.textContent = `${up?'▲':'▼'} ${Math.abs(chg).toFixed(2)} (${Math.abs(chgPct).toFixed(2)}%)`;
+    el.className = 'sh-change ' + (up ? 'up' : 'down');
+    // 順便同步大字報價的紅綠色，跟這裡算出來的漲跌方向保持一致
+    const priceEl2 = document.getElementById('shPrice');
+    if (priceEl2) priceEl2.className = 'sh-price ' + (up ? 'up' : 'down');
   });
 
   return updated;
