@@ -15914,7 +15914,7 @@ a.module-nav-item.acc-active {
     <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淡色模式">
       <span id="themeIcon">🌙</span>
     </button>
-    <button class="theme-toggle-btn" onclick="if(confirm('確定要登出？登出後需重新輸入授權碼。')){sessionStorage.removeItem(_LK);const u=new URL(location.href);u.searchParams.delete('demo');location.href=u.toString();}" title="登出授權" style="color:#f87171;">
+    <button class="theme-toggle-btn" onclick="if(confirm('確定要登出？登出後需重新輸入授權碼。')){sessionStorage.removeItem(_LK);const u=new URL(location.href);const hadDemo=u.searchParams.has('demo');u.searchParams.delete('demo');if(hadDemo){location.href=u.toString();}else{location.reload();}}" title="登出授權" style="color:#f87171;">
       🔒 登出
     </button>
   </div>
