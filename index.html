@@ -16787,6 +16787,8 @@ a.module-nav-item.acc-active {
       <div class="sh-price-block">
         <div class="sh-price" id="shPrice">—</div>
         <div class="sh-change" id="shChange">—</div>
+        <!-- v7.55：即時模式開啟時顯示更新頻率小提示 -->
+        <div id="shRtNote" style="display:none;font-size:0.6rem;color:var(--fg3);margin-top:2px;">⚡ 約每15秒自動更新一次</div>
       </div>
       <!-- 右欄：成交資訊 + 追蹤按鈕 -->
       <div class="sh-right-block">
@@ -64615,6 +64617,9 @@ function rtSetEnabled(on) {
     btn.classList.toggle('on', on);
     btn.innerHTML = on ? '⚡ 即時 ON' : '⚡ 即時 OFF';
   }
+  // v7.55：即時模式開關時，個股大字報價旁邊的「約每15秒更新」小提示跟著顯示/隱藏
+  const rtNote = document.getElementById('shRtNote');
+  if (rtNote) rtNote.style.display = on ? 'block' : 'none';
   if (!on) { _rtSetStatus(''); return; }
 
   if (!_rtIsMarketOpen()) {
