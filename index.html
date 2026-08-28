@@ -18104,7 +18104,7 @@ a.module-nav-item.acc-active {
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;">
         <!-- VIX -->
         <div style="background:var(--bg2);border-radius:10px;padding:10px;">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">😨 VIX 恐慌指數</div>
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">😨 美股 VIX 恐慌指數（CBOE）</div>
           <div style="font-size:1.3rem;font-weight:900;" id="macroVixVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="macroVixTag">—</div>
         </div>
@@ -18135,7 +18135,7 @@ a.module-nav-item.acc-active {
           <div style="font-size:.82rem;font-weight:900;color:var(--fg);">期貨市場先行指標
             <span data-tip="期貨先行指標" style="cursor:pointer;font-size:.7rem;color:#7e22ce;font-weight:700;">?</span>
           </div>
-          <div style="font-size:.62rem;color:var(--fg3);">基差 · 外資期貨未平倉 · Put/Call Ratio · VIX — 期貨資訊靈敏，常領先現貨表態</div>
+          <div style="font-size:.62rem;color:var(--fg3);">基差 · 外資期貨未平倉 · Put/Call Ratio · 台指VIX — 期貨資訊靈敏，常領先現貨表態</div>
         </div>
         <div id="futuresBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</div>
         <button onclick="fetchFuturesModule()" style="font-size:.62rem;padding:4px 10px;border-radius:8px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;font-weight:700;">🔄 更新</button>
@@ -18176,7 +18176,7 @@ a.module-nav-item.acc-active {
 
         <!-- VIX -->
         <div style="background:var(--bg2);border-radius:10px;padding:10px;cursor:pointer;" data-tip="VIX">
-          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">😨 VIX 恐慌指數 <span style="opacity:.6;">?</span></div>
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;">😨 台指 VIX 恐慌指數 <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="futVixVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;">5日均：<span id="futVix5d" style="font-weight:700;">—</span></div>
           <div style="font-size:.56rem;margin-top:2px;" id="futVixTag">—</div>
@@ -69436,7 +69436,7 @@ const INDICATOR_TIP_DB = {
   '期貨先行指標': {
     title: '📐 期貨市場先行指標（人話版）',
     formula: '期貨槓桿高、成本低、盤前盤後都能交易\n→ 消息靈通的資金習慣先在期貨表態\n→ 期貨常常比現貨大盤「早一步」反應',
-    body: '🔍 這是什麼？\n台指期跟台股大盤是「同一個東西、兩個市場」，因為期貨資訊反應快，常被當成大盤的領先指標，用來提早嗅出風向。\n\n📋 四個指標分別在看什麼？\n⚖️ 基差：期貨比現貨貴還便宜，看多空傾向\n🏦 外資期貨未平倉：外資在期貨市場的真實部位，籌碼指標之王\n⚖️ P/C Ratio：選擇權市場恐慌還是樂觀\n😨 VIX：恐慌指數，急升常伴隨短線見底\n\n💡 怎麼用？\n四個指標不用全部都同意才進場，重點是看「有沒有同時偏向同一邊」——多個訊號同步出現，才是比較可信的訊號，單一指標容易騙人。\n\n⚠️ 提醒：\n這些是機率性參考，不是保證。期貨是零和市場，波動比現貨股票劇烈很多，僅供輔助判斷大盤氣氛，不建議直接拿來做選股或進出場的唯一依據。'
+    body: '🔍 這是什麼？\n台指期跟台股大盤是「同一個東西、兩個市場」，因為期貨資訊反應快，常被當成大盤的領先指標，用來提早嗅出風向。\n\n📋 四個指標分別在看什麼？\n⚖️ 基差：期貨比現貨貴還便宜，看多空傾向\n🏦 外資期貨未平倉：外資在期貨市場的真實部位，籌碼指標之王\n⚖️ P/C Ratio：選擇權市場恐慌還是樂觀\n😨 台指VIX：台股選擇權隱含波動率，急升常伴隨短線見底\n\n💡 怎麼用？\n四個指標不用全部都同意才進場，重點是看「有沒有同時偏向同一邊」——多個訊號同步出現，才是比較可信的訊號，單一指標容易騙人。\n\n⚠️ 提醒：\n這些是機率性參考，不是保證。期貨是零和市場，波動比現貨股票劇烈很多，僅供輔助判斷大盤氣氛，不建議直接拿來做選股或進出場的唯一依據。'
   },
   '基差': {
     title: '⚖️ 基差（期貨 − 現貨）',
@@ -69454,7 +69454,7 @@ const INDICATOR_TIP_DB = {
     body: '🔍 這是什麼？\n選擇權市場買「賣權」（跌就賺）跟買「買權」（漲就賺）的量誰多誰少，反映投資人此刻的情緒是恐慌還是樂觀。\n\n📈 比值 > 1.2（恐慌濃厚）：\n• 大家搶著買保險（賣權）避險\n• 反指標效應：極度恐慌時常常是短線落底訊號\n\n📉 比值 < 0.7（過度樂觀）：\n• 大家一面倒買買權賭漲\n• 過度一致的樂觀，反而要留意是否已經過熱\n\n✅ 怎麼看：\nP/C Ratio 是典型的「反指標」——極端值比中間值更有參考意義，數值在中性區間（0.7~1.2）通常沒有特別訊號。'
   },
   'VIX': {
-    title: '😨 VIX 恐慌指數',
+    title: '😨 台指 VIX 恐慌指數',
     formula: 'VIX = 台指選擇權隱含波動率指數\n數值越高 = 市場預期未來波動越劇烈',
     body: '🔍 這是什麼？\n用選擇權價格反推市場「預期」未來的波動程度，數字越高代表投資人越緊張、越願意付高價買保險，是最直接的市場情緒溫度計。\n\n🟢 VIX < 15（極度樂觀）：\n• 市場風平浪靜，股價緩步墊高\n• 但過度平靜、毫無防備，反而容易累積下一波崩盤的能量\n\n🟡 VIX 15~25（正常波動）：\n• 市場有些微雜音，呈現正常的上下震盪\n\n🔴 VIX > 30（極度恐慌）：\n• 市場已發生系統性風險，常伴隨股價連續急殺\n• 但恐慌高點也常是短線的甜蜜買點（別人恐懼我貪婪）\n\n🔥 VIX > 50（世紀末日級）：\n• 歷史上極少出現，僅 2008 金融海嘯、2020 新冠股災曾見\n\n✅ 怎麼看：\nVIX 適合搭配大盤走勢一起看：股價急跌 + VIX 急升到高檔，是經典的恐慌性拋售特徵，通常物極必反的機率較高。'
   },
