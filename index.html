@@ -63376,49 +63376,38 @@ function _usMarketStatus() {
   return { status:'closed', label:'🔴 美股休市' };
 }
 
-// ── Yahoo Finance v8 quote API（無 key，多 proxy fallback）──
-// 備用 CORS proxy 列表；Genspark 沙箱可能全部受限，此時快速降級到定錨模擬
-const US_PROXIES = [
-  r => `https://corsproxy.io/?${encodeURIComponent(r)}`,
-  r => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(r)}`,
-];
+// ── Yahoo Finance v8 quote API ──
+// v7.55：原本走 corsproxy.io / codetabs.com 這兩個公開免費代理，
+// 2026-08起雙雙掛掉（corsproxy.io改成要API key、codetabs連不上），
+// 導致這張卡片永遠顯示「模擬」。改用跟開盤壓力表同一支 license-worker
+// /yahoo 代理（已把這幾檔美股半導體代號補進白名單）。
 
 // 快速可用性快取（同一頁只測一次）
-// 預設 'blocked'：Genspark 環境 proxy 受限，直接走定錨模擬；
-// 使用者點擊「🔄 嘗試即時報價」按鈕後切回 'unknown' 重試
-let _usProxyStatus = 'blocked'; // 'unknown' | 'ok' | 'blocked'
-
-async function _tryOneProxy(proxyFn, url) {
-  const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), 5000);
-  const r = await fetch(proxyFn(url), { signal: ctrl.signal }).finally(() => clearTimeout(tid));
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const text = await r.text();
-  const j = JSON.parse(text);
-  const raw = j?.contents ? JSON.parse(j.contents) : j;
-  const meta   = raw?.chart?.result?.[0]?.meta;
-  const quotes = raw?.chart?.result?.[0]?.indicators?.quote?.[0];
-  if (!meta) throw new Error('no meta');
-  const closes = (quotes?.close || []).filter(Boolean);
-  const last   = meta.regularMarketPrice ?? closes.at(-1) ?? 0;
-  const prev   = closes.length >= 2 ? closes.at(-2) : last;
-  const chg    = prev > 0 ? (last - prev) / prev * 100 : 0;
-  return { price: last, prev, chg, closes };
-}
+let _usProxyStatus = 'unknown'; // 'unknown' | 'ok' | 'blocked'
 
 async function fetchUSPrice(ticker) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=5d&interval=1d&includePrePost=false`;
   // 若已確認封鎖，直接拋出（讓 caller 走備援，不再嘗試 network）
   if (_usProxyStatus === 'blocked') throw new Error('proxy blocked');
-  for (const mkProxy of US_PROXIES) {
-    try {
-      const d = await _tryOneProxy(mkProxy, url);
-      _usProxyStatus = 'ok';
-      return { ticker, ...d };
-    } catch { /* 靜默 fallback 到下一個 */ }
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const r = await fetch(`https://license-worker.dvorak0727.workers.dev/yahoo?ticker=${encodeURIComponent(ticker)}`, { signal: ctrl.signal });
+    const raw = await r.json();
+    const meta   = raw?.chart?.result?.[0]?.meta;
+    const quotes = raw?.chart?.result?.[0]?.indicators?.quote?.[0];
+    if (!meta) throw new Error(raw?.msg || 'no meta');
+    const closes = (quotes?.close || []).filter(Boolean);
+    const last   = meta.regularMarketPrice ?? closes.at(-1) ?? 0;
+    const prev   = closes.length >= 2 ? closes.at(-2) : last;
+    const chg    = prev > 0 ? (last - prev) / prev * 100 : 0;
+    _usProxyStatus = 'ok';
+    return { ticker, price: last, prev, chg, closes };
+  } catch (e) {
+    _usProxyStatus = 'blocked'; // 標記，後續直接走備援
+    throw e;
+  } finally {
+    clearTimeout(tid);
   }
-  _usProxyStatus = 'blocked'; // 標記，後續直接走備援
-  throw new Error('all proxies failed');
 }
 
 // ── genSim 備援定錨（無真實 API 時用日期+ticker 種子偽隨機，同天同股穩定）──
