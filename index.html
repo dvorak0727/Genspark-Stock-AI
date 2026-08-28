@@ -61045,6 +61045,39 @@ function isAdmin() {
   } catch { return false; }
 }
 
+// v7.55：本機VIP快取只存在使用者瀏覽器裡，不會自動跟伺服器同步。
+// 曾經用VIP序號登入過一次，這筆「已啟用」紀錄就會一直留在localStorage，
+// 就算後來帳號被管理員降級成一般會員，本機還是會一直誤判isVIP()=true
+// （這就是圖書館志工電腦上VIP權限卡住的根因，不是每次操作都會重新
+// 問伺服器）。改成每次頁面載入時，如果本機有VIP快取，背景重打一次
+// /verify，用伺服器現在的真實tier覆蓋本機快取——伺服器說降級了就
+// 跟著降級，說序號已撤銷/過期就直接清掉本機快取。
+async function _vipRevalidate() {
+  try {
+    const d = JSON.parse(localStorage.getItem(VIP_KEY) || 'null');
+    if (!d || !d.code) return; // 本機沒有VIP快取，不用做事
+    const data = await _vipFetchLicense(d.code);
+    if (!data || data.active === false) {
+      // 伺服器說這組序號現在無效/已撤銷/過期 → 清掉本機快取
+      localStorage.removeItem(VIP_KEY);
+      return;
+    }
+    // 用伺服器最新資料覆蓋本機快取（tier可能被管理員改過）
+    localStorage.setItem(VIP_KEY, JSON.stringify({
+      activated: true, code: d.code,
+      user:   data.user   || d.user   || '',
+      tier:   data.tier   || 'standard',
+      expiry: data.expiry || d.expiry || '9999-12-31',
+      since:  d.since || Date.now(),
+    }));
+  } catch(e) {
+    // 網路失敗時保留本機快取原樣（避免斷網時把正常VIP用戶誤踢出），
+    // 下次頁面載入時會再重試一次
+    console.warn('[VIP重新驗證]', e.message);
+  }
+}
+document.addEventListener('DOMContentLoaded', _vipRevalidate);
+
 let _vipPendingModId = null;
 
 function vipModalOpen(modId) {
