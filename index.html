@@ -59694,17 +59694,19 @@ function renderScreenerCards(showStats=false) {
     const verdictFinal = isETF && r.score >= _th3
       ? '📊 大盤底部訊號（非個股）'
       : verdict;
-    // MACD 矩陣：點擊展開 MACD 圖；broker：點擊展開券商熱力圖；其他模式強訊號(≥_th3)：點擊展開法人籌碼面板
-    const verdictClickable = r.score >= _th3
+    // MACD 矩陣：點擊展開 MACD 圖；broker：點擊展開券商熱力圖；whale：不抓法人買賣資料，
+    // 沒有東西可以展開，點了只會看到誤導性的「資料不足」，直接不給點；
+    // 其他模式強訊號(≥_th3)：點擊展開法人籌碼面板
+    const verdictClickable = (r.score >= _th3 && _curMode !== 'whale')
       ? ` sc-quick-btn${_curMode === 'macdmatrix' ? ' sc-verdict-macd' : _curMode === 'broker' ? ' sc-verdict-broker' : ''}` : '';
-    const verdictTitle = r.score >= _th3
+    const verdictTitle = (r.score >= _th3 && _curMode !== 'whale')
       ? (_curMode === 'macdmatrix'
           ? ` title='點擊展開 MACD Histogram 圖'`
           : _curMode === 'broker'
             ? ` title='點擊展開主力分點熱力圖'`
             : ` title='點擊展開三大法人籌碼明細'`)
       : '';
-    const verdictClick = r.score >= _th3
+    const verdictClick = (r.score >= _th3 && _curMode !== 'whale')
       ? (_curMode === 'macdmatrix'
           ? ` onclick="_scQuickMacd('${r.stockId}', this)"`
           : _curMode === 'broker'
