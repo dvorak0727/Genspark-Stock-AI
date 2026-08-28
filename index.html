@@ -39338,14 +39338,14 @@ async function _fetchBrokerData(stockId, days = 20) {
     const j = await r.json();
     if (j.status && j.status !== 200) throw new Error(j.msg || `API(${j.status})`);
     // taiwan_stock_trading_daily_report 回傳欄位：securities_trader, buy, sell, price, date …
-    // ⚠️ 待首次抓到真實資料後，務必核對 buy/sell 量級是否合理（跟收盤成交量比對），
-    //    FinMind 文件沒明講單位是股還是張，這裡先假設是「張」（不除1000）；
-    //    若數字誇張大 1000 倍，改成 Math.round(x/1000)
+    // v7.55 確認：用戶實測回報數字大到不合理（單一券商10日淨買超過千萬張，
+    // 換算股數是百億股，物理上不可能），驗證了這裡當初留的疑慮——
+    // FinMind 這支資料集的 buy/sell 單位是「股」，不是「張」，要除1000。
     const rows = (j.data || []).map(d => ({
       date: d.date,
       broker_id: d.securities_trader || d.securities_trader_id || '未知',
-      buy: +d.buy || 0,
-      sell: +d.sell || 0,
+      buy: Math.round((+d.buy || 0) / 1000),
+      sell: Math.round((+d.sell || 0) / 1000),
     }));
     if (rows.length > 5) return { rows, live: true };
     throw new Error('insufficient data');
