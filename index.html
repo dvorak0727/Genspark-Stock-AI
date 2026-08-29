@@ -37231,7 +37231,7 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
       // C：法人共振賣＋融券不高 → 真空殺跌
       abcdState = 'C'; abcdIcon = '☠️';
       abcdColor = '#7c2d12'; abcdBg = 'rgba(194,65,12,0.10)';
-      abcdTitle = 'C — 等死（法人齊撤退）';
+      abcdTitle = 'C — 法人齊撤退';
       abcdDesc  = `外資（5日${Math.round(f5).toLocaleString()}張）與投信（5日${Math.round(t5).toLocaleString()}張）同步賣出，無法人護盤。${marginDanger?'融資'+marginEst+'%偏高，斷頭風險高，下跌可能加速。':''}此為系統性賣壓，技術面反彈恐是出貨機會。`;
       abcdAction = '❌ 迴避或放空。技術面反彈=出貨機會，不宜進場';
     } else if ((fiDir < 0 && itDir <= 0 && shortHigh) || (shortHigh && shortDecr)) {
@@ -65459,7 +65459,10 @@ async function renderProfitQuality(stockId) {
     ]);
 
     const epsRows = finRows.filter(r => r.type === 'EPS').sort((a,b) => a.date.localeCompare(b.date));
-    const niRows  = finRows.filter(r => r.type === 'IncomeAfterTaxes').sort((a,b) => a.date.localeCompare(b.date));
+    // v7.61修復：一般公司在FinMind裡欄位叫'IncomeAfterTaxes'（複數），但金控/銀行/保險股
+    // （如2881富邦金）用的是'IncomeAfterTax'（單數，沒有s）。原本只認複數，導致金控股
+    // niRows永遠是空的，明明有EPS資料卻整包被判定「資料不足」。
+    const niRows  = finRows.filter(r => r.type === 'IncomeAfterTaxes' || r.type === 'IncomeAfterTax').sort((a,b) => a.date.localeCompare(b.date));
     const cfoCumRows = cfRows.filter(r => r.type === 'CashFlowsFromOperatingActivities').sort((a,b) => a.date.localeCompare(b.date));
     const cfoQtrRows = _pqDequarterize(cfoCumRows); // 單季化後的現金流，拿來跟單季淨利配對算比值
 
