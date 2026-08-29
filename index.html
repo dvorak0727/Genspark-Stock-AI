@@ -1005,6 +1005,52 @@
       gap: 6px;
     }
     .watchlist-btn:hover { background: linear-gradient(135deg,#1976D2,#1565C0); transform: translateY(-50%) translateX(-2px); }
+    /* v7.76：虛擬白板筆浮動按鈕，疊在追蹤清單按鈕正上方 */
+    .whiteboard-btn {
+      position: fixed; right: 0; top: 80%;
+      transform: translateY(-50%) translateY(-70px);
+      z-index: 900;
+      background: linear-gradient(135deg, #7C3AED, #5B21B6);
+      color: #fff;
+      border: none;
+      border-radius: 12px 0 0 12px;
+      padding: 10px 8px;
+      cursor: pointer;
+      font-size: 0.68rem;
+      font-weight: 800;
+      writing-mode: vertical-rl;
+      letter-spacing: 2px;
+      box-shadow: -3px 0 16px rgba(124,58,237,0.35);
+      transition: all 0.2s;
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+    }
+    .whiteboard-btn:hover { background: linear-gradient(135deg,#8B5CF6,#7C3AED); transform: translateY(-50%) translateY(-70px) translateX(-2px); }
+    .whiteboard-btn.active { background: linear-gradient(135deg,#059669,#047857); }
+    @media (max-width: 600px) {
+      .whiteboard-btn { top: auto; bottom: 138px; transform: none; border-radius: 12px 0 0 12px; }
+      .whiteboard-btn:hover { transform: none; }
+    }
+    /* 白板工具列 + 畫布 */
+    #whiteboardCanvas {
+      position: fixed; inset: 0; z-index: 8888; display: none;
+      cursor: crosshair; touch-action: none;
+    }
+    .wb-toolbar {
+      position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+      z-index: 8889; display: none;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 8px 10px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      align-items: center; gap: 6px; flex-wrap: wrap; max-width: 92vw;
+    }
+    .wb-toolbar.show { display: flex; }
+    .wb-tool-btn {
+      background: var(--bg2); border: 1.5px solid var(--border); border-radius: 9px;
+      padding: 7px 10px; cursor: pointer; font-size: 0.78rem; color: var(--fg2);
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .wb-tool-btn.active { background: #7C3AED; border-color: #7C3AED; color: #fff; }
+    .wb-tool-btn:hover:not(.active) { background: var(--accent-bg, var(--bg2)); }
     .watchlist-btn .wl-count {
       writing-mode: horizontal-tb;
       background: #E53935;
@@ -20817,6 +20863,27 @@ a.module-nav-item.acc-active {
   <span>追蹤清單</span>
   <span class="wl-count" id="wlCount">0</span>
 </button>
+
+<!-- ══════════════════════════════════════════════════
+     ✏️ 虛擬白板筆（v7.76）— 疊在追蹤清單按鈕正上方
+     畫筆/方框/橡皮擦，直接在畫面上標註，不用截圖到外部軟體改
+══════════════════════════════════════════════════ -->
+<button class="whiteboard-btn" id="whiteboardBtn" onclick="wbToggle()" title="虛擬白板筆">
+  <span>✏️</span>
+  <span>白板筆</span>
+</button>
+<canvas id="whiteboardCanvas"></canvas>
+<div class="wb-toolbar" id="wbToolbar">
+  <button class="wb-tool-btn active" id="wbToolPen"    onclick="wbSetTool('pen')"    title="畫筆">🖊️ 畫筆</button>
+  <button class="wb-tool-btn"        id="wbToolRect"   onclick="wbSetTool('rect')"   title="方框">▭ 方框</button>
+  <button class="wb-tool-btn"        id="wbToolEraser" onclick="wbSetTool('eraser')" title="橡皮擦">🧽 橡皮擦</button>
+  <input type="color" id="wbColorPicker" value="#FF3B30" onchange="wbSetColor(this.value)"
+    style="width:30px;height:30px;border:none;border-radius:8px;cursor:pointer;background:none;padding:0;" title="顏色">
+  <input type="range" id="wbSizeSlider" min="1" max="24" value="4" onchange="wbSetSize(this.value)"
+    style="width:70px;" title="筆刷粗細">
+  <button class="wb-tool-btn" onclick="wbClear()" title="清除全部">🗑 清除</button>
+  <button class="wb-tool-btn" onclick="wbToggle()" title="關閉白板">✕ 關閉</button>
+</div>
 
 <!-- 抽屜 -->
 <aside class="watchlist-drawer" id="watchlistDrawer">
@@ -62307,6 +62374,146 @@ let _currentAnalysisIndustry = '';
 let _currentAnalysisPrice = '';
 
 // ── 抽屜開關 ──
+// ══════════════════════════════════════════════════
+//  ✏️ 虛擬白板筆（v7.76）
+//  在畫面上疊一層透明畫布，讓使用者直接標註（畫線/框重點/擦掉），
+//  不用截圖丟到外部軟體改。只是暫時性的標註工具，關閉/重新整理頁面
+//  就會清空，不做持久化儲存（純粹是看盤當下畫給自己看的，沒有必要
+//  存到localStorage佔空間）。
+// ══════════════════════════════════════════════════
+let _wbActive = false;
+let _wbTool   = 'pen';   // 'pen' | 'rect' | 'eraser'
+let _wbColor  = '#FF3B30';
+let _wbSize   = 4;
+let _wbDrawing = false;
+let _wbStartX = 0, _wbStartY = 0;
+let _wbSnapshot = null; // 畫方框時，先存一份快照，拖曳過程中不斷「還原+畫預覽框」
+
+function _wbCtx() {
+  const c = document.getElementById('whiteboardCanvas');
+  return c ? c.getContext('2d') : null;
+}
+
+function wbToggle() {
+  _wbActive = !_wbActive;
+  const canvas  = document.getElementById('whiteboardCanvas');
+  const toolbar = document.getElementById('wbToolbar');
+  const btn     = document.getElementById('whiteboardBtn');
+  if (!canvas || !toolbar || !btn) return;
+
+  if (_wbActive) {
+    // 每次開啟都依目前視窗大小重設畫布（畫布尺寸跟CSS顯示尺寸要一致，
+    // 不然畫出來的線條位置會跟滑鼠對不上）
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    canvas.style.display = 'block';
+    canvas.style.pointerEvents = 'auto';
+    toolbar.classList.add('show');
+    btn.classList.add('active');
+    _wbBindEvents(canvas);
+  } else {
+    canvas.style.display = 'none';
+    canvas.style.pointerEvents = 'none';
+    toolbar.classList.remove('show');
+    btn.classList.remove('active');
+  }
+}
+
+function wbSetTool(tool) {
+  _wbTool = tool;
+  ['wbToolPen','wbToolRect','wbToolEraser'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  const map = { pen:'wbToolPen', rect:'wbToolRect', eraser:'wbToolEraser' };
+  document.getElementById(map[tool])?.classList.add('active');
+}
+function wbSetColor(c) { _wbColor = c; }
+function wbSetSize(s)  { _wbSize  = +s; }
+
+function wbClear() {
+  const canvas = document.getElementById('whiteboardCanvas');
+  const ctx = _wbCtx();
+  if (canvas && ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+let _wbEventsBound = false;
+function _wbBindEvents(canvas) {
+  if (_wbEventsBound) return; // 只綁一次，避免重複開關累加事件監聽器
+  _wbEventsBound = true;
+
+  const getPos = (e) => {
+    const p = e.touches ? e.touches[0] : e;
+    return { x: p.clientX, y: p.clientY };
+  };
+
+  const start = (e) => {
+    e.preventDefault();
+    const ctx = _wbCtx();
+    if (!ctx) return;
+    _wbDrawing = true;
+    const { x, y } = getPos(e);
+    _wbStartX = x; _wbStartY = y;
+
+    if (_wbTool === 'rect') {
+      // 方框工具：先拍一張目前畫布的快照，拖曳過程中用「還原快照+畫預覽框」
+      // 的方式模擬即時預覽，放開滑鼠那一刻的框才是真正定案的
+      _wbSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    } else {
+      // 畫筆/橡皮擦：直接開始畫線
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineWidth = _wbTool === 'eraser' ? _wbSize * 3 : _wbSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = _wbColor;
+      ctx.globalCompositeOperation = _wbTool === 'eraser' ? 'destination-out' : 'source-over';
+    }
+  };
+
+  const move = (e) => {
+    if (!_wbDrawing) return;
+    e.preventDefault();
+    const ctx = _wbCtx();
+    if (!ctx) return;
+    const { x, y } = getPos(e);
+
+    if (_wbTool === 'rect') {
+      if (_wbSnapshot) ctx.putImageData(_wbSnapshot, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.lineWidth = _wbSize;
+      ctx.strokeStyle = _wbColor;
+      ctx.strokeRect(_wbStartX, _wbStartY, x - _wbStartX, y - _wbStartY);
+    } else {
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    }
+  };
+
+  const end = () => {
+    _wbDrawing = false;
+    _wbSnapshot = null;
+    const ctx = _wbCtx();
+    if (ctx) ctx.globalCompositeOperation = 'source-over';
+  };
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  canvas.addEventListener('mouseup', end);
+  canvas.addEventListener('mouseleave', end);
+  canvas.addEventListener('touchstart', start, { passive: false });
+  canvas.addEventListener('touchmove', move, { passive: false });
+  canvas.addEventListener('touchend', end);
+
+  // 視窗尺寸改變時同步畫布尺寸（會清掉目前畫的東西，這是暫時性標註工具，
+  // 沒有做內容保留，屬於可接受的取捨）
+  window.addEventListener('resize', () => {
+    if (!_wbActive) return;
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+}
+
 function toggleWatchlist() {
   const d = document.getElementById('watchlistDrawer');
   d.classList.contains('open') ? closeWatchlist() : openWatchlist();
