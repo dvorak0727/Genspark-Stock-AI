@@ -35923,7 +35923,16 @@ function epicTagAction(type, ticker, target) {
   if (target && target.startsWith('#')) {
     var el = document.querySelector(target);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // v7.59修復：這幾張卡片（技術指標/五大券商）平常是收在手風琴模組裡、
+      // 預設是摺疊狀態（display:none），直接 scrollIntoView 對著一個
+      // 摺疊起來的卡片捲，畫面上完全沒有動靜，使用者以為按鈕沒反應。
+      // 有 window.activateMod（手風琴的展開+捲動邏輯）就優先用它，
+      // 沒有的話（例如該卡片本來就不在手風琴裡）才退回原本的純捲動。
+      if (typeof window.activateMod === 'function') {
+        window.activateMod(target.slice(1));
+      } else {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       if ((type === 'tech' || type === 'bpc') && ticker) {
         var cur = (document.getElementById('stockInput') || {}).value || '';
         if (cur.trim() && cur.trim() !== ticker) {
@@ -76017,6 +76026,11 @@ if (typeof _origRenderSM === 'function') {
       a.classList.toggle('acc-active', a.dataset.modTarget === activeId);
     });
   }
+
+  // v7.59：曝露給其他 script 區塊用（例如震央卡片的「跳至技術指標」按鈕）——
+  // 這裡才是真正「展開手風琴＋捲動過去」的完整邏輯，plain scrollIntoView()
+  // 對著一個被摺疊起來（display:none）的卡片捲，畫面上什麼事都不會發生。
+  window.activateMod = activateMod;
 
   // renderAll 完成後才包（等 cards 都 render 進 DOM）
   const _origRenderAll = typeof renderAll === 'function' ? renderAll : null;
