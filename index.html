@@ -74864,24 +74864,113 @@ function _updateOpGuide() {
     return (typeof STOCK_DB !== 'undefined' && STOCK_DB[id]?.name) || id;
   }
 
-  window._scmEditRelations = function(role) {
-    // role: 'customers' | 'suppliers'
+  // v7.71：原本是瀏覽器內建 prompt() 純文字輸入代號，使用者要自己知道/記得
+  // 對方的股票代號才能填。改成真的「查Google→核對→輸入公司名或代號自動比對
+  // →確認加入→存檔」一次做完的小工具，不用每次都跑來問我幫忙查再手動加。
+  let _scmPending = []; // 編輯中、尚未存檔的候選清單
+  window._scmOpenEditor = function(role) {
     const sid = _stnCurrentStockId;
     if (!sid) return;
     const map = _scmGetMap();
-    if (!map[sid]) map[sid] = { customers: [], suppliers: [] };
+    const current = (map[sid] && map[sid][role]) || [];
+    _scmPending = [...current];
     const roleLabel = role === 'customers' ? '客戶' : '供應商';
-    const current = map[sid][role] || [];
-    const input = prompt(
-      `${_scmLookupName(sid)}（${sid}）的${roleLabel}股票代號，用逗號分隔（例：2330,2454）\n` +
-      `目前已設定：${current.length ? current.join(', ') : '（無）'}\n` +
-      `清空請直接留白後確定。`,
-      current.join(',')
-    );
-    if (input === null) return; // 取消
-    const ids = input.split(/[,，\s]+/).map(s => s.trim()).filter(s => /^\d{4,6}$/.test(s));
-    map[sid][role] = [...new Set(ids)];
+
+    const existing = document.getElementById('scmEditorOverlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'scmEditorOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = `
+      <div style="background:var(--surface);border-radius:14px;max-width:480px;width:100%;max-height:85vh;overflow-y:auto;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-weight:800;font-size:0.9rem;color:var(--fg);">編輯 ${_scmLookupName(sid)}（${sid}）的${roleLabel}</div>
+          <button onclick="document.getElementById('scmEditorOverlay').remove()" style="background:none;border:none;font-size:1.1rem;color:var(--fg3);cursor:pointer;">✕</button>
+        </div>
+
+        <div style="position:relative;margin-bottom:8px;">
+          <input id="scmSearchInp" placeholder="輸入公司名稱或代號搜尋（例：聯發科 或 2454）"
+            style="width:100%;box-sizing:border-box;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--fg);font-size:0.78rem;">
+          <div id="scmSearchList" class="autocomplete-list" style="position:absolute;top:100%;left:0;right:0;z-index:10;"></div>
+        </div>
+        <div id="scmGoogleHint" style="font-size:0.62rem;margin-bottom:10px;"></div>
+
+        <div style="font-size:0.66rem;color:var(--fg3);margin-bottom:5px;">已加入（點下方 💾 儲存才會生效）：</div>
+        <div id="scmChipList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;margin-bottom:12px;"></div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button onclick="document.getElementById('scmEditorOverlay').remove()"
+            style="padding:6px 14px;border-radius:8px;background:var(--bg2);color:var(--fg2);border:1px solid var(--border);cursor:pointer;font-size:0.72rem;">取消</button>
+          <button onclick="_scmSaveEditor('${sid}','${role}')"
+            style="padding:6px 16px;border-radius:8px;background:#2563eb;color:#fff;border:none;cursor:pointer;font-weight:700;font-size:0.72rem;">💾 儲存</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    _scmRenderChips();
+
+    const inp = document.getElementById('scmSearchInp');
+    const list = document.getElementById('scmSearchList');
+    const hint = document.getElementById('scmGoogleHint');
+    inp.addEventListener('input', () => {
+      const q = inp.value.trim();
+      // 邊打字邊給一個「用Google核對這個關鍵字」的連結，確認到底是不是這家公司
+      hint.innerHTML = q
+        ? `<a href="https://www.google.com/search?q=${encodeURIComponent(q + ' 台股 代號')}" target="_blank" rel="noopener" style="color:#2563eb;">🔍 用Google核對「${q}」是哪家公司/代號 →</a>`
+        : '';
+      if (!q) { list.classList.remove('open'); return; }
+      const kw = q.toUpperCase();
+      const matches = Object.entries(STOCK_DB).filter(([id, v]) =>
+        id.includes(kw) || v.name.includes(q) || v.industry.includes(q)
+      ).slice(0, 8);
+      if (!matches.length) { list.innerHTML = '<div class="ac-empty">查無符合的台股代號</div>'; list.classList.add('open'); return; }
+      list.innerHTML = matches.map(([id, v]) => `
+        <div class="ac-item" data-id="${id}">
+          <span class="ac-code">${id}</span><span class="ac-name">${v.name}</span><span class="ac-ind">${v.industry}</span>
+        </div>`).join('');
+      list.classList.add('open');
+      list.querySelectorAll('.ac-item').forEach(el => {
+        el.addEventListener('mousedown', e => {
+          e.preventDefault();
+          const id = el.dataset.id;
+          if (!_scmPending.includes(id)) _scmPending.push(id);
+          _scmRenderChips();
+          inp.value = ''; hint.innerHTML = ''; list.classList.remove('open');
+          inp.focus();
+        });
+      });
+    });
+    inp.addEventListener('blur', () => setTimeout(() => list.classList.remove('open'), 150));
+  };
+
+  function _scmRenderChips() {
+    const el = document.getElementById('scmChipList');
+    if (!el) return;
+    el.innerHTML = _scmPending.length
+      ? _scmPending.map(id => `
+        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(37,99,235,.1);color:#2563eb;padding:3px 8px;border-radius:10px;font-size:0.68rem;">
+          ${_scmLookupName(id)} ${id}
+          <span onclick="_scmRemoveChip('${id}')" style="cursor:pointer;font-weight:900;">✕</span>
+        </span>`).join('')
+      : '<span style="color:var(--fg3);font-size:0.68rem;">（尚未加入任何公司）</span>';
+  }
+  // v7.71修復：inline onclick是在全域(window)作用域執行，直接對閉包裡的
+  // let _scmPending 重新賦值（_scmPending = ...）不會真的改到這個閉包變數，
+  // 只會在全域產生一個同名但完全無關的變數，導致「刪除」按鈕實際上沒作用。
+  // 改成用 .splice() 原地修改陣列（陣列本身還是同一個閉包裡的物件參照，
+  // 只是操作它的函式掛在window上），這樣才會真的影響到儲存時用到的資料。
+  window._scmRemoveChip = function(id) {
+    const idx = _scmPending.indexOf(id);
+    if (idx !== -1) _scmPending.splice(idx, 1);
+    _scmRenderChips();
+  };
+
+  window._scmSaveEditor = function(sid, role) {
+    const map = _scmGetMap();
+    if (!map[sid]) map[sid] = { customers: [], suppliers: [] };
+    map[sid][role] = [...new Set(_scmPending)];
     _scmSetMap(map);
+    document.getElementById('scmEditorOverlay')?.remove();
     _renderChainRadar(document.getElementById('stockTwNewsList'));
   };
 
@@ -74933,12 +75022,12 @@ function _updateOpGuide() {
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:4px;">
           <span style="color:var(--fg3);">客戶：</span>
           ${rel.customers.length ? rel.customers.map(id => `<span style="background:rgba(220,38,38,.12);color:#dc2626;padding:2px 8px;border-radius:10px;">${_scmLookupName(id)} ${id}</span>`).join('') : '<span style="color:var(--fg3);">（未設定）</span>'}
-          <button onclick="_scmEditRelations('customers')" style="font-size:0.6rem;padding:2px 8px;border-radius:6px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;">✏️ 編輯</button>
+          <button onclick="_scmOpenEditor('customers')" style="font-size:0.6rem;padding:2px 8px;border-radius:6px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;">✏️ 編輯</button>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <span style="color:var(--fg3);">供應商：</span>
           ${rel.suppliers.length ? rel.suppliers.map(id => `<span style="background:rgba(5,150,105,.12);color:#059669;padding:2px 8px;border-radius:10px;">${_scmLookupName(id)} ${id}</span>`).join('') : '<span style="color:var(--fg3);">（未設定）</span>'}
-          <button onclick="_scmEditRelations('suppliers')" style="font-size:0.6rem;padding:2px 8px;border-radius:6px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;">✏️ 編輯</button>
+          <button onclick="_scmOpenEditor('suppliers')" style="font-size:0.6rem;padding:2px 8px;border-radius:6px;background:rgba(126,34,206,.12);color:#7e22ce;border:1px solid rgba(126,34,206,.3);cursor:pointer;">✏️ 編輯</button>
         </div>
         ${seedHtml}
         <div style="color:var(--fg3);margin-top:6px;font-size:0.58rem;">⚠️ 關聯是你自己標記的，系統不會自動推斷，資料存在瀏覽器本機（localStorage）。此系統只認台股代號，美股客戶/供應商無法追蹤。</div>
