@@ -15607,20 +15607,6 @@ a.module-nav-item.acc-active {
 .opp-item-chg.down { color: #dc2626; }
 .opp-item-sim { font-size: 0.6rem; color: var(--fg3); }
 
-/* 🇺🇸 美股熱力圖（v7.60） */
-.us-hm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
-.us-hm-sector { min-width: 0; }
-.us-hm-sector-title { font-size: 0.66rem; font-weight: 800; color: var(--fg2); margin-bottom: 4px; }
-.us-hm-sector-box { position: relative; width: 100%; border-radius: 6px; overflow: hidden; background: var(--bg2); }
-.us-hm-tile {
-  position: absolute; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.35);
-  overflow: hidden; cursor: pointer; padding: 3px 5px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.35);
-  transition: filter 0.15s;
-}
-.us-hm-tile:hover { filter: brightness(1.15); z-index: 2; }
-.us-hm-name { font-size: 0.62rem; font-weight: 800; line-height: 1.2; }
-.us-hm-chg  { font-size: 0.58rem; font-weight: 700; opacity: 0.92; }
-
 /* 壓力結論 */
 .opp-verdict {
   padding: 10px 14px;
@@ -16944,6 +16930,24 @@ a.module-nav-item.acc-active {
         <div class="vd-main">⏳ 正在抓取全球市場數據...</div>
       </div>
 
+      <!-- 🇺🇸 美股熱力圖（v7.61：併入開盤壓力表，不再獨立開一張卡）——
+           風格比照XQ市場表現熱力圖：兩層squarify（先分11大類股區塊，區塊
+           大小=類股內權重總和，區塊內再依個股權重排方形樹狀圖），不是
+           單純等寬的CSS grid，才會有大小不一、比較像真正熱力圖的排版。 -->
+      <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+          <span style="font-size:0.9rem;">🇺🇸</span>
+          <span style="font-size:.78rem;font-weight:800;color:var(--fg);">美股熱力圖</span>
+          <span style="font-size:.6rem;color:var(--fg3);">11大類股・格子大小為粗略量級示意（非精確市值）</span>
+          <span id="usHmBadge" style="margin-left:auto;font-size:.62rem;font-weight:900;padding:3px 10px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</span>
+          <button onclick="fetchUSHeatmap()" style="font-size:.58rem;padding:3px 9px;border-radius:8px;background:rgba(30,64,175,.12);color:#1E40AF;border:1px solid rgba(30,64,175,.3);cursor:pointer;font-weight:700;">🔄 更新</button>
+        </div>
+        <div id="usHmBody">
+          <div style="padding:20px;text-align:center;color:var(--fg3);">⏳ 載入美股熱力圖中...</div>
+        </div>
+        <div style="font-size:.55rem;color:var(--fg3);margin-top:6px;">資料來源：Yahoo Finance・點擊個股可連往 Yahoo Finance 查詢・僅供參考，非投資建議</div>
+      </div>
+
       <!-- Token 提醒條 -->
       <div id="oppTokenReminder" style="
         margin-top:10px; padding:9px 14px;
@@ -16965,25 +16969,6 @@ a.module-nav-item.acc-active {
           margin-left:auto; background:none; border:none; color:#a16207;
           font-size:1rem; cursor:pointer; flex-shrink:0;" title="關閉提醒">✕</button>
       </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════
-         🇺🇸 美股熱力圖（v7.60）— 放在開盤壓力表旁邊，11大類股一眼看盤面
-    ══════════════════════════════════════════════════ -->
-    <div id="usHmCard" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(30,64,175,.06));border:1.5px solid rgba(30,64,175,.2);border-radius:14px;padding:16px;">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
-        <span style="font-size:1.3rem;">🇺🇸</span>
-        <div style="flex:1;">
-          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">美股熱力圖</div>
-          <div style="font-size:.62rem;color:var(--fg3);">11大類股・格子大小為粗略量級示意（非精確市值）・格子越大代表越具代表性的龍頭股</div>
-        </div>
-        <span id="usHmBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</span>
-        <button onclick="fetchUSHeatmap()" style="font-size:.62rem;padding:4px 10px;border-radius:8px;background:rgba(30,64,175,.12);color:#1E40AF;border:1px solid rgba(30,64,175,.3);cursor:pointer;font-weight:700;">🔄 更新</button>
-      </div>
-      <div class="us-hm-grid" id="usHmBody">
-        <div style="padding:20px;text-align:center;color:var(--fg3);grid-column:1/-1;">⏳ 載入美股熱力圖中...</div>
-      </div>
-      <div style="font-size:.55rem;color:var(--fg3);margin-top:8px;">資料來源：Yahoo Finance・點擊個股可連往 Yahoo Finance 查詢・僅供參考，非投資建議</div>
     </div>
 
     <!-- ══════════════════════════════════════════════════
@@ -54003,45 +53988,64 @@ function _renderUSHeatmap(results) {
   const body = document.getElementById('usHmBody');
   if (!body) return;
 
-  const sectorNames = Object.keys(US_HEATMAP_DB);
-  const sectorHtml = sectorNames.map(secName => {
-    const stocks = US_HEATMAP_DB[secName]
+  // v7.61：改用跟台股熱力圖(renderHeatmapTiles)同一套「兩層squarify」排法，
+  // 不是各板塊各自等寬排一列——先把11大類股本身也丟進squarify（區塊大小=
+  // 類股內個股權重總和），排出像XQ那種大小不一、有機分佈的板塊區塊，
+  // 每個板塊區塊裡再對個股做第二層squarify。單位全程用px，不用再另外換算%。
+  const sectorGroups = Object.entries(US_HEATMAP_DB).map(([secName, list]) => {
+    const stocks = list
       .map(([ticker, name, weight]) => {
         const d = results[ticker];
         if (!d) return null;
         return { ticker, name, value: weight, chg: d.chg, price: d.price };
       })
       .filter(Boolean);
-    if (stocks.length === 0) return '';
+    return { secName, stocks, value: stocks.reduce((s,x)=>s+x.value, 0) };
+  }).filter(g => g.stocks.length > 0);
 
-    // 每個板塊自己起一個小方形樹狀圖（寬高用板塊內權重總和的平方根粗略抓比例，
-    // 不用整張圖統一 squarify，這樣板塊之間才能像原圖一樣分區塊排列）
-    const totalW = stocks.reduce((s,x)=>s+x.value, 0) || 1;
-    const boxH = Math.max(90, Math.min(220, Math.sqrt(totalW) * 34));
-    // _squarify 是用「同一套單位」比較長寬比才會排出方正的格子，這裡寬用%高用px
-    // 單位不一致會讓演算法誤判，所以先用一個跟高度同單位的參考寬度(3:1概略比例)
-    // 餵給 _squarify，排完再換算回百分比給 CSS 用。
-    const W_REF = boxH * 3;
-    const tiles = _squarify(stocks, 0, 0, W_REF, boxH);
+  if (sectorGroups.length === 0) {
+    body.innerHTML = '<div style="padding:20px;text-align:center;color:var(--fg3);">目前無法取得美股資料</div>';
+    return;
+  }
 
-    const tileHtml = tiles.map(t => {
-      const chgStr = t.chg >= 0 ? `+${t.chg.toFixed(2)}%` : `${t.chg.toFixed(2)}%`;
-      const leftPct = t.x / W_REF * 100, widthPct = t.w / W_REF * 100;
-      const showText = widthPct > 9 && t.h > 20; // 太小的格子不塞文字，避免爆版
-      return `<div class="us-hm-tile" style="left:${leftPct}%;top:${t.y}px;width:${widthPct}%;height:${t.h}px;background:${_usHmColor(t.chg)};"
+  const W = body.clientWidth || 900, H = 480;
+  const groupRects = _squarify(sectorGroups, 0, 0, W, H);
+
+  let html = `<div style="position:relative;width:100%;height:${H}px;border-radius:8px;overflow:hidden;background:var(--bg2);">`;
+  groupRects.forEach(g => {
+    if (g.w < 2 || g.h < 2) return;
+    const titleH = 15;
+    const innerPad = 2;
+    const stockRects = _squarify(g.stocks, g.x+innerPad, g.y+innerPad+titleH, Math.max(g.w-innerPad*2,1), Math.max(g.h-innerPad*2-titleH,1));
+
+    if (g.w > 40 && g.h > 22) {
+      html += `<div style="position:absolute;left:${g.x}px;top:${g.y}px;width:${g.w}px;height:${titleH}px;
+        font-size:10px;font-weight:800;color:var(--fg2);padding-left:3px;overflow:hidden;white-space:nowrap;">${g.secName}</div>`;
+    }
+    stockRects.forEach(t => {
+      if (t.w < 1 || t.h < 1) return;
+      const chgStr = (t.chg>=0?'+':'') + t.chg.toFixed(2) + '%';
+      const showFull = t.w > 46 && t.h > 28;
+      const showCode = !showFull && t.w > 18 && t.h > 14;
+      let inner = '';
+      if (showFull) {
+        inner = `<div style="font-size:${Math.min(13, t.w/6)}px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);white-space:nowrap;">${t.ticker}</div>
+          <div style="font-size:${Math.min(11, t.w/7)}px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);opacity:.92;">${chgStr}</div>`;
+      } else if (showCode) {
+        inner = `<div style="font-size:${Math.max(6, Math.min(9, t.w/4))}px;font-weight:700;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.35);line-height:1.1;white-space:nowrap;overflow:hidden;">${t.ticker}</div>`;
+      }
+      html += `<div onclick="window.open('https://finance.yahoo.com/quote/${t.ticker}','_blank')"
         title="${t.name} (${t.ticker})  ${chgStr}  $${t.price?.toFixed(2)??'—'}"
-        onclick="window.open('https://finance.yahoo.com/quote/${t.ticker}','_blank')">
-        ${showText ? `<div class="us-hm-name">${t.ticker}</div><div class="us-hm-chg">${chgStr}</div>` : ''}
+        style="position:absolute;left:${t.x}px;top:${t.y}px;width:${t.w}px;height:${t.h}px;
+        background:${_usHmColor(t.chg)};border:1px solid var(--bg2);box-sizing:border-box;cursor:pointer;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:filter .15s;"
+        onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter='none'">
+        ${inner}
       </div>`;
-    }).join('');
-
-    return `<div class="us-hm-sector">
-      <div class="us-hm-sector-title">${secName}</div>
-      <div class="us-hm-sector-box" style="height:${boxH}px;">${tileHtml}</div>
-    </div>`;
-  }).join('');
-
-  body.innerHTML = sectorHtml || '<div style="padding:20px;text-align:center;color:var(--fg3);">目前無法取得美股資料</div>';
+    });
+  });
+  html += '</div>';
+  body.innerHTML = html;
 }
 
 // ── 啟動海選 ──
