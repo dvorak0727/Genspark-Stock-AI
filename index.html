@@ -69458,13 +69458,24 @@ const INDICATOR_TIP_DB = {
   });
 
   // 觸控：點一下顯示
+  // v7.59修復：這支是給「只是說明文字、沒有其他動作」的資訊圖示（如?小圖示）用的，
+  // 但因為沒有排除「本身就是按鈕、點下去有自己實際動作」的元素，導致像震央卡片
+  // 「K線型態/法人申報/五大券商」這幾顆按鈕，點下去該做的捲動/開彈窗有做，
+  // 但緊接著這裡又跳出一則多餘的提示文字蓋過去，使用者以為按鈕沒反應。
+  // 修法：按鈕/連結類元素（本身有 onclick 或是 <button>/<a>）交給它自己的
+  // onclick 處理，這裡的提示文字只服務真正「純資訊、沒有其他動作」的元素。
   document.addEventListener('click', e => {
     const el = e.target.closest('[data-tip]');
     if (el) {
+      const isActionable = el.tagName === 'BUTTON' || el.tagName === 'A' || el.hasAttribute('onclick');
+      if (isActionable) return;
       const raw = el.dataset.tip;
       if (!raw) return;
       const tip = parseTip(raw);
-      showEpicToast(`${tip.title || raw}\n${tip.body || ''}`, '#3730A3');
+      // 順手修掉另一個小bug：title為空時原本會把raw同時塞進title跟body，
+      // 顯示出來變成同一句話重複兩次。
+      const toastMsg = tip.title ? `${tip.title}\n${tip.body || ''}` : (tip.body || raw);
+      showEpicToast(toastMsg, '#3730A3');
     }
   }, { capture: false });
 })();
