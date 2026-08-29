@@ -35737,9 +35737,14 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
     ? 'https://tw.stock.yahoo.com/quote/' + curStockId + '/news'
     : 'https://tw.stock.yahoo.com/quote/' + epicLeader + '/news';
   const _urlCnyes   = 'https://news.cnyes.com/news/id/search?keyword=' + encodeURIComponent(stockQuery);
+  // v7.65修復：舊版MOPS的 /mops/web/t05sr01_1?...co_id=xxx 這種URL格式已經失效
+  // （MOPS改版成SPA後，這條路由直接回應「因為安全性考量，您所執行的頁面無法呈現」，
+  // 不管有沒有帶co_id都一樣，等於完全沒有真的連到個股）。實際在新版MOPS網站手動搜尋
+  // 2330 才找到真正有效的個股頁面路由：/mops/#/web/t146sb05?companyId=xxx，
+  // 這頁本身就有該公司「近期發布之重大訊息」，包含法說會通知，直接連這裡最準。
   const _urlMops    = curStockId
-    ? 'https://mops.twse.com.tw/mops/web/t05sr01_1?encodeURIComponent=1&step=1&firstin=1&off=1&keyword4=&code1=&TYPEK2=&checkbtn=&queryName=co_id&inpuType=co_id&TYPEK=all&isnew=false&co_id=' + curStockId
-    : 'https://mops.twse.com.tw/mops/web/t57sb01_q1';
+    ? 'https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=' + curStockId
+    : 'https://mops.twse.com.tw/mops/#/web/home';
   const _urlSdog    = curStockId
     ? 'https://statementdog.com/analysis/' + curStockId
     : 'https://statementdog.com/analysis/' + epicLeader;
@@ -35988,9 +35993,12 @@ function epicNewsPopup(sectorName, keyword, ticker, btnEl) {
  */
 function epicIrPopup(ticker, sectorName, btnEl) {
   epicCloseAllPopups();
+  // v7.65修復：舊版 /mops/web/t57sb01_q1、/mops/web/t05sr01_1 這種URL格式已經失效
+  // （MOPS改版SPA後直接回應「安全性考量無法呈現」），改用新版有效的個股頁面路由，
+  // 且原本這兩顆完全沒帶ticker、根本連不到「代表股」本人，一起修掉。
+  var _mopsUrl = ticker ? 'https://mops.twse.com.tw/mops/#/web/t146sb05?companyId=' + ticker : 'https://mops.twse.com.tw/mops/#/web/home';
   var links = [
-    { icon: '🏛️', name: 'MOPS 法說會資料',     url: 'https://mops.twse.com.tw/mops/web/t57sb01_q1',                         desc: '公開資訊觀測站 — 法人說明會' },
-    { icon: '📊', name: 'MOPS 重訊查詢',        url: 'https://mops.twse.com.tw/mops/web/t05sr01_1',                          desc: '重大訊息/財報即時公告' },
+    { icon: '🏛️', name: 'MOPS 公司頁（法說會/重訊）', url: _mopsUrl,                                                          desc: ticker + ' 近期重大訊息，含法人說明會通知' },
     { icon: '🟡', name: 'Yahoo 法說新聞',       url: 'https://tw.stock.yahoo.com/quote/' + ticker + '/news',                 desc: ticker + ' 個股新聞與法說報導' },
     { icon: '🟠', name: '鉅亨 法說搜尋',        url: 'https://news.cnyes.com/search?keyword=' + encodeURIComponent(sectorName + ' 法說'),  desc: '法說會摘要報導' },
     { icon: '⚫', name: '財報狗 基本面',        url: 'https://statementdog.com/analysis/' + ticker,                          desc: 'EPS / 毛利率 / 營收趨勢' },
