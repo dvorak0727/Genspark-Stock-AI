@@ -74955,12 +74955,29 @@ function _updateOpGuide() {
       const matches = Object.entries(STOCK_DB).filter(([id, v]) =>
         id.includes(kw) || v.name.includes(q) || v.industry.includes(q)
       ).slice(0, 8);
-      if (!matches.length) { list.innerHTML = '<div class="ac-empty">查無符合的台股代號</div>'; list.classList.add('open'); return; }
-      list.innerHTML = matches.map(([id, v]) => `
-        <div class="ac-item" data-id="${id}">
-          <span class="ac-code">${id}</span><span class="ac-name">${v.name}</span><span class="ac-ind">${v.industry}</span>
-        </div>`).join('');
-      list.classList.add('open');
+      if (!matches.length) {
+        // v7.75：本站STOCK_DB沒有這家公司資料時，原本是死路一條（只能來問我
+        // 幫忙查證加進STOCK_DB）。現在只要輸入的是「純代號格式」（用左邊的
+        // Google連結先核對過），就能直接用代號加入——不知道公司名沒關係，
+        // _scmLookupName()本來就有「查不到就顯示代號本身」的備援邏輯，
+        // 不影響「抓相關新聞」的實際功能（新聞是用代號查的，不是用名稱）。
+        const isCodeFormat = /^\d{4,6}[A-Za-z]?$/.test(q);
+        if (isCodeFormat) {
+          list.innerHTML = `<div class="ac-item" data-id="${kw}" data-manual="1">
+            <span class="ac-code">${kw}</span>
+            <span class="ac-name" style="color:var(--fg3);">本站尚無公司名資料，直接用代號加入 ➕</span>
+          </div>`;
+        } else {
+          list.innerHTML = '<div class="ac-empty">查無符合結果——先點左邊Google連結核對正確股票代號，再直接輸入代號（純數字）即可加入</div>';
+        }
+        list.classList.add('open');
+      } else {
+        list.innerHTML = matches.map(([id, v]) => `
+          <div class="ac-item" data-id="${id}">
+            <span class="ac-code">${id}</span><span class="ac-name">${v.name}</span><span class="ac-ind">${v.industry}</span>
+          </div>`).join('');
+        list.classList.add('open');
+      }
       list.querySelectorAll('.ac-item').forEach(el => {
         el.addEventListener('mousedown', e => {
           e.preventDefault();
@@ -75067,7 +75084,7 @@ function _updateOpGuide() {
     `;
 
     if (allRelated.length === 0) {
-      listEl.innerHTML = editorHtml + '<div class="stock-us-news-empty">📭 還沒設定關聯公司，點上面「✏️ 編輯」手動加入，或點「🔍 幫我查」搜尋後自己判斷</div>';
+      listEl.innerHTML = editorHtml + '<div class="stock-us-news-empty">📭 還沒設定關聯公司，點「✏️ 編輯」開始加入：裡面可以直接搜尋台股公司名/代號，也有Google核對連結可以先查證是不是這家公司，確認後點一下就加入、按「💾 儲存」就存檔——不用再另外跑去問人。</div>';
       return;
     }
 
