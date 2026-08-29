@@ -47708,6 +47708,8 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
       console.log(`[v6.38 C3 Timeline] N=${N20} HHI_today=${_hArr.at(-1)} HHI_min=${Math.min(..._hArr).toFixed(3)}`);
     } catch(_c3e){ console.warn('[v6.38 C3]',_c3e.message); }
 
+  } catch(e){ console.warn('[v6.37 ChipNetwork]',e); } } // end removed block
+
     // ── v6.40 C4：籌碼共振矩陣 ──────────────────────────────
     try {
       // ── 取近期資料 ──
@@ -47957,7 +47959,6 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
       console.log(`[v6.40 C4 Resonance] total=${_c4total} inst=${_c4instPts} vp=${_c4vpPts} ma=${_c4maPts} macd=${_c4macdPts} state=${_c4state}`);
     } catch(_c4e){ console.warn('[v6.40 C4]',_c4e.message); }
 
-  } catch(e){ console.warn('[v6.37 ChipNetwork]',e); } } // end removed block
 
 }
 
