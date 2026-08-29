@@ -37191,7 +37191,7 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
       // B：外資賣＋投信買 ← 作帳出貨煙霧彈
       abcdState = 'B'; abcdIcon = '💀';
       abcdColor = '#991b1b'; abcdBg = 'rgba(220,38,38,0.10)';
-      abcdTitle = 'B — 等死（外資出貨中）';
+      abcdTitle = 'B — 外資出貨中';
       abcdDesc  = `外資持續賣超（5日${Math.round(f5).toLocaleString()}張），投信配合買進（5日+${Math.round(t5).toLocaleString()}張）拉高股價。這是「外資借投信作帳出貨」的經典結構——散戶追高後同時成為兩方的接盤對象。${marginDanger?'⚠️ 融資偏高'+marginEst+'%，斷頭風險疊加。':''}`;
       abcdAction = '🚨 不追高！現有持倉評估減碼，等待外資轉向再進場';
     } else if (fiDir < 0 && itDir <= 0 && !shortHigh) {
