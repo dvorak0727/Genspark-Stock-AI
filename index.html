@@ -29778,7 +29778,7 @@ a.module-nav-item.acc-active {
                 <li>📉 <b>跌幅閾值</b>：板塊平均跌幅 <code>&gt;-1.5%</code> 才算顯著震央；<code>-0.5%~-1%</code> 為雜訊區間</li>
                 <li>🔊 <b>量比放大</b>：成交量比 <code>&gt;1.5×</code> 平均量，代表有實質性拋售，而非程式自動換倉</li>
                 <li>🏦 <b>法人動向</b>：外資/投信淨賣超金額 <code>&gt;20億</code> 且集中在同一板塊，表示主動性調倉</li>
-                <li>⚡ <b>震波強度 S</b>：<code>(-avgChg×12) + (|totalFI|×0.8) + ((volRatio-1)×15)</code>，S&gt;20 為強震央</li>
+                <li>⚡ <b>震波強度 S</b>：<code>(-avgChg×12) + (max(0,-totalFI)×0.8) + ((volRatio-1)×15)</code>，S&gt;20 為強震央（v7.58：外資淨賣超才加分，淨買超不倒扣——因為外資還在買，比較像散戶洗盤/假摔，不是真的資金撤離）</li>
                 <li>📅 <b>持續天數</b>：震央連續 2 天以上出現在同一板塊，累積壓力才算確認</li>
               </ul>
               <div class="ks-formula" style="font-size:0.78rem;margin-top:8px;">
@@ -34940,28 +34940,45 @@ async function srFetchSectorData() {
   const allCodes = [...new Set(SR_SECTOR_DEF.flatMap(s => s.stocks))];
   const priceMap = {};
   const corrPriceMap = {};
+  const instMap = {}; // v7.58：code → 外資最新一日買賣超（股），供震央強度公式的第三因子用
   let fetchOK = 0;
 
   for (const code of allCodes) {
-    try {
-      const rows = await fetchFM('TaiwanStockPrice', code, start, end);
-      if (rows.length > 0) {
-        priceMap[code] = rows;
-        const lastDate = rows.at(-1).date;
-        if (!SR_LAST_DATE || lastDate > SR_LAST_DATE) SR_LAST_DATE = lastDate;
-        fetchOK++;
-        const lastP = parseFloat(rows.at(-1).close);
-        if (lastP > 0 && window._simBaseWrite) window._simBaseWrite(code, lastP);
-      }
-    } catch(e) {
-      console.warn('[SR] price', code, e.message);
+    // 價格/相關係數序列/外資買賣超 三個請求互不依賴，同一支代表股內平行拉，
+    // 只在「不同代表股之間」維持原本的循序（避免同時炸開太多請求觸發限流）。
+    const [priceRes, corrRes, instRes] = await Promise.allSettled([
+      fetchFM('TaiwanStockPrice', code, start, end),
+      fetchFM('TaiwanStockPrice', code, corrStart, end),
+      fetchFM('TaiwanStockInstitutionalInvestorsBuySell', code, start, end),
+    ]);
+
+    if (priceRes.status === 'fulfilled' && priceRes.value.length > 0) {
+      const rows = priceRes.value;
+      priceMap[code] = rows;
+      const lastDate = rows.at(-1).date;
+      if (!SR_LAST_DATE || lastDate > SR_LAST_DATE) SR_LAST_DATE = lastDate;
+      fetchOK++;
+      const lastP = parseFloat(rows.at(-1).close);
+      if (lastP > 0 && window._simBaseWrite) window._simBaseWrite(code, lastP);
+    } else {
+      if (priceRes.status === 'rejected') console.warn('[SR] price', code, priceRes.reason?.message);
       priceMap[code] = null;
     }
-    try {
-      const corrRows = await fetchFM('TaiwanStockPrice', code, corrStart, end);
-      if (corrRows.length > 0) corrPriceMap[code] = corrRows;
-    } catch(e) {
-      console.warn('[SR] corr price', code, e.message);
+
+    if (corrRes.status === 'fulfilled' && corrRes.value.length > 0) {
+      corrPriceMap[code] = corrRes.value;
+    } else if (corrRes.status === 'rejected') {
+      console.warn('[SR] corr price', code, corrRes.reason?.message);
+    }
+
+    // 外資買賣超：只取最新一個交易日的 Foreign_Investor 淨買賣（股），資料不足就跳過
+    // （免費 FinMind token 部分冷門股可能拉不到，優雅降級，不影響其他兩個因子）
+    if (instRes.status === 'fulfilled' && instRes.value.length > 0) {
+      const foreignRows = instRes.value.filter(r => r.name === 'Foreign_Investor');
+      if (foreignRows.length > 0) {
+        const last = foreignRows.at(-1);
+        instMap[code] = (+last.buy || 0) - (+last.sell || 0); // 股數，正=淨買 負=淨賣
+      }
     }
   }
 
@@ -34969,6 +34986,8 @@ async function srFetchSectorData() {
   const sectorData = {};
   for (const sec of SR_SECTOR_DEF) {
     const validResults = [];
+    let foreignNetNT = 0; // 板塊內所有代表股「外資淨買賣金額」加總（新台幣元，負值=淨賣超）
+    let hasForeignData = false;
     for (const code of sec.stocks) {
       const rows = priceMap[code];
       if (!rows || rows.length < 2) continue;
@@ -34977,6 +34996,11 @@ async function srFetchSectorData() {
       const avgVol5 = rows.slice(-6,-1).reduce((a,r)=>a+(+r.Trading_Volume||0),0)/5;
       const volRatio = avgVol5 > 0 ? (+last.Trading_Volume / avgVol5) : 1;
       validResults.push({ chg, volRatio });
+      // 外資買賣超原始單位是「股」，乘上當日收盤價換算成金額（新台幣元）才能跨個股加總比較
+      if (instMap[code] != null) {
+        foreignNetNT += instMap[code] * (+last.close);
+        hasForeignData = true;
+      }
     }
     if (validResults.length > 0) {
       const chg = validResults.reduce((a,r)=>a+r.chg,0) / validResults.length;
@@ -34987,12 +35011,16 @@ async function srFetchSectorData() {
       else if (chg <= -0.5) state = 'warn';
       else if (chg >= 0.5)  state = 'flow';
       else if (chg >= 0)    state = 'cold';
+      // v7.58：第三因子——外資淨賣超金額（億元）。只有「淨賣超」才加分，淨買超不倒扣，
+      // 因為「跌+量大但外資還在買」通常代表散戶洗盤/假摔，不該被當成外資撤離的證據。
+      const foreignSellYi = hasForeignData ? Math.max(0, -foreignNetNT / 1e8) : 0;
       const strength = Math.round(Math.max(0, Math.min(100,
-        (-chg * 12) + (Math.max(0, volRatio - 1) * 15)
+        (-chg * 12) + (Math.max(0, volRatio - 1) * 15) + (foreignSellYi * 0.8)
       )));
-      sectorData[sec.id] = { change:+chg.toFixed(2), volRatio:+volRatio.toFixed(2), state, strength };
+      sectorData[sec.id] = { change:+chg.toFixed(2), volRatio:+volRatio.toFixed(2), state, strength,
+        foreignSellYi: hasForeignData ? +foreignSellYi.toFixed(1) : null };
     } else {
-      sectorData[sec.id] = { change:0, volRatio:1, state:'neut', strength:0 };
+      sectorData[sec.id] = { change:0, volRatio:1, state:'neut', strength:0, foreignSellYi:null };
     }
   }
 
@@ -35165,7 +35193,10 @@ async function renderSectorRotation(stockId) {
   document.getElementById('srEpicName').textContent  = epicSec.name;
   const eChg = epicD?.change ?? 0;
   const eChgEl = document.getElementById('srEpicChg');
-  eChgEl.textContent = (eChg>0?'+':'')+eChg+'% · 震波強度 '+(epicD?.strength??0)+'分';
+  // v7.58：震波強度已含外資淨賣超因子，有資料時順便顯示金額，讓使用者看得到「為什麼」分數這麼高
+  const fsYi = epicD?.foreignSellYi;
+  const fsTxt = (fsYi != null && fsYi > 0.5) ? ('（含外資淨賣'+fsYi.toFixed(1)+'億）') : '';
+  eChgEl.textContent = (eChg>0?'+':'')+eChg+'% · 震波強度 '+(epicD?.strength??0)+'分'+fsTxt;
   eChgEl.className = 'sr-panel-chg ' + (eChg>0?'up':eChg<0?'dn':'flat');
   document.getElementById('srEpicBadge').textContent = epicD?.change < -1.5 ? '🚨 強震' : '🎯 震央';
 
