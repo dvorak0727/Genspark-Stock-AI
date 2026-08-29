@@ -2076,7 +2076,8 @@ function renderTargetStocks(){
       const sc = tab==='avoid'?'#E8343A':tab==='watch'?'#D97706':'#16A34A';
       const tagsHtml = (t.tags||[]).map(tag=>`<span class="ts-tag ${tag.c}">${tag.t}</span>`).join('');
       return `
-      <div class="ts ${rc}">
+      <div class="ts ${rc}" onclick="window.open('index.html?stock=${t.code}','_blank')"
+           style="cursor:pointer;" title="點擊查看 ${t.name}(${t.code}) 完整分析">
         <div class="ts-rank">${re}</div>
         <div class="ts-code">${t.code}</div>
         <div class="ts-info">

@@ -69911,6 +69911,21 @@ document.addEventListener('DOMContentLoaded', function _onDOMReady() {
       } catch(e) { console.log('[KS-CLICK-TEST] error=' + e.message); }
     }, 500);
   } catch(e) { console.log('[KS-DIAG] error=' + e.message); }
+
+  // 10. v7.68：從網址帶入 ?stock=股票代號 自動查詢（給板塊輪動偵測器v3.0
+  // 這種外部站台的個股卡片點擊「跳到本站查看該股」用，避免使用者還要
+  // 自己複製代號手動貼上查詢）
+  try {
+    const _autoStock = new URLSearchParams(location.search).get('stock');
+    if (_autoStock && _autoStock.trim()) {
+      setTimeout(() => {
+        try {
+          const inp = document.getElementById('searchInput');
+          if (inp) { inp.value = _autoStock.trim().toUpperCase(); startAnalysis(); }
+        } catch(e) { console.warn('[自動查詢]', e.message); }
+      }, 300);
+    }
+  } catch(e) {}
 });
 
 // ══════════════════════════════════════════════════════════════
