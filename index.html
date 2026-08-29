@@ -39453,7 +39453,12 @@ async function _fetchBrokerData(stockId, days = 20) {
   const startDate = new Date(); startDate.setDate(endDate.getDate() - days * 2);
   const fmt = d => d.toISOString().slice(0,10);
 
-  try {
+  // v7.67：海選券商囤貨模式一次序列掃描幾十檔，容易撞到FinMind Sponsor方案的
+  // 短時間流量限制，某幾檔request失敗就整檔悄悄退回模擬資料——使用者看畫面
+  // 完全看不出來是「真的沒資料」還是「剛好被限流」。這裡改成失敗先重試一次
+  // （間隔800ms，讓限流冷卻），還是失敗才真的退回模擬，並把失敗原因記在
+  // 回傳值裡（reason），讓「⚡模擬資料」標籤能顯示滑鼠移上去的真正原因。
+  async function _attempt() {
     if (!token) throw new Error('未設定 FinMind Token（分點資料需付費方案）');
     const url = `https://finmind-broker-proxy.dvorak0727.workers.dev/?data_id=${stockId}&start_date=${fmt(startDate)}&end_date=${fmt(endDate)}&token=${encodeURIComponent(token)}`;
     const r = await fetch(url);
@@ -39470,13 +39475,23 @@ async function _fetchBrokerData(stockId, days = 20) {
       buy: Math.round((+d.buy || 0) / 1000),
       sell: Math.round((+d.sell || 0) / 1000),
     }));
-    if (rows.length > 5) return { rows, live: true };
+    if (rows.length > 5) return rows;
     throw new Error('insufficient data');
-  } catch(e) {
-    // 模擬資料：鴻海 2317 近 20 日主力分點
-    console.warn('[博弈矩陣] 使用模擬資料', e.message);
-    return { rows: _genSimBrokerData(stockId, days), live: false };
   }
+
+  let lastErr = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const rows = await _attempt();
+      return { rows, live: true };
+    } catch (e) {
+      lastErr = e;
+      if (attempt === 0) await new Promise(res => setTimeout(res, 800)); // 給限流冷卻時間再試一次
+    }
+  }
+  // 兩次都失敗才真的退回模擬資料
+  console.warn('[博弈矩陣] 使用模擬資料', lastErr?.message);
+  return { rows: _genSimBrokerData(stockId, days), live: false, reason: lastErr?.message || '未知原因' };
 }
 
 // ── 模擬券商資料產生器（v6.21e：修復 window.LARGE_IDS 未掛載問題，改用內嵌 Set）─
@@ -55452,7 +55467,7 @@ const SCREENER_MODE_META = {
 async function calcBrokerHoardScore(stockId) {
   const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _brokerRaw:null };
   try {
-    const { rows, live } = await _fetchBrokerData(stockId, 30);
+    const { rows, live, reason } = await _fetchBrokerData(stockId, 30);
     if (!rows || rows.length === 0) return EMPTY;
 
     // 依日期排序（舊→新）
@@ -55544,6 +55559,7 @@ async function calcBrokerHoardScore(stockId) {
       tCons:   Math.round(avgConc * 100),
       _brokerRaw:  sorted,
       _live:       live,
+      _liveReason: reason || null,
     };
   } catch(e) {
     console.warn('[broker screener]', stockId, e.message);
@@ -60551,7 +60567,11 @@ function _scQuickBroker(stockId, triggerEl) {
   // ── 連買天數 & 集中度標籤 ──
   const _streak   = r.fCons || 0;
   const _concPct  = r.tCons || 0;
-  const _liveTag  = r._live ? '<span style="color:#86efac;font-size:0.6rem;">✓ 真實資料</span>' : '<span style="color:#f59e0b;font-size:0.6rem;">⚡ 模擬資料</span>';
+  // v7.67：模擬資料標籤加上滑鼠移上去可看到「為什麼」退回模擬（例如被限流、
+  // 該股近期資料不足等），不用再猜是Token沒設定還是暫時性問題
+  const _liveTag  = r._live
+    ? '<span style="color:#86efac;font-size:0.6rem;">✓ 真實資料</span>'
+    : `<span style="color:#f59e0b;font-size:0.6rem;" title="${r._liveReason || '未知原因'}">⚡ 模擬資料 ⓘ</span>`;
   const _statusBar = `<div style="display:flex;gap:8px;font-size:0.61rem;margin:3px 0 5px;flex-wrap:wrap;align-items:center;">
     ${_streak >= 4 ? `<span style="color:#22c55e;font-weight:700;">主力連買${_streak}日</span>` : `<span style="color:var(--fg3);">連買${_streak}日</span>`}
     ${_concPct >= 55 ? `<span style="color:#f97316;font-weight:700;">集中度${_concPct}%</span>` : `<span style="color:var(--fg3);">集中度${_concPct}%</span>`}
