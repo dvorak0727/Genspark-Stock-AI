@@ -302,6 +302,15 @@ export default {
         // v7.56：總經層（macro）指標 — VIX恐慌指數、10年期公債殖利率、
         // 13週(3個月)國庫券殖利率（10Y-3M利差是常用的殖利率曲線倒掛/衰退指標）
         "^VIX", "^TNX", "^IRX",
+        // v7.60：美股熱力圖（11大GICS類股代表股），跟開盤壓力表放一起
+        "ORCL", "CRM", "ADBE", "CSCO", "NOW",
+        "BRK-B", "V", "MA", "BAC", "WFC", "MS", "C", "AXP",
+        "HD", "MCD", "NKE", "BKNG",
+        "WMT", "COST", "PG", "KO", "PEP",
+        "LLY", "UNH", "JNJ", "ABBV", "MRK", "PFE",
+        "GE", "CAT", "HON", "UNP", "RTX",
+        "COP", "LIN", "APD", "NEE", "DUK", "PLD", "AMT",
+        "NFLX", "TMUS",
       ]);
       const ticker = url.searchParams.get("ticker") || "";
       if (!YAHOO_TICKERS.has(ticker)) {

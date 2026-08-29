@@ -15607,6 +15607,20 @@ a.module-nav-item.acc-active {
 .opp-item-chg.down { color: #dc2626; }
 .opp-item-sim { font-size: 0.6rem; color: var(--fg3); }
 
+/* 🇺🇸 美股熱力圖（v7.60） */
+.us-hm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
+.us-hm-sector { min-width: 0; }
+.us-hm-sector-title { font-size: 0.66rem; font-weight: 800; color: var(--fg2); margin-bottom: 4px; }
+.us-hm-sector-box { position: relative; width: 100%; border-radius: 6px; overflow: hidden; background: var(--bg2); }
+.us-hm-tile {
+  position: absolute; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.35);
+  overflow: hidden; cursor: pointer; padding: 3px 5px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  transition: filter 0.15s;
+}
+.us-hm-tile:hover { filter: brightness(1.15); z-index: 2; }
+.us-hm-name { font-size: 0.62rem; font-weight: 800; line-height: 1.2; }
+.us-hm-chg  { font-size: 0.58rem; font-weight: 700; opacity: 0.92; }
+
 /* 壓力結論 */
 .opp-verdict {
   padding: 10px 14px;
@@ -16951,6 +16965,25 @@ a.module-nav-item.acc-active {
           margin-left:auto; background:none; border:none; color:#a16207;
           font-size:1rem; cursor:pointer; flex-shrink:0;" title="關閉提醒">✕</button>
       </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         🇺🇸 美股熱力圖（v7.60）— 放在開盤壓力表旁邊，11大類股一眼看盤面
+    ══════════════════════════════════════════════════ -->
+    <div id="usHmCard" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(15,23,42,.04),rgba(30,64,175,.06));border:1.5px solid rgba(30,64,175,.2);border-radius:14px;padding:16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;">
+        <span style="font-size:1.3rem;">🇺🇸</span>
+        <div style="flex:1;">
+          <div style="font-size:.82rem;font-weight:900;color:var(--fg);">美股熱力圖</div>
+          <div style="font-size:.62rem;color:var(--fg3);">11大類股・格子大小為粗略量級示意（非精確市值）・格子越大代表越具代表性的龍頭股</div>
+        </div>
+        <span id="usHmBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</span>
+        <button onclick="fetchUSHeatmap()" style="font-size:.62rem;padding:4px 10px;border-radius:8px;background:rgba(30,64,175,.12);color:#1E40AF;border:1px solid rgba(30,64,175,.3);cursor:pointer;font-weight:700;">🔄 更新</button>
+      </div>
+      <div class="us-hm-grid" id="usHmBody">
+        <div style="padding:20px;text-align:center;color:var(--fg3);grid-column:1/-1;">⏳ 載入美股熱力圖中...</div>
+      </div>
+      <div style="font-size:.55rem;color:var(--fg3);margin-top:8px;">資料來源：Yahoo Finance・點擊個股可連往 Yahoo Finance 查詢・僅供參考，非投資建議</div>
     </div>
 
     <!-- ══════════════════════════════════════════════════
@@ -53871,6 +53904,146 @@ function _hmRtSetEnabled(on) {
 
 function hmRtToggle() { _hmRtSetEnabled(!_hmRtOn); }
 
+// ══════════════════════════════════════════════════
+//  🇺🇸 美股熱力圖（v7.60）— 放在開盤壓力表旁邊
+//  重用台股熱力圖的 _squarify() 方形樹狀圖演算法，只是換一批美股代號、
+//  換成美股慣例的配色（綠漲紅跌，跟台股熱力圖的紅漲綠跌相反）。
+//  沒有市值API可用（Yahoo chart端點不回傳市值），tile大小改用「粗略量級」
+//  權重代替，權重是手動估的相對大小（讓NVDA/AAPL這種巨頭視覺上比較大），
+//  不是精確市值，卡片下方會註明。
+// ══════════════════════════════════════════════════
+const US_HEATMAP_DB = {
+  '資訊科技': [
+    ['NVDA','輝達',30],['AAPL','蘋果',28],['MSFT','微軟',27],['GOOGL','谷歌',18],
+    ['META','Meta',13],['AVGO','博通',11],['ORCL','甲骨文',6],['CRM','賽富時',3],
+    ['ADBE','奧多比',2],['CSCO','思科',2],['INTC','英特爾',1],['QCOM','高通',2],
+    ['AMD','超微',2],['TXN','德儀',2],['IBM','IBM',2],['NOW','ServiceNow',2],
+  ],
+  '金融': [
+    ['BRK-B','波克夏',9],['JPM','摩根大通',7],['V','Visa',6],['MA','萬事達',5],
+    ['BAC','美國銀行',3],['WFC','富國銀行',2],['GS','高盛',2],['MS','摩根士丹利',2],
+    ['C','花旗',1],['AXP','美國運通',2],
+  ],
+  '非日常生活消費品': [
+    ['AMZN','亞馬遜',22],['TSLA','特斯拉',11],['HD','家得寶',4],['MCD','麥當勞',2],
+    ['NKE','耐克',1],['BKNG','Booking',2],
+  ],
+  '日常消費品': [
+    ['WMT','沃爾瑪',7],['COST','好市多',4],['PG','寶僑',4],['KO','可口可樂',3],['PEP','百事',2],
+  ],
+  '醫療保健': [
+    ['LLY','禮來',8],['UNH','聯合健康',4],['JNJ','嬌生',4],['ABBV','艾伯維',3],
+    ['MRK','默克',2],['PFE','輝瑞',1],
+  ],
+  '工業': [
+    ['GE','奇異',2],['CAT','卡特彼勒',2],['HON','漢威聯合',1],['UNP','聯合太平洋',1],['RTX','雷神',2],
+  ],
+  '能源': [
+    ['XOM','埃克森美孚',5],['CVX','雪佛龍',3],['COP','康菲石油',1],
+  ],
+  '原材料': [
+    ['LIN','林德',2],['APD','空氣化工',1],
+  ],
+  '公用事業': [
+    ['NEE','新纪元能源',1],['DUK','杜克能源',1],
+  ],
+  '房地產': [
+    ['PLD','普洛斯',1],['AMT','美國電塔',1],
+  ],
+  '通訊服務': [
+    ['NFLX','網飛',3],['T','AT&T',1],['VZ','威訊',1],['TMUS','T-Mobile',2],
+  ],
+};
+
+let _usHmData = null; // 快取這次抓到的結果，供切換排序/週期重繪不用重打API
+
+function _usHmColor(chg) {
+  // 美股慣例：綠漲紅跌（跟台股熱力圖的_hmColor相反，不要共用）
+  const a = Math.min(1, Math.abs(chg) / 4); // ±4% 封頂到最深色
+  if (chg > 0.05)  return `rgba(22,163,74,${0.18 + a*0.62})`;   // 綠
+  if (chg < -0.05) return `rgba(220,38,38,${0.18 + a*0.62})`;  // 紅
+  return 'rgba(148,163,184,0.25)'; // 平盤：灰
+}
+
+async function fetchUSHeatmap() {
+  const badge = document.getElementById('usHmBadge');
+  const body  = document.getElementById('usHmBody');
+  if (!body) return;
+  if (badge) badge.textContent = '載入中';
+
+  // v7.60修復：_usProxyStatus 是全站共用的「電路斷路器」，只要之前任何一支美股
+  // （開盤壓力表/美股先行/這裡）有一檔請求失敗過，就會卡在'blocked'，之後所有
+  // fetchUSPrice() 呼叫都直接跳過網路請求、秒判失敗——包含跟這次失敗完全無關的
+  // 其他檔。熱力圖一次要打 60+ 檔，被卡住的機率遠高於其他功能，所以每次重新
+  // 載入熱力圖時主動重置，給它一次公平的重試機會（真的斷線的話還是會重新判定）。
+  _usProxyStatus = 'unknown';
+
+  const allTickers = Object.values(US_HEATMAP_DB).flat();
+  const results = {};
+  await Promise.all(allTickers.map(async ([ticker]) => {
+    try {
+      const d = await fetchUSPrice(ticker);
+      results[ticker] = d;
+    } catch (e) {
+      results[ticker] = null; // 單一檔失敗不影響其他檔，優雅降級
+    }
+  }));
+
+  const anyLive = Object.values(results).some(r => r);
+  _usHmData = results;
+  if (badge) {
+    badge.textContent = anyLive ? '✅ Yahoo Finance' : '⚠️ 暫時無法取得資料';
+    badge.style.background = anyLive ? 'rgba(5,150,105,0.12)' : 'rgba(220,38,38,0.12)';
+    badge.style.color = anyLive ? '#059669' : '#DC2626';
+  }
+  _renderUSHeatmap(results);
+}
+
+function _renderUSHeatmap(results) {
+  const body = document.getElementById('usHmBody');
+  if (!body) return;
+
+  const sectorNames = Object.keys(US_HEATMAP_DB);
+  const sectorHtml = sectorNames.map(secName => {
+    const stocks = US_HEATMAP_DB[secName]
+      .map(([ticker, name, weight]) => {
+        const d = results[ticker];
+        if (!d) return null;
+        return { ticker, name, value: weight, chg: d.chg, price: d.price };
+      })
+      .filter(Boolean);
+    if (stocks.length === 0) return '';
+
+    // 每個板塊自己起一個小方形樹狀圖（寬高用板塊內權重總和的平方根粗略抓比例，
+    // 不用整張圖統一 squarify，這樣板塊之間才能像原圖一樣分區塊排列）
+    const totalW = stocks.reduce((s,x)=>s+x.value, 0) || 1;
+    const boxH = Math.max(90, Math.min(220, Math.sqrt(totalW) * 34));
+    // _squarify 是用「同一套單位」比較長寬比才會排出方正的格子，這裡寬用%高用px
+    // 單位不一致會讓演算法誤判，所以先用一個跟高度同單位的參考寬度(3:1概略比例)
+    // 餵給 _squarify，排完再換算回百分比給 CSS 用。
+    const W_REF = boxH * 3;
+    const tiles = _squarify(stocks, 0, 0, W_REF, boxH);
+
+    const tileHtml = tiles.map(t => {
+      const chgStr = t.chg >= 0 ? `+${t.chg.toFixed(2)}%` : `${t.chg.toFixed(2)}%`;
+      const leftPct = t.x / W_REF * 100, widthPct = t.w / W_REF * 100;
+      const showText = widthPct > 9 && t.h > 20; // 太小的格子不塞文字，避免爆版
+      return `<div class="us-hm-tile" style="left:${leftPct}%;top:${t.y}px;width:${widthPct}%;height:${t.h}px;background:${_usHmColor(t.chg)};"
+        title="${t.name} (${t.ticker})  ${chgStr}  $${t.price?.toFixed(2)??'—'}"
+        onclick="window.open('https://finance.yahoo.com/quote/${t.ticker}','_blank')">
+        ${showText ? `<div class="us-hm-name">${t.ticker}</div><div class="us-hm-chg">${chgStr}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    return `<div class="us-hm-sector">
+      <div class="us-hm-sector-title">${secName}</div>
+      <div class="us-hm-sector-box" style="height:${boxH}px;">${tileHtml}</div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = sectorHtml || '<div style="padding:20px;text-align:center;color:var(--fg3);">目前無法取得美股資料</div>';
+}
+
 // ── 啟動海選 ──
 async function startScreener() {
   if (_demoBlockMultiStock()) return;
@@ -74199,6 +74372,8 @@ function _updateOpGuide() {
   setInterval(_updateOpGuide, 1000);
   // 壓力表：頁面載入後自動抓一次
   setTimeout(fetchOpeningPressure, 1200);
+  // 美股熱力圖：跟壓力表錯開時間點，避免同時炸開太多請求
+  setTimeout(() => { if (typeof fetchUSHeatmap === 'function') fetchUSHeatmap(); }, 1800);
   // Token 提醒：有 token 就隱藏
   function _checkTokenReminder() {
     const reminder = document.getElementById('oppTokenReminder');
