@@ -35865,8 +35865,6 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
 
   // ════ 層3：微觀確認 ════
   // 列出本板塊應查驗的個股層面確認項目
-  const mopsUrl    = 'https://mops.twse.com.tw/mops/web/ajax_t05st09';
-
   const microHtml =
     `<div style="margin-bottom:6px;font-size:0.69rem;">查個股確認震央是否真實（非雜訊）：</div>`
     + db.micro.map(m =>
@@ -35874,7 +35872,7 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
       ).join('')
     + `<div style="margin-top:7px;">`
     + `<button class="epic-tag micro" onclick="epicTagAction('tech','${epicLeader}','#techCard')" data-tip="跳至技術指標查看K線型態">🔍 K線型態</button>`
-    + `<button class="epic-tag micro" onclick="epicTagAction('mops','${epicLeader}','${mopsUrl}')" data-tip="MOPS 公開資訊觀測站 法人申報">💼 法人申報</button>`
+    + `<button class="epic-tag micro" onclick="epicIrPopup('${epicLeader}','${db.name}',this)" data-tip="MOPS 公開資訊觀測站 法人申報">💼 法人申報</button>`
     + `<button class="epic-tag micro" onclick="epicTagAction('bpc','${epicLeader}','#bpcCard')" data-tip="跳至五大券商籌碼解析">🏦 五大券商</button>`
     + `</div>`
     + `<div style="font-size:0.62rem;color:var(--fg3);margin-top:6px;">`
