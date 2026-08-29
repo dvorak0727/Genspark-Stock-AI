@@ -20695,6 +20695,10 @@ a.module-nav-item.acc-active {
       <div class="tl-header-title">下單清單</div>
       <div class="tl-header-sub">建倉記錄 · AI波段出場評分 · 訊號提醒</div>
     </div>
+    <button id="tlBulkUpdateBtn" onclick="tlBulkUpdate()" title="逐一重新查詢清單裡的每支股票，同步最新的階段跟出場評分"
+      style="margin-left:auto;font-size:.68rem;padding:6px 12px;border-radius:8px;background:rgba(37,99,235,.12);color:#2563EB;border:1px solid rgba(37,99,235,.3);cursor:pointer;font-weight:700;white-space:nowrap;flex-shrink:0;">
+      🔄 一鍵更新
+    </button>
   </div>
   <div class="tl-tabs">
     <button class="tl-tab active" id="tlTabOrder" onclick="tlSwitchTab('order')">📋 下單清單</button>
@@ -61669,13 +61673,57 @@ function tlAutoCheck(stockId) {
   }
   tlSave(arr);
   tlRenderOrders();
-  // 若高分 → toast 提醒
-  if (result.score >= 70) {
+  // 若高分 → toast 提醒（v7.62：result 現在可能是 null——只有階段更新、出場評分沒更新到
+  // 的情況也會走到這裡，加個判斷避免 result.score 在 null 上噴錯）
+  if (result && result.score >= 70) {
     const name = matches[0].stockName;
     showEpicToast(`🔴 ${name} 波段出場評分 ${result.score}分，建議留意減碼`, '#dc2626');
-  } else if (result.score >= 40) {
+  } else if (result && result.score >= 40) {
     showEpicToast(`🟡 ${matches[0].stockName} 出場評分 ${result.score}分，設移動停利`, '#d97706');
   }
+}
+
+// ── 一鍵更新：逐一重新查詢清單裡每支股票，同步階段+出場評分 ──
+// 直接重用 startAnalysis() 走完整套「抓資料→算指標→renderPhaseDetect→tlAutoCheck」
+// 的既有流程，不另外寫一套簡化版計算——上次的bug就是「兩套邏輯各算各的」導致
+// 對不起來，這裡刻意選擇「重跑一次真的分析」而不是走捷徑，確保跟個股頁看到的
+// 數字100%一致，代價是會依序閃過每支股票的畫面（有進度提示，跑完會切回原本股票）。
+async function tlBulkUpdate() {
+  const arr = tlLoad();
+  const ids = [...new Set(arr.map(r => r.stockId))];
+  if (!ids.length) { showEpicToast('下單清單是空的', '#d97706'); return; }
+
+  const btn = document.getElementById('tlBulkUpdateBtn');
+  const searchInput = document.getElementById('searchInput');
+  const origInputVal = searchInput?.value || '';
+  const origStockId  = window._currentStockId || '';
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+
+  let updated = 0, skipped = 0;
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    // Demo模式限制只能分析特定幾檔，其餘的直接跳過（避免startAnalysis內建的alert()
+    // 彈窗打斷整個迴圈——alert是同步阻塞的，迴圈裡跳出來使用者要一直按確定很煩）
+    if (typeof DEMO_MODE !== 'undefined' && DEMO_MODE && !DEMO_ALLOWED_STOCKS[id]) { skipped++; continue; }
+    if (btn) btn.textContent = `⏳ 更新中 ${i+1}/${ids.length}（${id}）`;
+    if (searchInput) searchInput.value = id;
+    try {
+      await startAnalysis();
+      await sleep(700); // startAnalysis() resolve時，內部120ms延遲的tlAutoCheck可能還沒跑完，多等一下
+      updated++;
+    } catch (e) {
+      console.warn('[下單清單一鍵更新]', id, e.message);
+    }
+  }
+
+  // 跑完後切回使用者原本在看的股票，不留在最後一檔上
+  if (searchInput) searchInput.value = origStockId || origInputVal;
+  if (origStockId) {
+    try { await startAnalysis(); } catch (e) { console.warn('[下單清單一鍵更新] 還原原股票失敗', e.message); }
+  }
+
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = '🔄 一鍵更新'; }
+  showEpicToast(`✅ 已更新 ${updated} 檔${skipped ? `（體驗版跳過${skipped}檔）` : ''}`, '#059669');
 }
 
 // ── 渲染下單清單 ──
