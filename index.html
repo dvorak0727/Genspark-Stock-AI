@@ -74843,6 +74843,11 @@ function _updateOpGuide() {
       suppliers: ['4772'], // 台灣特化（先進製程特殊氣體供應商）
       note: '客戶欄僅列有台股代號者，輝達/蘋果/博通/高通/超微/英特爾等美股大客戶無法在此系統追蹤',
     },
+    '2454': { // 聯發科（跟上面2330的關係互為鏡射，同一筆查證資料）
+      suppliers: ['2330'], // 台積電（晶圓代工廠）
+      customers: [],
+      note: '主要終端客戶（手機/平板品牌廠）多為美股或無公開台股代號，此系統無法追蹤',
+    },
   };
 
   function _scmGetMap() {
@@ -74911,7 +74916,10 @@ function _updateOpGuide() {
     const seed = SCM_SEED[sid];
     const seedHtml = seed ? `
         <div style="margin-top:6px;padding:6px 8px;background:rgba(37,99,235,.08);border-radius:6px;font-size:0.6rem;">
-          💡 查到參考資料：客戶 ${seed.customers.map(_scmLookupName).join('、')}、供應商 ${seed.suppliers.map(_scmLookupName).join('、')}
+          💡 查到參考資料：${[
+            seed.customers?.length ? `客戶 ${seed.customers.map(_scmLookupName).join('、')}` : '',
+            seed.suppliers?.length ? `供應商 ${seed.suppliers.map(_scmLookupName).join('、')}` : '',
+          ].filter(Boolean).join('、')}
           <button onclick="_scmAdoptSeed()" style="margin-left:6px;font-size:0.58rem;padding:1px 8px;border-radius:5px;background:#2563eb;color:#fff;border:none;cursor:pointer;">採用</button>
           <div style="color:var(--fg3);margin-top:2px;">${seed.note}</div>
         </div>` : '';
