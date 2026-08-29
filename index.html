@@ -33915,6 +33915,7 @@ const STOCK_DB = {
   '3711': { name:'日月光投控',  industry:'封測' },
   '6230': { name:'超豐',        industry:'封測' },
   '6239': { name:'力成',        industry:'封測' }, // WebSearch確認：力成科技，記憶體封測大廠
+  '4772': { name:'台特化',      industry:'特用化學品' }, // WebSearch確認：台灣特殊化學股份有限公司
   '2059': { name:'川湖',        industry:'工業機構' },
   '9910': { name:'豐泰',        industry:'鞋業製造' },
   '1303': { name:'南亞',        industry:'塑膠化工' },
@@ -56641,8 +56642,6 @@ async function _fetchAndRenderStockUsNews(dim) {
   try {
     // v6.25 修正：多查幾天緩衝 timezone 誤差（今日查2天，7日查9天，30日查31天）
     const days  = dim === 'today' ? 2 : dim === '7d' ? 9 : 32;
-    const endDt = new Date();
-    const stDt  = new Date(); stDt.setDate(stDt.getDate() - days);
     const fmt   = d => d.toISOString().slice(0,10);
     const token = window._userToken || TOKEN || '';
     const sid   = _sunCurrentStockId;
@@ -56654,15 +56653,26 @@ async function _fetchAndRenderStockUsNews(dim) {
 
     listEl.innerHTML = '<div class="stock-us-news-loading">⏳ 載入中…</div>';
 
-    // 查詢當前股票的 FinMind 新聞（帶 data_id，免費方案支援）
-    const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${sid}&start_date=${fmt(stDt)}&end_date=${fmt(endDt)}&token=${token}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const js = await res.json();
+    // v7.70修復：FinMind TaiwanStockNews 一次只回傳「一天」的新聞，同時帶
+    // start_date+end_date會直接400（見 _fetchStn 那邊同樣的修復註解），原本
+    // 這裡的寫法必定失敗，一律跳過真正相關的FinMind新聞。改成每天各打一次
+    // （只帶start_date），平行抓、結果合併。
+    const dayList = Array.from({length: days}, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - i); return fmt(d);
+    });
+    const perDay = await Promise.all(dayList.map(async (dstr) => {
+      try {
+        const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${sid}&start_date=${dstr}&token=${token}`;
+        const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (!r.ok) return [];
+        const js = await r.json();
+        return (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
+      } catch(e) { return []; }
+    }));
 
     // v6.25 修正：FinMind TaiwanStockNews 實際欄位對應
     // API 回傳欄位: stock_id, date, title, description, source, link
-    const allRaw = (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
+    const allRaw = perDay.flat();
 
     // ── 第一層：所有新聞（正規化欄位）──
     const allItems = allRaw.map(n => ({
@@ -74663,14 +74673,28 @@ function _updateOpGuide() {
     };
 
     // ① FinMind TaiwanStockNews（有 token 時最準）
+    // v7.70修復：FinMind這支資料集有個沒寫在正式文件的怪限制——一次只回傳「一天」
+    // 的新聞，只要同時帶了 end_date 參數就直接回400錯誤「the dataset TaiwanStockNews
+    // size is too large...end_date parameter need be none」。原本的寫法一律帶
+    // start_date+end_date（不管今日/7天/30天都帶），導致這條路徑100%必定失敗，
+    // 每次都直接跳過真正相關的FinMind新聞，退到品質較差的備援來源（甚至常常
+    // 連備援都抓不到，顯示「目前無相關台股新聞」）。
+    // 改成：每天各打一次（只帶 start_date，不帶 end_date），平行抓、結果合併。
     try {
-      const days = dim === 'today' ? 2 : dim === '7d' ? 9 : 32;
-      const end = new Date(), start = new Date(); start.setDate(start.getDate() - days);
+      const dayCount = dim === 'today' ? 1 : dim === '7d' ? 7 : 30;
       const fmt = d => d.toISOString().slice(0,10);
       const tok = localStorage.getItem('tsai_finmind_token') || window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '') || '';
-      const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${sid}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
-      const js  = await (await fetch(url, { signal: AbortSignal.timeout(10000) })).json();
-      const raw = (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
+      const dayList = Array.from({length: dayCount}, (_, i) => {
+        const d = new Date(); d.setDate(d.getDate() - i); return fmt(d);
+      });
+      const perDay = await Promise.all(dayList.map(async (dstr) => {
+        try {
+          const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${sid}&start_date=${dstr}&token=${tok}`;
+          const js  = await (await fetch(url, { signal: AbortSignal.timeout(10000) })).json();
+          return (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
+        } catch(e) { return []; }
+      }));
+      const raw = perDay.flat();
       items = raw.map(n => ({
         title:   n.title || n.description || '',
         date:    n.date_time || n.date || '',
@@ -74678,7 +74702,7 @@ function _updateOpGuide() {
         summary: n.description || '',
         source:  n.source || 'FinMind',
       })).filter(n => n.title.length > 3);
-      console.log('[STN] FinMind items=', items.length);
+      console.log('[STN] FinMind items=', items.length, `(${dayCount}日份)`);
     } catch(e) { console.warn('[STN] FinMind err', e?.message); }
 
     // ② 鉅亨網 API（台灣最大中文財經新聞，JSON 格式，無需解析 XML）
@@ -74925,12 +74949,21 @@ function _updateOpGuide() {
       const name = _scmLookupName(id);
       let items = [];
       try {
+        // v7.70修復：FinMind TaiwanStockNews 一次只回傳「一天」的新聞，同時帶
+        // start_date+end_date會直接400（詳見_fetchStn的修復註解），原本這裡
+        // 必定失敗，這也是使用者截圖看到「近7天無相關新聞」的真正原因。
+        // 輕量版維持只抓近3天（不是完整7天迴圈），每天各打一次不帶end_date。
         const tok = localStorage.getItem('tsai_finmind_token') || window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '') || '';
-        const end = new Date(), start = new Date(); start.setDate(start.getDate() - 9);
         const fmt = d => d.toISOString().slice(0,10);
-        const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
-        const js = await (await fetch(url, { signal: AbortSignal.timeout(9000) })).json();
-        const raw = (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
+        const dayList = [0,1,2].map(i => { const d = new Date(); d.setDate(d.getDate()-i); return fmt(d); });
+        const perDay = await Promise.all(dayList.map(async (dstr) => {
+          try {
+            const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${id}&start_date=${dstr}&token=${tok}`;
+            const js = await (await fetch(url, { signal: AbortSignal.timeout(9000) })).json();
+            return (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
+          } catch(e) { return []; }
+        }));
+        const raw = perDay.flat();
         items = raw.map(n => ({
           title: n.title || n.description || '', date: n.date_time || n.date || '',
           url: n.link || '', source: n.source || 'FinMind',
