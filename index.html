@@ -651,18 +651,6 @@
       filter: brightness(1.12);
     }
     .epic-tag:active { transform: translateY(0); }
-    /* 巨觀觀察快捷連結列 */
-    .epic-macro-quick-link {
-      display: inline-block; padding: 2px 8px; border-radius: 10px;
-      font-size: 0.60rem; font-weight: 600; text-decoration: none;
-      background: var(--surface2); color: var(--fg2);
-      border: 1px solid var(--border);
-      transition: all 0.15s; white-space: nowrap;
-    }
-    .epic-macro-quick-link:hover {
-      background: var(--accent-bg); color: var(--accent);
-      border-color: var(--accent); transform: translateY(-1px);
-    }
     .epic-tag.macro { background: rgba(37,99,235,0.12); color: #1D4ED8; border-color: rgba(37,99,235,0.25); }
     .epic-tag.data  { background: rgba(220,38,38,0.12);  color: #B91C1C; border-color: rgba(220,38,38,0.25); }
     .epic-tag.micro { background: rgba(5,150,105,0.12);  color: #065F46; border-color: rgba(5,150,105,0.25); }
@@ -35752,7 +35740,6 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
   const _urlMops    = curStockId
     ? 'https://mops.twse.com.tw/mops/web/t05sr01_1?encodeURIComponent=1&step=1&firstin=1&off=1&keyword4=&code1=&TYPEK2=&checkbtn=&queryName=co_id&inpuType=co_id&TYPEK=all&isnew=false&co_id=' + curStockId
     : 'https://mops.twse.com.tw/mops/web/t57sb01_q1';
-  const _urlMopsConf = 'https://mops.twse.com.tw/mops/web/t57sb01_q1';
   const _urlSdog    = curStockId
     ? 'https://statementdog.com/analysis/' + curStockId
     : 'https://statementdog.com/analysis/' + epicLeader;
@@ -35762,12 +35749,13 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
     ? 'https://www.twse.com.tw/zh/stock/trading/STOCK_DAY.html?stockNo=' + curStockId
     : '';
 
-  // 個股即時搜尋提示橫幅
-  const stockSearchBanner = curStockId ? `
+  // 個股即時搜尋提示橫幅（v7.64：原本跟下面「快捷直連列」重複放了Yahoo/鉅亨/財報狗
+  // 三顆一模一樣的連結，一個放上一個放下，整併成這一區，經濟部併進來、刪掉重複列）
+  const stockSearchBanner = `
     <div style="margin-bottom:8px;padding:7px 10px;border-radius:8px;
       background:linear-gradient(90deg,rgba(124,58,237,0.07),rgba(79,70,229,0.04));
       border:1px solid rgba(124,58,237,0.15);display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-      <span style="font-size:0.68rem;font-weight:900;color:#7C3AED;">🔍 ${curStockName}（${curStockId}）即時搜尋</span>
+      <span style="font-size:0.68rem;font-weight:900;color:#7C3AED;">🔍 ${curStockName||db.name}（${curStockId||epicLeader}）即時搜尋</span>
       <a href="${_urlYahoo}" target="_blank" rel="noopener noreferrer"
          style="font-size:0.62rem;font-weight:700;padding:3px 9px;border-radius:6px;
                 background:#FEF9C3;color:#713F12;border:1px solid #FDE047;text-decoration:none;white-space:nowrap;">
@@ -35788,7 +35776,11 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
          style="font-size:0.62rem;font-weight:700;padding:3px 9px;border-radius:6px;
                 background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;text-decoration:none;white-space:nowrap;">
          🟢 證交所成交</a>` : ''}
-    </div>` : '';
+      <a href="${_urlMoea}" target="_blank" rel="noopener noreferrer"
+         style="font-size:0.62rem;font-weight:700;padding:3px 9px;border-radius:6px;
+                background:#F0FDF4;color:#166534;border:1px solid #BBF7D0;text-decoration:none;white-space:nowrap;">
+         🟢 經濟部</a>
+    </div>`;
 
   const macroHtml = stockSearchBanner
     + `<div style="margin-bottom:6px;font-size:0.69rem;">以下為<b>${db.name}板塊</b>常見震央觸發事件，<br/>請查證當日新聞確認實際原因：</div>`
@@ -35809,9 +35801,10 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
          style="border-radius:0;border:none;padding:4px 6px;font-size:0.65rem;" title="更多新聞來源">▾</button>`
     + `</span>`
 
-    // ── 法說會：主連結 MOPS
+    // ── 法說會：主連結 MOPS（v7.64修復：改用個股專屬查詢_urlMops，原本用的
+    //    _urlMopsConf是完全沒帶股票代號的通用法說會首頁，等於沒串接到個股）
     + `<span style="display:inline-flex;border-radius:7px;overflow:hidden;border:1px solid rgba(37,99,235,0.3);flex-shrink:0;">`
-    + `<a href="${_urlMopsConf}" target="_blank" rel="noopener noreferrer"
+    + `<a href="${_urlMops}" target="_blank" rel="noopener noreferrer"
          style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;
                 font-size:0.68rem;font-weight:700;color:#1D4ED8;background:rgba(37,99,235,0.10);
                 text-decoration:none;white-space:nowrap;border-right:1px solid rgba(37,99,235,0.2);"
@@ -35833,14 +35826,10 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
          style="border-radius:0;border:none;padding:4px 6px;font-size:0.65rem;" title="更多政策來源">▾</button>`
     + `</span>`
 
-    + `</div>`
-    // 快捷直連列（補充資料）
-    + `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;">`
-    + `<a href="${_urlYahoo}" target="_blank" rel="noopener noreferrer" class="epic-macro-quick-link">🟡 Yahoo ${curStockId||epicLeader}</a>`
-    + `<a href="${_urlCnyes}" target="_blank" rel="noopener noreferrer" class="epic-macro-quick-link">🟠 鉅亨</a>`
-    + `<a href="${_urlSdog}"  target="_blank" rel="noopener noreferrer" class="epic-macro-quick-link">⚫ 財報狗</a>`
-    + `<a href="${_urlMoea}" target="_blank" rel="noopener noreferrer" class="epic-macro-quick-link">🟢 經濟部</a>`
     + `</div>`;
+    // v7.64：原本這裡還有一段「快捷直連列」，Yahoo/鉅亨/財報狗/經濟部四顆連結
+    // 跟最上面的即時搜尋橫幅一模一樣（只是經濟部沒有），整個是重複的，已經
+    // 把經濟部併進上面橫幅、這段重複的整段刪掉。
 
   document.getElementById('epicMacroContent').innerHTML = macroHtml;
 
