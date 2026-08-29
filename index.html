@@ -35730,7 +35730,10 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
   const _qStock     = encodeURIComponent(stockQuery + ' 股票');
   const _qNews      = encodeURIComponent(stockQuery + ' ' + macroKeyword + ' 台股');
   const _qIr        = encodeURIComponent(curStockId + ' 法說會 investor relations');
-  const _qPolicy    = encodeURIComponent(db.name + ' 半導體 政府政策 台灣');
+  // v7.66：原本這裡硬寫死「半導體」，不管當前是哪個板塊都查半導體政策，
+  // 是個沒人發現的bug（且宣告了卻沒真的被用到）。改用真正動態的板塊名稱，
+  // 並且真的接到「政策公告」按鈕的主連結上（見下面_urlPolicy）。
+  const _qPolicy    = encodeURIComponent((curStockName||db.name) + ' ' + db.name + ' 政策 法規 台灣');
 
   const _urlNews    = 'https://news.google.com/search?q=' + _qNews + '&hl=zh-TW&gl=TW';
   const _urlYahoo   = curStockId
@@ -35748,7 +35751,11 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
   const _urlSdog    = curStockId
     ? 'https://statementdog.com/analysis/' + curStockId
     : 'https://statementdog.com/analysis/' + epicLeader;
-  const _urlFsc     = 'https://www.fsc.gov.tw/ch/home.jsp?id=2&parentpath=0';
+  // v7.66：政策公告本質上是主管機關層級的東西（金管會/經濟部），不存在「個股專屬頁面」
+  // 這種東西，這點沒辦法像法說會那樣硬串接。退而求其次的作法：改成用Google新聞查詢
+  // 「個股名稱＋板塊名稱＋政策/法規」關鍵字，至少結果會跟這支股票/板塊比較相關，
+  // 不會只是點進去看到跟目前個股完全無關的機關公告首頁。
+  const _urlPolicy  = 'https://news.google.com/search?q=' + _qPolicy + '&hl=zh-TW&gl=TW';
   const _urlMoea    = 'https://www.moea.gov.tw/Mns/populace/news/News.aspx?kind=1';
   const _urlTwse    = curStockId
     ? 'https://www.twse.com.tw/zh/stock/trading/STOCK_DAY.html?stockNo=' + curStockId
@@ -35819,13 +35826,14 @@ function renderEpicenterReason(epicId, epicD, epicSec, rotDay, isLive) {
          style="border-radius:0;border:none;padding:4px 6px;font-size:0.65rem;" title="更多法說資料">▾</button>`
     + `</span>`
 
-    // ── 政策公告：主連結 金管會/經濟部
+    // ── 政策公告：主連結改成關鍵字查詢（v7.66，見上面_urlPolicy的說明——
+    //    政策公告本質上沒有個股專屬頁面，這是能做到「跟這支股票較相關」的極限）
     + `<span style="display:inline-flex;border-radius:7px;overflow:hidden;border:1px solid rgba(37,99,235,0.3);flex-shrink:0;">`
-    + `<a href="${_urlFsc}" target="_blank" rel="noopener noreferrer"
+    + `<a href="${_urlPolicy}" target="_blank" rel="noopener noreferrer"
          style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;
                 font-size:0.68rem;font-weight:700;color:#1D4ED8;background:rgba(37,99,235,0.10);
                 text-decoration:none;white-space:nowrap;border-right:1px solid rgba(37,99,235,0.2);"
-         title="金管會最新公告">
+         title="Google新聞 - ${curStockName||db.name} + ${db.name} 政策/法規">
          🏛️ 政策公告</a>`
     + `<button class="epic-tag macro" onclick="epicPolicyPopup('${db.name}',this)"
          style="border-radius:0;border:none;padding:4px 6px;font-size:0.65rem;" title="更多政策來源">▾</button>`
