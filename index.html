@@ -61644,9 +61644,29 @@ function tlAutoCheck(stockId) {
   const arr = tlLoad();
   const matches = arr.filter(r => r.stockId === stockId);
   if (!matches.length) return;
+
+  // v7.62修復：籌碼週期階段（吸籌/洗盤/啟動/拉升/出貨）原本只在「剛加入下單清單」
+  // 那一刻存一次，之後不管股票的階段實際上怎麼變化都不會再更新，導致下單清單顯示
+  // 的階段跟個股頁「籌碼週期階段診斷」（每次都即時算）長期對不上——使用者建倉當天
+  // 是洗盤期，過幾週股票已經拉升，下單清單卻還停在洗盤期的舊快照。這裡改成每次
+  // 重新查詢這支股票時，也順便用最新的 phaseIdx/phaseScores 同步更新，讓兩邊一致。
+  let phaseUpdated = false;
+  if (window._teachData?.phaseIdx && window._currentStockId === stockId) {
+    const phaseMap = { 1:'吸籌期', 2:'洗盤期', 3:'啟動期', 4:'拉升期', 5:'出貨期' };
+    const newPhase = phaseMap[window._teachData.phaseIdx];
+    const newProgress = _tlCalcPhaseProgress(window._teachData.phaseScores, window._teachData.phaseIdx);
+    if (newPhase) {
+      matches.forEach(r => { r.phase = newPhase; r.phaseScores = window._teachData.phaseScores; r.phaseProgress = newProgress; });
+      phaseUpdated = true;
+    }
+  }
+
   const result = tlComputeExitScore(stockId);
-  if (!result) return;
-  matches.forEach(r => { r.exitScore = result.score; r.signals = result.signals; r.lastChecked = new Date().toISOString().slice(0,10); });
+  if (result) {
+    matches.forEach(r => { r.exitScore = result.score; r.signals = result.signals; r.lastChecked = new Date().toISOString().slice(0,10); });
+  } else if (!phaseUpdated) {
+    return; // 出場評分跟階段都沒抓到新資料，維持原狀，不用重存/重渲染
+  }
   tlSave(arr);
   tlRenderOrders();
   // 若高分 → toast 提醒
