@@ -15585,9 +15585,13 @@ a.module-nav-item.acc-active {
 /* 指數格 */
 .opp-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  grid-template-columns: repeat(10, 1fr); /* v7.63：固定10欄一列，不要9+1自動換行 */
   gap: 8px;
   margin-bottom: 14px;
+}
+@media (max-width: 900px) {
+  /* 10欄在窄螢幕會擠到看不清楚，小尺寸還是讓它自動排版換行 */
+  .opp-grid { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
 }
 .opp-item {
   background: var(--surface2);
