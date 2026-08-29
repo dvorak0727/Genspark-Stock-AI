@@ -727,7 +727,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--fg);min-hei
         <div class="sec-sub">FinMind 真實收盤資料 · 以各板塊基準日標準化為 100</div>
       </div>
     </div>
-    <div class="echart-dark" style="height:280px;" id="trendChart"></div>
+    <div class="echart-dark" style="height:440px;" id="trendChart"></div>
   </div>
 
   <!-- MACD 六維度掃描 -->
@@ -2139,6 +2139,11 @@ function renderTrendChart(){
     },
     yAxis:{
       type:'value',
+      // v7.68：原本沒設 scale，echarts value軸預設會把0強制納入範圍，導致
+      // 板塊漲跌其實只在95~108之間波動，卻被硬塞進0~120的座標軸裡，
+      // 所有線幾乎黏在一起看不出差異。scale:true讓座標軸貼著實際資料範圍
+      // 縮放（不強制含0），差異會被拉開放大，才看得出板塊之間誰強誰弱。
+      scale: true,
       name:'基準=100',
       nameTextStyle:{color:'#475569',fontSize:9},
       axisLabel:{color:'#475569',fontSize:9},
