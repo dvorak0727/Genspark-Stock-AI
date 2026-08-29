@@ -37743,7 +37743,7 @@ async function fetchMarginReal(stockId, dates) {
     const endDate = new Date().toISOString().split('T')[0];
     const sd = new Date(); sd.setDate(sd.getDate() - 40);
     const startDate = sd.toISOString().split('T')[0];
-    const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockMarginPurchaseShortsale&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}${token?'&token='+token:''}`;
+    const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockMarginPurchaseShortsale&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}${token?'&token='+token:''}`;
     const resp = await fetch(url);
     if (!resp.ok) return;
     const json = await resp.json();
@@ -38226,7 +38226,7 @@ async function fetchOBIReal(stockId, dates) {
     // ══════════════════════════════════════════
     // 路徑 A：TaiwanStockMoneyFlow（日級金額比率）
     // ══════════════════════════════════════════
-    const urlMF = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockMoneyFlow&data_id=${stockId}&start_date=${start45}&end_date=${today}${token?'&token='+token:''}`;
+    const urlMF = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockMoneyFlow&data_id=${stockId}&start_date=${start45}&end_date=${today}${token?'&token='+token:''}`;
     console.log(`[v6.55 OBIReal] ${stockId} 路徑A MoneyFlow token=${token?'有':'無'}`);
 
     let mfSuccess = false;
@@ -38351,7 +38351,7 @@ async function fetchOBIReal(stockId, dates) {
     if (!mfSuccess && token) {
       console.log(`[v6.55 OBIReal] ${stockId} 路徑B TaiwanStockTick（逐筆，需token）`);
       try {
-        const urlTick = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockTick&data_id=${stockId}&start_date=${todayKey}&end_date=${todayKey}&token=${token}`;
+        const urlTick = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockTick&data_id=${stockId}&start_date=${todayKey}&end_date=${todayKey}&token=${token}`;
         const rTick = await fetch(urlTick);
         if (rTick.ok) {
           const jTick = await rTick.json();
@@ -41726,7 +41726,7 @@ async function autoFetchOBI() {
 
   try {
     const start = new Date(Date.now() - 5*86400000).toISOString().slice(0,10);
-    const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockMoneyFlow&data_id=${stockId}&start_date=${start}&end_date=${today}&token=${token}`;
+    const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockMoneyFlow&data_id=${stockId}&start_date=${start}&end_date=${today}&token=${token}`;
     const resp = await fetch(url);
     if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
     const json = await resp.json();
@@ -56655,7 +56655,7 @@ async function _fetchAndRenderStockUsNews(dim) {
     listEl.innerHTML = '<div class="stock-us-news-loading">⏳ 載入中…</div>';
 
     // 查詢當前股票的 FinMind 新聞（帶 data_id，免費方案支援）
-    const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockNews&data_id=${sid}&start_date=${fmt(stDt)}&end_date=${fmt(endDt)}&token=${token}`;
+    const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${sid}&start_date=${fmt(stDt)}&end_date=${fmt(endDt)}&token=${token}`;
     const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const js = await res.json();
@@ -67793,7 +67793,7 @@ const _etfHunterCache = {};
 async function _etfFetchHunterData(stockId) {
   if (_etfHunterCache[stockId]) return _etfHunterCache[stockId];
   const TOKEN = (()=>{try{return localStorage.getItem('tsai_finmind_token')||''}catch(e){return '';}})();
-  const base  = 'https://stock-api-214539875795.asia-east1.run.app';
+  const base  = 'https://license-worker.dvorak0727.workers.dev/finmind';
   const today = new Date().toISOString().split('T')[0];
   const from  = new Date(Date.now()-40*86400000).toISOString().split('T')[0];
 
@@ -70061,7 +70061,7 @@ async function chipLogFillFromCurrent() {
     const token = localStorage.getItem('fm_token') || '';
     const endDate = today;
     const startDate = (() => { const d2 = new Date(); d2.setDate(d2.getDate()-10); return d2.toISOString().split('T')[0]; })();
-    const marginUrl = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockMarginPurchaseShortsale&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}${token?'&token='+token:''}`;
+    const marginUrl = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockMarginPurchaseShortsale&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}${token?'&token='+token:''}`;
     console.log('[chipLog ④] 融資融券 URL:', marginUrl.replace(token, token?'***':'(no token)'));
     const marginResp = await fetch(marginUrl);
     console.log('[chipLog ④] HTTP status:', marginResp.status, marginResp.ok ? 'OK' : 'FAIL');
@@ -70113,7 +70113,7 @@ async function chipLogFillFromCurrent() {
     const endDate = today;
     // 拉90天確保至少有3~4個週更新點
     const startDate = (() => { const d2 = new Date(); d2.setDate(d2.getDate()-90); return d2.toISOString().split('T')[0]; })();
-    const holdUrl = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockHoldingSharesPer&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}${token?'&token='+token:''}`;
+    const holdUrl = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockHoldingSharesPer&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}${token?'&token='+token:''}`;
     console.log('[chipLog ⑥] 大戶散戶 URL:', holdUrl.replace(token, token?'***':'(no token)'));
     const holdResp = await fetch(holdUrl);
     console.log('[chipLog ⑥] HTTP status:', holdResp.status, holdResp.ok ? 'OK' : 'FAIL');
@@ -70943,14 +70943,14 @@ async function ctrl14Scan() {
 
     try {
       const token = getToken ? getToken() : '';
-      const url   = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${s.id}&start_date=${_ctrl14StartDate()}&token=${token}`;
+      const url   = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${s.id}&start_date=${_ctrl14StartDate()}&token=${token}`;
       const resp  = await fetch(url);
       const json  = await resp.json();
       if (json.status === 200 && json.data?.length) {
         const instRaw = json.data;
         const pct     = _calcCtrl14Pct(instRaw) ?? s.pct;
         // 同時算雙模式分數
-        const priceUrl = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockPrice&data_id=${s.id}&start_date=${_ctrl14StartDate()}&token=${token}`;
+        const priceUrl = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPrice&data_id=${s.id}&start_date=${_ctrl14StartDate()}&token=${token}`;
         const presp    = await fetch(priceUrl);
         const pjson    = await presp.json();
         let silentScore = null, chipScore = null;
@@ -71048,7 +71048,7 @@ async function _ctrl14CalcLiveBeta(allStocks, txtEl) {
   // 先取大盤（0050）近 60 日收盤
   let mktReturns = [];
   try {
-    const mktResp = await fetch(`https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockPrice&data_id=0050&start_date=${startD}&token=${token}`);
+    const mktResp = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPrice&data_id=0050&start_date=${startD}&token=${token}`);
     const mktJson = await mktResp.json();
     if (mktJson.status === 200 && mktJson.data?.length >= 10) {
       const closes = mktJson.data.map(r => ({ date: r.date, close: parseFloat(r.close) }))
@@ -71073,7 +71073,7 @@ async function _ctrl14CalcLiveBeta(allStocks, txtEl) {
       let stockReturns = [];
 
       // 嘗試用 instRaw 找到日期範圍，再拉 price
-      const pResp = await fetch(`https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockPrice&data_id=${s.id}&start_date=${startD}&token=${token}`);
+      const pResp = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPrice&data_id=${s.id}&start_date=${startD}&token=${token}`);
       const pJson = await pResp.json();
       if (pJson.status === 200 && pJson.data?.length >= 10) {
         const closes = pJson.data.map(r => ({ date: r.date, close: parseFloat(r.close) }))
@@ -74008,7 +74008,7 @@ async function macdScanAll() {
 
     try {
       // 1. 取股價
-      const priceUrl = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockPrice&data_id=${s.id}&start_date=${startDate}&token=${token}`;
+      const priceUrl = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPrice&data_id=${s.id}&start_date=${startDate}&token=${token}`;
       const pResp    = await fetch(priceUrl);
       const pJson    = await pResp.json();
 
@@ -74021,7 +74021,7 @@ async function macdScanAll() {
 
         // 3. 取法人資料（近 14 日即可）
         const instStart = new Date(); instStart.setDate(instStart.getDate() - 14);
-        const instUrl   = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${s.id}&start_date=${instStart.toISOString().slice(0,10)}&token=${token}`;
+        const instUrl   = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${s.id}&start_date=${instStart.toISOString().slice(0,10)}&token=${token}`;
         const iResp     = await fetch(instUrl);
         const iJson     = await iResp.json();
         const instRaw   = (iJson.status === 200 && iJson.data) ? iJson.data : [];
@@ -74668,7 +74668,7 @@ function _updateOpGuide() {
       const end = new Date(), start = new Date(); start.setDate(start.getDate() - days);
       const fmt = d => d.toISOString().slice(0,10);
       const tok = localStorage.getItem('tsai_finmind_token') || window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '') || '';
-      const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockNews&data_id=${sid}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
+      const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${sid}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
       const js  = await (await fetch(url, { signal: AbortSignal.timeout(10000) })).json();
       const raw = (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
       items = raw.map(n => ({
@@ -74928,7 +74928,7 @@ function _updateOpGuide() {
         const tok = localStorage.getItem('tsai_finmind_token') || window._userToken || (typeof TOKEN !== 'undefined' ? TOKEN : '') || '';
         const end = new Date(), start = new Date(); start.setDate(start.getDate() - 9);
         const fmt = d => d.toISOString().slice(0,10);
-        const url = `https://stock-api-214539875795.asia-east1.run.app?dataset=TaiwanStockNews&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
+        const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockNews&data_id=${id}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${tok}`;
         const js = await (await fetch(url, { signal: AbortSignal.timeout(9000) })).json();
         const raw = (js.status === 200 && Array.isArray(js.data)) ? js.data : [];
         items = raw.map(n => ({
