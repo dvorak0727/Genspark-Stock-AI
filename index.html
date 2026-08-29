@@ -64274,6 +64274,50 @@ async function _fetchMacroSnapshot() {
   }
 }
 
+// ══════════════════════════════════════════════════
+//  🏦 美國聯準會利率警示（v7.62）— 併入開盤壓力表
+//  資料源：紐約聯準會公開API（markets.newyorkfed.org，官方公開資料、
+//  不需金鑰、允許跨網域直接呼叫，不需經過 license-worker 代理）。
+//  回傳 EFFR（有效聯邦資金利率）每日數值 + 目標區間上下限，抓一段夠長
+//  的歷史（近250個交易日≈近1年）逐日比對目標區間，就能抓到「最近一次
+//  升息/降息的日期」，比自己亂猜FOMC會期準確、也不用手動維護日曆。
+// ══════════════════════════════════════════════════
+async function _fetchFedRateSnapshot() {
+  try {
+    const r = await fetch('https://markets.newyorkfed.org/api/rates/unsecured/effr/last/250.json');
+    const j = await r.json();
+    const rows = (j.refRates || []).slice().sort((a,b) => a.effectiveDate.localeCompare(b.effectiveDate));
+    if (rows.length === 0) return null;
+    const latest = rows.at(-1);
+
+    // 逐日比對目標區間下限，找出最近一次真的變動的那一天
+    let lastChange = null;
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i].targetRateFrom !== rows[i-1].targetRateFrom) {
+        lastChange = {
+          date: rows[i].effectiveDate,
+          dir: rows[i].targetRateFrom > rows[i-1].targetRateFrom ? 'hike' : 'cut',
+          fromLo: rows[i-1].targetRateFrom, fromHi: rows[i-1].targetRateTo,
+          toLo: rows[i].targetRateFrom, toHi: rows[i].targetRateTo,
+        };
+      }
+    }
+    const daysSince = lastChange
+      ? Math.round((new Date(latest.effectiveDate) - new Date(lastChange.date)) / 86400000)
+      : null;
+
+    return {
+      effr: latest.percentRate,
+      targetLo: latest.targetRateFrom, targetHi: latest.targetRateTo,
+      asOf: latest.effectiveDate,
+      lastChange, daysSince, // lastChange 為 null 代表近一年（抓到的250筆資料範圍內）都沒變動過
+    };
+  } catch (e) {
+    console.warn('[聯準會利率]', e.message);
+    return null;
+  }
+}
+
 /** 折疊/展開 qlSection */
 function qlToggle(secId) {
   const el = document.getElementById(secId);
@@ -74190,11 +74234,12 @@ async function fetchOpeningPressure() {
     `<div class="opp-item" style="border-style:dashed;"><div class="opp-item-name">🌙 台指夜盤</div><div class="opp-item-price">—</div></div>`
   ].join('');
 
-  // 並行抓取（全球指數 + 夜盤台指期 + 總經氣氛層：VIX/殖利率曲線，v7.57併入這張卡）
-  const [results, nightFut, macroSnap] = await Promise.all([
+  // 並行抓取（全球指數 + 夜盤台指期 + 總經氣氛層：VIX/殖利率曲線 + 聯準會利率，都併入這張卡）
+  const [results, nightFut, macroSnap, fedRate] = await Promise.all([
     Promise.all(OPP_STOCKS.map(s => _oppFetchOne(s))),
     _fetchNightFutures(),
-    _fetchMacroSnapshot()
+    _fetchMacroSnapshot(),
+    _fetchFedRateSnapshot(),
   ]);
   const anyLive = results.some(r => !r.sim);
 
@@ -74260,6 +74305,34 @@ async function fetchOpeningPressure() {
     </div>`;
   }
 
+  // 🏦 聯準會利率警示（v7.62）——近期若有升息/降息，用格子顏色標出來
+  if (fedRate) {
+    const { targetLo, targetHi, lastChange, daysSince } = fedRate;
+    // 最近一次決策發生在60個交易日內（約3個月，大概是最近1~2次FOMC會期），
+    // 才特別標紅/標綠強調；再久之前的變動只在小字說明，不用格子變色搶注意力。
+    const isRecent = lastChange && daysSince != null && daysSince <= 60;
+    const cls = isRecent ? (lastChange.dir === 'hike' ? 'bear' : 'bull') : '';
+    let subTxt;
+    if (!lastChange) {
+      subTxt = '近一年無變動';
+    } else if (isRecent) {
+      subTxt = `${lastChange.dir === 'hike' ? '⚠️升息' : '✅降息'} ${daysSince}天前`;
+    } else {
+      subTxt = `${daysSince}天未變動`;
+    }
+    gridEl.innerHTML += `<div class="opp-item ${cls}" title="資料日期 ${fedRate.asOf}・資料來源：紐約聯準會 EFFR">
+      <div class="opp-item-name">🏦 聯準會利率</div>
+      <div class="opp-item-price">${targetLo.toFixed(2)}-${targetHi.toFixed(2)}%</div>
+      <div class="opp-item-sim">${subTxt}</div>
+    </div>`;
+  } else {
+    gridEl.innerHTML += `<div class="opp-item" style="opacity:0.5;">
+      <div class="opp-item-name">🏦 聯準會利率</div>
+      <div class="opp-item-price">—</div>
+      <div class="opp-item-sim">無法取得資料</div>
+    </div>`;
+  }
+
   // TSM ADR 特別分析
   const tsm = results.find(r=>r.ticker==='TSM');
   const spy = results.find(r=>r.ticker==='SPY');
@@ -74320,9 +74393,19 @@ async function fetchOpeningPressure() {
     }
   }
 
+  // 🏦 聯準會升息/降息附加提示（v7.62）：只有「最近10個交易日內」剛做出決策才特別提示，
+  // 免得每天都在講半年前的舊聞。
+  let fedNote = '';
+  if (fedRate?.lastChange && fedRate.daysSince != null && fedRate.daysSince <= 10) {
+    const { dir, fromLo, fromHi, toLo, toHi } = fedRate.lastChange;
+    fedNote = dir === 'hike'
+      ? `⚠️ 聯準會${fedRate.daysSince}天前才升息（${fromLo}-${fromHi}% → ${toLo}-${toHi}%），市場可能還在消化緊縮衝擊，留意波動放大。`
+      : `✅ 聯準會${fedRate.daysSince}天前才降息（${fromLo}-${fromHi}% → ${toLo}-${toHi}%），寬鬆環境通常對股市偏正面，但也要留意是否反映衰退疑慮。`;
+  }
+
   verdictEl.innerHTML =
     `<div class="vd-main">${vdMain}</div>` +
-    `<div class="vd-sub">${vdSub}${tsmNote ? '<br>'+tsmNote : ''}${nightNote ? '<br>'+nightNote : ''}${macroNote ? '<br>'+macroNote : ''}</div>`;
+    `<div class="vd-sub">${vdSub}${tsmNote ? '<br>'+tsmNote : ''}${nightNote ? '<br>'+nightNote : ''}${macroNote ? '<br>'+macroNote : ''}${fedNote ? '<br>'+fedNote : ''}</div>`;
   badgeEl.textContent = badgeTxt;
   badgeEl.className   = `opp-badge ${badgeCls}`;
   updEl.textContent   = `更新：${new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})}${anyLive?'（即時）':'（模擬）'}`;
