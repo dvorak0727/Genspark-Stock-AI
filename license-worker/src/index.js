@@ -311,6 +311,9 @@ export default {
         "GE", "CAT", "HON", "UNP", "RTX",
         "COP", "LIN", "APD", "NEE", "DUK", "PLD", "AMT",
         "NFLX", "TMUS",
+        // v7.73：板塊輪動偵測器(sector-detector.html)的美股先行指標小卡，
+        // 原本直接打Yahoo Finance被CORS擋掉，永遠顯示模擬——改走這支代理
+        "TQQQ",
       ]);
       const ticker = url.searchParams.get("ticker") || "";
       if (!YAHOO_TICKERS.has(ticker)) {

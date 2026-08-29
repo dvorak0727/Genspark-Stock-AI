@@ -884,11 +884,14 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--fg);min-hei
     }
   })();
 
-  /* 嘗試 Yahoo Finance（大概率 CORS blocked，備援模擬） */
+  /* v7.73修復：直接打 query1.finance.yahoo.com 一定會被瀏覽器CORS擋掉
+     （伺服器沒回Access-Control-Allow-Origin），這個fetch每次都失敗，
+     永遠退到07-03的舊模擬定錨。改走跟主站(index.html)同一支已經驗證
+     可用的license-worker代理（有白名單，已補上TQQQ）。 */
   async function _fetchYhPrice(ticker) {
     try {
-      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=2d`;
-      const r = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      const url = `https://license-worker.dvorak0727.workers.dev/yahoo?ticker=${encodeURIComponent(ticker)}&range=5d`;
+      const r = await fetch(url, { signal: AbortSignal.timeout(6000) });
       if (!r.ok) return null;
       const j = await r.json();
       const meta = j?.chart?.result?.[0]?.meta;
