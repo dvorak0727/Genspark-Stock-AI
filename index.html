@@ -18736,6 +18736,7 @@ a.module-nav-item.acc-active {
         </div>
         <!-- 底部摘要行 -->
         <div class="c4-summary-bar" id="c4SummaryBar">
+          <span style="font-weight:800;color:var(--fg2);margin-right:2px;">總結：</span>
           <span class="c4-summary-text" id="c4SummaryText">共振分析初始化中…</span>
           <span class="c4-summary-chip" id="c4SummaryChip1">—</span>
           <span class="c4-summary-chip" id="c4SummaryChip2">—</span>
@@ -47881,23 +47882,25 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
       ]);
 
       // ── 底部摘要行 ──
+      // v7.69：小白友善用語——訂閱戶不一定懂「軸向共振」「多頭排列」這種術語，
+      // 改成講白話「發生了什麼事」，儘量少用行話。
       const _axisMsgs = [];
-      if(_c4instPts>=18) _axisMsgs.push(['chip-green','法人共振強']);
-      else if(_c4instPts<10) _axisMsgs.push(['chip-red','法人偏空']);
-      if(_c4vpPts>=18) _axisMsgs.push(['chip-green','量價齊揚']);
-      else if(_c4vpPts<10) _axisMsgs.push(['chip-yellow','量能疲弱']);
-      if(_c4maPts>=18) _axisMsgs.push(['chip-green','多頭排列']);
-      else if(_c4maPts<8) _axisMsgs.push(['chip-red','跌破均線']);
-      if(_c4macdPts>=18) _axisMsgs.push(['chip-green','MACD多頭']);
-      else if(_c4macdPts<8) _axisMsgs.push(['chip-red','MACD空頭']);
+      if(_c4instPts>=18) _axisMsgs.push(['chip-green','外資投信一起買']);
+      else if(_c4instPts<10) _axisMsgs.push(['chip-red','法人在賣']);
+      if(_c4vpPts>=18) _axisMsgs.push(['chip-green','價漲量也大']);
+      else if(_c4vpPts<10) _axisMsgs.push(['chip-yellow','買氣不夠力']);
+      if(_c4maPts>=18) _axisMsgs.push(['chip-green','均線一路向上']);
+      else if(_c4maPts<8) _axisMsgs.push(['chip-red','股價跌破均線']);
+      if(_c4macdPts>=18) _axisMsgs.push(['chip-green','動能轉強']);
+      else if(_c4macdPts<8) _axisMsgs.push(['chip-red','動能轉弱']);
 
       const _sumText = _c4total>=75
-        ? '四軸全面共振，多方動能強勁，籌碼、量價、均線、MACD 一致向上。'
+        ? '法人籌碼、成交量、均線、動能指標這四個角度全部一致偏多，是很扎實的多方訊號。'
         : _c4total>=55
-        ? '部分軸向共振，多方態勢成立，建議確認弱軸是否有改善動能。'
+        ? '已經有兩三個角度轉強了，但還有一兩個沒跟上——先看看是哪個弱、有沒有機會補上來，再決定要不要進場。'
         : _c4total>=35
-        ? '共振強度偏弱，各軸尚未形成合力，宜觀望等待共振形成。'
-        : '多軸背離，籌碼結構鬆散，風險管理優先。';
+        ? '四個角度目前各說各話，還沒有形成一致的方向，先觀望比較保險，不用急著動作。'
+        : '四個角度互相矛盾、籌碼看起來有點亂，這種時候顧好風險比積極進攻更重要。';
       const _stEl = document.getElementById('c4SummaryText');
       if(_stEl) _stEl.textContent = _sumText;
       ['c4SummaryChip1','c4SummaryChip2','c4SummaryChip3'].forEach((id,i)=>{
