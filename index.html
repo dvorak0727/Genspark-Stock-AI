@@ -3852,26 +3852,7 @@
       background:linear-gradient(135deg,rgba(37,99,235,0.06),rgba(124,58,237,0.04));
       border-left-color:var(--accent);
     }
-    /* AI 卡內白話速覽 */
-    .ai-plain-wrap {
-      margin-top: 10px;
-      border-top: 1px solid var(--border);
-      padding-top: 6px;
-    }
-    #aiPlainBody .interp-block {
-      padding: 7px 10px; margin-bottom: 5px;
-      font-size: 0.73rem; line-height: 1.6;
-    }
-    #aiPlainBody .interp-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
-    }
-    @media(max-width:500px){ #aiPlainBody .interp-grid{ grid-template-columns:1fr; } }
-    #aiPlainBody .interp-left { display:flex; flex-direction:column; gap:6px; }
-    #aiPlainBody .interp-right { display:flex; flex-direction:column; }
-    #aiPlainBody .interp-right .interp-block {
-      flex:1; background:linear-gradient(135deg,rgba(37,99,235,0.06),rgba(124,58,237,0.04));
-      border-left-color:var(--accent);
-    }
+    /* v7.82：AI卡內「白話速覽」面板已整併進操作建議清單，CSS一併移除 */
     .bottom-detect {
       background: var(--surface);
       border: 2px solid var(--border);
@@ -17879,11 +17860,10 @@ a.module-nav-item.acc-active {
         </button>
       </div>
 
-      <!-- 💬 白話速覽（整併自白話解讀模組） -->
-      <div class="ai-plain-wrap" id="aiPlainWrap" style="display:none;">
-        <div class="ai-plain-toggle" onclick="(function(el){el.open=!el.open;document.getElementById('aiPlainBody').style.display=el.open?'':'none';el.textContent=el.open?'▲ 收起白話速覽':'▼ 展開白話速覽'})(this)" style="cursor:pointer;font-size:0.72rem;font-weight:700;color:var(--fg3);user-select:none;padding:6px 0 2px;">▼ 展開白話速覽</div>
-        <div id="aiPlainBody" style="display:none;"></div>
-      </div>
+      <!-- v7.82：原「白話速覽」面板（籌碼面解讀/技術面解讀/綜合研判）已整併進上方
+           📋操作建議清單——外資/投信/主力/RSI/綜合評分等內容原本就重複列了兩次，
+           整併後只留一份，順序沿用操作建議既有的 位置→方向→量→籌碼週期→外資→
+           主力→投信→技術→成本→綜合評分→獲利品質，不再另外收合展開一份重複摘要 -->
     </div>
 
     <!-- 🌍 板塊輪動脈絡模組 (v5.27) -->
@@ -36520,7 +36500,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   renderIndCards(lRSI, lK, lD, lMACD, lSig, lHist, lU, lL, lc, lMA5, lMA20); // 指標卡
   renderCandlePatterns(opens, highs, lows, closes);                           // 📉 K線形態
   renderBottomDetect(instMap, instDays, fSeries, tSeries, closes, lK, lD, ma20, vols, lc, lRSI); // 底部
-  renderInterp(fSeries, tSeries, lRSI, lK, lD, lHist, lc, lU, lL, lMA5, lMA20); // 白話速覽→注入 AI 卡
+  // v7.82：renderInterp()「白話速覽」已整併進 renderAI() 的操作建議清單，不再另外呼叫
   initBacktest(dates, closes, stockId, info.name);                              // 💹 回測初始化
   if (!isStale()) renderSectorRotation(stockId);                               // 🌍 板塊輪動脈絡
   setTimeout(() => { if (!isStale() && typeof renderUSLeading === 'function') renderUSLeading(stockId); }, 600);  // 🌐 美股先行指標
@@ -48491,56 +48471,9 @@ function renderBottomDetect(instMap, instDays, fSeries, tSeries, closes, K, D, m
 }
 
 // ==============================================================
-//  INTERPRETATION
-// ==============================================================
-function renderInterp(fS, tS, rsi, K, D, hist, close, upper, lower, ma5, ma20) {
-  const fSI = calcStreak([...fS].reverse());
-  const tSI = calcStreak([...tS].reverse());
-  const fNet = fS.reduce((a,b)=>a+b,0), tNet = tS.reduce((a,b)=>a+b,0);
-
-  let chip = `外資近10日呈現<span class="${fNet>=0?'t-up':'t-dn'}">${fSI.label}</span>，`;
-  chip += fNet>=0 ? `累計買超 <span class="t-up">${Math.abs(fNet).toFixed(0)} 張</span>，法人積極布局。`
-                  : `累計賣超 <span class="t-dn">${Math.abs(fNet).toFixed(0)} 張</span>，法人減碼出脫。`;
-  chip += `投信<span class="${tNet>=0?'t-up':'t-dn'}">${tSI.label}</span>，`;
-  chip += tNet>=0 ? '內外資方向一致，籌碼面正面。' : '投信方向分歧，需觀察後續主導力量。';
-
-  let tech = rsi>70
-    ? `RSI（${rsi?.toFixed(1)}）進入<span class="t-up">超買（>70）</span>，短線追高謹慎。`
-    : rsi<30
-      ? `RSI（${rsi?.toFixed(1)}）跌入<span class="t-dn">超賣（<30）</span>，逢低承接機會留意。`
-      : `RSI（${rsi?.toFixed(1)}）中性區間，無明顯超買超賣壓力。`;
-  tech += K>D ? ` KD（K=${K?.toFixed(1)}, D=${D?.toFixed(1)}）<span class="t-dn">黃金交叉偏多</span>。`
-              : ` KD（K=${K?.toFixed(1)}, D=${D?.toFixed(1)}）<span class="t-up">死亡交叉偏空</span>。`;
-  tech += hist>0 ? ` MACD柱正，<span class="t-dn">多方動能持續</span>。`
-                 : ` MACD柱負，<span class="t-up">空方力道增強</span>。`;
-  tech += ma5>ma20 ? ` 均線<span class="t-dn">多頭排列（MA5>MA20）</span>，趨勢向上。`
-                   : ` 均線<span class="t-up">空頭排列（MA5&lt;MA20）</span>，趨勢偏弱。`;
-
-  const score = computeScore(fS, tS, rsi, K, D, hist, close, ma5, ma20);
-  let comp = score>=65
-    ? `綜合評估<span class="t-dn">偏多看待</span>，可考慮逢回布局（AI評分：${score}分）。`
-    : score>=40
-      ? `目前呈現<span class="t-neu">中性格局</span>，建議觀望等方向明確（評分：${score}分）。`
-      : `籌碼與技術面偏弱，<span class="t-up">偏空看待</span>，宜控制持股（評分：${score}分）。`;
-
-  const mkBlock = (title, text) =>
-    `<div class="interp-block"><div class="interp-title">${title}</div>${text}</div>`;
-  const plainHTML = `<div class="interp-grid">
-      <div class="interp-left">
-        ${mkBlock('📊 籌碼面解讀', chip)}
-        ${mkBlock('📈 技術面解讀', tech)}
-      </div>
-      <div class="interp-right">
-        ${mkBlock('💡 綜合研判', comp)}
-      </div>
-    </div>`;
-  // 注入至 AI 卡速覽區
-  const plainBody = document.getElementById('aiPlainBody');
-  const plainWrap = document.getElementById('aiPlainWrap');
-  if (plainBody) plainBody.innerHTML = plainHTML;
-  if (plainWrap) plainWrap.style.display = '';
-}
-
+//  v7.82：renderInterp()「白話速覽」已整併進 renderAI() 的操作建議清單
+//  （aiAdvice/advForeign/advTrust/advBP/advTech/advConc 等已涵蓋原本的
+//  籌碼面解讀/技術面解讀/綜合研判內容，不再重複渲染一份獨立摘要）
 // ==============================================================
 //  CYCLE FILTER MODULE  ⚙️ 週期濾波與時間窗口自動調校
 // ==============================================================
