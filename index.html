@@ -43011,6 +43011,23 @@ function detectSupportResistance(highs, lows, lookback = 60, tolerancePct = 0.01
   return { support: cluster(swingLows), resistance: cluster(swingHighs) };
 }
 
+// v7.81：個股K棒圖跟大盤K棒圖比起來「K棒太短、看起來被壓扁」，根因是
+// 個股圖多疊了布林通道(BB上/BB下)這兩條資料集，Chart.js預設y軸是自動
+// 縮放涵蓋「所有」資料集的範圍，布林通道的波動常常比K棒本身高低點的
+// 範圍還要寬，結果y軸被迫拉得比實際需要的還高，K棒就相對顯得扁小。
+// 大盤圖沒有布林通道，所以看起來K棒比例正常。
+// 修法：不要讓Chart.js自己猜，直接算出「K棒真正需要的範圍」（近期最高
+// 到最低價，留一點緩衝空間），明確指定給y軸的min/max，這樣不管布林通道
+// 多寬，K棒本身的視覺比例都會維持一致、跟大盤圖同一套邏輯。
+function _candleYRange(highs, lows, padPct = 0.06) {
+  const vh = (highs || []).filter(v => v != null);
+  const vl = (lows  || []).filter(v => v != null);
+  if (!vh.length || !vl.length) return null;
+  const hi = Math.max(...vh), lo = Math.min(...vl);
+  const pad = (hi - lo) * padPct || hi * 0.02; // range是0（例如剛上市無漲跌）時退回用價格2%當緩衝
+  return { min: lo - pad, max: hi + pad };
+}
+
 // v7.53：自訂 Chart.js 外掛，在收盤線圖的座標系統上疊畫K棒（開高低收）
 // 跟支撐/壓力水平線——不依賴任何外部K棒繪圖套件，純手刻，資料源不變。
 const _candlestickPlugin = {
@@ -43127,6 +43144,11 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens
     ...sr.resistance.map(s => ({ ...s, type: 'resistance' })),
   ];
 
+  // v7.81：頭/底轉折標記——沿用大盤K棒圖同一套 detectSwingPoints()，用完整
+  // 歷史算（避免視窗邊緣漏抓），畫的時候只顯示落在近30日視窗內的
+  const ptOffset = hasOHLC ? closes.length - n : 0;
+  const { peaks, troughs } = hasOHLC ? detectSwingPoints(highs, lows, 2) : { peaks: [], troughs: [] };
+
   _renderPVSignal(closes, vols);
 
   destroyChart('priceChart');
@@ -43148,24 +43170,36 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens
         ] : []),
       ]
     },
-    plugins: [_kannotPlugin, _candlestickPlugin],
+    plugins: [_kannotPlugin, _candlestickPlugin, _peakTroughPlugin],
     options: (() => {
-      const opts = lightChartOpts('K棒 + MA5/MA20 + 布林通道 + 候選支撐壓力（啟發式偵測，非保證）', false, true);
+      const opts = lightChartOpts('K棒 + MA5/MA20 + 布林通道 + 候選支撐壓力 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
+      // v7.81：明確指定y軸範圍＝K棒高低範圍（不是布林通道的範圍），K棒才不會被布林通道拉開的y軸壓扁
+      const yr = hasOHLC ? _candleYRange(hi, lo) : null;
+      if (yr) { opts.scales.y.min = yr.min; opts.scales.y.max = yr.max; }
       return opts;
     })(),
   });
   charts['priceChart'].$candleData = hasOHLC ? { opens: op, highs: hi, lows: lo, closes: cl, resLines } : null;
+  charts['priceChart'].$peakTroughData = { peaks, troughs, offset: ptOffset };
+  charts['priceChart'].update('none');
 
   destroyChart('volChart');
   const c2 = document.getElementById('volChart').getContext('2d');
   const vcl = vl.map((v,i)=> closes.slice(-n)[i] >= (i>0?closes.slice(-n)[i-1]:prevClose) ? 'rgba(232,52,58,0.65)' : 'rgba(22,163,74,0.65)');
+  const volDataK = vl.map(v=>+(v/1000).toFixed(0));
   charts['volChart'] = new Chart(c2, {
     type:'bar', data:{
       labels: dl,
-      datasets:[{ label:'成交量(張)', data: vl.map(v=>(v/1000).toFixed(0)), backgroundColor: vcl, borderRadius:2 }]
+      datasets:[{ label:'成交量(張)', data: volDataK, backgroundColor: vcl, borderRadius:2 }]
     },
-    options: lightChartOpts('成交量 (千張)', true),
+    options: (() => {
+      const opts = lightChartOpts('成交量 (千張)', true);
+      // v7.81：加一點頂部留白（1.25倍最大值），量柱才不會頂到圖表最上緣、視覺上顯得過大
+      const volMax = Math.max(...volDataK, 1);
+      opts.scales.y.max = Math.ceil(volMax * 1.25);
+      return opts;
+    })(),
   });
 }
 
@@ -43311,6 +43345,11 @@ function _drawPeriodCharts(period, longPriceRows) {
     ...srAgg.resistance.map(s => ({ ...s, type: 'resistance' })),
   ];
 
+  // v7.81：頭/底轉折——月線也仿照日線/週線，沿用大盤同一套 detectSwingPoints()，
+  // 用「全部聚合資料」算避免視窗邊緣漏抓轉折點，畫的時候換算成畫面視窗內的index
+  const ptOffset = agg.length - N;
+  const { peaks: peaksAgg, troughs: troughsAgg } = detectSwingPoints(fullHi, fullLo, 2);
+
   // 若日線，直接用原始 MA；否則用全聚合資料重算（確保 MA/Boll 有足夠期數）
   let m5c, m20c, buc, blc, actualMa20Period;
   if (period === 'D') {
@@ -43356,16 +43395,20 @@ function _drawPeriodCharts(period, longPriceRows) {
         { label:'_low',  data:lo, borderWidth:0, pointRadius:0, fill:false, borderColor:'transparent', backgroundColor:'transparent' },
       ]
     },
-    plugins: [_kannotPlugin, _candlestickPlugin],
+    plugins: [_kannotPlugin, _candlestickPlugin, _peakTroughPlugin],
     options: (() => {
-      const opts = lightChartOpts(`K棒 + ${ma5Label}/${ma20Label} + 布林通道 + 候選支撐壓力（${labelMap[period]}）`, false, true);
+      const opts = lightChartOpts(`K棒 + ${ma5Label}/${ma20Label} + 布林通道 + 候選支撐壓力 + 頭/底轉折（${labelMap[period]}）`, false, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
+      // v7.81：明確指定y軸範圍＝K棒高低範圍，避免布林通道把y軸拉開、K棒被壓扁（跟日線同一套修法）
+      const yr = _candleYRange(hi, lo);
+      if (yr) { opts.scales.y.min = yr.min; opts.scales.y.max = yr.max; }
       return opts;
     })(),
   });
   // v7.77：K棒+候選支撐壓力線資料要透過 $candleData 交給 _candlestickPlugin，
   // 跟日線renderTechCharts()同一套機制，週線/月線之前完全沒接這段
   charts['priceChart'].$candleData = { opens: op, highs: hi, lows: lo, closes: cl, resLines: resLinesAgg };
+  charts['priceChart'].$peakTroughData = { peaks: peaksAgg, troughs: troughsAgg, offset: ptOffset };
   charts['priceChart'].update('none');
 
   // 重繪 volChart
@@ -43373,12 +43416,19 @@ function _drawPeriodCharts(period, longPriceRows) {
   const c2 = document.getElementById('volChart').getContext('2d');
   const vcl = vl.map((v,i) => cl[i] >= (i>0?cl[i-1]:pc) ? 'rgba(232,52,58,0.65)' : 'rgba(22,163,74,0.65)');
   const volTitle = period === 'D' ? '成交量 (千張)' : period === 'W' ? '成交量 (千張/週合計)' : '成交量 (千張/月合計)';
+  const volDataK2 = vl.map(v=>+(v/1000).toFixed(0));
   charts['volChart'] = new Chart(c2, {
     type:'bar', data:{
       labels: dl,
-      datasets:[{ label:'成交量(張)', data: vl.map(v=>(v/1000).toFixed(0)), backgroundColor: vcl, borderRadius:2 }]
+      datasets:[{ label:'成交量(張)', data: volDataK2, backgroundColor: vcl, borderRadius:2 }]
     },
-    options: lightChartOpts(volTitle, true),
+    options: (() => {
+      const opts = lightChartOpts(volTitle, true);
+      // v7.81：加頂部留白，量柱不頂到圖表最上緣，跟日線同一套修法
+      const volMax2 = Math.max(...volDataK2, 1);
+      opts.scales.y.max = Math.ceil(volMax2 * 1.25);
+      return opts;
+    })(),
   });
 
   // 重新觸發警示檢查
