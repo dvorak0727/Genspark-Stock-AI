@@ -3302,6 +3302,21 @@
     .sig-dn  { background: var(--down-bg); color: var(--down);  border: 1px solid var(--down-border); }
     .sig-neu { background: #FFF8E1;        color: #B45309;       border: 1px solid #FDE68A; }
 
+    /* v7.79：趨勢盤/盤整盤偵測——這個市場狀態下「適合看」的指標卡片圈起來提醒 */
+    .ind-card.ind-recommend {
+      border: 1.5px solid #7C3AED;
+      box-shadow: 0 0 0 3px rgba(124,58,237,0.12);
+      position: relative;
+    }
+    .ind-card.ind-recommend::after {
+      content: '★推薦';
+      position: absolute; top: -8px; right: 6px;
+      background: #7C3AED; color: #fff;
+      font-size: 0.52rem; font-weight: 800;
+      padding: 1px 6px; border-radius: 8px;
+      line-height: 1.5;
+    }
+
     /* ══ v6.29 指標卡可點擊 + 線圖 Modal ══ */
     .ind-card {
       cursor: pointer;
@@ -18328,6 +18343,8 @@ a.module-nav-item.acc-active {
       <!-- v7.78：價量關係明確提醒——價漲量增(健康)/價漲量縮(無力)/價跌量增(賣壓重)/價跌量縮(惜售) -->
       <div id="pvSignalBanner" style="display:none;margin-top:6px;padding:7px 10px;border-radius:8px;font-size:0.68rem;font-weight:700;align-items:center;gap:6px;"></div>
 
+      <!-- v7.79：趨勢盤/盤整盤市場狀態提醒——不同狀態該看不同指標，圈起來下面對應的卡片 -->
+      <div id="marketStateBanner" style="display:none;margin-bottom:8px;padding:7px 10px;border-radius:8px;font-size:0.66rem;align-items:center;gap:6px;background:rgba(124,58,237,0.08);color:#6D28D9;"></div>
       <div class="ind-grid" id="indGrid"></div>
       <!-- ✨ v7.05 出場紀律追蹤卡 -->
       <div id="exitTrackerWrap"></div>
@@ -43604,6 +43621,64 @@ function renderCandlePatterns(opens, highs, lows, closes) {
 // ==============================================================
 //  INDICATOR CARDS
 // ==============================================================
+// v7.79：趨勢盤/盤整盤偵測——使用者看教學影片提到「趨勢盤適合順勢工具
+// （均線/MACD），盤整盤適合區間工具（超買超賣類：RSI/KD）」，要求偵測到
+// 兩種狀態時要主動提醒該看哪些指標。
+// 判斷邏輯（不是黑箱AI，是可以講清楚的規則）：
+//  ① MA20斜率：近20日MA20變化幅度夠大（≥3%）→ 代表趨勢正在推進
+//  ② 站在MA20哪一側的持續性：近20日收盤價站在同一側（≥75%天數）→ 代表
+//     方向一致、不是來回震盪
+//  兩者同時成立才算「趨勢盤」，否則歸類「盤整盤」（不強行二分，資料不足
+//  就不下判斷）
+function _detectMarketState() {
+  const closes = window.aData?.closes, ma20Arr = window.aData?.ma20;
+  if (!Array.isArray(closes) || !Array.isArray(ma20Arr) || closes.length < 20 || ma20Arr.length < 20) return null;
+  const N = 20;
+  const recentCloses = closes.slice(-N);
+  const recentMA20   = ma20Arr.slice(-N);
+  const validMA = recentMA20.filter(v => v != null);
+  if (validMA.length < N * 0.8) return null; // MA20資料不足，不下判斷
+
+  const slopeStart = recentMA20.find(v => v != null);
+  const slopeEnd    = recentMA20.at(-1);
+  const slopePct = (slopeStart != null && slopeStart > 0) ? (slopeEnd - slopeStart) / slopeStart * 100 : 0;
+
+  let aboveCount = 0, validCount = 0;
+  for (let i = 0; i < N; i++) {
+    if (recentCloses[i] != null && recentMA20[i] != null) {
+      validCount++;
+      if (recentCloses[i] >= recentMA20[i]) aboveCount++;
+    }
+  }
+  const aboveRatio = validCount > 0 ? aboveCount / validCount : 0.5;
+  const isTrend = Math.abs(slopePct) >= 3 && (aboveRatio >= 0.75 || aboveRatio <= 0.25);
+  return { isTrend, slopePct, aboveRatio, dir: slopePct >= 0 ? 'up' : 'down' };
+}
+
+// 依市場狀態，回傳應該圈起來提醒的指標卡片tip清單
+const _TREND_TOOLS = ['MA排列', 'MACD', '柱狀'];
+const _RANGE_TOOLS = ['RSI(14)', 'K值', 'BB%B'];
+
+function _renderMarketStateBanner() {
+  const el = document.getElementById('marketStateBanner');
+  if (!el) return null;
+  const state = _detectMarketState();
+  if (!state) { el.style.display = 'none'; return null; }
+
+  if (state.isTrend) {
+    const dirTxt = state.dir === 'up' ? '上升趨勢' : '下降趨勢';
+    el.innerHTML = `<span style="font-weight:800;">📈 目前判斷：趨勢盤（${dirTxt}，MA20近20日變化${state.slopePct>=0?'+':''}${state.slopePct.toFixed(1)}%）</span>` +
+      `<br>順勢工具較準：均線排列、MACD——已圈起下方對應卡片；超買超賣類指標（RSI/KD）在趨勢盤容易鈍化失準，僅供參考。`;
+    el.style.display = 'flex';
+    return _TREND_TOOLS;
+  } else {
+    el.innerHTML = `<span style="font-weight:800;">📊 目前判斷：盤整盤（價格區間來回，站在均線${(state.aboveRatio*100).toFixed(0)}%天數）</span>` +
+      `<br>區間工具較準：RSI、KD——已圈起下方對應卡片；均線/MACD這種順勢工具在盤整盤容易假訊號，僅供參考。`;
+    el.style.display = 'flex';
+    return _RANGE_TOOLS;
+  }
+}
+
 function renderIndCards(rsi, K, D, macd, sig, hist, upper, lower, close, ma5, ma20) {
   const rsig  = rsi>70?['sig-up','超買']:rsi<30?['sig-dn','超賣']:['sig-neu','中性'];
   const kdsig = K>D&&K<80?['sig-dn','黃金交叉']:K<D&&K>20?['sig-up','死亡交叉']:K<20?['sig-dn','低檔']:['sig-neu','中性'];
@@ -43654,6 +43729,7 @@ function renderIndCards(rsi, K, D, macd, sig, hist, upper, lower, close, ma5, ma
     'zero-cross':    { icon:'🚀', text:'近零軸 · 金叉/死叉確認中，謹慎加倉', bg:'rgba(99,102,241,0.13)', color:'#6366F1', border:'rgba(99,102,241,0.35)' },
   };
 
+  const _recommendTools = _renderMarketStateBanner() || [];
   document.getElementById('indGrid').innerHTML = cards.map(c => {
     // 若是柱狀體卡片，插入 MACD Phase Badge
     let phaseBadgeHtml = '';
@@ -43670,8 +43746,9 @@ function renderIndCards(rsi, K, D, macd, sig, hist, upper, lower, close, ma5, ma
         ">${pm.icon} ${pm.text}</div>`;
       }
     }
+    const recommendCls = _recommendTools.includes(c.tip) ? ' ind-recommend' : '';
     return `
-    <div class="ind-card" data-tip="${c.tip}" onclick="openIndChart('${c.tip}')" title="點擊查看 ${c.n} 走勢圖">
+    <div class="ind-card${recommendCls}" data-tip="${c.tip}" onclick="openIndChart('${c.tip}')" title="點擊查看 ${c.n} 走勢圖">
       <div class="ind-name">${c.n}</div>
       <div class="ind-value">${c.v}</div>
       ${c.sub ? '<div class="ind-sub">' + c.sub + '</div>' : ''}
