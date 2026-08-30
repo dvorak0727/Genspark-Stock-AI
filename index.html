@@ -16178,6 +16178,9 @@ a.module-nav-item.acc-active {
   <div style="display:flex;gap:8px;align-items:center;">
     <button class="reel-float-btn" style="background:rgba(30,58,95,0.85);box-shadow:0 2px 10px rgba(0,0,0,0.3);font-size:0.72rem;padding:9px 14px;" onclick="_reelClearAll()">🔄 重新選擇</button>
     <button class="reel-float-btn" onclick="exportReelCards()">📦 匯出 <span id="reelCount">0</span> 張 PNG</button>
+    <!-- v7.83：推播池 JSON 匯出——可跨模式累積（例如先勾選啟動期前10，切模式再勾選籌碼淨化前10），
+         匯出給本機 Codex 推播影片程式（Codex-台股新聞推播/import_push_pool.py）讀取 -->
+    <button class="reel-float-btn" style="background:rgba(21,128,61,0.9);box-shadow:0 2px 10px rgba(0,0,0,0.3);" onclick="exportPushPoolJSON()" title="匯出目前已勾選的推播池（可跨模式累積），給推播影片程式讀取">🎬 匯出推播池 JSON</button>
   </div>
 </div>
 
@@ -44405,8 +44408,19 @@ function _getPositionStatus(sid) {
 // ── 🎬 輪播圖選取 / 匯出 ──────────────────────────────────────
 function _toggleReel(sid) {
   if (!isAdmin()) { if (typeof showEpicToast==='function') showEpicToast('🔒 輪播匯出限管理者使用', '#dc2626'); return; }
-  if (_reelSelected.has(sid)) _reelSelected.delete(sid);
-  else _reelSelected.add(sid);
+  if (_reelSelected.has(sid)) {
+    _reelSelected.delete(sid);
+    _reelPoolData.delete(sid);
+  } else {
+    _reelSelected.add(sid);
+    // v7.83：勾選當下快照完整資料（含目前海選模式），之後切換模式重掃也不會遺失
+    const r = _screenerResults.find(x => x.stockId === sid);
+    if (r) {
+      const curMode  = document.getElementById('screenerMode')?.value || 'bottom';
+      const modeMeta = (typeof SCREENER_MODE_META !== 'undefined' && SCREENER_MODE_META[curMode]) || {};
+      _reelPoolData.set(sid, { ...r, mode: curMode, modeTitle: modeMeta.title || curMode, pickedAt: Date.now() });
+    }
+  }
   // 更新按鈕外觀
   const btn = document.getElementById('reel-btn-' + sid);
   if (btn) {
@@ -44418,6 +44432,7 @@ function _toggleReel(sid) {
 }
 function _reelClearAll() {
   _reelSelected.clear();
+  _reelPoolData.clear();
   document.querySelectorAll('.sc-reel-btn').forEach(b => {
     b.textContent = '🎬 輪播'; b.classList.remove('sel');
   });
@@ -44433,18 +44448,22 @@ function _updateReelFloat() {
 
 async function exportReelCards() {
   if (!isAdmin()) { if (typeof showEpicToast==='function') showEpicToast('🔒 輪播匯出限管理者使用', '#dc2626'); return; }
-  const toExport = _screenerResults.filter(r => _reelSelected.has(r.stockId));
+  // v7.83：改從跨模式累積的 _reelPoolData 快照取資料（不再只吃「目前這次掃描」的
+  // _screenerResults，避免切換海選模式重掃後，先前勾選的股票被漏掉不會匯出）
+  const toExport = [..._reelPoolData.values()];
   if (!toExport.length) return;
   if (typeof showEpicToast === 'function') showEpicToast('🎨 抓取法人資料中…', '#d97706');
 
   const W = 1080, H = 1920;
   const today = new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' });
-  const curMode  = document.getElementById('screenerMode')?.value || 'bottom';
-  const modeMeta = SCREENER_MODE_META[curMode] || SCREENER_MODE_META.bottom;
 
   for (let i = 0; i < toExport.length; i++) {
     const r    = toExport[i];
     const info = STOCK_DB[r.stockId] || { name: r.stockId, industry: '—' };
+    // v7.83：跨模式累積的池子裡每檔股票可能來自不同海選模式（例如啟動期/籌碼淨化混著選），
+    // 卡片標題要用該檔「勾選當下」的模式，不能整批都套用目前下拉選單顯示的模式
+    const curMode  = r.mode || document.getElementById('screenerMode')?.value || 'bottom';
+    const modeMeta = SCREENER_MODE_META[curMode] || SCREENER_MODE_META.bottom;
 
     // ── 即時抓法人籌碼（近10日）──
     let instData = null;
@@ -44477,6 +44496,62 @@ async function exportReelCards() {
     await new Promise(res => setTimeout(res, 300));
   }
   if (typeof showEpicToast === 'function') showEpicToast(`✅ 已匯出 ${toExport.length} 張 PNG！`, '#16a34a');
+}
+
+// ── 🎬 v7.83 推播池 JSON 匯出 ──────────────────────────────────
+// 把目前勾選（可跨海選模式累積，例如啟動期前10 + 籌碼淨化前10）的股票，
+// 匯出成本機 Codex 推播影片程式（Codex-台股新聞推播/import_push_pool.py）
+// 可以直接讀的 JSON，串接「選股→推播卡片/影片」，不用兩邊各自維護一份清單。
+function exportPushPoolJSON() {
+  if (!isAdmin()) { if (typeof showEpicToast==='function') showEpicToast('🔒 推播池匯出限管理者使用', '#dc2626'); return; }
+  const pool = [..._reelPoolData.values()];
+  if (!pool.length) { if (typeof showEpicToast==='function') showEpicToast('尚未勾選任何股票，請先在海選結果卡片按🎬輪播勾選', '#d97706'); return; }
+
+  const stocks = pool.map(r => {
+    const info = STOCK_DB[r.stockId] || { name: r.stockId, industry: '—' };
+    const modeMeta = (typeof SCREENER_MODE_META !== 'undefined' && SCREENER_MODE_META[r.mode]) || {};
+    // 把 checks（每個模式的判定條件）串成一句可讀的技術面備註，供推播文案/語音稿使用
+    const noteParts = (r.checks || [])
+      .map(c => `${c.hit ? '✅' : c.warn ? '△' : '—'}${c.label}${c.val ? `(${c.val})` : ''}`)
+      .filter(Boolean);
+    const technicalNote = noteParts.length ? noteParts.join('；') : (modeMeta.subtitle || r.modeTitle || '');
+    return {
+      code: r.stockId,
+      name: info.name,
+      industry: info.industry || '—',
+      mode: r.mode,
+      mode_title: r.modeTitle || modeMeta.title || r.mode,
+      score: r.score,
+      close: r.lc,
+      change_pct: +(+r.chgPct || 0).toFixed(2),
+      foreign_streak_days: r.fCons ?? null,
+      trust_streak_days: r.tCons ?? null,
+      checks: (r.checks || []).map(c => ({ label: c.label, hit: !!c.hit, warn: !!c.warn, val: c.val ?? null })),
+      technical_note: technicalNote,
+      picked_at: r.pickedAt ? new Date(r.pickedAt).toISOString() : null,
+    };
+  });
+
+  const payload = {
+    exported_at: new Date().toISOString(),
+    source: '台股AI分析器（GitHub Pages）',
+    date: new Date().toISOString().slice(0, 10),
+    count: stocks.length,
+    stocks,
+  };
+
+  const dateStr = payload.date;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `push_pool_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  if (typeof showEpicToast === 'function') showEpicToast(`✅ 已匯出推播池 JSON（${stocks.length} 檔）`, '#16a34a');
 }
 
 function _drawReelCard(r, info, W, H, today, idx, total, curMode, modeTitle, instData) {
@@ -53854,6 +53929,10 @@ let _screenerStop    = false;
 let _screenerResults = [];
 let _screenerSort    = 'score';
 let _reelSelected    = new Set(); // 輪播圖選取的股票 ID
+// v7.83：勾選當下就把該檔完整資料快照存起來（不是只存ID），這樣切換海選模式
+// 重新掃描（_screenerResults會被整批換掉）之後，先前勾選的股票資料也不會不見，
+// 才能真的做到「啟動期前10 + 籌碼淨化前10」跨模式累積勾選再一次匯出。
+let _reelPoolData    = new Map(); // stockId -> { ...screenerResult快照, mode, modeTitle, pickedAt }
 // ✨ v7.15 篩選狀態
 let _screenerMinScore  = 0;          // 分數門檻（0=全部）
 let _screenerIndustry  = '';         // 板塊篩選（空=全部）
