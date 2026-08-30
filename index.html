@@ -43235,6 +43235,21 @@ function _drawPeriodCharts(period, longPriceRows) {
   const vl = slice.map(r => r.vol !== undefined ? r.vol : r.Trading_Volume);
   const pc = slice.length > 1 ? slice[slice.length-2].close : cl[0];
 
+  // v7.77：週線/月線原本完全沒有K棒也沒有候選支撐壓力線（只有日線有）。
+  // 開高低欄位在聚合後(W/M)叫 high/low，日線(D)沿用原始的 max/min，
+  // 兩種都要吃。支撐/壓力偵測用「全部聚合資料」算（不是只有畫面顯示的
+  // 這N期），這樣才有足夠的轉折點樣本，跟日線的做法一致。
+  const op = slice.map(r => r.open);
+  const hi = slice.map(r => r.high !== undefined ? r.high : r.max);
+  const lo = slice.map(r => r.low  !== undefined ? r.low  : r.min);
+  const fullHi = agg.map(r => r.high !== undefined ? r.high : r.max);
+  const fullLo = agg.map(r => r.low  !== undefined ? r.low  : r.min);
+  const srAgg = detectSupportResistance(fullHi, fullLo);
+  const resLinesAgg = [
+    ...srAgg.support.map(s => ({ ...s, type: 'support' })),
+    ...srAgg.resistance.map(s => ({ ...s, type: 'resistance' })),
+  ];
+
   // 若日線，直接用原始 MA；否則用全聚合資料重算（確保 MA/Boll 有足夠期數）
   let m5c, m20c, buc, blc, actualMa20Period;
   if (period === 'D') {
@@ -43269,16 +43284,28 @@ function _drawPeriodCharts(period, longPriceRows) {
     type:'line', data:{
       labels: dl,
       datasets:[
-        { label:'收盤價',    data:cl,  borderColor:'#1976D2', borderWidth:2, pointRadius:period==='D'?0:2, fill:false, tension:0.1 },
+        // v7.77：收盤線改成極淡輔助線，K棒（_candlestickPlugin畫的）才是主視覺，跟日線畫法一致
+        { label:'收盤價',    data:cl,  borderColor:'rgba(25,118,210,0.25)', borderWidth:1, pointRadius:0, fill:false, tension:0.1 },
         { label:ma5Label,  data:m5c, borderColor:'#FF7043', borderWidth:1.5, pointRadius:0, fill:false, tension:0.3 },
         { label:ma20Label, data:m20c,borderColor:'#6C5CE7', borderWidth:1.5, pointRadius:0, fill:false, tension:0.3 },
         { label:'BB上',     data:buc, borderColor:'rgba(255,193,7,0.5)', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:false, tension:0.3 },
         { label:'BB下',     data:blc, borderColor:'rgba(255,193,7,0.5)', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,193,7,0.05)', tension:0.3 },
+        // 隱形資料集，讓y軸自動縮放涵蓋K棒完整高低範圍（K棒是自訂plugin畫的，不吃Chart.js自己的資料集渲染）
+        { label:'_high', data:hi, borderWidth:0, pointRadius:0, fill:false, borderColor:'transparent', backgroundColor:'transparent' },
+        { label:'_low',  data:lo, borderWidth:0, pointRadius:0, fill:false, borderColor:'transparent', backgroundColor:'transparent' },
       ]
     },
-    plugins: [_kannotPlugin],
-    options: lightChartOpts(`收盤價 + ${ma5Label}/${ma20Label} + 布林通道（${labelMap[period]}）`, false, true),
+    plugins: [_kannotPlugin, _candlestickPlugin],
+    options: (() => {
+      const opts = lightChartOpts(`K棒 + ${ma5Label}/${ma20Label} + 布林通道 + 候選支撐壓力（${labelMap[period]}）`, false, true);
+      opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
+      return opts;
+    })(),
   });
+  // v7.77：K棒+候選支撐壓力線資料要透過 $candleData 交給 _candlestickPlugin，
+  // 跟日線renderTechCharts()同一套機制，週線/月線之前完全沒接這段
+  charts['priceChart'].$candleData = { opens: op, highs: hi, lows: lo, closes: cl, resLines: resLinesAgg };
+  charts['priceChart'].update('none');
 
   // 重繪 volChart
   destroyChart('volChart');
