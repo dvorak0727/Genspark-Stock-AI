@@ -18325,6 +18325,8 @@ a.module-nav-item.acc-active {
       <div class="chart-wrap h200" style="margin-top:8px;">
         <canvas id="volChart"></canvas>
       </div>
+      <!-- v7.78：價量關係明確提醒——價漲量增(健康)/價漲量縮(無力)/價跌量增(賣壓重)/價跌量縮(惜售) -->
+      <div id="pvSignalBanner" style="display:none;margin-top:6px;padding:7px 10px;border-radius:8px;font-size:0.68rem;font-weight:700;align-items:center;gap:6px;"></div>
 
       <div class="ind-grid" id="indGrid"></div>
       <!-- ✨ v7.05 出場紀律追蹤卡 -->
@@ -43050,6 +43052,49 @@ const _candlestickPlugin = {
   }
 };
 
+// v7.78：價量關係明確提醒（使用者看教學影片後要求）——影片教的核心邏輯：
+// 「突破成功+帶量」= 健康（新資金進場支撐）；「突破後拉回+無量」= 偏弱（缺
+// 少新參與者）。這裡把同一套邏輯套在「今天」身上，直接判讀價漲/跌 × 量增/縮
+// 四種組合，白話講給使用者聽，不用自己盯著K棒+量柱兩張圖比對。
+function _renderPVSignal(closes, vols) {
+  const el = document.getElementById('pvSignalBanner');
+  if (!el) return;
+  if (closes.length < 6 || vols.length < 6) { el.style.display = 'none'; return; }
+
+  const lc = closes.at(-1), pc = closes.at(-2);
+  const chgPct = pc > 0 ? (lc - pc) / pc * 100 : 0;
+  const todayVol = vols.at(-1);
+  // 用「今天以外」的近5日均量當基準，避免今天自己把自己的均量拉高失真
+  const avgVol5 = vols.slice(-6, -1).reduce((a, b) => a + b, 0) / 5;
+  const volRatio = avgVol5 > 0 ? todayVol / avgVol5 : 1;
+
+  const priceUp = chgPct > 0.1, priceDown = chgPct < -0.1;
+  const volUp = volRatio >= 1.2, volDown = volRatio <= 0.8;
+  const volRatioStr = volRatio.toFixed(1) + 'x';
+
+  let bg, color, icon, text;
+  if (priceUp && volUp) {
+    bg = 'rgba(220,38,38,0.1)'; color = '#B91C1C'; icon = '🟢';
+    text = `價漲量增（${volRatioStr}均量）：新資金進場支撐這波上漲，健康確認訊號，符合「突破成功+帶量」的教科書模式。`;
+  } else if (priceUp && volDown) {
+    bg = 'rgba(234,179,8,0.12)'; color = '#92400E'; icon = '🟡';
+    text = `價漲量縮（${volRatioStr}均量）：上漲缺乏新資金追價，買氣不足，留意是否只是拉回前的誘多，追高前先看是否有新量能跟上。`;
+  } else if (priceDown && volUp) {
+    bg = 'rgba(220,38,38,0.1)'; color = '#B91C1C'; icon = '🔴';
+    text = `價跌量增（${volRatioStr}均量）：賣壓明顯放大，可能是恐慌性出貨或主力調節，非單純的正常回檔。`;
+  } else if (priceDown && volDown) {
+    bg = 'rgba(148,163,184,0.15)'; color = 'var(--fg2)'; icon = '⚪';
+    text = `價跌量縮（${volRatioStr}均量）：下跌但沒人追殺，惜售氣氛，可能是量縮整理，觀察是否止跌待量能回升再判斷。`;
+  } else {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'flex';
+  el.style.background = bg;
+  el.style.color = color;
+  el.innerHTML = `<span>${icon}</span><span>${text}</span>`;
+}
+
 function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens, highs, lows) {
   const n = 30;
   const dl = dates.slice(-n).map(d=>d.slice(5).replace('-','/'));
@@ -43067,6 +43112,8 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens
     ...sr.support.map(s => ({ ...s, type: 'support' })),
     ...sr.resistance.map(s => ({ ...s, type: 'resistance' })),
   ];
+
+  _renderPVSignal(closes, vols);
 
   destroyChart('priceChart');
   const c1 = document.getElementById('priceChart').getContext('2d');
