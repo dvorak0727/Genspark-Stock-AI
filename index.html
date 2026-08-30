@@ -36552,6 +36552,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
     if (isStale()) return; // ★ v6.20c 防重入
     setLoadStep(4, 'doing');
     renderPhaseDetect(closes, opens, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, ma20, lc, lRSI, lK, lD, lL, lMA5, lMA20); // 籌碼週期
+    if (typeof _patchAIPhaseAdvice === 'function') _patchAIPhaseAdvice(); // v7.80：回頭補上AI建言裡的籌碼週期那一條（renderAI跑得比這裡早，第一次算的時候phaseIdx還沒好）
     renderCFD(); // 🌊 v6.21n 籌碼流體動力學（renderPhaseDetect 之後立即執行，CFD 卡片顯示於 phase-card 正上方）
     // 週期濾波：從 phaseConfNum DOM 取得信心分數（renderPhaseDetect 已渲染）
     const _cfConf = parseInt(document.getElementById('phaseConfNum')?.textContent, 10) || 0;
@@ -43073,43 +43074,39 @@ const _candlestickPlugin = {
 // 「突破成功+帶量」= 健康（新資金進場支撐）；「突破後拉回+無量」= 偏弱（缺
 // 少新參與者）。這裡把同一套邏輯套在「今天」身上，直接判讀價漲/跌 × 量增/縮
 // 四種組合，白話講給使用者聽，不用自己盯著K棒+量柱兩張圖比對。
-function _renderPVSignal(closes, vols) {
-  const el = document.getElementById('pvSignalBanner');
-  if (!el) return;
-  if (closes.length < 6 || vols.length < 6) { el.style.display = 'none'; return; }
-
+// v7.80：抽成純計算函式（不碰DOM），讓價量banner跟AI建言的敘事段落共用同一套判斷。
+function _calcPVSignal(closes, vols) {
+  if (!closes || !vols || closes.length < 6 || vols.length < 6) return null;
   const lc = closes.at(-1), pc = closes.at(-2);
   const chgPct = pc > 0 ? (lc - pc) / pc * 100 : 0;
   const todayVol = vols.at(-1);
   // 用「今天以外」的近5日均量當基準，避免今天自己把自己的均量拉高失真
   const avgVol5 = vols.slice(-6, -1).reduce((a, b) => a + b, 0) / 5;
   const volRatio = avgVol5 > 0 ? todayVol / avgVol5 : 1;
-
   const priceUp = chgPct > 0.1, priceDown = chgPct < -0.1;
   const volUp = volRatio >= 1.2, volDown = volRatio <= 0.8;
   const volRatioStr = volRatio.toFixed(1) + 'x';
 
-  let bg, color, icon, text;
-  if (priceUp && volUp) {
-    bg = 'rgba(220,38,38,0.1)'; color = '#B91C1C'; icon = '🟢';
-    text = `價漲量增（${volRatioStr}均量）：新資金進場支撐這波上漲，健康確認訊號，符合「突破成功+帶量」的教科書模式。`;
-  } else if (priceUp && volDown) {
-    bg = 'rgba(234,179,8,0.12)'; color = '#92400E'; icon = '🟡';
-    text = `價漲量縮（${volRatioStr}均量）：上漲缺乏新資金追價，買氣不足，留意是否只是拉回前的誘多，追高前先看是否有新量能跟上。`;
-  } else if (priceDown && volUp) {
-    bg = 'rgba(220,38,38,0.1)'; color = '#B91C1C'; icon = '🔴';
-    text = `價跌量增（${volRatioStr}均量）：賣壓明顯放大，可能是恐慌性出貨或主力調節，非單純的正常回檔。`;
-  } else if (priceDown && volDown) {
-    bg = 'rgba(148,163,184,0.15)'; color = 'var(--fg2)'; icon = '⚪';
-    text = `價跌量縮（${volRatioStr}均量）：下跌但沒人追殺，惜售氣氛，可能是量縮整理，觀察是否止跌待量能回升再判斷。`;
-  } else {
-    el.style.display = 'none';
-    return;
-  }
+  if (priceUp && volUp) return { icon:'🟢', bg:'rgba(220,38,38,0.1)', color:'#B91C1C',
+    text:`價漲量增（${volRatioStr}均量）：新資金進場支撐這波上漲，健康確認訊號，符合「突破成功+帶量」的教科書模式。` };
+  if (priceUp && volDown) return { icon:'🟡', bg:'rgba(234,179,8,0.12)', color:'#92400E',
+    text:`價漲量縮（${volRatioStr}均量）：上漲缺乏新資金追價，買氣不足，留意是否只是拉回前的誘多，追高前先看是否有新量能跟上。` };
+  if (priceDown && volUp) return { icon:'🔴', bg:'rgba(220,38,38,0.1)', color:'#B91C1C',
+    text:`價跌量增（${volRatioStr}均量）：賣壓明顯放大，可能是恐慌性出貨或主力調節，非單純的正常回檔。` };
+  if (priceDown && volDown) return { icon:'⚪', bg:'rgba(148,163,184,0.15)', color:'var(--fg2)',
+    text:`價跌量縮（${volRatioStr}均量）：下跌但沒人追殺，惜售氣氛，可能是量縮整理，觀察是否止跌待量能回升再判斷。` };
+  return { icon:'📊', bg:null, color:null, text:`量能持平（${volRatioStr}均量），沒有明顯的價量共振或背離訊號。` };
+}
+
+function _renderPVSignal(closes, vols) {
+  const el = document.getElementById('pvSignalBanner');
+  if (!el) return;
+  const sig = _calcPVSignal(closes, vols);
+  if (!sig || !sig.bg) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
-  el.style.background = bg;
-  el.style.color = color;
-  el.innerHTML = `<span>${icon}</span><span>${text}</span>`;
+  el.style.background = sig.bg;
+  el.style.color = sig.color;
+  el.innerHTML = `<span>${sig.icon}</span><span>${sig.text}</span>`;
 }
 
 function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens, highs, lows) {
@@ -48756,6 +48753,46 @@ function renderCycleFilter(stockId, closes, vols, fSeries, tSeries, lc, confiden
 // ==============================================================
 //  AI RECOMMENDATION  — v5.61 動態權重版
 // ==============================================================
+// v7.80：籌碼週期（威科夫五階段）文字抽成獨立函式——renderAI()跑在
+// renderPhaseDetect()「之前」（第二批 vs 第四批，故意分批讓核心UI先繪製），
+// 所以renderAI第一次算的時候phaseIdx通常還沒算好。等renderPhaseDetect()
+// 跑完後會呼叫 _patchAIPhaseAdvice() 回頭把這一條補上，不用整個renderAI重跑。
+function _calcPhaseAdvice() {
+  const phaseIdx = window._teachData?.phaseIdx;
+  const phaseMap = { 1:'吸籌期（主力低調進貨中）', 2:'洗盤期（震盪甩轎，考驗持股信心）',
+    3:'準備啟動（洗盤末端，關注是否放量突破）', 4:'拉升期（主升段，順勢持有為主）',
+    5:'出貨期（高檔滯漲或爆量，注意風險）' };
+  if (!phaseIdx || !phaseMap[phaseIdx]) return { text:'籌碼週期：資料尚未就緒，請至籌碼週期卡片查看。' };
+  return { text:`籌碼週期：目前判斷處於【${phaseMap[phaseIdx]}】（威科夫五階段模型），可與上面的位置/方向交叉確認是否合理——例如拉升期理應在支撐上方、盤勢偏多。` };
+}
+function _patchAIPhaseAdvice() {
+  const li = document.getElementById('aiAdvicePhase');
+  if (!li) return; // AI建言可能還沒渲染過，沒關係，renderAI自己算的時候會拿到最新的phaseIdx
+  li.innerHTML = _calcPhaseAdvice().text;
+}
+
+// v7.80：獲利品質同樣道理——renderProfitQuality()是非同步抓財報API，
+// 完成時間比renderAI()晚很多（renderAI第一次算的時候幾乎必定還沒好），
+// 財報抓完後回頭補上這一條。
+function _calcProfitAdvice() {
+  const ratioArr = window._pqRawData?.ratio;
+  if (!Array.isArray(ratioArr) || ratioArr.length === 0) {
+    return { text:'獲利品質：財報資料尚未載入或近期無公告，請至獲利品質卡片查看EPS/現金流細節。' };
+  }
+  const last = ratioArr.at(-1);
+  const r = last?.value;
+  if (r == null) return { text:'獲利品質：本期淨利為0或資料不足，無法計算獲利含金量。' };
+  const verdict = r >= 0.8 ? '營業現金流跟上甚至超過帳上獲利，財報可信度較高。'
+    : r >= 0.3 ? '獲利含金量略低，可能只是正常商業週期波動，建議追蹤下季是否改善。'
+    : '帳上獲利跟實際收到的現金明顯脫節，建議進一步查應收帳款/存貨科目是否異常。';
+  return { text:`獲利品質：最新獲利含金量 ${r.toFixed(2)}（營業現金流÷淨利）。${verdict}` };
+}
+function _patchAIProfitAdvice() {
+  const li = document.getElementById('aiAdviceProfit');
+  if (!li) return;
+  li.innerHTML = _calcProfitAdvice().text;
+}
+
 function renderAI(stockId, info, price, fS, tS, rsi, K, D, hist, ma5, ma20, macdLine, sigLine, closes) {
   // ── 傳入 stockId，啟用動態權重 ──
   const score = computeScore(fS, tS, rsi, K, D, hist, price, ma5, ma20, stockId);
@@ -48880,6 +48917,45 @@ function renderAI(stockId, info, price, fS, tS, rsi, K, D, hist, ma5, ma20, macd
     }
   }
 
+  // ── v7.80：AI分析師開場白——依教學影片「位置→方向→量」+ 五大階期 +
+  // 獲利品質的敘事順序，把散落在其他卡片的既有計算結果（不重新算，直接
+  // 引用）串成一段完整解說，開場先講這幾件事，後面才接原本的法人/主力/
+  // 技術/成本建言。使用者反饋：這幾樣資料本來就都算好了，只是分散在
+  // 6、7張卡片裡要自己兜起來，這裡幫忙講一遍。
+  const advPosition = (() => {
+    const hi = window.aData?.highs, lo = window.aData?.lows;
+    if (!Array.isArray(hi) || !Array.isArray(lo) || typeof detectSupportResistance !== 'function') {
+      return { icon:'📍', text:'位置：支撐/壓力資料尚未就緒，請至技術指標卡的K線圖查看。' };
+    }
+    const sr = detectSupportResistance(hi, lo);
+    const nearestBelow = sr.support.filter(s => s.level <= price).sort((a,b)=>b.level-a.level)[0];
+    const nearestAbove = sr.resistance.filter(s => s.level >= price).sort((a,b)=>a.level-b.level)[0];
+    const parts = [];
+    if (nearestBelow) parts.push(`下方支撐約 $${nearestBelow.level.toFixed(1)}（${nearestBelow.touches}次觸及）`);
+    if (nearestAbove) parts.push(`上方壓力約 $${nearestAbove.level.toFixed(1)}（${nearestAbove.touches}次觸及）`);
+    return { icon:'📍', text: parts.length
+      ? `位置：現價 $${price.toFixed(1)}，${parts.join('、')}——這是過去實際成交聚集過的價位，不是算出來的，是真的有人在那裡進出過。`
+      : `位置：近期沒有偵測到明確的支撐/壓力聚集區，現價 $${price.toFixed(1)} 處於相對開闊的價格區間。` };
+  })();
+
+  const advTrend = (() => {
+    const st = typeof _detectMarketState === 'function' ? _detectMarketState() : null;
+    if (!st) return { icon:'🧭', text:'方向：資料不足，暫無法判斷趨勢盤或盤整盤。' };
+    return st.isTrend
+      ? { icon:'🧭', text:`方向：判斷為趨勢盤（${st.dir==='up'?'上升':'下降'}，MA20近20日變化${st.slopePct>=0?'+':''}${st.slopePct.toFixed(1)}%）——這種盤勢下，均線、MACD這種順勢工具比較準，RSI/KD容易鈍化。` }
+      : { icon:'🧭', text:`方向：判斷為盤整盤（站在MA20 ${(st.aboveRatio*100).toFixed(0)}%天數，方向不明確）——這種盤勢下，RSI、KD這種區間工具比較準，均線/MACD容易出現假訊號。` };
+  })();
+
+  const advVolume = (() => {
+    const sig = typeof _calcPVSignal === 'function' ? _calcPVSignal(closes, window.aData?.vols) : null;
+    if (!sig) return { icon:'📶', text:'成交量：資料不足，暫無法判讀價量關係。' };
+    return { icon:'📶', text: `成交量：${sig.text}` };
+  })();
+
+  const advPhase = { icon:'🌀', id:'aiAdvicePhase', ..._calcPhaseAdvice() };
+
+  const advProfit = { icon:'💰', id:'aiAdviceProfit', ..._calcProfitAdvice() };
+
   // ── 依股票類型排列建言順序（第1驅動放最前）──
   // v5.61：固定6條（+成本壓力條）
   let advices;
@@ -48893,8 +48969,12 @@ function renderAI(stockId, info, price, fS, tS, rsi, K, D, hist, ma5, ma20, macd
   // 若有 FIT 扣分說明，替換最後一條（advConc 移到倒數第二，FIT 為最後）
   if (advFIT) advices = [...advices.slice(0,-1), advFIT, advConc];
 
+  // v7.80：開場先講位置→方向→量→籌碼週期，原本的法人/主力/技術/成本建言接在後面，
+  // 獲利品質放最後（跟位置/方向/量比，EPS更新頻率低，當作補充資訊收尾）
+  advices = [advPosition, advTrend, advVolume, advPhase, ...advices, advProfit];
+
   document.getElementById('aiAdvice').innerHTML = advices.map(a=>
-    `<li data-icon="${a.icon}">${a.text}</li>`).join('');
+    `<li${a.id?` id="${a.id}"`:''} data-icon="${a.icon}">${a.text}</li>`).join('');
 
   // v6.02：若該股有進行中的 ETF 換檔事件，注入場景 banner
   _renderEtfContextBanner(stockId, score);
@@ -66110,6 +66190,7 @@ async function renderProfitQuality(stockId) {
       return (cfoQ && ni.value !== 0) ? { date: ni.date, value: cfoQ.value / ni.value } : null;
     }).filter(Boolean);
     window._pqRawData.ratio = ratioSeries;
+    if (typeof _patchAIProfitAdvice === 'function') _patchAIProfitAdvice(); // v7.80：回頭補上AI建言裡的獲利品質那一條
 
     // 連續性檢查：最近幾季是否「連續」偏低（單季偏低可能只是正常商業週期雜訊，
     // 連續多季才是真警訊——這是使用者自己討論出來的判斷邏輯，跟期貨模組的
