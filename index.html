@@ -981,55 +981,43 @@
       .tl-add-row .tl-sl-inp { display:none; }
     }
 
-    /* ====== 我的追蹤清單（右側抽屜）====== */
+    /* v7.84：追蹤清單／白板筆／快速查詢(下面.fab-btn) 原本三種不同形狀+不同定位
+       方式（兩個直式膠囊貼右邊、一個圓形貼右下角），使用者反映視覺不統一。
+       改成統一的「side-fab」圓形按鈕規格，疊在畫面右下角同一欄，只用顏色分開：
+       白板筆＝紫、追蹤清單＝藍、快速查詢＝綠（沿用.fab-btn原本的定位錨點與尺寸，
+       其餘兩個往上疊，彼此間距一致）。 */
+    .side-fab {
+      position: fixed; right: 18px;
+      width: 52px; height: 52px; border-radius: 50%;
+      border: none; cursor: pointer;
+      color: #fff; font-size: 1.3rem; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      z-index: 900;
+    }
+    .side-fab:hover { transform: scale(1.08); }
+    .side-fab:active { transform: scale(0.96); }
+    /* 追蹤清單：藍 */
     .watchlist-btn {
-      position: fixed;
-      right: 0; top: 80%;
-      transform: translateY(-50%);
-      z-index: 900;
+      bottom: 86px;
       background: linear-gradient(135deg, #1565C0, #0D47A1);
-      color: #fff;
-      border: none;
-      border-radius: 12px 0 0 12px;
-      padding: 14px 8px;
-      cursor: pointer;
-      font-size: 0.72rem;
-      font-weight: 800;
-      writing-mode: vertical-rl;
-      letter-spacing: 2px;
-      box-shadow: -3px 0 16px rgba(21,101,192,0.35);
-      transition: all 0.2s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
+      box-shadow: 0 4px 14px rgba(21,101,192,0.45);
     }
-    .watchlist-btn:hover { background: linear-gradient(135deg,#1976D2,#1565C0); transform: translateY(-50%) translateX(-2px); }
-    /* v7.76：虛擬白板筆浮動按鈕，疊在追蹤清單按鈕正上方 */
+    .watchlist-btn:hover { box-shadow: 0 6px 20px rgba(21,101,192,0.6); }
+    .watchlist-btn .wl-count {
+      position: absolute; top: -4px; right: -4px;
+      background: #E53935; color: #fff; border-radius: 50%;
+      width: 20px; height: 20px; font-size: 0.65rem;
+      display: flex; align-items: center; justify-content: center; font-weight: 800;
+    }
+    /* v7.76：虛擬白板筆浮動按鈕，疊在追蹤清單按鈕正上方；v7.84改成圓形跟其他兩顆統一 */
     .whiteboard-btn {
-      position: fixed; right: 0; top: 80%;
-      transform: translateY(-50%) translateY(-70px);
-      z-index: 900;
+      bottom: 150px;
       background: linear-gradient(135deg, #7C3AED, #5B21B6);
-      color: #fff;
-      border: none;
-      border-radius: 12px 0 0 12px;
-      padding: 10px 8px;
-      cursor: pointer;
-      font-size: 0.68rem;
-      font-weight: 800;
-      writing-mode: vertical-rl;
-      letter-spacing: 2px;
-      box-shadow: -3px 0 16px rgba(124,58,237,0.35);
-      transition: all 0.2s;
-      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      box-shadow: 0 4px 14px rgba(124,58,237,0.45);
     }
-    .whiteboard-btn:hover { background: linear-gradient(135deg,#8B5CF6,#7C3AED); transform: translateY(-50%) translateY(-70px) translateX(-2px); }
+    .whiteboard-btn:hover { box-shadow: 0 6px 20px rgba(124,58,237,0.6); }
     .whiteboard-btn.active { background: linear-gradient(135deg,#059669,#047857); }
-    @media (max-width: 600px) {
-      .whiteboard-btn { top: auto; bottom: 138px; transform: none; border-radius: 12px 0 0 12px; }
-      .whiteboard-btn:hover { transform: none; }
-    }
     /* 白板工具列 + 畫布 */
     #whiteboardCanvas {
       position: fixed; inset: 0; z-index: 8888; display: none;
@@ -1051,16 +1039,7 @@
     }
     .wb-tool-btn.active { background: #7C3AED; border-color: #7C3AED; color: #fff; }
     .wb-tool-btn:hover:not(.active) { background: var(--accent-bg, var(--bg2)); }
-    .watchlist-btn .wl-count {
-      writing-mode: horizontal-tb;
-      background: #E53935;
-      color: #fff;
-      border-radius: 50%;
-      width: 20px; height: 20px;
-      font-size: 0.65rem;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 800;
-    }
+    /* v7.84：.wl-count 樣式已併入上面 .side-fab 區塊（改成右上角圓形徽章），這裡移除重複定義 */
     /* 抽屜本體 */
     .watchlist-drawer {
       position: fixed;
@@ -3047,16 +3026,17 @@
       z-index: 9000;
       display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
     }
+    /* v7.84：跟追蹤清單(藍)/白板筆(紫)統一成同一套圓形樣式，這顆固定用綠色區分 */
     .fab-btn {
       width: 52px; height: 52px; border-radius: 50%;
-      background: var(--accent);
+      background: linear-gradient(135deg, #16A34A, #15803D);
       border: none; cursor: pointer;
-      box-shadow: 0 4px 14px rgba(25,118,210,0.45);
+      box-shadow: 0 4px 14px rgba(22,163,74,0.45);
       display: flex; align-items: center; justify-content: center;
       transition: transform 0.2s, box-shadow 0.2s;
       flex-shrink: 0;
     }
-    .fab-btn:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(25,118,210,0.55); }
+    .fab-btn:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(22,163,74,0.6); }
     .fab-btn:active { transform: scale(0.96); }
     .fab-icon { font-size: 1.3rem; line-height: 1; }
     .fab-panel {
@@ -20860,9 +20840,9 @@ a.module-nav-item.acc-active {
 <div class="wl-overlay" id="wlOverlay" onclick="closeWatchlist()"></div>
 
 <!-- 側邊浮動按鈕 -->
-<button class="watchlist-btn" id="watchlistBtn" onclick="toggleWatchlist()" title="我的追蹤清單">
+<!-- v7.84：跟白板筆/快速查詢統一成同一套圓形side-fab樣式，只用顏色分開，文字改tooltip顯示 -->
+<button class="side-fab watchlist-btn" id="watchlistBtn" onclick="toggleWatchlist()" title="我的追蹤清單">
   <span>⭐</span>
-  <span>追蹤清單</span>
   <span class="wl-count" id="wlCount">0</span>
 </button>
 
@@ -20870,9 +20850,8 @@ a.module-nav-item.acc-active {
      ✏️ 虛擬白板筆（v7.76）— 疊在追蹤清單按鈕正上方
      畫筆/方框/橡皮擦，直接在畫面上標註，不用截圖到外部軟體改
 ══════════════════════════════════════════════════ -->
-<button class="whiteboard-btn" id="whiteboardBtn" onclick="wbToggle()" title="虛擬白板筆">
+<button class="side-fab whiteboard-btn" id="whiteboardBtn" onclick="wbToggle()" title="虛擬白板筆">
   <span>✏️</span>
-  <span>白板筆</span>
 </button>
 <canvas id="whiteboardCanvas"></canvas>
 <div class="wb-toolbar" id="wbToolbar">
