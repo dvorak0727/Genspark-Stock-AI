@@ -18335,6 +18335,9 @@ a.module-nav-item.acc-active {
       <!-- v7.78：價量關係明確提醒——價漲量增(健康)/價漲量縮(無力)/價跌量增(賣壓重)/價跌量縮(惜售) -->
       <div id="pvSignalBanner" style="display:none;margin-top:6px;padding:7px 10px;border-radius:8px;font-size:0.68rem;font-weight:700;align-items:center;gap:6px;"></div>
 
+      <!-- v7.91：長線模式指標——切到週線/月線才顯示，MA50/MA200＋RSI50生命線＋布林帶開口判讀 -->
+      <div id="longTermBanner" style="display:none;margin-top:6px;padding:7px 10px;border-radius:8px;font-size:0.66rem;line-height:1.7;background:rgba(13,148,136,0.08);color:#0F766E;"></div>
+
       <!-- v7.79：趨勢盤/盤整盤市場狀態提醒——不同狀態該看不同指標，圈起來下面對應的卡片 -->
       <div id="marketStateBanner" style="display:none;margin-bottom:8px;padding:7px 10px;border-radius:8px;font-size:0.66rem;align-items:center;gap:6px;background:rgba(124,58,237,0.08);color:#6D28D9;"></div>
       <div class="ind-grid" id="indGrid"></div>
@@ -43232,6 +43235,10 @@ function _renderPVSignal(closes, vols) {
 }
 
 function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens, highs, lows) {
+  // v7.91：換新股票時強制回到日線視圖，若上一支股票停在週/月線的長線指標
+  // banner還顯示著，這裡要先關掉，不然會殘留舊股票的長線判讀文字
+  const ltEl0 = document.getElementById('longTermBanner');
+  if (ltEl0) ltEl0.style.display = 'none';
   const n = 30;
   const dl = dates.slice(-n).map(d=>d.slice(5).replace('-','/'));
   const cl = closes.slice(-n), m5=ma5.slice(-n), m20=ma20.slice(-n);
@@ -43321,7 +43328,11 @@ const _longPriceCache = {}; // { stockId: { W: priceRaw[], M: priceRaw[] } }
 
 // 取得週/月線所需的長期價格資料（不夠時自動補拉）
 async function _ensureLongPrice(stockId, period) {
-  const daysNeeded = period === 'W' ? 600 : 1200; // W:~120週(2yr+), M:~55個月(4yr+)
+  // v7.91：原本600/1200天，週線抓不到MA200(需要約200週=1400天以上)，月線連
+  // MA50(需要約50個月=1500天以上)都抓不到，長線指標形同虛設。拉長到週線1700天
+  // (約230週，MA200夠用)、月線2400天(約78個月，MA50夠用；MA200要16年以上資料，
+  // 對大多數股票不實際，暫不強求)。
+  const daysNeeded = period === 'W' ? 1700 : 2400; // W:~230週(MA200夠用)，M:~78個月(MA50夠用)
   const cached = _longPriceCache[stockId]?.[period];
   if (cached) return cached; // 已有快取，直接回傳
 
@@ -43462,6 +43473,10 @@ function _drawPeriodCharts(period, longPriceRows) {
 
   // 若日線，直接用原始 MA；否則用全聚合資料重算（確保 MA/Boll 有足夠期數）
   let m5c, m20c, buc, blc, actualMa20Period;
+  // v7.91：長線模式指標（MA50/MA200＋RSI50生命線＋布林帶開口）——只在週/月線
+  // 顯示，日線維持原本短線判讀（RSI看70/30超買超賣），兩套邏輯意義相反，
+  // 不能混在一起顯示，用你已經有的日/週/月切換分界最自然。
+  let m50c = null, m200c = null, longTermInfo = null;
   if (period === 'D') {
     m5c = ma5.slice(-N); m20c = ma20.slice(-N);
     buc = boll.upper.slice(-N); blc = boll.lower.slice(-N);
@@ -43475,12 +43490,70 @@ function _drawPeriodCharts(period, longPriceRows) {
     const aggBoll = calcBoll(allClose, actualMa20Period, 2);
     buc = aggBoll.upper.slice(-N);
     blc = aggBoll.lower.slice(-N);
+
+    // MA50/MA200：資料不夠時（例如剛上市的股票）該天期就不畫，不硬湊假資料
+    if (allClose.length >= 50)  m50c  = calcMA(allClose, 50).slice(-N);
+    if (allClose.length >= 200) m200c = calcMA(allClose, 200).slice(-N);
+
+    // RSI 50 生命線：長線判讀跟短線相反——不是看70/30超買超賣，是看能不能守住50
+    // （守住50=多頭防線還在，跌破50=動能實質翻空，不是正常回檔）
+    const rsiArr = calcRSI(allClose, 14);
+    const lRsiLT = rsiArr.at(-1);
+    // 布林帶開口：帶寬從窄到寬視為「單邊行情啟動」，公式跟既有的布林帶寬指標一致
+    const lBw = (aggBoll.upper.at(-1) > 0 && aggBoll.lower.at(-1) > 0 && aggBoll.mid.at(-1) > 0)
+      ? (aggBoll.upper.at(-1) - aggBoll.lower.at(-1)) / aggBoll.mid.at(-1) * 100 : null;
+    const prevBw = (aggBoll.upper.at(-2) > 0 && aggBoll.lower.at(-2) > 0 && aggBoll.mid.at(-2) > 0)
+      ? (aggBoll.upper.at(-2) - aggBoll.lower.at(-2)) / aggBoll.mid.at(-2) * 100 : null;
+
+    longTermInfo = { lRsiLT, lBw, prevBw, hasM50: m50c != null, hasM200: m200c != null };
   }
 
   // 更新 label
   const labelMap = { D:`近 ${N} 日 · 日線`, W:`近 ${N} 週 · 週線`, M:`近 ${N} 月 · 月線` };
   const labelEl = document.getElementById('periodLabel');
   if (labelEl) labelEl.textContent = labelMap[period];
+
+  // v7.91：長線模式指標判讀 banner——只在週/月線顯示，日線隱藏（維持原本短線判讀）
+  const ltEl = document.getElementById('longTermBanner');
+  if (ltEl) {
+    if (period === 'D' || !longTermInfo) {
+      ltEl.style.display = 'none';
+    } else {
+      const parts = [];
+      // MA50/MA200 是否有資料
+      if (!longTermInfo.hasM50 && !longTermInfo.hasM200) {
+        parts.push('📏 資料筆數不夠，MA50/MA200 暫無法計算（換股或資料更新後可能會有）。');
+      } else {
+        const maBits = [];
+        if (longTermInfo.hasM50)  maBits.push('MA50');
+        if (longTermInfo.hasM200) maBits.push('MA200');
+        parts.push(`📏 ${maBits.join('／')} 已疊加在圖上（虛線），可觀察價格是否站上長期均線判斷波段趨勢。`);
+      }
+      // RSI 50 生命線：長線判讀看能不能守住50，不是看70/30超買超賣
+      if (longTermInfo.lRsiLT != null) {
+        const r = longTermInfo.lRsiLT;
+        if (r >= 50) {
+          parts.push(`💚 RSI(14) ${r.toFixed(1)} 守住50生命線，多頭防線還在，動能未實質翻空。`);
+        } else {
+          parts.push(`⚠️ RSI(14) ${r.toFixed(1)} 跌破50生命線，不是正常回檔，動能可能已翻空，提高警覺。`);
+        }
+      }
+      // 布林帶開口：帶寬從窄轉寬視為單邊行情啟動
+      if (longTermInfo.lBw != null) {
+        const bw = longTermInfo.lBw, prevBw = longTermInfo.prevBw;
+        const expanding = prevBw != null && bw > prevBw * 1.1;
+        if (bw < 8) {
+          parts.push(`🔥 布林帶寬 ${bw.toFixed(2)}% 處於擠壓狀態，大波段行情蓄勢待發，留意方向何時明朗。`);
+        } else if (expanding) {
+          parts.push(`🚀 布林帶寬 ${bw.toFixed(2)}%（較上期擴張），帶口已張開，單邊行情可能已經啟動。`);
+        } else {
+          parts.push(`📊 布林帶寬 ${bw.toFixed(2)}%，波動處於正常範圍。`);
+        }
+      }
+      ltEl.innerHTML = parts.join('<br>');
+      ltEl.style.display = 'block';
+    }
+  }
 
   // MA 標籤依週期與實際期數顯示
   const periodUnit = period === 'D' ? '' : period === 'W' ? '週' : '月';
@@ -43498,6 +43571,10 @@ function _drawPeriodCharts(period, longPriceRows) {
         { label:'收盤價',    data:cl,  borderColor:'rgba(25,118,210,0.25)', borderWidth:1, pointRadius:0, fill:false, tension:0.1 },
         { label:ma5Label,  data:m5c, borderColor:'#FF7043', borderWidth:1.5, pointRadius:0, fill:false, tension:0.3 },
         { label:ma20Label, data:m20c,borderColor:'#6C5CE7', borderWidth:1.5, pointRadius:0, fill:false, tension:0.3 },
+        // v7.91：MA50/MA200——長線波段常用均線，只在週/月線且資料夠長時畫（日線30天
+        // 資料量不足以支撐MA200，畫出來也沒意義，故只在此加，不影響日線視圖）
+        ...(m50c  ? [{ label:`MA50${periodUnit}`,  data:m50c,  borderColor:'#0D9488', borderWidth:1.5, pointRadius:0, fill:false, tension:0.3, borderDash:[2,2] }] : []),
+        ...(m200c ? [{ label:`MA200${periodUnit}`, data:m200c, borderColor:'#B91C1C', borderWidth:1.5, pointRadius:0, fill:false, tension:0.3, borderDash:[6,2] }] : []),
         { label:'BB上',     data:buc, borderColor:'rgba(255,193,7,0.5)', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:false, tension:0.3 },
         { label:'BB下',     data:blc, borderColor:'rgba(255,193,7,0.5)', borderWidth:1, borderDash:[4,3], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,193,7,0.05)', tension:0.3 },
         // 隱形資料集，讓y軸自動縮放涵蓋K棒完整高低範圍（K棒是自訂plugin畫的，不吃Chart.js自己的資料集渲染）
