@@ -43208,6 +43208,11 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens
       // v7.81：明確指定y軸範圍＝K棒高低範圍（不是布林通道的範圍），K棒才不會被布林通道拉開的y軸壓扁
       const yr = hasOHLC ? _candleYRange(hi, lo) : null;
       if (yr) { opts.scales.y.min = yr.min; opts.scales.y.max = yr.max; }
+      // v7.89：x軸預設把第一根/最後一根K棒的中心點直接畫在圖表最邊緣，K棒身體有
+      // 一半寬度會超出chartArea被裁掉看不到（使用者反映最後一天的K棒被切一半）。
+      // offset:true讓每個類別（每一天）都佔一個完整格子、K棒畫在格子中央，
+      // 頭尾兩天就會有完整的半格留白，不會被邊界裁切。
+      opts.scales.x.offset = true;
       return opts;
     })(),
   });
@@ -43433,6 +43438,8 @@ function _drawPeriodCharts(period, longPriceRows) {
       // v7.81：明確指定y軸範圍＝K棒高低範圍，避免布林通道把y軸拉開、K棒被壓扁（跟日線同一套修法）
       const yr = _candleYRange(hi, lo);
       if (yr) { opts.scales.y.min = yr.min; opts.scales.y.max = yr.max; }
+      // v7.89：跟日線同一套修法，避免最後一根K棒被畫在圖表最邊緣、一半被裁掉看不到
+      opts.scales.x.offset = true;
       return opts;
     })(),
   });
@@ -66764,6 +66771,8 @@ function renderTwseCandleChart() {
     options: (() => {
       const opts = lightChartOpts('加權指數K棒 + MA5/10/20/60 + 候選支撐壓力 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
+      // v7.89：避免最後一根K棒被畫在圖表最邊緣、一半被裁掉看不到
+      opts.scales.x.offset = true;
       return opts;
     })(),
   });
