@@ -43630,7 +43630,41 @@ function _drawPeriodCharts(period, longPriceRows) {
     const prevBw = (aggBoll.upper.at(-2) > 0 && aggBoll.lower.at(-2) > 0 && aggBoll.mid.at(-2) > 0)
       ? (aggBoll.upper.at(-2) - aggBoll.lower.at(-2)) / aggBoll.mid.at(-2) * 100 : null;
 
-    longTermInfo = { lRsiLT, lBw, prevBw, hasM50: m50c != null, hasM200: m200c != null, fibInfo };
+    // v7.94：止盈/止損建議價——依賴斐波那契(止損)+候選壓力線/布林中軌(止盈)，
+    // 呼應使用者看的交易紀律教學：止損放在「買入邏輯不成立」的地方，止盈依
+    // 盤勢類型給不同建議（震盪盤到壓力區先落袋，趨勢盤跌破布林中軌才賣）。
+    const curPriceLT = allClose.at(-1);
+    // 用布林中軌近10期的斜率判斷趨勢盤/震盪盤，跟_detectMarketState()同樣的3%門檻，
+    // 只是資料源換成這裡已經算好的週/月線布林中軌，不用另外重算
+    const midArr = aggBoll.mid.filter(v => v != null);
+    const midTail = midArr.slice(-Math.min(10, midArr.length));
+    const midSlopePct = (midTail[0] > 0 && midTail.length >= 2)
+      ? (midTail.at(-1) - midTail[0]) / midTail[0] * 100 : 0;
+    const isTrendLT = Math.abs(midSlopePct) >= 3;
+
+    // 止盈：趨勢盤看布林中軌，震盪盤看最近的候選壓力
+    let takeProfitInfo = null;
+    if (isTrendLT) {
+      takeProfitInfo = { mode: 'trend', level: aggBoll.mid.at(-1) };
+    } else {
+      const nearestRes = srAgg.resistance.filter(r => r.level >= curPriceLT).sort((a, b) => a.level - b.level)[0];
+      if (nearestRes) takeProfitInfo = { mode: 'range', level: nearestRes.level, touches: nearestRes.touches };
+    }
+
+    // 止損：優先用斐波那契78.6%回撤線（buy邏輯不成立的深度），漲勢中才有意義；
+    // 沒有明確斐波那契可用時，退回用最近的候選支撐線
+    let stopLossInfo = null;
+    if (fibInfo && fibInfo.up) {
+      const deepLevel = fibInfo.levels.find(l => l.ratio === 0.786);
+      if (deepLevel) stopLossInfo = { mode: 'fib', level: deepLevel.level };
+    }
+    if (!stopLossInfo) {
+      const nearestSup = srAgg.support.filter(s => s.level <= curPriceLT).sort((a, b) => b.level - a.level)[0];
+      if (nearestSup) stopLossInfo = { mode: 'support', level: nearestSup.level, touches: nearestSup.touches };
+    }
+
+    longTermInfo = { lRsiLT, lBw, prevBw, hasM50: m50c != null, hasM200: m200c != null, fibInfo,
+      isTrendLT, midSlopePct, takeProfitInfo, stopLossInfo, curPriceLT };
   }
 
   // 更新 label
@@ -43690,6 +43724,22 @@ function _drawPeriodCharts(period, longPriceRows) {
         parts.push(`🌀 斐波那契：目前股價最接近 ${pctTxt} ${dirTxt}位（圖上橘色虛線），${meaning}。`);
       } else if (period !== 'D') {
         parts.push('🌀 斐波那契：目前資料範圍內找不到明確的高低點區間，暫無法畫出回撤線。');
+      }
+      // v7.94：止盈/止損建議價——呼應交易紀律「止損放在買入邏輯不成立的地方、
+      // 止盈依盤勢類型給不同建議」，兩者都只是「建議價位」，不是保證，真正下單
+      // 前務必自行確認。
+      if (longTermInfo.takeProfitInfo) {
+        const tp = longTermInfo.takeProfitInfo;
+        if (tp.mode === 'trend') {
+          parts.push(`🎯 止盈建議：目前判斷為趨勢盤，建議抱到跌破布林中軌 ${tp.level.toFixed(1)} 才獲利了結，讓獲利奔跑，不要漲一點就想跑。`);
+        } else {
+          parts.push(`🎯 止盈建議：目前判斷為震盪盤，到候選壓力區 ${tp.level.toFixed(1)}（${tp.touches}次觸及）附近可先落袋，震盪盤不宜貪心等噴出。`);
+        }
+      }
+      if (longTermInfo.stopLossInfo) {
+        const sl = longTermInfo.stopLossInfo;
+        const src = sl.mode === 'fib' ? '斐波那契78.6%深回撤線' : `候選支撐（${sl.touches}次觸及）`;
+        parts.push(`🛑 止損建議：跌破 ${sl.level.toFixed(1)}（${src}）視為當初的買入邏輯已經不成立，建議立刻離場、不要留戀。`);
       }
       ltEl.innerHTML = parts.join('<br>');
       ltEl.style.display = 'block';
