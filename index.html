@@ -305,7 +305,12 @@
       align-items: center;
       justify-content: space-between;
       box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      flex-wrap: nowrap;
+      /* v7.95：原本nowrap+內層橫向卷軸，螢幕不夠寬時VIP/登出這些關鍵按鈕會被
+         擠出可視範圍，要手動橫向捲動才看得到，使用者容易誤以為它們不見了。
+         改成允許整排按鈕换行——放不下時自動換到logo下面新的一行，永遠完整
+         露出，不用捲動、不會被裁切。 */
+      flex-wrap: wrap;
+      row-gap: 6px;
       min-height: 0;
       position: sticky; top: 0; z-index: 900;
     }
@@ -15935,7 +15940,9 @@ a.module-nav-item.acc-active {
       <span>🎨</span>
     </button>
   </div>
-  <div class="header-right-scroll" style="display:flex;align-items:center;gap:8px;flex-shrink:1;min-width:0;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:2px;">
+  <!-- v7.95：拿掉overflow-x:auto的橫向捲動，改成flex-wrap:wrap讓按鈕放不下時自動
+       換行，VIP/登出等按鈕永遠完整可見，不用捲動去找 -->
+  <div class="header-right-scroll" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;row-gap:6px;justify-content:flex-end;min-width:0;padding-bottom:2px;">
     <div class="header-badge">💬 支援公司名稱查詢</div>
     <!-- 選項F v6.99：收盤價過期提示 badge -->
     <span class="stale-base-badge" id="staleBaseBadge"
@@ -15972,7 +15979,10 @@ a.module-nav-item.acc-active {
     <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淡色模式">
       <span id="themeIcon">🌙</span>
     </button>
-    <button class="theme-toggle-btn" onclick="_logoutConfirm()" title="登出授權" style="color:#f87171;">
+    <!-- v7.95：原本套用.theme-toggle-btn（固定32×32圓形，只給單一icon用），
+         「🔒 登出」文字塞進去會被裁切看不全，改用跟VIP/教學操盤同款的
+         .ks-shortcut-btn（依文字自動撐寬、不換行），才能完整顯示 -->
+    <button class="ks-shortcut-btn" onclick="_logoutConfirm()" title="登出授權" style="border-color:#f87171;color:#f87171;">
       🔒 登出
     </button>
   </div>
