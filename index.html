@@ -18304,6 +18304,9 @@ a.module-nav-item.acc-active {
         <!-- v7.88：K線形態新圖層——刺透/烏雲蓋頂/陰孕陽/陽孕陰，直接標在對應K棒上方，
              不用切去「📉 K線形態」卡片來回看 -->
         <button class="kannot-btn kb-pattern active" id="kbPattern" onclick="toggleKAnnot('pattern')" title="刺透形態／烏雲蓋頂／陰孕陽／陽孕陰">🕯️ K線形態</button>
+        <!-- v7.90：突破確認+力量疊加——站上候選壓力線＋隔日站穩＋量能/均線/法人
+             至少兩項力量疊加，才判定為高信心突破（不是隨便碰一下壓力線就算） -->
+        <button class="kannot-btn kb-breakout active" id="kbBreakout" onclick="toggleKAnnot('breakout')" title="站上候選壓力＋隔日站穩＋量能/均線/法人至少兩項疊加確認">🚀 突破共振</button>
         <span class="kannot-reset" onclick="resetKAnnot()">全開</span>
       </div>
 
@@ -18323,6 +18326,7 @@ a.module-nav-item.acc-active {
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#38BDF8;"></span>短期低點(N=3)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#16A34A;"></span>刺透/陰孕陽(見底)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#DC2626;"></span>烏雲蓋頂/陽孕陰(見頂)</span>
+        <span class="kannot-legend-item"><span class="kl-dot" style="background:#F59E0B;"></span>突破共振(壓力轉支撐)</span>
       </div>
 
       <div class="chart-wrap h200" style="margin-top:8px;">
@@ -36501,7 +36505,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   setTimeout(() => { if (!isStale() && typeof checkDispositionAlert === 'function') checkDispositionAlert(stockId); }, 600); // ⚠️ 處置股+籌碼共振提示
   renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes, vols, lc, dates); // 籌碼總覽
 
-  buildKAnnotEvents(dates, closes, ma20, vols, instMap, instDays, lows, opens, highs);     // [v6.40] K線標注事件（v7.7加入lows供前波低點偵測，v7.88加入opens/highs供K線形態偵測）
+  buildKAnnotEvents(dates, closes, ma20, vols, instMap, instDays, lows, opens, highs, ma5, fSeries, tSeries);     // [v6.40] K線標注事件（v7.7加入lows供前波低點偵測，v7.88加入opens/highs供K線形態偵測，v7.90加入ma5/fSeries/tSeries供突破共振偵測）
   renderTechCharts(dates, closes, ma5, ma20, boll, vols, pc, opens, highs, lows); // 技術圖（v7.53加入OHLC畫K棒+支撐壓力）
   renderOBI(dates, opens, highs, lows, closes, vols);                        // [v6.41] OBI 外盤強度指標
   renderIndCards(lRSI, lK, lD, lMACD, lSig, lHist, lU, lL, lc, lMA5, lMA20); // 指標卡
@@ -41368,7 +41372,7 @@ function renderInst(stockId, instMap, instDays, fS, tS, mS) {
 // ==============================================================
 //  📍 v6.40 K線標注層（afterDraw plugin）
 // ==============================================================
-const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true, pattern:true };
+const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true, pattern:true, breakout:true };
 let _kannotEvents = {}; // { dateLabel: [{type, color, symbol, tip}] }
 let _kannotHover  = null; // { lbl, ei, ev, date }
 
@@ -41397,7 +41401,7 @@ function _kannotShowTooltip(found, cx, cy, chart) {
   const rect = canvas.getBoundingClientRect();
   const px = rect.left + cx;
   const py = rect.top  + cy - 38;
-  const typeNames = {inst:'法人大量買',instS:'法人大量賣',macd:'MACD訊號',ma20:'均線穿越',vol:'爆量日',swingLowS:'短期低點(N=3)',swingLowM:'中期低點(N=10)',pattern:'K線形態'};
+  const typeNames = {inst:'法人大量買',instS:'法人大量賣',macd:'MACD訊號',ma20:'均線穿越',vol:'爆量日',swingLowS:'短期低點(N=3)',swingLowM:'中期低點(N=10)',pattern:'K線形態',breakout:'突破共振'};
   el.innerHTML = `<span style="color:${found.ev.color};font-size:0.8rem;">${found.ev.symbol==='🔥'?'🔥':found.ev.symbol}</span>  <strong>${typeNames[found.ev.type]||''}</strong><br/><span style="color:#CBD5E1;">${found.ev.tip}</span><br/><span style="color:#64748B;font-size:0.58rem;">${found.date} (近30日)</span>`;
   el.style.display = 'block';
   el.style.left = px + 'px';
@@ -41416,7 +41420,7 @@ function toggleKAnnot(key) {
   if (charts['priceChart']) charts['priceChart'].update();
 }
 function resetKAnnot() {
-  ['inst','instS','macd','ma20','vol','swingLowS','swingLowM','pattern'].forEach(k=>{
+  ['inst','instS','macd','ma20','vol','swingLowS','swingLowM','pattern','breakout'].forEach(k=>{
     _kannotState[k]=true;
     const id='kb'+k.charAt(0).toUpperCase()+k.slice(1);
     const b=document.getElementById(id); if(b) b.classList.add('active');
@@ -42812,7 +42816,8 @@ function _renderRadar_disabled() {
 
 // 建立標注事件資料（在 renderTechCharts 呼叫前由 buildKAnnotEvents 準備）
 // v7.88：新增 opens/highs 參數，供K線形態(刺透/烏雲蓋頂/陰孕陽/陽孕陰)偵測使用
-function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows, opens, highs) {
+// v7.90：新增 ma5arr/fSeries/tSeries 參數，供突破確認+力量疊加偵測使用
+function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows, opens, highs, ma5arr, fSeries, tSeries) {
   _kannotEvents = {};
   try {
     const N = dates.length;
@@ -42852,6 +42857,15 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows
     };
     const swingLowS = _findSwingLows(3);  // 短期擺動低點
     const swingLowM = _findSwingLows(10); // 中期轉折低點
+
+    // v7.90：突破確認+力量疊加——沿用K線形態同一套「先整批算好、逐日對應」寫法
+    const _srForBreakout = (Array.isArray(highs) && Array.isArray(opens))
+      ? detectSupportResistance(highs, lowArr) : null;
+    const _breakoutByIdx = new Map();
+    if (_srForBreakout && Array.isArray(ma5arr) && Array.isArray(fSeries) && Array.isArray(tSeries)) {
+      detectBreakoutResonance(dates, closes, vols, ma5arr, ma20arr, fSeries, tSeries, instDays, _srForBreakout)
+        .forEach(r => _breakoutByIdx.set(r.index, r));
+    }
 
     for(let i=1;i<N;i++){
       const d = dates[i];
@@ -42903,6 +42917,17 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows
           evts.push({ type:'pattern', color: p.cls==='bull' ? '#16A34A' : '#DC2626', symbol:_pSym[p.name],
             tip:`${p.name}：${p.desc}（可信度：${p.conf}）` });
         });
+      }
+
+      // ── v7.90：突破確認 + 力量疊加（三股力量共振）──
+      if (_breakoutByIdx.has(i)) {
+        const b = _breakoutByIdx.get(i);
+        const forces = [b.volOk && '量能', b.maOk && '均線', b.instOk && '法人'].filter(Boolean).join('+');
+        // symbol用單一漢字「爆」而不是🚀表情符號——afterDatasetsDraw是在canvas上
+        // 用7px小字畫在圓點裡，emoji在這麼小的尺寸下常常畫不清楚（現有的🔥爆量
+        // 標記也是同樣理由才特別轉成「F」），漢字比較穩定清楚
+        evts.push({ type:'breakout', color:'#F59E0B', symbol:'爆',
+          tip:`突破候選壓力 ${b.level.toFixed(1)}（${b.touches}次觸及）並站穩，${forces}力量疊加確認（${b.forceCount}/3）。壓力轉支撐，建議等回測不破再進場，不追高。` });
       }
 
       if(evts.length>0) _kannotEvents[lbl] = evts;
@@ -43040,6 +43065,55 @@ function detectSupportResistance(highs, lows, lookback = 60, tolerancePct = 0.01
   }
 
   return { support: cluster(swingLows), resistance: cluster(swingHighs) };
+}
+
+// v7.90：突破確認 + 力量疊加（三股力量共振）——使用者看教學影片學到的概念：
+// 壓力被站上後角色互換成支撐，若同時有「空頭回補＋買盤加碼＋觀望資金追漲」
+// 三股力量疊加，容易出現急拉行情；反過來，只是價格一日碰過壓力線但沒有
+// 這些力量佐證，很可能只是假突破，隔天就打回原形。
+// 判定規則（沿用本站既有的候選支撐壓力線detectSupportResistance()，不重新
+// 發明一套）：
+//   ① 突破：前一天收盤在候選壓力線之下，這天收盤站上壓力線之上
+//   ② 站穩確認：隔天收盤仍在壓力線之上（單日衝過去又跌回去＝假突破，不算）
+//   ③ 力量疊加（量能／均線／法人，三選二才算共振）：
+//      - 量能：當天成交量 ≥ 20日均量1.5倍（買盤明顯加碼）
+//      - 均線：MA5>MA20多頭排列（順勢買盤結構健康）
+//      - 法人：突破當天算起近3日外資+投信合計轉為買超（觀望資金追漲的代理指標）
+function detectBreakoutResonance(dates, closes, vols, ma5arr, ma20arr, fSeries, tSeries, instDays, sr) {
+  const results = [];
+  const N = closes.length;
+  if (N < 25 || !sr || !sr.resistance.length) return results;
+
+  const avgVol20 = (i) => {
+    const s = Math.max(0, i - 19);
+    const sl = vols.slice(s, i + 1);
+    return sl.reduce((a, b) => a + b, 0) / sl.length || 1;
+  };
+
+  for (let i = 1; i < N - 1; i++) {
+    const prevClose = closes[i - 1], curClose = closes[i], nextClose = closes[i + 1];
+    // 找這天突破的壓力線（可能同時觸及多條，取最接近現價的那條才有意義）
+    const broken = sr.resistance
+      .filter(r => prevClose <= r.level && curClose > r.level)
+      .sort((a, b) => a.level - b.level)[0];
+    if (!broken) continue;
+    if (nextClose <= broken.level) continue; // 隔天又跌破，判定假突破，不列入
+
+    const volOk = vols[i] >= avgVol20(i) * 1.5;
+    const maOk = ma5arr[i] != null && ma20arr[i] != null && ma5arr[i] > ma20arr[i];
+    let instOk = false;
+    const dIdx = instDays.indexOf(dates[i]);
+    if (dIdx >= 2) {
+      let sum3 = 0;
+      for (let k = dIdx - 2; k <= dIdx; k++) sum3 += (fSeries[k] || 0) + (tSeries[k] || 0);
+      instOk = sum3 > 0;
+    }
+    const forceCount = [volOk, maOk, instOk].filter(Boolean).length;
+    if (forceCount >= 2) {
+      results.push({ index: i, level: broken.level, touches: broken.touches, volOk, maOk, instOk, forceCount });
+    }
+  }
+  return results;
 }
 
 // v7.81：個股K棒圖跟大盤K棒圖比起來「K棒太短、看起來被壓扁」，根因是
