@@ -38235,7 +38235,11 @@ async function fetchOBIReal(stockId, dates) {
       const fillBuy = document.getElementById('obiFillBuy');
       const fillSell= document.getElementById('obiFillSell');
       if (pctEl) {
-        const cls = pct >= 60 ? 'bull' : pct >= 40 ? 'neut' : 'bear';
+        // v7.86：內外盤改成「左內盤、右外盤」之後，這顆大數字（外盤%）緊貼在長條圖
+        // 最左邊，視覺上會被誤認成在講長條圖左側（內盤）的顏色。把bull/bear顏色
+        // 對調，讓「內盤佔多數（外盤%低）→綠」「外盤佔多數（外盤%高）→紅」，跟長條圖
+        // 內盤=綠、外盤=紅的固定配色一致，不會出現數字紅但長條圖卻是綠色佔多數的矛盾。
+        const cls = pct >= 60 ? 'bear' : pct >= 40 ? 'neut' : 'bull';
         pctEl.textContent = pct.toFixed(1) + '%';
         pctEl.className = 'obi-embed-pct ' + cls;
       }
@@ -41466,9 +41470,13 @@ function renderOBI(dates, opens, highs, lows, closes, vols) {
     const volTotEl   = document.getElementById('obiVolTotal');
 
     if (todayPctEl) {
-      const cls = todayObi >= 60 ? 'bull' : todayObi >= 40 ? 'neut' : 'bear';
+      // v7.86：同上，內盤佔多數(外盤%低)→綠、外盤佔多數(外盤%高)→紅，對齊長條圖固定配色。
+      // 同時修掉一個舊typo：這裡原本寫的是「obi-gauge-pct」，但顏色的CSS規則只定義在
+      // 「obi-embed-pct.bull/.bear/.neut」，class名稱對不上導致這條路徑算出來的顏色
+      // 其實從未真正套用過（一直吃到某個沒有色彩規則的預設樣式），順便修正。
+      const cls = todayObi >= 60 ? 'bear' : todayObi >= 40 ? 'neut' : 'bull';
       todayPctEl.textContent = todayObi.toFixed(1) + '%';
-      todayPctEl.className = 'obi-gauge-pct ' + cls;
+      todayPctEl.className = 'obi-embed-pct ' + cls;
     }
     if (fillBuy)   fillBuy.style.width   = todayObi.toFixed(1) + '%';
     if (fillSell)  fillSell.style.width  = (100 - todayObi).toFixed(1) + '%';
@@ -41672,7 +41680,8 @@ function renderOBI(dates, opens, highs, lows, closes, vols) {
     // 更新 OBI embed 版的 gauge class（與原版共用相同 DOM id）
     const todayPctEl2 = document.getElementById('obiTodayPct');
     if (todayPctEl2) {
-      const cls2 = todayObi >= 60 ? 'bull' : todayObi >= 40 ? 'neut' : 'bear';
+      // v7.86：同上，對齊長條圖固定配色（內盤=綠、外盤=紅）
+      const cls2 = todayObi >= 60 ? 'bear' : todayObi >= 40 ? 'neut' : 'bull';
       todayPctEl2.className = 'obi-embed-pct ' + cls2;
     }
 
@@ -41714,7 +41723,8 @@ function applyObiManual() {
   const volBuyEl   = document.getElementById('obiVolBuy');
   const volSellEl  = document.getElementById('obiVolSell');
   const volTotalEl = document.getElementById('obiVolTotal');
-  if (todayPctEl) { todayPctEl.textContent = obiPct.toFixed(1)+'%'; todayPctEl.className='obi-embed-pct '+(obiPct>=60?'bull':obiPct>=40?'neut':'bear'); }
+  // v7.86：同上，對齊長條圖固定配色（內盤=綠、外盤=紅）
+  if (todayPctEl) { todayPctEl.textContent = obiPct.toFixed(1)+'%'; todayPctEl.className='obi-embed-pct '+(obiPct>=60?'bear':obiPct>=40?'neut':'bull'); }
   if (fillBuyEl)  fillBuyEl.style.width  = obiPct+'%';
   if (fillSellEl) fillSellEl.style.width = (100-obiPct)+'%';
   if (badgeEl) { badgeEl.textContent = obiPct>=60?'外盤強勢':obiPct>=40?'均衡':'內盤強勢'; badgeEl.className='obi-badge '+(obiPct>=60?'bull':obiPct>=40?'neut':'bear'); }
