@@ -2398,7 +2398,11 @@
     }
     @media (max-width: 600px) {
       .watchlist-drawer { width: 100%; right: -100%; }
-      .watchlist-btn { top: auto; bottom: 70px; transform: none; border-radius: 12px 0 0 12px; }
+      /* v7.96：這條是v7.84把追蹤清單/白板筆/快速查詢統一成圓形side-fab之前的
+         舊版殘留——手機版還在硬套「border-radius:12px 0 0 12px」把它拉回長方形
+         膠囊，跟桌機版看起來不一致（就是使用者手機截圖看到文字直式換行的
+         舊樣式）。桌機版早就沒有這個問題，手機版只是這條沒清掉，直接移除，
+         讓手機版跟桌機版一樣維持統一的圓形小圖示。 */
     }
     /* ── v6.22 該股美股新聞按鈕 ── */
     .stock-us-news-btn {
