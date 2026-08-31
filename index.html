@@ -55120,6 +55120,12 @@ async function startScreener() {
             const pc = closes.at(-2) || result.lc;
             result.chgPct = pc ? (result.lc - pc) / pc * 100 : 0;
           }
+          // v7.98：千張大戶模式原本沒補K棒資料（跟其他掃描模式不一致），
+          // 這裡已經有 priceRaw 可用，比照其他模式補上最近15天迷你K棒
+          if ((priceRaw || []).length) {
+            const _n = Math.min(15, priceRaw.length), _p = priceRaw.slice(-_n);
+            result.candles = { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) };
+          }
         } catch(e) { /* 抓不到現價不影響大戶增判斷，維持lc=0 */ }
 
       } else {
