@@ -18307,6 +18307,8 @@ a.module-nav-item.acc-active {
         <!-- v7.90：突破確認+力量疊加——站上候選壓力線＋隔日站穩＋量能/均線/法人
              至少兩項力量疊加，才判定為高信心突破（不是隨便碰一下壓力線就算） -->
         <button class="kannot-btn kb-breakout active" id="kbBreakout" onclick="toggleKAnnot('breakout')" title="站上候選壓力＋隔日站穩＋量能/均線/法人至少兩項疊加確認">🚀 突破共振</button>
+        <!-- v7.92：雙頂/雙重底/頭肩頂/頭肩底——沿用峰谷序列+頸線突破確認 -->
+        <button class="kannot-btn kb-classic active" id="kbClassic" onclick="toggleKAnnot('classic')" title="雙頂(M頭)／雙重底(W底)／頭肩頂／頭肩底，頸線突破確認">📐 圖表形態</button>
         <span class="kannot-reset" onclick="resetKAnnot()">全開</span>
       </div>
 
@@ -18327,6 +18329,8 @@ a.module-nav-item.acc-active {
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#16A34A;"></span>刺透/陰孕陽(見底)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#DC2626;"></span>烏雲蓋頂/陽孕陰(見頂)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#F59E0B;"></span>突破共振(壓力轉支撐)</span>
+        <span class="kannot-legend-item"><span class="kl-dot" style="background:#16A34A;"></span>雙重底/頭肩底(見底)</span>
+        <span class="kannot-legend-item"><span class="kl-dot" style="background:#DC2626;"></span>雙頂/頭肩頂(見頂)</span>
       </div>
 
       <div class="chart-wrap h200" style="margin-top:8px;">
@@ -41375,7 +41379,7 @@ function renderInst(stockId, instMap, instDays, fS, tS, mS) {
 // ==============================================================
 //  📍 v6.40 K線標注層（afterDraw plugin）
 // ==============================================================
-const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true, pattern:true, breakout:true };
+const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true, pattern:true, breakout:true, classic:true };
 let _kannotEvents = {}; // { dateLabel: [{type, color, symbol, tip}] }
 let _kannotHover  = null; // { lbl, ei, ev, date }
 
@@ -41404,7 +41408,7 @@ function _kannotShowTooltip(found, cx, cy, chart) {
   const rect = canvas.getBoundingClientRect();
   const px = rect.left + cx;
   const py = rect.top  + cy - 38;
-  const typeNames = {inst:'法人大量買',instS:'法人大量賣',macd:'MACD訊號',ma20:'均線穿越',vol:'爆量日',swingLowS:'短期低點(N=3)',swingLowM:'中期低點(N=10)',pattern:'K線形態',breakout:'突破共振'};
+  const typeNames = {inst:'法人大量買',instS:'法人大量賣',macd:'MACD訊號',ma20:'均線穿越',vol:'爆量日',swingLowS:'短期低點(N=3)',swingLowM:'中期低點(N=10)',pattern:'K線形態',breakout:'突破共振',classic:'圖表形態'};
   el.innerHTML = `<span style="color:${found.ev.color};font-size:0.8rem;">${found.ev.symbol==='🔥'?'🔥':found.ev.symbol}</span>  <strong>${typeNames[found.ev.type]||''}</strong><br/><span style="color:#CBD5E1;">${found.ev.tip}</span><br/><span style="color:#64748B;font-size:0.58rem;">${found.date} (近30日)</span>`;
   el.style.display = 'block';
   el.style.left = px + 'px';
@@ -41423,7 +41427,7 @@ function toggleKAnnot(key) {
   if (charts['priceChart']) charts['priceChart'].update();
 }
 function resetKAnnot() {
-  ['inst','instS','macd','ma20','vol','swingLowS','swingLowM','pattern','breakout'].forEach(k=>{
+  ['inst','instS','macd','ma20','vol','swingLowS','swingLowM','pattern','breakout','classic'].forEach(k=>{
     _kannotState[k]=true;
     const id='kb'+k.charAt(0).toUpperCase()+k.slice(1);
     const b=document.getElementById(id); if(b) b.classList.add('active');
@@ -42870,6 +42874,14 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows
         .forEach(r => _breakoutByIdx.set(r.index, r));
     }
 
+    // v7.92：雙頂/雙重底/頭肩頂/頭肩底——沿用大盤同一套detectSwingPoints()抓峰谷序列
+    const _classicByIdx = new Map();
+    if (Array.isArray(highs) && Array.isArray(opens)) {
+      const { peaks: _cPeaks, troughs: _cTroughs } = detectSwingPoints(highs, lowArr, 2);
+      detectClassicChartPatterns(closes, _cPeaks, _cTroughs)
+        .forEach(r => _classicByIdx.set(r.index, r));
+    }
+
     for(let i=1;i<N;i++){
       const d = dates[i];
       const lbl = d.slice(5).replace('-','/');
@@ -42931,6 +42943,15 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows
         // 標記也是同樣理由才特別轉成「F」），漢字比較穩定清楚
         evts.push({ type:'breakout', color:'#F59E0B', symbol:'爆',
           tip:`突破候選壓力 ${b.level.toFixed(1)}（${b.touches}次觸及）並站穩，${forces}力量疊加確認（${b.forceCount}/3）。壓力轉支撐，建議等回測不破再進場，不追高。` });
+      }
+
+      // ── v7.92：雙頂/雙重底/頭肩頂/頭肩底 ──
+      if (_classicByIdx.has(i)) {
+        const c = _classicByIdx.get(i);
+        const symMap = { '雙頂(M頭)':'頂', '雙重底(W底)':'底', '頭肩頂':'肩', '頭肩底':'肩' };
+        const actionTxt = c.cls === 'bull' ? '站上頸線並站穩，見底訊號' : '跌破頸線並站穩，見頂訊號';
+        evts.push({ type:'classic', color: c.cls==='bull' ? '#16A34A' : '#DC2626', symbol: symMap[c.name] || '形',
+          tip:`${c.name}：頸線約 ${c.level.toFixed(1)}，${actionTxt}（規則式偵測，實際形態仍建議肉眼複核）。` });
       }
 
       if(evts.length>0) _kannotEvents[lbl] = evts;
@@ -43116,6 +43137,75 @@ function detectBreakoutResonance(dates, closes, vols, ma5arr, ma20arr, fSeries, 
       results.push({ index: i, level: broken.level, touches: broken.touches, volOk, maOk, instOk, forceCount });
     }
   }
+  return results;
+}
+
+// v7.92：雙頂(M頭)／雙重底(W底)／頭肩頂／頭肩底——沿用大盤同一套 detectSwingPoints()
+// 抓峰谷序列（不重新發明抓轉折點的邏輯），比對這四種經典形狀，並要求頸線
+// 突破確認（跟突破共振同一套「隔天站穩才算數」規則，防止單日假突破就誤判）。
+//   雙頂：兩個高度相近的峰，中間夾一個谷(頸線)，跌破頸線＝賣訊(見頂)
+//   雙重底：兩個高度相近的谷，中間夾一個峰(頸線)，站上頸線＝買訊(見底)
+//   頭肩頂：三個峰，中間頭部明顯高過兩肩，頸線＝連接兩谷的水平線，跌破頸線confirm
+//   頭肩底：三個谷，中間頭部明顯低過兩肩，頸線＝連接兩峰的水平線，站上頸線confirm
+function detectClassicChartPatterns(closes, peaks, troughs, tolerancePct = 0.03) {
+  const results = [];
+  const N = closes.length;
+  if (N < 10) return results;
+  const near = (a, b) => Math.abs(a - b) / Math.max(a, b) <= tolerancePct;
+  const confirmBreak = (startIdx, level, above) => {
+    for (let i = startIdx; i < N - 1; i++) {
+      const ok = above ? (closes[i] > level && closes[i + 1] > level) : (closes[i] < level && closes[i + 1] < level);
+      if (ok) return i;
+    }
+    return null;
+  };
+
+  // ── 雙頂 M頭（見頂）──
+  for (let pi = 0; pi < peaks.length - 1; pi++) {
+    const p1 = peaks[pi], p2 = peaks[pi + 1];
+    if (!near(p1.val, p2.val)) continue;
+    const neck = troughs.find(t => t.i > p1.i && t.i < p2.i);
+    if (!neck) continue;
+    const idx = confirmBreak(p2.i + 1, neck.val, false);
+    if (idx != null) results.push({ index: idx, level: neck.val, name: '雙頂(M頭)', cls: 'bear' });
+  }
+
+  // ── 雙重底 W底（見底）──
+  for (let ti = 0; ti < troughs.length - 1; ti++) {
+    const t1 = troughs[ti], t2 = troughs[ti + 1];
+    if (!near(t1.val, t2.val)) continue;
+    const neck = peaks.find(p => p.i > t1.i && p.i < t2.i);
+    if (!neck) continue;
+    const idx = confirmBreak(t2.i + 1, neck.val, true);
+    if (idx != null) results.push({ index: idx, level: neck.val, name: '雙重底(W底)', cls: 'bull' });
+  }
+
+  // ── 頭肩頂（見頂）──
+  for (let pi = 0; pi < peaks.length - 2; pi++) {
+    const ls = peaks[pi], head = peaks[pi + 1], rs = peaks[pi + 2];
+    if (!(head.val > ls.val * 1.02 && head.val > rs.val * 1.02)) continue; // 頭要明顯高過兩肩
+    if (!near(ls.val, rs.val)) continue; // 兩肩高度相近
+    const t1 = troughs.find(t => t.i > ls.i && t.i < head.i);
+    const t2 = troughs.find(t => t.i > head.i && t.i < rs.i);
+    if (!t1 || !t2) continue;
+    const neckLevel = (t1.val + t2.val) / 2; // 頸線近似水平，取兩谷平均
+    const idx = confirmBreak(rs.i + 1, neckLevel, false);
+    if (idx != null) results.push({ index: idx, level: neckLevel, name: '頭肩頂', cls: 'bear' });
+  }
+
+  // ── 頭肩底（見底）──
+  for (let ti = 0; ti < troughs.length - 2; ti++) {
+    const ls = troughs[ti], head = troughs[ti + 1], rs = troughs[ti + 2];
+    if (!(head.val < ls.val * 0.98 && head.val < rs.val * 0.98)) continue;
+    if (!near(ls.val, rs.val)) continue;
+    const p1 = peaks.find(p => p.i > ls.i && p.i < head.i);
+    const p2 = peaks.find(p => p.i > head.i && p.i < rs.i);
+    if (!p1 || !p2) continue;
+    const neckLevel = (p1.val + p2.val) / 2;
+    const idx = confirmBreak(rs.i + 1, neckLevel, true);
+    if (idx != null) results.push({ index: idx, level: neckLevel, name: '頭肩底', cls: 'bull' });
+  }
+
   return results;
 }
 
