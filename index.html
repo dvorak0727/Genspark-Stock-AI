@@ -41149,8 +41149,22 @@ function renderHero(id, info, price, chg, chgPct, row, vol) {
   // 數字，兩者對不起來（甚至方向相反，例如股價明明漲停卻顯示下跌）。
   // 用「今日開盤前的基準收盤價」= price - chg 存起來，即時更新時用
   // 最新成交價重新算一次漲跌，兩個數字才會是同一個時間點的。
+  //
+  // v7.84 修正基準日錯誤：上面「price - chg」這個公式，隱含假設 priceRaw
+  // 最新一筆(lc)就是「今天」——這在盤中分析、priceRaw最新收盤還沒定案時
+  // 是對的（lc代表今天，chg=lc-pc，回推price-chg=pc=昨收，沒錯）。但只要
+  // priceRaw最新一筆的日期已經是「過去」（例如週末、收盤後、或隔天開盤前
+  // 才做分析，FinMind那時posting的lc其實是上一個完整交易日），即時報價
+  // 代表的就是「新的一個交易日」，這時候基準應該是lc本身（最近一個完整
+  // 收盤價），不是lc的前一天(pc)——原公式在這種情況下算出來的基準少了
+  // 一天，即時漲跌會離譜地錯（使用者回報：聯電上週五收盤130，比對之後
+  // 卻用了上週四118.5當基準，明明下跌卻顯示大漲）。
+  const _rtLatestDate = row?.date || '';
+  const _rtTodayStr   = new Date().toISOString().slice(0, 10);
+  const _rtIsPastData  = _rtLatestDate && _rtLatestDate < _rtTodayStr;
+  const rtBaseline = _rtIsPastData ? price : (price - chg);
   chgEl.setAttribute('data-rt-chgbase', id);
-  chgEl.dataset.rtPrevclose = (price - chg).toFixed(2);
+  chgEl.dataset.rtPrevclose = rtBaseline.toFixed(2);
   const meta = document.getElementById('shMeta');
   // Trading_Volume 單位為「股」，÷1000 = 張
   const volK = vol ? (vol >= 1000 ? (vol/1000).toFixed(0) : vol.toFixed(0)) : '—';
