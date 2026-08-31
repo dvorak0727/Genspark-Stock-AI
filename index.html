@@ -6479,10 +6479,14 @@
     /* OBI 展開面板 */
     .obi-embed-wrap { padding:4px 0; }
     .obi-embed-gauge { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
-    .obi-embed-pct { font-size:1.6rem; font-weight:900; min-width:56px; }
+    .obi-embed-pct { font-size:1.4rem; font-weight:900; min-width:52px; text-align:center; }
     .obi-embed-pct.bull { color:#10B981; }
     .obi-embed-pct.bear { color:#EF4444; }
     .obi-embed-pct.neut { color:#94A3B8; }
+    /* v7.87：左右兩顆百分比固定配色（不隨數值多空變色），跟長條圖/成交量數字的
+       內盤=綠、外盤=紅固定配色統一，兩側各自代表哪一邊一眼就懂，不用再猜 */
+    .obi-embed-pct.side-in  { color:#16A34A; }
+    .obi-embed-pct.side-out { color:#EF4444; }
     .obi-embed-bar-wrap { flex:1; }
     .obi-embed-bar-outer { display:flex; height:10px; border-radius:5px; overflow:hidden; background:var(--bg2); }
     .obi-embed-fill-buy  { background:#EF4444; transition:width 0.5s; }
@@ -17357,8 +17361,12 @@ a.module-nav-item.acc-active {
 
         <div class="obi-embed-wrap">
           <!-- 大儀表 -->
+          <!-- v7.87：使用者指出左邊有百分比、右邊也要有百分比（跟長條圖兩端對齊），不要
+               只在左邊放一個曖昧不清的數字。改成左＝內盤%（固定綠色）、右＝外盤%（固定
+               紅色），兩顆數字分別貼齊長條圖的左右兩端，跟Yahoo股市兩側都標%的呈現方式
+               一致；「量價背離」這類指標徽章維持放在最右側。 -->
           <div class="obi-embed-gauge">
-            <div class="obi-embed-pct neut" id="obiTodayPct">—%</div>
+            <div class="obi-embed-pct side-in" id="obiTodayPct">—%</div>
             <div class="obi-embed-bar-wrap">
               <div style="font-size:0.5rem;color:var(--fg3);margin-bottom:3px;">內盤 → ← 外盤</div>
               <div class="obi-embed-bar-outer">
@@ -17367,6 +17375,7 @@ a.module-nav-item.acc-active {
               </div>
               <div class="obi-gauge-sub" id="obiGaugeSub" style="font-size:0.52rem;color:var(--fg3);margin-top:3px;">內盤=主動賣；外盤=主動買</div>
             </div>
+            <div class="obi-embed-pct side-out" id="obiTodayPctOut">—%</div>
             <div class="obi-badge neut" id="obiBadge" style="font-size:0.62rem;padding:3px 8px;border-radius:99px;background:var(--bg2);font-weight:800;">計算中</div>
           </div>
           <!-- 三格成交量 -->
@@ -38231,18 +38240,14 @@ async function fetchOBIReal(stockId, dates) {
         if ($('csObiInVal'))   $('csObiInVal').textContent   = `內盤 ${(100-pct).toFixed(1)}%`;
         if ($('csObiCardSub')) $('csObiCardSub').textContent = `實測比率 OBI ${pct.toFixed(1)}% · 點擊展開`;
       }
-      const pctEl   = document.getElementById('obiTodayPct');
+      const pctEl    = document.getElementById('obiTodayPct');
+      const pctOutEl = document.getElementById('obiTodayPctOut');
       const fillBuy = document.getElementById('obiFillBuy');
       const fillSell= document.getElementById('obiFillSell');
-      if (pctEl) {
-        // v7.86：內外盤改成「左內盤、右外盤」之後，這顆大數字（外盤%）緊貼在長條圖
-        // 最左邊，視覺上會被誤認成在講長條圖左側（內盤）的顏色。把bull/bear顏色
-        // 對調，讓「內盤佔多數（外盤%低）→綠」「外盤佔多數（外盤%高）→紅」，跟長條圖
-        // 內盤=綠、外盤=紅的固定配色一致，不會出現數字紅但長條圖卻是綠色佔多數的矛盾。
-        const cls = pct >= 60 ? 'bear' : pct >= 40 ? 'neut' : 'bull';
-        pctEl.textContent = pct.toFixed(1) + '%';
-        pctEl.className = 'obi-embed-pct ' + cls;
-      }
+      // v7.87：左右兩顆百分比分開顯示——左＝內盤%（固定綠），右＝外盤%（固定紅），
+      // 貼齊長條圖兩端，不用再靠單一曖昧的大數字＋變色去猜是哪一側。
+      if (pctEl)    pctEl.textContent    = (100 - pct).toFixed(1) + '%';
+      if (pctOutEl) pctOutEl.textContent = pct.toFixed(1) + '%';
       if (fillBuy)  fillBuy.style.width  = pct.toFixed(1) + '%';
       if (fillSell) fillSell.style.width = (100 - pct).toFixed(1) + '%';
       const obiPanel = document.getElementById('obiDetailPanel');
@@ -41462,6 +41467,7 @@ function renderOBI(dates, opens, highs, lows, closes, vols) {
     };
 
     const todayPctEl = document.getElementById('obiTodayPct');
+    const todayPctOutEl = document.getElementById('obiTodayPctOut');
     const fillBuy    = document.getElementById('obiFillBuy');
     const fillSell   = document.getElementById('obiFillSell');
     const gaugeSub   = document.getElementById('obiGaugeSub');
@@ -41469,15 +41475,9 @@ function renderOBI(dates, opens, highs, lows, closes, vols) {
     const volSellEl  = document.getElementById('obiVolSell');
     const volTotEl   = document.getElementById('obiVolTotal');
 
-    if (todayPctEl) {
-      // v7.86：同上，內盤佔多數(外盤%低)→綠、外盤佔多數(外盤%高)→紅，對齊長條圖固定配色。
-      // 同時修掉一個舊typo：這裡原本寫的是「obi-gauge-pct」，但顏色的CSS規則只定義在
-      // 「obi-embed-pct.bull/.bear/.neut」，class名稱對不上導致這條路徑算出來的顏色
-      // 其實從未真正套用過（一直吃到某個沒有色彩規則的預設樣式），順便修正。
-      const cls = todayObi >= 60 ? 'bear' : todayObi >= 40 ? 'neut' : 'bull';
-      todayPctEl.textContent = todayObi.toFixed(1) + '%';
-      todayPctEl.className = 'obi-embed-pct ' + cls;
-    }
+    // v7.87：左右兩顆百分比分開顯示——左＝內盤%（固定綠），右＝外盤%（固定紅）
+    if (todayPctEl)    todayPctEl.textContent    = (100 - todayObi).toFixed(1) + '%';
+    if (todayPctOutEl) todayPctOutEl.textContent = todayObi.toFixed(1) + '%';
     if (fillBuy)   fillBuy.style.width   = todayObi.toFixed(1) + '%';
     if (fillSell)  fillSell.style.width  = (100 - todayObi).toFixed(1) + '%';
     if (volBuyEl)  volBuyEl.textContent  = fmtV(todayBuyV);
@@ -41677,13 +41677,8 @@ function renderOBI(dates, opens, highs, lows, closes, vols) {
       window._obiCardIsFallback = true;
     }
 
-    // 更新 OBI embed 版的 gauge class（與原版共用相同 DOM id）
-    const todayPctEl2 = document.getElementById('obiTodayPct');
-    if (todayPctEl2) {
-      // v7.86：同上，對齊長條圖固定配色（內盤=綠、外盤=紅）
-      const cls2 = todayObi >= 60 ? 'bear' : todayObi >= 40 ? 'neut' : 'bull';
-      todayPctEl2.className = 'obi-embed-pct ' + cls2;
-    }
+    // v7.87：obiTodayPct/obiTodayPctOut 改成固定配色（不再用bull/bear動態上色），
+    // 顏色寫死在HTML的class（side-in/side-out）上，這裡不用再重複設定className。
 
     console.log(`[v6.41 OBI] today=${todayObi.toFixed(1)}% avg5=${avg5.toFixed(1)}% vwObi=${vwObi.toFixed(1)}% mom=${momentum>=0?'+':''}${momentum.toFixed(1)}% state=${badgeTxt}`);
   } catch(e) {
@@ -41716,6 +41711,7 @@ function applyObiManual() {
 
   // 更新展開面板儀表
   const todayPctEl = document.getElementById('obiTodayPct');
+  const todayPctOutEl = document.getElementById('obiTodayPctOut');
   const fillBuyEl  = document.getElementById('obiFillBuy');
   const fillSellEl = document.getElementById('obiFillSell');
   const badgeEl    = document.getElementById('obiBadge');
@@ -41723,8 +41719,9 @@ function applyObiManual() {
   const volBuyEl   = document.getElementById('obiVolBuy');
   const volSellEl  = document.getElementById('obiVolSell');
   const volTotalEl = document.getElementById('obiVolTotal');
-  // v7.86：同上，對齊長條圖固定配色（內盤=綠、外盤=紅）
-  if (todayPctEl) { todayPctEl.textContent = obiPct.toFixed(1)+'%'; todayPctEl.className='obi-embed-pct '+(obiPct>=60?'bear':obiPct>=40?'neut':'bull'); }
+  // v7.87：左右兩顆百分比分開顯示——左＝內盤%（固定綠），右＝外盤%（固定紅）
+  if (todayPctEl)    todayPctEl.textContent    = (100 - obiPct).toFixed(1) + '%';
+  if (todayPctOutEl) todayPctOutEl.textContent = obiPct.toFixed(1) + '%';
   if (fillBuyEl)  fillBuyEl.style.width  = obiPct+'%';
   if (fillSellEl) fillSellEl.style.width = (100-obiPct)+'%';
   if (badgeEl) { badgeEl.textContent = obiPct>=60?'外盤強勢':obiPct>=40?'均衡':'內盤強勢'; badgeEl.className='obi-badge '+(obiPct>=60?'bull':obiPct>=40?'neut':'bear'); }
