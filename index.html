@@ -17329,16 +17329,19 @@ a.module-nav-item.acc-active {
           <div style="font-size:0.56rem;color:var(--fg2);margin-bottom:6px;">
             請輸入真實內外盤張數（以千股為單位）覆蓋估算值：
           </div>
+          <!-- v7.85：使用者對照元大/Yahoo等外面的看盤APP，內外盤慣例是「左內盤、右外盤」，
+               我們原本是「左外盤、右內盤」跟業界習慣相反，容易看錯——這裡跟下面的儀表/長條圖/
+               百分比全部一起改成內盤在左、外盤在右，對齊外部APP的閱讀習慣。 -->
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
-              <span style="font-size:0.58rem;font-weight:800;color:#ef4444;letter-spacing:0.04em;">外盤（主動買）</span>
-              <input id="obiManualOut" type="number" min="0" placeholder="張數"
-                style="width:90px;padding:3px 6px;border-radius:5px;border:1.5px solid rgba(239,68,68,0.5);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
-            </div>
             <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
               <span style="font-size:0.58rem;font-weight:800;color:#22c55e;letter-spacing:0.04em;">內盤（主動賣）</span>
               <input id="obiManualIn" type="number" min="0" placeholder="張數"
                 style="width:90px;padding:3px 6px;border-radius:5px;border:1.5px solid rgba(34,197,94,0.5);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;align-items:center;">
+              <span style="font-size:0.58rem;font-weight:800;color:#ef4444;letter-spacing:0.04em;">外盤（主動買）</span>
+              <input id="obiManualOut" type="number" min="0" placeholder="張數"
+                style="width:90px;padding:3px 6px;border-radius:5px;border:1.5px solid rgba(239,68,68,0.5);background:var(--bg2);color:var(--fg);font-size:0.62rem;outline:none;">
             </div>
             <button onclick="autoFetchOBI()" id="obiFetchBtn" style="padding:3px 10px;border-radius:5px;border:none;background:#7c3aed;color:#fff;font-size:0.62rem;cursor:pointer;font-weight:700;">⚡ 自動抓取</button>
             <button onclick="applyObiManual()" style="padding:3px 10px;border-radius:5px;border:none;background:var(--accent);color:#fff;font-size:0.62rem;cursor:pointer;font-weight:700;">✓ 套用</button>
@@ -17357,12 +17360,12 @@ a.module-nav-item.acc-active {
           <div class="obi-embed-gauge">
             <div class="obi-embed-pct neut" id="obiTodayPct">—%</div>
             <div class="obi-embed-bar-wrap">
-              <div style="font-size:0.5rem;color:var(--fg3);margin-bottom:3px;">外盤 → ← 內盤</div>
+              <div style="font-size:0.5rem;color:var(--fg3);margin-bottom:3px;">內盤 → ← 外盤</div>
               <div class="obi-embed-bar-outer">
-                <div class="obi-embed-fill-buy"  id="obiFillBuy"  style="width:50%"></div>
                 <div class="obi-embed-fill-sell" id="obiFillSell" style="width:50%"></div>
+                <div class="obi-embed-fill-buy"  id="obiFillBuy"  style="width:50%"></div>
               </div>
-              <div class="obi-gauge-sub" id="obiGaugeSub" style="font-size:0.52rem;color:var(--fg3);margin-top:3px;">外盤=主動買；內盤=主動賣</div>
+              <div class="obi-gauge-sub" id="obiGaugeSub" style="font-size:0.52rem;color:var(--fg3);margin-top:3px;">內盤=主動賣；外盤=主動買</div>
             </div>
             <div class="obi-badge neut" id="obiBadge" style="font-size:0.62rem;padding:3px 8px;border-radius:99px;background:var(--bg2);font-weight:800;">計算中</div>
           </div>
@@ -17372,14 +17375,14 @@ a.module-nav-item.acc-active {
                格式的百分比副標，兩側都清楚標示，不用另外看圖例才知道那個%是外盤還是內盤。 -->
           <div class="obi-embed-vol-row">
             <div class="obi-embed-vol-item">
-              <div class="obi-embed-vol-lbl">外盤量</div>
-              <div class="obi-embed-vol-num buy" id="obiVolBuy">—</div>
-              <div class="obi-embed-vol-pct buy" id="obiVolBuyPct">—%</div>
-            </div>
-            <div class="obi-embed-vol-item">
               <div class="obi-embed-vol-lbl">內盤量</div>
               <div class="obi-embed-vol-num sell" id="obiVolSell">—</div>
               <div class="obi-embed-vol-pct sell" id="obiVolSellPct">—%</div>
+            </div>
+            <div class="obi-embed-vol-item">
+              <div class="obi-embed-vol-lbl">外盤量</div>
+              <div class="obi-embed-vol-num buy" id="obiVolBuy">—</div>
+              <div class="obi-embed-vol-pct buy" id="obiVolBuyPct">—%</div>
             </div>
             <div class="obi-embed-vol-item">
               <div class="obi-embed-vol-lbl">總量</div>
@@ -41715,7 +41718,7 @@ function applyObiManual() {
   if (fillBuyEl)  fillBuyEl.style.width  = obiPct+'%';
   if (fillSellEl) fillSellEl.style.width = (100-obiPct)+'%';
   if (badgeEl) { badgeEl.textContent = obiPct>=60?'外盤強勢':obiPct>=40?'均衡':'內盤強勢'; badgeEl.className='obi-badge '+(obiPct>=60?'bull':obiPct>=40?'neut':'bear'); }
-  if (gaugeSubEl) gaugeSubEl.textContent = `外盤${_fmtVManual(out)} ／ 內盤${_fmtVManual(inp)}（手動輸入）`;
+  if (gaugeSubEl) gaugeSubEl.textContent = `內盤${_fmtVManual(inp)} ／ 外盤${_fmtVManual(out)}（手動輸入）`;
   if (volBuyEl)   volBuyEl.textContent   = _fmtVManual(out);
   if (volSellEl)  volSellEl.textContent  = _fmtVManual(inp);
   if (volTotalEl) volTotalEl.textContent = _fmtVManual(total);
