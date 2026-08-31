@@ -56762,7 +56762,11 @@ function calcLaunchScore(stockId, instRaw, priceRaw) {
   score += midOk ? 1.0 : 0;
   checks.push({ label:'中關上移', hit:midOk, val:midOk?`中關${mid0.toFixed(1)}↑`:`收${lc.toFixed(1)}/中關${mid0.toFixed(1)}` });
 
-  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, breakHigh };
+  // v7.97：補上迷你K棒資料——啟動期/拉升期/出貨期原本沒有，只有吸籌期/洗盤期/
+  // 秘密佈局/資減人走有，使用者對照發現不一致，補齊讓卡片一律有K棒可看
+  const candles = (() => { const _n=Math.min(15,priceRaw.length),_p=priceRaw.slice(-_n); return { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) }; })();
+
+  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, breakHigh, candles };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -56839,7 +56843,10 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
   score += maDead ? 1 : 0;
   checks.push({ label:'均線死叉', hit:maDead, val:maDead?'MA5<MA20':'未死叉' });
 
-  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio };
+  // v7.97：補上迷你K棒資料，跟其他掃描模式一致
+  const candles = (() => { const _n=Math.min(15,priceRaw.length),_p=priceRaw.slice(-_n); return { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) }; })();
+
+  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, candles };
 }
 
 // ── TWSE 官方除息預告表（一次抓，全部股票共用）──
@@ -57087,7 +57094,10 @@ function calcMarkupScore(stockId, instRaw, priceRaw) {
   score += maOk ? 1.0 : 0;
   checks.push({ label:'MA5強勢上揚', hit:maOk, val:`斜率${ma5slope.toFixed(1)}%` });
 
-  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio };
+  // v7.97：補上迷你K棒資料，跟其他掃描模式一致
+  const candles = (() => { const _n=Math.min(15,priceRaw.length),_p=priceRaw.slice(-_n); return { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) }; })();
+
+  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, candles };
 }
 
 // ═══════════════════════════════════════════════════════════════
