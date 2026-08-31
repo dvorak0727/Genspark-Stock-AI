@@ -43209,6 +43209,32 @@ function detectClassicChartPatterns(closes, peaks, troughs, tolerancePct = 0.03)
   return results;
 }
 
+// v7.93：斐波那契回撤——找一段資料範圍內最低點到最高點的區間（時間較晚的
+// 那個當「趨勢終點」，較早的當「趨勢起點」），依斐波那契比例(23.6/38.2/50/
+// 61.8/78.6%)畫出回撤參考線。只用在長線模式（週/月線），日線資料量不夠、
+// 波動也太雜訊，找出來的高低點意義不大。
+function detectFibonacciLevels(highs, lows, closes) {
+  const N = closes.length;
+  if (N < 10) return null;
+  let loIdx = 0, hiIdx = 0;
+  for (let i = 1; i < N; i++) {
+    if (lows[i] < lows[loIdx]) loIdx = i;
+    if (highs[i] > highs[hiIdx]) hiIdx = i;
+  }
+  if (loIdx === hiIdx) return null;
+  const lo = lows[loIdx], hi = highs[hiIdx];
+  const range = hi - lo;
+  if (range <= 0) return null;
+  const up = loIdx < hiIdx; // 低點在前＝漲勢中找回撤支撐；高點在前＝跌勢中找反彈壓力
+  const levels = [0.236, 0.382, 0.5, 0.618, 0.786].map(ratio => ({
+    ratio, level: up ? hi - range * ratio : lo + range * ratio,
+  }));
+  const curPrice = closes[N - 1];
+  let nearest = levels[0];
+  levels.forEach(l => { if (Math.abs(curPrice - l.level) < Math.abs(curPrice - nearest.level)) nearest = l; });
+  return { up, loIdx, hiIdx, lo, hi, levels, curPrice, nearest };
+}
+
 // v7.81：個股K棒圖跟大盤K棒圖比起來「K棒太短、看起來被壓扁」，根因是
 // 個股圖多疊了布林通道(BB上/BB下)這兩條資料集，Chart.js預設y軸是自動
 // 縮放涵蓋「所有」資料集的範圍，布林通道的波動常常比K棒本身高低點的
@@ -43264,22 +43290,24 @@ const _candlestickPlugin = {
       ctx.fillRect(xCenter - bodyW/2, bodyTop, bodyW, bodyH);
     }
 
-    // 候選支撐/壓力水平線
-    (meta.resLines || []).forEach(({ level, touches, type }) => {
+    // 候選支撐/壓力水平線（v7.93：新增 type:'fib' 斐波那契回撤線，用獨立配色+標籤，
+    // 不套用「候選支撐/壓力」那套文字，避免使用者誤以為斐波那契線是觸碰次數算出來的）
+    (meta.resLines || []).forEach(({ level, touches, type, label }) => {
       const y = yScale.getPixelForValue(level);
       if (y < chartArea.top || y > chartArea.bottom) return;
-      ctx.strokeStyle = type === 'support' ? 'rgba(22,163,74,0.55)' : 'rgba(232,52,58,0.55)';
-      ctx.setLineDash([5,3]);
+      const isFib = type === 'fib';
+      ctx.strokeStyle = isFib ? 'rgba(217,119,6,0.6)' : (type === 'support' ? 'rgba(22,163,74,0.55)' : 'rgba(232,52,58,0.55)');
+      ctx.setLineDash(isFib ? [2,2] : [5,3]);
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(chartArea.left, y);
       ctx.lineTo(chartArea.right, y);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = type === 'support' ? '#16A34A' : '#E8343A';
+      ctx.fillStyle = isFib ? '#D97706' : (type === 'support' ? '#16A34A' : '#E8343A');
       ctx.font = '10px sans-serif';
-      ctx.fillText((type === 'support' ? '候選支撐 ' : '候選壓力 ') + level.toFixed(1) + '（' + touches + '次）',
-        chartArea.left + 4, y - 4);
+      const text = isFib ? label : (type === 'support' ? '候選支撐 ' : '候選壓力 ') + level.toFixed(1) + '（' + touches + '次）';
+      ctx.fillText(text, chartArea.left + 4, y - 4);
     });
     ctx.restore();
   }
@@ -43551,9 +43579,16 @@ function _drawPeriodCharts(period, longPriceRows) {
   const fullHi = agg.map(r => r.high !== undefined ? r.high : r.max);
   const fullLo = agg.map(r => r.low  !== undefined ? r.low  : r.min);
   const srAgg = detectSupportResistance(fullHi, fullLo);
+  // v7.93：斐波那契回撤——只在週/月線（長線模式）畫，日線資料量不夠、雜訊也大
+  const fullCloseAgg = agg.map(r => r.close);
+  const fibInfo = (period !== 'D') ? detectFibonacciLevels(fullHi, fullLo, fullCloseAgg) : null;
   const resLinesAgg = [
     ...srAgg.support.map(s => ({ ...s, type: 'support' })),
     ...srAgg.resistance.map(s => ({ ...s, type: 'resistance' })),
+    ...(fibInfo ? fibInfo.levels.map(l => ({
+      level: l.level, touches: 0, type: 'fib',
+      label: `${(l.ratio*100).toFixed(1)}% (${l.level.toFixed(1)})`,
+    })) : []),
   ];
 
   // v7.81：頭/底轉折——月線也仿照日線/週線，沿用大盤同一套 detectSwingPoints()，
@@ -43595,7 +43630,7 @@ function _drawPeriodCharts(period, longPriceRows) {
     const prevBw = (aggBoll.upper.at(-2) > 0 && aggBoll.lower.at(-2) > 0 && aggBoll.mid.at(-2) > 0)
       ? (aggBoll.upper.at(-2) - aggBoll.lower.at(-2)) / aggBoll.mid.at(-2) * 100 : null;
 
-    longTermInfo = { lRsiLT, lBw, prevBw, hasM50: m50c != null, hasM200: m200c != null };
+    longTermInfo = { lRsiLT, lBw, prevBw, hasM50: m50c != null, hasM200: m200c != null, fibInfo };
   }
 
   // 更新 label
@@ -43639,6 +43674,22 @@ function _drawPeriodCharts(period, longPriceRows) {
         } else {
           parts.push(`📊 布林帶寬 ${bw.toFixed(2)}%，波動處於正常範圍。`);
         }
+      }
+      // v7.93：斐波那契回撤——圖上已經畫了5條參考線（橘色點狀虛線），這裡文字
+      // 講清楚目前價格離哪一條最近、代表什麼意思
+      if (longTermInfo.fibInfo) {
+        const f = longTermInfo.fibInfo;
+        const pctTxt = (f.nearest.ratio * 100).toFixed(1) + '%';
+        const dirTxt = f.up ? '漲勢回撤' : '跌勢反彈';
+        let meaning;
+        if (f.nearest.ratio <= 0.236)      meaning = '非常強勢，只回一點就有機會重新走高';
+        else if (f.nearest.ratio <= 0.382) meaning = '強勢股常見的淺回調，屬於相對健康的回檔';
+        else if (f.nearest.ratio <= 0.5)   meaning = '最常見的人性獲利了結區間，多空拉鋸';
+        else if (f.nearest.ratio <= 0.618) meaning = '黃金回撤位，若守得住，趨勢常在這裡重新啟動';
+        else                                meaning = '深回撤，若再跌破，原本的趨勢可能已經改變性質';
+        parts.push(`🌀 斐波那契：目前股價最接近 ${pctTxt} ${dirTxt}位（圖上橘色虛線），${meaning}。`);
+      } else if (period !== 'D') {
+        parts.push('🌀 斐波那契：目前資料範圍內找不到明確的高低點區間，暫無法畫出回撤線。');
       }
       ltEl.innerHTML = parts.join('<br>');
       ltEl.style.display = 'block';
