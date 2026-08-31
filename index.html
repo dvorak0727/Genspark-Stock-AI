@@ -6494,6 +6494,9 @@
     .obi-embed-vol-num.buy   { color:#EF4444; }
     .obi-embed-vol-num.sell  { color:#16A34A; }
     .obi-embed-vol-num.total { color:var(--fg); }
+    .obi-embed-vol-pct { font-size:0.6rem; font-weight:700; opacity:0.85; margin-top:1px; }
+    .obi-embed-vol-pct.buy  { color:#EF4444; }
+    .obi-embed-vol-pct.sell { color:#16A34A; }
     .obi-embed-metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin-bottom:8px; }
     .obi-embed-metric { background:var(--bg2); border-radius:6px; padding:5px 7px; text-align:center; }
     .obi-embed-metric-lbl { font-size:0.5rem; color:var(--fg3); margin-bottom:2px; }
@@ -17364,14 +17367,19 @@ a.module-nav-item.acc-active {
             <div class="obi-badge neut" id="obiBadge" style="font-size:0.62rem;padding:3px 8px;border-radius:99px;background:var(--bg2);font-weight:800;">計算中</div>
           </div>
           <!-- 三格成交量 -->
+          <!-- v7.84：使用者對照Yahoo股市發現，Yahoo兩側都直接標百分比（例如「內盤13,768(68.44%)」）
+               比我們原本只在左邊放一個沒說明是哪一側的大數字「31.6%」更直覺——加上跟Yahoo同樣
+               格式的百分比副標，兩側都清楚標示，不用另外看圖例才知道那個%是外盤還是內盤。 -->
           <div class="obi-embed-vol-row">
             <div class="obi-embed-vol-item">
               <div class="obi-embed-vol-lbl">外盤量</div>
               <div class="obi-embed-vol-num buy" id="obiVolBuy">—</div>
+              <div class="obi-embed-vol-pct buy" id="obiVolBuyPct">—%</div>
             </div>
             <div class="obi-embed-vol-item">
               <div class="obi-embed-vol-lbl">內盤量</div>
               <div class="obi-embed-vol-num sell" id="obiVolSell">—</div>
+              <div class="obi-embed-vol-pct sell" id="obiVolSellPct">—%</div>
             </div>
             <div class="obi-embed-vol-item">
               <div class="obi-embed-vol-lbl">總量</div>
@@ -38210,6 +38218,11 @@ async function fetchOBIReal(stockId, dates) {
         if (volBuyEl)  volBuyEl.textContent  = fmtV(buyLot);
         if (volSellEl) volSellEl.textContent = fmtV(sellLot);
         if (volTotEl)  volTotEl.textContent  = fmtV(totalLot);
+        // v7.84：跟Yahoo一樣兩側都標百分比，不用只看左邊那個大數字猜是哪一側
+        const volBuyPctEl  = document.getElementById('obiVolBuyPct');
+        const volSellPctEl = document.getElementById('obiVolSellPct');
+        if (volBuyPctEl)  volBuyPctEl.textContent  = pct.toFixed(1) + '%';
+        if (volSellPctEl) volSellPctEl.textContent = (100 - pct).toFixed(1) + '%';
       } else {
         if ($('csObiOutVal'))  $('csObiOutVal').textContent  = `外盤 ${pct.toFixed(1)}%`;
         if ($('csObiInVal'))   $('csObiInVal').textContent   = `內盤 ${(100-pct).toFixed(1)}%`;
@@ -41458,6 +41471,11 @@ function renderOBI(dates, opens, highs, lows, closes, vols) {
     if (fillSell)  fillSell.style.width  = (100 - todayObi).toFixed(1) + '%';
     if (volBuyEl)  volBuyEl.textContent  = fmtV(todayBuyV);
     if (volSellEl) volSellEl.textContent = fmtV(todaySellV);
+    // v7.84：跟Yahoo一樣兩側都標百分比
+    const volBuyPctEl2  = document.getElementById('obiVolBuyPct');
+    const volSellPctEl2 = document.getElementById('obiVolSellPct');
+    if (volBuyPctEl2)  volBuyPctEl2.textContent  = todayObi.toFixed(1) + '%';
+    if (volSellPctEl2) volSellPctEl2.textContent = (100 - todayObi).toFixed(1) + '%';
     if (volTotEl)  volTotEl.textContent  = fmtV(todayVolK);
 
     // 極端情況說明：收盤打在最低 → OBI=0% 全部算內盤；收盤打在最高 → OBI=100% 全部算外盤
@@ -41701,6 +41719,12 @@ function applyObiManual() {
   if (volBuyEl)   volBuyEl.textContent   = _fmtVManual(out);
   if (volSellEl)  volSellEl.textContent  = _fmtVManual(inp);
   if (volTotalEl) volTotalEl.textContent = _fmtVManual(total);
+  // v7.84：使用者對照Yahoo股市發現，Yahoo兩側都直接標百分比（「內盤13,768(68.44%)」），
+  // 比我們原本只在左邊放一個沒說明是哪一側的大數字更直覺——手動輸入這裡也補上。
+  const volBuyPctEl3  = document.getElementById('obiVolBuyPct');
+  const volSellPctEl3 = document.getElementById('obiVolSellPct');
+  if (volBuyPctEl3)  volBuyPctEl3.textContent  = obiPct.toFixed(1) + '%';
+  if (volSellPctEl3) volSellPctEl3.textContent = (100 - obiPct).toFixed(1) + '%';
 
   // 清除 fallback 旗標
   window._obiCardIsFallback = false;
