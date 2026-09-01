@@ -16831,6 +16831,12 @@ a.module-nav-item.acc-active {
       <div class="sh-price-block">
         <div class="sh-price" id="shPrice">—</div>
         <div class="sh-change" id="shChange">—</div>
+        <!-- v7.98：股價資料日期標註——使用者反映即時模式開著時，畫面上只看得到
+             股價數字本身，不確定現在看到的到底是「今天」還是快取的舊資料，
+             同一個問題在確認海選/籌碼週期分類是哪一天的判讀時也會遇到。
+             直接把 renderHero() 裡本來就有的 row.date（這筆股價實際對應的
+             交易日）顯示出來，不用使用者自己回頭猜。 -->
+        <div id="shPriceDate" style="display:none;font-size:0.62rem;color:var(--fg3);margin-top:2px;font-weight:600;">📅 —</div>
         <!-- v7.55：即時模式開啟時顯示更新頻率小提示 -->
         <div id="shRtNote" style="display:none;font-size:0.6rem;color:var(--fg3);margin-top:2px;">⚡ 約每15秒自動更新一次</div>
       </div>
@@ -41196,6 +41202,15 @@ function renderHero(id, info, price, chg, chgPct, row, vol) {
   // 導致有效Sponsor Token、即時模式開著，個股頁還是卡在FinMind免費層級
   // 的昨日收盤價，「0檔」代表_rtApply()根本找不到可更新的目標元素。
   priceEl.setAttribute('data-rt-price', id);
+  // v7.98：把這筆股價對應的實際交易日標出來，即時模式開啟時另外標「即時報價」
+  // 避免使用者搞不清楚畫面上342.00這種數字，到底是今天盤中即時價，還是
+  // FinMind 免費層級（無Sponsor Token時）常見的「上一個交易日收盤價」。
+  const shPriceDateEl = document.getElementById('shPriceDate');
+  if (shPriceDateEl) {
+    const _dDate = row?.date || '';
+    shPriceDateEl.textContent = _dDate ? `📅 ${_dDate} 收盤` : '📅 日期未知';
+    shPriceDateEl.style.display = _dDate ? '' : 'none';
+  }
   const chgEl = document.getElementById('shChange');
   chgEl.textContent = `${up?'▲':'▼'} ${Math.abs(chg).toFixed(2)} (${Math.abs(chgPct).toFixed(2)}%)`;
   chgEl.className = 'sh-change ' + (up ? 'up' : 'down');
@@ -66149,6 +66164,13 @@ function _rtApply(rows) {
       el.style.transition = 'background 0.1s';
       el.style.background = 'rgba(251,191,36,0.35)';
       setTimeout(() => { el.style.background = ''; }, 700);
+      // v7.98：即時報價一旦真的更新了大字報價，代表畫面上顯示的已經不是
+      // row.date那個「收盤價」了，而是當下這一刻的即時成交價，把日期標註
+      // 換成「即時報價」文字，避免使用者誤以為還在看某個舊交易日的收盤價。
+      if (isHero) {
+        const _dEl = document.getElementById('shPriceDate');
+        if (_dEl) { _dEl.textContent = `⚡ 即時報價（${new Date().toTimeString().slice(0,8)}）`; _dEl.style.display = ''; }
+      }
     }
     updated++;
   });
