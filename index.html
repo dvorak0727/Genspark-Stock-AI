@@ -17957,7 +17957,12 @@ a.module-nav-item.acc-active {
           <!-- v7.98：基期(約1個月漲跌幅) vs 法人合計買賣超(億) 四象限矩陣，氣泡大小=最新一日成交金額 -->
           <div id="srMatrixWrap" style="display:none;">
             <div style="font-size:.6rem;color:var(--fg3,#888);margin:2px 0 6px;">X軸：基期漲幅（約1個月，真實股價算出）　Y軸：法人合計買賣超（外資+投信，億元）　氣泡大小：最新一日成交金額</div>
-            <canvas id="srMatrixCanvas" height="320"></canvas>
+            <!-- v7.98 修正：Chart.js 在 maintainAspectRatio:false 時，畫布跟父層容器
+                 沒有固定高度會互相撐大、無限往下拉長。外面包一層有固定高度的div，
+                 canvas用position:absolute填滿它，才不會一直長高。 -->
+            <div style="position:relative;width:100%;height:340px;">
+              <canvas id="srMatrixCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+            </div>
             <div id="srMatrixEmpty" style="display:none;font-size:.65rem;color:var(--fg3,#888);text-align:center;padding:20px 0;">資料不足，無法繪製矩陣（部分板塊代表股尚無足夠歷史資料）</div>
           </div>
         </div>
