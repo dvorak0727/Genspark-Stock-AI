@@ -17944,10 +17944,22 @@ a.module-nav-item.acc-active {
         <!-- 10 板塊熱力格子 -->
         <div class="sr-sector-row" id="srSectorGrid"></div>
 
-        <!-- v6.36c 板塊強弱排行熱圖 -->
+        <!-- v6.36c 板塊強弱排行熱圖 / v7.98 基期vs資金流向矩陣散點圖 切換 -->
         <div class="sr-heatmap-wrap" id="srHeatmapWrap">
-          <div class="sr-heatmap-title">📊 板塊強弱排行 <span style="font-weight:400;opacity:.65;">（強→弱，點擊查看成分股）</span></div>
+          <div class="sr-heatmap-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+            <span id="srViewTitleTxt">📊 板塊強弱排行 <span style="font-weight:400;opacity:.65;">（強→弱，點擊查看成分股）</span></span>
+            <span style="display:flex;gap:4px;">
+              <button type="button" class="sr-view-toggle-btn active" id="srViewBtnRank" onclick="srSwitchView('rank')" style="font-size:.62rem;padding:3px 9px;border-radius:8px;border:1px solid var(--line,#ccc);background:var(--accent,#2fd071);color:#04170c;font-weight:700;cursor:pointer;">強弱排行</button>
+              <button type="button" class="sr-view-toggle-btn" id="srViewBtnMatrix" onclick="srSwitchView('matrix')" style="font-size:.62rem;padding:3px 9px;border-radius:8px;border:1px solid var(--line,#ccc);background:transparent;color:var(--fg2,#666);font-weight:700;cursor:pointer;">矩陣散點圖</button>
+            </span>
+          </div>
           <div class="sr-heatmap-bar" id="srHeatmapBar"></div>
+          <!-- v7.98：基期(約1個月漲跌幅) vs 法人合計買賣超(億) 四象限矩陣，氣泡大小=最新一日成交金額 -->
+          <div id="srMatrixWrap" style="display:none;">
+            <div style="font-size:.6rem;color:var(--fg3,#888);margin:2px 0 6px;">X軸：基期漲幅（約1個月，真實股價算出）　Y軸：法人合計買賣超（外資+投信，億元）　氣泡大小：最新一日成交金額</div>
+            <canvas id="srMatrixCanvas" height="320"></canvas>
+            <div id="srMatrixEmpty" style="display:none;font-size:.65rem;color:var(--fg3,#888);text-align:center;padding:20px 0;">資料不足，無法繪製矩陣（部分板塊代表股尚無足夠歷史資料）</div>
+          </div>
         </div>
 
         <!-- 輪動鏈（精簡版）-->
@@ -35117,6 +35129,7 @@ async function srFetchSectorData() {
   const priceMap = {};
   const corrPriceMap = {};
   const instMap = {}; // v7.58：code → 外資最新一日買賣超（股），供震央強度公式的第三因子用
+  const trustMap = {}; // v7.98：code → 投信最新一日買賣超（股），供矩陣散點圖「法人合計」用
   let fetchOK = 0;
 
   for (const code of allCodes) {
@@ -35155,6 +35168,13 @@ async function srFetchSectorData() {
         const last = foreignRows.at(-1);
         instMap[code] = (+last.buy || 0) - (+last.sell || 0); // 股數，正=淨買 負=淨賣
       }
+      // v7.98：基期vs資金流向四象限矩陣要用「法人合計」（外資+投信），
+      // 同一批instRes回應裡本來就有投信的資料，多篩一次就好，不用多打API。
+      const trustRows = instRes.value.filter(r => r.name === 'Investment_Trust');
+      if (trustRows.length > 0) {
+        const lastT = trustRows.at(-1);
+        trustMap[code] = (+lastT.buy || 0) - (+lastT.sell || 0);
+      }
     }
   }
 
@@ -35163,7 +35183,11 @@ async function srFetchSectorData() {
   for (const sec of SR_SECTOR_DEF) {
     const validResults = [];
     let foreignNetNT = 0; // 板塊內所有代表股「外資淨買賣金額」加總（新台幣元，負值=淨賣超）
+    let instTotalNT = 0;  // v7.98：外資+投信合計淨買賣金額加總（新台幣元），矩陣散點圖Y軸用
     let hasForeignData = false;
+    let hasInstData = false;
+    let tradeValueNT = 0; // v7.98：板塊內代表股最新一日成交金額加總（新台幣元），矩陣散點圖氣泡大小用
+    const oneMonthChgs = []; // v7.98：每支代表股的「約1個月」漲跌幅，矩陣散點圖X軸（基期漲幅）用
     for (const code of sec.stocks) {
       const rows = priceMap[code];
       if (!rows || rows.length < 2) continue;
@@ -35172,10 +35196,24 @@ async function srFetchSectorData() {
       const avgVol5 = rows.slice(-6,-1).reduce((a,r)=>a+(+r.Trading_Volume||0),0)/5;
       const volRatio = avgVol5 > 0 ? (+last.Trading_Volume / avgVol5) : 1;
       validResults.push({ chg, volRatio });
+      // 成交金額：FinMind TaiwanStockPrice原始就有Trading_money欄位（新台幣元），沒有就用量×價估算
+      tradeValueNT += (+last.Trading_money) || (+last.Trading_Volume * +last.close) || 0;
       // 外資買賣超原始單位是「股」，乘上當日收盤價換算成金額（新台幣元）才能跨個股加總比較
       if (instMap[code] != null) {
         foreignNetNT += instMap[code] * (+last.close);
-        hasForeignData = true;
+        instTotalNT  += instMap[code] * (+last.close);
+        hasForeignData = true; hasInstData = true;
+      }
+      if (trustMap[code] != null) {
+        instTotalNT += trustMap[code] * (+last.close);
+        hasInstData = true;
+      }
+      // v7.98：用corrPriceMap（已經抓了35天，相關係數計算共用，不用多打API）算「約1個月」漲跌幅——
+      // 取序列裡最早一筆(約35天前)跟最新一筆比較，天數不足20天的代表股跳過不列入平均
+      const corrRows = corrPriceMap[code];
+      if (corrRows && corrRows.length >= 20) {
+        const firstC = +corrRows[0].close, lastC = +corrRows.at(-1).close;
+        if (firstC > 0) oneMonthChgs.push((lastC - firstC) / firstC * 100);
       }
     }
     if (validResults.length > 0) {
@@ -35193,10 +35231,17 @@ async function srFetchSectorData() {
       const strength = Math.round(Math.max(0, Math.min(100,
         (-chg * 12) + (Math.max(0, volRatio - 1) * 15) + (foreignSellYi * 0.8)
       )));
+      const oneMonthChg = oneMonthChgs.length > 0
+        ? oneMonthChgs.reduce((a,b)=>a+b,0) / oneMonthChgs.length
+        : null;
       sectorData[sec.id] = { change:+chg.toFixed(2), volRatio:+volRatio.toFixed(2), state, strength,
-        foreignSellYi: hasForeignData ? +foreignSellYi.toFixed(1) : null };
+        foreignSellYi: hasForeignData ? +foreignSellYi.toFixed(1) : null,
+        instTotalYi: hasInstData ? +(instTotalNT/1e8).toFixed(1) : null,     // 外資+投信合計淨買賣（億元）
+        oneMonthChgPct: oneMonthChg != null ? +oneMonthChg.toFixed(1) : null, // 約1個月漲跌幅（%）
+        tradeValueYi: +(tradeValueNT/1e8).toFixed(1) };                       // 最新一日成交金額（億元）
     } else {
-      sectorData[sec.id] = { change:0, volRatio:1, state:'neut', strength:0, foreignSellYi:null };
+      sectorData[sec.id] = { change:0, volRatio:1, state:'neut', strength:0, foreignSellYi:null,
+        instTotalYi:null, oneMonthChgPct:null, tradeValueYi:0 };
     }
   }
 
@@ -35465,8 +35510,162 @@ async function renderSectorRotation(stockId) {
   try { _srRenderHistory(); } catch(e) {}
   // v6.36c SR Heatmap
   try { renderSrHeatmap(sectorData, epicId, stockSec.id); } catch(e) { console.warn('[SR-HM]',e); }
+  // v7.98 基期vs資金流向矩陣散點圖（真實資料版，切換分頁時才會實際繪製，這裡先準備好資料）
+  window._srMatrixData = sectorData;
+  try { if (window._srViewMode === 'matrix') renderSectorMatrixChart(sectorData); } catch(e) { console.warn('[SR-MX]',e); }
   // v6.36k 美股動能同步預警
   try { renderSrUsPrewarn(stockSec.id, sectorData, epicId); } catch(e) { console.warn('[SR-US]',e); }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  v7.98 板塊輪動：強弱排行／矩陣散點圖 切換
+//  使用者參考另一個工具的「基期vs資金流向四象限矩陣」構想，但那邊底層是
+//  公式湊出來的假數字（板塊平均漲跌×係數+關鍵字加減碼）。這裡改用貨真
+//  價實的資料：X軸=約1個月真實股價漲跌幅(srFetchSectorData已抓的35天
+//  序列算出來)，Y軸=外資+投信合計買賣超金額(億元，同一批法人API資料
+//  多篩一次投信就有)，氣泡大小=最新一日真實成交金額，不额外多打API。
+// ══════════════════════════════════════════════════════════════
+window._srViewMode = 'rank';
+let _srMatrixChartInst = null;
+
+function srSwitchView(mode) {
+  window._srViewMode = mode;
+  const btnRank = document.getElementById('srViewBtnRank');
+  const btnMatrix = document.getElementById('srViewBtnMatrix');
+  const barEl = document.getElementById('srHeatmapBar');
+  const matrixWrap = document.getElementById('srMatrixWrap');
+  const titleTxt = document.getElementById('srViewTitleTxt');
+  if (!btnRank || !btnMatrix) return;
+
+  const activeStyle = 'background:var(--accent,#2fd071);color:#04170c;';
+  const inactiveStyle = 'background:transparent;color:var(--fg2,#666);';
+
+  if (mode === 'matrix') {
+    btnMatrix.style.cssText = btnMatrix.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + activeStyle;
+    btnRank.style.cssText   = btnRank.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + inactiveStyle;
+    if (barEl) barEl.style.display = 'none';
+    if (matrixWrap) matrixWrap.style.display = '';
+    if (titleTxt) titleTxt.innerHTML = '🧲 基期 vs. 資金流向四象限矩陣 <span style="font-weight:400;opacity:.65;">（真實股價/籌碼資料，非公式估算）</span>';
+    if (window._srMatrixData) renderSectorMatrixChart(window._srMatrixData);
+  } else {
+    btnRank.style.cssText   = btnRank.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + activeStyle;
+    btnMatrix.style.cssText = btnMatrix.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + inactiveStyle;
+    if (barEl) barEl.style.display = '';
+    if (matrixWrap) matrixWrap.style.display = 'none';
+    if (titleTxt) titleTxt.innerHTML = '📊 板塊強弱排行 <span style="font-weight:400;opacity:.65;">（強→弱，點擊查看成分股）</span>';
+  }
+}
+
+function renderSectorMatrixChart(sectorData) {
+  const canvas = document.getElementById('srMatrixCanvas');
+  const emptyEl = document.getElementById('srMatrixEmpty');
+  if (!canvas) return;
+  if (typeof Chart === 'undefined') return;
+
+  const points = SR_SECTOR_DEF
+    .map(sec => {
+      const d = sectorData[sec.id];
+      if (!d || d.oneMonthChgPct == null || d.instTotalYi == null) return null;
+      return {
+        x: d.oneMonthChgPct,
+        y: d.instTotalYi,
+        // v7.98 修正：原本 sqrt(...)×3.5 的係數對這批板塊（成交金額多在百億~2000多億
+        // 之間）算出來幾乎全部頂到上限28，氣泡大小看起來都一樣，失去「大小代表成交量」
+        // 的意義。改用較小的係數+較窄的上下限，讓15個板塊的氣泡大小真的拉得出差異。
+        r: Math.max(5, Math.min(24, Math.sqrt(Math.max(d.tradeValueYi, 0.1)) * 0.9)),
+        label: sec.name,
+        emoji: sec.emoji || '',
+        tradeValueYi: d.tradeValueYi,
+      };
+    })
+    .filter(Boolean);
+
+  if (points.length === 0) {
+    canvas.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = '';
+    return;
+  }
+  canvas.style.display = '';
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  if (_srMatrixChartInst) { _srMatrixChartInst.destroy(); _srMatrixChartInst = null; }
+
+  // 四象限背景色：右上=高檔鎖碼(暖)、左上=低基期進駐(綠，最想找的補漲區)、
+  // 右下=漲多撤資(警示紅)、左下=冷門觀望(灰)
+  const quadrantBgPlugin = {
+    id: 'srQuadrantBg',
+    beforeDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      if (!chartArea) return;
+      const x0 = scales.x.getPixelForValue(0);
+      const yZero = scales.y.getPixelForValue(0);
+      ctx.save();
+      ctx.fillStyle = 'rgba(34,197,94,0.06)';   // 左上：低基期進駐
+      ctx.fillRect(chartArea.left, chartArea.top, x0-chartArea.left, yZero-chartArea.top);
+      ctx.fillStyle = 'rgba(245,158,11,0.06)';  // 右上：高檔鎖碼
+      ctx.fillRect(x0, chartArea.top, chartArea.right-x0, yZero-chartArea.top);
+      ctx.fillStyle = 'rgba(239,68,68,0.05)';   // 右下：漲多撤資
+      ctx.fillRect(x0, yZero, chartArea.right-x0, chartArea.bottom-yZero);
+      ctx.fillStyle = 'rgba(148,163,184,0.06)'; // 左下：冷門觀望
+      ctx.fillRect(chartArea.left, yZero, x0-chartArea.left, chartArea.bottom-yZero);
+      ctx.restore();
+    }
+  };
+
+  // 在氣泡旁邊補上板塊名稱（Chart.js bubble預設不顯示label，另外疊一層文字）
+  // v7.98 修正：原本在 new Chart(...) 之後才用 chart.config.plugins = [...] 補掛
+  // 這個plugin，Chart.js v4 不會因此重新註冊插件（config.plugins事後賦值不生效），
+  // 導致標籤完全沒畫出來。改成跟quadrantBgPlugin一樣，在建構子的 plugins 選項裡
+  // 一起傳入，這樣才會真的被Chart.js執行。
+  const labelPlugin = { id: 'srBubbleLabel', afterDatasetsDraw(chart){
+    const {ctx} = chart;
+    const meta = chart.getDatasetMeta(0);
+    ctx.save();
+    ctx.font = '9px sans-serif';
+    ctx.fillStyle = '#334155';
+    ctx.textAlign = 'center';
+    meta.data.forEach((el, i) => {
+      const p = points[i];
+      ctx.fillText(p.emoji + p.label, el.x, el.y - el.options.radius - 4);
+    });
+    ctx.restore();
+  }};
+
+  _srMatrixChartInst = new Chart(canvas.getContext('2d'), {
+    type: 'bubble',
+    data: {
+      datasets: [{
+        data: points,
+        backgroundColor: points.map(p => p.x < 0 && p.y >= 0 ? 'rgba(34,197,94,0.65)'
+                                        : p.x >= 0 && p.y >= 0 ? 'rgba(245,158,11,0.65)'
+                                        : p.x >= 0 && p.y < 0  ? 'rgba(239,68,68,0.65)'
+                                        : 'rgba(148,163,184,0.55)'),
+        borderColor: 'rgba(0,0,0,0.15)',
+        borderWidth: 1,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 16 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const p = ctx.raw;
+              return `${p.emoji} ${p.label}：基期${p.x>=0?'+':''}${p.x.toFixed(1)}%，法人${p.y>=0?'+':''}${p.y.toFixed(1)}億，成交${p.tradeValueYi.toFixed(1)}億`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: '基期漲幅（約1個月，%）', font:{size:9} }, grid: { color:'rgba(0,0,0,0.06)' } },
+        y: { title: { display: true, text: '法人合計買賣超（億元）', font:{size:9} }, grid: { color:'rgba(0,0,0,0.06)' } },
+      }
+    },
+    plugins: [quadrantBgPlugin, labelPlugin]
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════
