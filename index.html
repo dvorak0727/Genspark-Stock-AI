@@ -34481,9 +34481,12 @@ function _lsGet(cacheKey, dataset) {
   } catch(e) { return null; }
 }
 
-function _lsSet(cacheKey, rows, dataset) {
+function _lsSet(cacheKey, rows, dataset, overrideSlot) {
   try {
-    const slot = _getFMCacheSlot(dataset || '');
+    // v7.98：overrideSlot 讓呼叫端可以繞過 _getFMCacheSlot() 的預設判斷，
+    // 用於「偵測到資料還沒同步到最新一天」時，改存一個較短效期的時段字串，
+    // 避免被 after16 規則鎖住一整晚。
+    const slot = overrideSlot || _getFMCacheSlot(dataset || '');
     localStorage.setItem(_FM_LS_PREFIX + cacheKey, JSON.stringify({ slot, rows }));
   } catch(e) {
     try {
@@ -34534,8 +34537,42 @@ async function fetchFM(dataset, id, start, end) {
       }
       // 只快取成功且有資料的結果（記憶體 + localStorage，傳 dataset 供時段判斷）
       if (rows.length > 0) {
-        _fmCache[cacheKey] = rows;
-        _lsSet(cacheKey, rows, dataset); // ← 股價用時段快取，籌碼用日期快取
+        // v7.98 修正：使用者回報廣達/聯電的三大法人籌碼卡片沒有今天(9/2)的資料，
+        // 查證後發現FinMind本身早就有完整資料，是我們自己的快取把「還沒同步到
+        // 最新一天」的版本鎖住了——_getFMCacheSlot() 一旦時間過16:00，會把當次
+        // 抓到的結果當成「今天已經定案」永久鎖住到隔天，但FinMind/Cloudflare
+        // Worker的edge cache（cacheTtl 3600）不保證所有股票在16:00當下都已經
+        // 同步到最新一天的資料，導致少數股票被鎖住舊版本一整晚，要手動點強制
+        // 刷新才會抓到新的。
+        // 修法：只在「已經過了16:00的鎖定時段」才做這個檢查——比對這批資料裡
+        // 最新一筆的日期，若比台北今天的日期還舊、而且今天是平日，代表這批
+        // 資料很可能還沒同步到最新一天。這種情況：
+        //   ① localStorage 改存一個帶著「偵測到時間點」的短效期slot字串（不是
+        //      _getFMCacheSlot()算出來的after16正規slot），下次_lsGet比對slot
+        //      不吻合，會直接視為快取失效、強制重新打API，30分鐘內自動追上。
+        //   ② 記憶體快取(_fmCache)也不寫入，避免同一次頁面會話內反覆拿到同一批
+        //      舊資料而完全不重打（memory cache優先於localStorage被讀取）。
+        let _isStale = false;
+        if (/StockPrice|InstitutionalInvestorsBuySell|MarginPurchaseShortSale/.test(dataset || '')) {
+          const _now = new Date();
+          const _tpe = new Date(_now.getTime() + (_now.getTimezoneOffset() + 480) * 60000);
+          const _minOfDay = _tpe.getHours() * 60 + _tpe.getMinutes();
+          const _isWeekday = _tpe.getDay() >= 1 && _tpe.getDay() <= 5;
+          if (_minOfDay >= 960 && _isWeekday) {
+            const _todayStr = `${_tpe.getFullYear()}-${String(_tpe.getMonth()+1).padStart(2,'0')}-${String(_tpe.getDate()).padStart(2,'0')}`;
+            const _latestDate = rows.reduce((max, r) => (r.date && r.date > max) ? r.date : max, '');
+            if (_latestDate && _latestDate < _todayStr) {
+              _isStale = true;
+              console.warn(`[FinMind] ${dataset} ${id}: 最新資料日期 ${_latestDate} 落後今天(${_todayStr})，改用短效期快取避免鎖住舊版本`);
+            }
+          }
+        }
+        if (_isStale) {
+          _lsSet(cacheKey, rows, dataset, `stale_retry_${Date.now()}`);
+        } else {
+          _fmCache[cacheKey] = rows;
+          _lsSet(cacheKey, rows, dataset); // ← 股價用時段快取，籌碼用日期快取
+        }
       }
       return rows;
     })
