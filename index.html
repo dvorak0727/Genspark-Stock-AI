@@ -17949,11 +17949,35 @@ a.module-nav-item.acc-active {
           <div class="sr-heatmap-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
             <span id="srViewTitleTxt">📊 板塊強弱排行 <span style="font-weight:400;opacity:.65;">（強→弱，點擊查看成分股）</span></span>
             <span style="display:flex;gap:4px;">
+              <button type="button" class="sr-view-toggle-btn" id="srViewBtnTable" onclick="srSwitchView('table')" style="font-size:.62rem;padding:3px 9px;border-radius:8px;border:1px solid var(--line,#ccc);background:transparent;color:var(--fg2,#666);font-weight:700;cursor:pointer;">產業總表</button>
               <button type="button" class="sr-view-toggle-btn active" id="srViewBtnRank" onclick="srSwitchView('rank')" style="font-size:.62rem;padding:3px 9px;border-radius:8px;border:1px solid var(--line,#ccc);background:var(--accent,#2fd071);color:#04170c;font-weight:700;cursor:pointer;">強弱排行</button>
               <button type="button" class="sr-view-toggle-btn" id="srViewBtnMatrix" onclick="srSwitchView('matrix')" style="font-size:.62rem;padding:3px 9px;border-radius:8px;border:1px solid var(--line,#ccc);background:transparent;color:var(--fg2,#666);font-weight:700;cursor:pointer;">矩陣散點圖</button>
             </span>
           </div>
           <div class="sr-heatmap-bar" id="srHeatmapBar"></div>
+          <!-- v7.98：全板塊法人持股變化率與資金配置總表（用現有15個主題式板塊的真實資料，
+               不是全市場34官方產業分類——那個規模太大，會需要對上千檔股票逐一打API，暫不做）-->
+          <div id="srTableWrap" style="display:none;overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:.66rem;white-space:nowrap;">
+              <thead>
+                <tr style="border-bottom:2px solid var(--line,#ddd);color:var(--fg2,#666);text-align:left;">
+                  <th style="padding:6px 8px;">板塊名稱</th>
+                  <th style="padding:6px 8px;text-align:center;">追蹤股數</th>
+                  <th style="padding:6px 8px;text-align:right;">基期漲幅(1M)</th>
+                  <th style="padding:6px 8px;text-align:right;">外資買賣超</th>
+                  <th style="padding:6px 8px;text-align:right;">投信買賣超</th>
+                  <th style="padding:6px 8px;text-align:right;">法人合計</th>
+                  <th style="padding:6px 8px;text-align:center;">資金輪動訊號</th>
+                  <th style="padding:6px 8px;">指標吸金個股</th>
+                  <th style="padding:6px 8px;text-align:center;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="srTableBody"></tbody>
+            </table>
+            <div style="font-size:.58rem;color:var(--fg3,#888);margin-top:6px;">
+              數字來源：本站15個主題式板塊（各板塊10~16檔代表股，非全市場官方產業分類），基期漲幅為真實股價算出的約1個月漲跌幅，外資/投信/法人合計為真實買賣超金額加總，非公式估算。
+            </div>
+          </div>
           <!-- v7.98：基期(約1個月漲跌幅) vs 法人合計買賣超(億) 四象限矩陣，氣泡大小=最新一日成交金額 -->
           <div id="srMatrixWrap" style="display:none;">
             <div style="font-size:.6rem;color:var(--fg3,#888);margin:2px 0 6px;">X軸：基期漲幅（約1個月，真實股價算出）　Y軸：法人合計買賣超（外資+投信，億元）　氣泡大小：最新一日成交金額</div>
@@ -35320,7 +35344,10 @@ async function srFetchSectorData() {
     rotDay = Math.max(1, d);
   }
 
-  const result = { ready:true, sectorData, epicId, safeHavens, rotDay, isLive: fetchOK >= 5, sectorCorr };
+  // v7.98：把個股層級資料一併存起來，「產業總表」的聚焦細節modal跟
+  // 「指標吸金/拖累個股」要用，不用為了這個表再重打一次API。
+  const result = { ready:true, sectorData, epicId, safeHavens, rotDay, isLive: fetchOK >= 5, sectorCorr,
+    priceMap, instMap, trustMap };
   SR_CACHE[cacheKey] = result;
   return result;
 }
@@ -35430,6 +35457,10 @@ async function renderSectorRotation(stockId) {
   const grid = document.getElementById('srSectorGrid');
   // 保存 sectorData 和 epicId 到全域供 popup 使用
   window._srState = { sectorData, epicId, safeHavens, rotDay, currentStock: stockId };
+  // v7.98：產業總表 + 聚焦細節modal 要用個股層級資料，result裡已經有就一併存起來
+  window._srPriceMap = result.priceMap || {};
+  window._srInstMap  = result.instMap  || {};
+  window._srTrustMap = result.trustMap || {};
 
   grid.innerHTML = SR_SECTOR_DEF.map(sec => {
     const d = sectorData[sec.id];
@@ -35535,30 +35566,99 @@ let _srMatrixChartInst = null;
 
 function srSwitchView(mode) {
   window._srViewMode = mode;
+  const btnTable = document.getElementById('srViewBtnTable');
   const btnRank = document.getElementById('srViewBtnRank');
   const btnMatrix = document.getElementById('srViewBtnMatrix');
   const barEl = document.getElementById('srHeatmapBar');
   const matrixWrap = document.getElementById('srMatrixWrap');
+  const tableWrap = document.getElementById('srTableWrap');
   const titleTxt = document.getElementById('srViewTitleTxt');
-  if (!btnRank || !btnMatrix) return;
+  if (!btnRank || !btnMatrix || !btnTable) return;
 
   const activeStyle = 'background:var(--accent,#2fd071);color:#04170c;';
   const inactiveStyle = 'background:transparent;color:var(--fg2,#666);';
+  const setBtn = (btn, active) => { btn.style.cssText = btn.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + (active ? activeStyle : inactiveStyle); };
+
+  setBtn(btnTable, mode === 'table');
+  setBtn(btnRank, mode === 'rank');
+  setBtn(btnMatrix, mode === 'matrix');
+  if (barEl) barEl.style.display = mode === 'rank' ? '' : 'none';
+  if (matrixWrap) matrixWrap.style.display = mode === 'matrix' ? '' : 'none';
+  if (tableWrap) tableWrap.style.display = mode === 'table' ? '' : 'none';
 
   if (mode === 'matrix') {
-    btnMatrix.style.cssText = btnMatrix.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + activeStyle;
-    btnRank.style.cssText   = btnRank.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + inactiveStyle;
-    if (barEl) barEl.style.display = 'none';
-    if (matrixWrap) matrixWrap.style.display = '';
     if (titleTxt) titleTxt.innerHTML = '🧲 基期 vs. 資金流向四象限矩陣 <span style="font-weight:400;opacity:.65;">（真實股價/籌碼資料，非公式估算）</span>';
     if (window._srMatrixData) renderSectorMatrixChart(window._srMatrixData);
+  } else if (mode === 'table') {
+    if (titleTxt) titleTxt.innerHTML = '🌐 板塊法人持股變化率與資金配置總表 <span style="font-weight:400;opacity:.65;">（15個主題式板塊，真實資料）</span>';
+    if (window._srMatrixData) renderSectorSummaryTable(window._srMatrixData);
   } else {
-    btnRank.style.cssText   = btnRank.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + activeStyle;
-    btnMatrix.style.cssText = btnMatrix.style.cssText.replace(/background:[^;]+;color:[^;]+;/, '') + inactiveStyle;
-    if (barEl) barEl.style.display = '';
-    if (matrixWrap) matrixWrap.style.display = 'none';
     if (titleTxt) titleTxt.innerHTML = '📊 板塊強弱排行 <span style="font-weight:400;opacity:.65;">（強→弱，點擊查看成分股）</span>';
   }
+}
+
+// v7.98：全板塊法人持股變化率與資金配置總表——重用srFetchSectorData()已經算好
+// 的真實資料（基期漲幅/外資投信買賣超/成交金額），不用再另外抓一次。
+function renderSectorSummaryTable(sectorData) {
+  const tbody = document.getElementById('srTableBody');
+  if (!tbody) return;
+  const instMap = window._srInstMap || {};
+  const trustMap = window._srTrustMap || {};
+  const priceMap = window._srPriceMap || {};
+
+  // 資金輪動訊號 badge（跟矩陣散點圖用同一套四象限判斷邏輯，數字一致，說法才不會互相矛盾）
+  function quadrantBadge(d) {
+    const x = d.oneMonthChgPct, y = d.instTotalYi;
+    if (x == null || y == null) return { txt:'資料不足', bg:'#F1F5F9', fg:'#64748B' };
+    if (x < 5 && y >= 0)  return { txt:'🔥 低基期進駐', bg:'#ECFDF5', fg:'#065F46' };
+    if (x >= 5 && y >= 0) return { txt:'💎 高檔鎖碼',   bg:'#FFFBEB', fg:'#92400E' };
+    if (x >= 5 && y < 0)  return { txt:'⚠️ 漲多撤資',   bg:'#FEF2F2', fg:'#991B1B' };
+    return { txt:'❄️ 冷門觀望', bg:'#F1F5F9', fg:'#64748B' };
+  }
+
+  // 指標吸金個股：板塊內keyStocks裡，外資+投信合計買超金額(億)最高的一檔
+  function topInflowStock(sec) {
+    let best = null, bestVal = -Infinity;
+    for (const st of (sec.keyStocks || [])) {
+      const rows = priceMap[st.code];
+      if (!rows || !rows.length) continue;
+      const lc = +rows.at(-1).close;
+      const netShares = (instMap[st.code] || 0) + (trustMap[st.code] || 0);
+      const netYi = netShares * lc / 1e8;
+      if (netYi > bestVal) { bestVal = netYi; best = st; }
+    }
+    return best;
+  }
+
+  const totalTradeValue = SR_SECTOR_DEF.reduce((s, sec) => s + ((sectorData[sec.id] || {}).tradeValueYi || 0), 0) || 1;
+
+  tbody.innerHTML = SR_SECTOR_DEF.map(sec => {
+    const d = sectorData[sec.id] || {};
+    const badge = quadrantBadge(d);
+    const top = topInflowStock(sec);
+    const foreignYi = (sec.stocks || []).reduce((s, code) => {
+      const rows = priceMap[code]; if (!rows || !rows.length) return s;
+      return s + (instMap[code] || 0) * (+rows.at(-1).close) / 1e8;
+    }, 0);
+    const trustYi = (sec.stocks || []).reduce((s, code) => {
+      const rows = priceMap[code]; if (!rows || !rows.length) return s;
+      return s + (trustMap[code] || 0) * (+rows.at(-1).close) / 1e8;
+    }, 0);
+    const shareOfMarket = ((d.tradeValueYi || 0) / totalTradeValue * 100).toFixed(1);
+    const chgTxt = d.oneMonthChgPct != null ? ((d.oneMonthChgPct>=0?'+':'') + d.oneMonthChgPct.toFixed(1) + '%') : '—';
+    const chgCls = d.oneMonthChgPct == null ? '' : (d.oneMonthChgPct >= 0 ? 'up' : 'dn');
+    return `<tr style="border-bottom:1px solid var(--line,#eee);">
+      <td style="padding:6px 8px;font-weight:700;">${sec.emoji||''} ${sec.name}</td>
+      <td style="padding:6px 8px;text-align:center;">${sec.stocks.length} 檔</td>
+      <td style="padding:6px 8px;text-align:right;" class="${chgCls}">${chgTxt}</td>
+      <td style="padding:6px 8px;text-align:right;color:#2563EB;">${foreignYi>=0?'+':''}${foreignYi.toFixed(1)} 億</td>
+      <td style="padding:6px 8px;text-align:right;color:#7C3AED;">${trustYi>=0?'+':''}${trustYi.toFixed(1)} 億</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669;">${d.instTotalYi!=null ? ((d.instTotalYi>=0?'+':'')+d.instTotalYi.toFixed(1)+' 億') : '—'}</td>
+      <td style="padding:6px 8px;text-align:center;"><span style="padding:2px 8px;border-radius:99px;font-size:.6rem;font-weight:700;background:${badge.bg};color:${badge.fg};">${badge.txt}</span></td>
+      <td style="padding:6px 8px;">${top ? (top.name + '（' + top.code + '）') : '—'}</td>
+      <td style="padding:6px 8px;text-align:center;"><button type="button" onclick="srOpenPopup('${sec.id}')" style="font-size:.6rem;padding:3px 10px;border-radius:8px;border:none;background:#6366F1;color:#fff;font-weight:700;cursor:pointer;">聚焦細節</button></td>
+    </tr>`;
+  }).join('');
 }
 
 function renderSectorMatrixChart(sectorData) {
@@ -36528,15 +36628,30 @@ function srOpenPopup(secId) {
   let badgeFg  = isSafe ? '#065F46' : isEpic ? '#B91C1C' : d.state === 'flee' ? '#B91C1C' : d.state === 'flow' ? '#065F46' : 'var(--fg3)';
 
   // 公司清單 HTML
+  // v7.98：srFetchSectorData()裡已經抓過每支代表股的真實股價(window._srPriceMap)，
+  // 原本這裡「個別股票漲跌留空」是因為沒把這批資料傳出來，現在補上真實收盤價/
+  // 漲跌幅/成交金額，不用再多打API。
+  const _pmap = window._srPriceMap || {};
   const stocksHtml = (sec.keyStocks || []).map(st => {
     const isCur = st.code === curStock;
-    // 嘗試從 sectorData 或 priceHistory 取漲跌（若有）
-    const stChg = null; // 個別股票漲跌留空（只有代表股有資料）
+    const rows = _pmap[st.code];
+    let priceHtml = '<span style="color:var(--fg3);font-size:.62rem;">—</span>';
+    if (rows && rows.length >= 2) {
+      const last = rows.at(-1), prev = rows.at(-2);
+      const lc = +last.close, pc = +prev.close;
+      const stChg = pc > 0 ? ((lc - pc) / pc * 100) : 0;
+      const chgCls2 = stChg > 0.05 ? 'up' : stChg < -0.05 ? 'dn' : 'flat';
+      const tvYi = ((+last.Trading_money) || (+last.Trading_Volume * lc) || 0) / 1e8;
+      priceHtml = '<span class="' + chgCls2 + '">$' + lc.toFixed(2)
+        + ' ' + (stChg>=0?'▲':'▼') + Math.abs(stChg).toFixed(2) + '%</span>'
+        + '<span style="color:var(--fg3);font-size:.6rem;margin-left:4px;">成交' + tvYi.toFixed(1) + '億</span>';
+    }
     return '<div class="sr-popup-stock' + (isCur ? ' current' : '') + '" onclick="srPopupGo(\'' + st.code + '\')">'
       + '<div class="sr-popup-stock-code">' + st.code + '</div>'
       + '<div class="sr-popup-stock-info">'
       +   '<div class="sr-popup-stock-name">' + st.name + (isCur ? ' 📍' : '') + '</div>'
       +   '<div class="sr-popup-stock-role">' + st.role + '</div>'
+      +   '<div class="sr-popup-stock-price" style="font-size:.64rem;margin-top:2px;">' + priceHtml + '</div>'
       + '</div>'
       + '<button class="sr-popup-stock-go" onclick="event.stopPropagation();srPopupGo(\'' + st.code + '\')">分析 →</button>'
       + '</div>';
