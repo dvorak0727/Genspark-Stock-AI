@@ -17967,7 +17967,7 @@ a.module-nav-item.acc-active {
                   <th style="padding:6px 8px;text-align:right;">外資買賣超</th>
                   <th style="padding:6px 8px;text-align:right;">投信買賣超</th>
                   <th style="padding:6px 8px;text-align:right;">法人合計</th>
-                  <th style="padding:6px 8px;text-align:center;">資金輪動訊號</th>
+                  <th style="padding:6px 8px;text-align:center;">資金輪動訊號 <span onclick="srShowRotationTip(event)" style="display:inline-block;width:13px;height:13px;line-height:13px;border-radius:50%;background:var(--line,#ccc);color:var(--fg2,#555);font-size:.55rem;text-align:center;cursor:help;font-weight:900;">?</span></th>
                   <th style="padding:6px 8px;">指標吸金個股</th>
                   <th style="padding:6px 8px;text-align:center;">操作</th>
                 </tr>
@@ -36763,6 +36763,41 @@ function srClosePopup() {
     document.removeEventListener('keydown', window._srPopupKeyHandler);
     window._srPopupKeyHandler = null;
   }
+}
+
+// v7.98：「資金輪動訊號」欄位的說明。原本掛 data-tip 讓它走全站共用的
+// 點擊提示（會顯示成一則toast），但那個toast是設計給短句用的
+// （white-space:nowrap，一行到底不換行），實測這段長文字直接把toast撐到
+// 2864px寬（螢幕只有322px），畫面完全爆版看不到字。改成自己的小彈窗，
+// 用跟板塊聚焦細節（srOpenPopup）同一套 .sr-popup-overlay 樣式，正常換行。
+function srShowRotationTip(e) {
+  if (e) e.stopPropagation();
+  const tip = INDICATOR_TIP_DB['SR_ROTATION_SIGNAL'];
+  if (!tip) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'sr-popup-overlay';
+  overlay.id = 'srTipOverlay';
+  overlay.onclick = function(ev) { if (ev.target === overlay) srCloseTip(); };
+  overlay.innerHTML = ''
+    + '<div class="sr-popup" style="max-width:360px;">'
+    +   '<div class="sr-popup-head">'
+    +     '<div class="sr-popup-head-emoji">💡</div>'
+    +     '<div class="sr-popup-head-info"><div class="sr-popup-head-name">' + tip.title + '</div></div>'
+    +     '<button class="sr-popup-close" onclick="srCloseTip()">✕</button>'
+    +   '</div>'
+    +   '<div style="padding:10px 14px;font-size:.68rem;color:var(--fg2,#475569);white-space:pre-wrap;line-height:1.7;">'
+    +     '<div style="font-family:monospace;font-size:.62rem;background:rgba(0,0,0,0.05);border-radius:6px;padding:6px 9px;margin-bottom:8px;color:#B45309;">' + tip.formula + '</div>'
+    +     tip.body
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  window._srTipKeyHandler = ev => { if (ev.key === 'Escape') srCloseTip(); };
+  document.addEventListener('keydown', window._srTipKeyHandler);
+}
+function srCloseTip() {
+  const ov = document.getElementById('srTipOverlay');
+  if (ov) ov.remove();
+  if (window._srTipKeyHandler) { document.removeEventListener('keydown', window._srTipKeyHandler); window._srTipKeyHandler = null; }
 }
 
 function srPopupGo(code) {
@@ -70846,6 +70881,12 @@ function _injectModals() {
 
 // 技術指標說明資料庫
 const INDICATOR_TIP_DB = {
+  /* ── v7.98 板塊輪動：資金輪動訊號四象限 ── */
+  'SR_ROTATION_SIGNAL': {
+    title: '資金輪動訊號 — 基期×法人買賣超四象限',
+    formula: 'X軸 基期漲幅（約1個月，真實股價算出）≥5%？\nY軸 法人合計買賣超（外資+投信，億元）≥0？',
+    body: '🔥 低基期進駐：基期<5% 且法人買超 → 還沒漲、法人卻在卡位，補漲潛力區\n💎 高檔鎖碼：基期≥5% 且法人買超 → 已經漲，法人續抱不撤\n⚠️ 漲多撤資：基期≥5% 且法人賣超 → 已經漲多，法人現在轉賣\n❄️ 冷門觀望：基期<5% 且法人賣超 → 沒漲也沒人要，先不用理\n\n提醒：「漲多撤資」只是描述「已經漲+法人現在賣」這兩個數字同時成立，不代表主力蓄意「誘多出貨」——可能只是正常獲利了結或資金轉去別的板塊，真要判斷是不是誘多，要再搭配三大法人籌碼連續天數、券商分點進出一起看。'
+  },
   /* ── 基礎指標 ── */
   'RSI': {
     title: 'RSI — 相對強弱指標',
