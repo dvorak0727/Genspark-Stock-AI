@@ -36553,18 +36553,21 @@ function _epicShowLinkPopup(btnEl, title, subtitle, links, colorClass) {
   document.body.appendChild(pop);
 
   // 定位：在按鈕下方，確保不超出視窗
-  if (btnEl) {
-    var rect = btnEl.getBoundingClientRect();
-    var pw = 360;
-    var left = Math.min(rect.left, window.innerWidth - pw - 12);
-    var top  = rect.bottom + window.scrollY + 6;
-    pop.style.left = Math.max(8, left) + 'px';
-    pop.style.top  = top + 'px';
-  } else {
-    pop.style.left = '50%';
-    pop.style.top  = '50%';
-    pop.style.transform = 'translate(-50%,-50%)';
-  }
+  // v7.98 修正：使用者回報「查震央新聞」按鈕點下去像沒反應——查證後發現
+  // 彈窗其實真的有正確產生（6個過濾好的新聞連結都在），問題出在定位算式：
+  // pop本身是 position:fixed（座標應該相對「視窗」），但這裡卻多加了一個
+  // window.scrollY（那是給 position:absolute 元素相對「整份文件」用的換算）。
+  // 兩種定位邏輯混在一起，導致頁面往下捲動越多，彈窗跑到視窗外面越遠
+  // （實測捲動到4000px高度時，彈窗被定位到y=4196px，完全在螢幕外）。
+  // 另外傳進來的btnEl固定是document.getElementById('srCard')這個涵蓋整個
+  // 模組的大容器（不是真正被點的那顆按鈕，因為srClosePopup()會先把按鈕
+  // 所在的彈窗整個移除），用它的rect定位本來就不準；改成一律用視窗置中，
+  // 不管使用者捲到頁面哪裡，彈窗都會準確出現在看得到的地方。
+  pop.style.left = '50%';
+  pop.style.top  = '50%';
+  pop.style.transform = 'translate(-50%,-50%)';
+  pop.style.maxHeight = '80vh';
+  pop.style.overflowY = 'auto';
 
   // 點擊彈窗外部關閉
   setTimeout(function() {
