@@ -36813,6 +36813,20 @@ function srPopupGo(code) {
   }, 300);
 }
 
+// v7.98：通用「點股票代號跳去分析該股」——沃利斯收斂偵測器的「本次掃描
+// 排行」跟下單清單原本整排都不能點，使用者要看某檔股票的完整資料，得
+// 自己手動回到上面搜尋框打代號重查一次。這裡跟 srPopupGo() 用同一套
+// 邏輯（填入搜尋框+捲回頂部+觸發分析），抽成共用函式讓兩個地方都能用。
+function gsGoToStock(code) {
+  if (!code) return;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(() => {
+    const input = document.getElementById('searchInput');
+    if (input) input.value = code;
+    startAnalysis();
+  }, 300);
+}
+
 // ==============================================================
 //  RENDER ALL
 // ==============================================================
@@ -62553,7 +62567,7 @@ function wallisRenderRankBoard(results) {
     <div style="font-size:.65rem;font-weight:800;color:var(--fg);margin:10px 0 6px;">🏆 本次掃描排行（依幾燈亮排序，越前面越接近啟動）</div>
     <div style="display:flex;flex-direction:column;gap:6px;">
       ${results.map((r, i) => `
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);${i===0 && r.greenCount===5 ? 'border-color:#10b981;box-shadow:0 0 0 1px #10b981;' : ''}">
+        <div onclick="gsGoToStock('${r.stockId}')" title="點擊查看${r.stockName}完整資料" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);transition:background .15s;${i===0 && r.greenCount===5 ? 'border-color:#10b981;box-shadow:0 0 0 1px #10b981;' : ''}" onmouseover="this.style.background='var(--bg3,rgba(128,128,128,0.08))'" onmouseout="this.style.background='var(--bg2)'">
           <div style="font-size:.7rem;color:var(--fg3);width:20px;text-align:center;">${i+1}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:.72rem;">${r.stockName}<span style="color:var(--fg3);font-weight:400;margin-left:4px;">${r.stockId}</span></div>
@@ -63134,7 +63148,7 @@ function tlRenderOrders() {
       ? (((_curPrice - r.entryPrice)/r.entryPrice)*100).toFixed(1)+'%' : '—';
     const pnlColor = pnl!=='—' ? (parseFloat(pnl)>=0?'#dc2626':'#059669') : 'var(--fg2)';
     return `<div class="tl-record">
-      <div class="tl-record-main">
+      <div class="tl-record-main" onclick="gsGoToStock('${r.stockId}')" title="點擊查看${r.stockName}完整資料" style="cursor:pointer;">
         <span class="tl-stock-name">${r.stockName} <span style="font-size:.68rem;color:var(--fg3)">${r.stockId}</span></span>
         <span class="tl-price-info">建倉 $${r.entryPrice} × ${r.shares}張</span>
         ${r.targetPrice?`<span class="tl-price-info" style="color:#059669">目標 $${r.targetPrice}</span>`:''}
@@ -63148,7 +63162,7 @@ function tlRenderOrders() {
       <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:auto;">
         <span class="tl-exit-badge ${badgeCls}" style="white-space:nowrap;">${badgeText}</span>
         ${_tlPhaseMini(r.phase, r.phaseProgress ?? null)}
-        <button class="tl-del-btn" onclick="tlRemoveOrder(${r.id})" style="white-space:nowrap;">✕ 移除</button>
+        <button class="tl-del-btn" onclick="event.stopPropagation();tlRemoveOrder(${r.id})" style="white-space:nowrap;">✕ 移除</button>
       </div>
     </div>`;
   }).join('');
