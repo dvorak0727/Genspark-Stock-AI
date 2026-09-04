@@ -60,6 +60,25 @@
   const _API = 'https://license-worker.dvorak0727.workers.dev';
   const _LK  = 'tsai_license_v3';
 
+  // v8.x：免登出白名單——特定授權碼改存 localStorage（不隨關分頁/瀏覽器清除），
+  // 給不方便常常重新輸入授權碼的使用者用（例如長輩用戶、手機瀏覽器背景一段
+  // 時間會把分頁記憶體釋放掉，回來變成要重新登入，體感等於「自動登出」）。
+  // 其餘所有授權碼維持 v7.27 的 sessionStorage 行為（關分頁即登出）不受影響。
+  const _PERSIST_KEYS = ['TSAIU-E599160FBE6F']; // 程正明
+
+  function _isPersistKey(key) {
+    return _PERSIST_KEYS.includes((key || '').trim().toUpperCase());
+  }
+  function _persistLicense(key, expiry) {
+    const payload = JSON.stringify({ key, expiry, ts: Date.now() });
+    if (_isPersistKey(key)) {
+      localStorage.setItem(_LK, payload);
+      sessionStorage.removeItem(_LK); // 避免兩處都殘留舊資料
+    } else {
+      sessionStorage.setItem(_LK, payload);
+    }
+  }
+
   async function _validateWithBackend(key) {
     try {
       const r = await fetch(`${_API}/verify`, {
@@ -119,8 +138,9 @@
       msg.textContent = '';
       const result = await _validateWithBackend(key);
       if (result.valid) {
-        // v7.27：改用 sessionStorage，關閉分頁即自動登出
-        sessionStorage.setItem(_LK, JSON.stringify({ key, expiry: result.expiry, ts: Date.now() }));
+        // v7.27：預設 sessionStorage，關閉分頁即自動登出；
+        // v8.x：白名單授權碼改存 localStorage，永久免重新登入
+        _persistLicense(key, result.expiry);
         div.remove();
         msg.textContent = '';
       } else {
@@ -138,8 +158,25 @@
   async function _checkLicense() {
     // ★ Demo 模式（?demo=1）：跳過授權碼驗證，直接放行體驗版（v7.55 本機試作）
     if (new URLSearchParams(location.search).get('demo') === '1') return;
+
+    // v8.x：先看 localStorage 是否有「免登出白名單」快取的授權碼，有的話
+    // 永久免重新登入（除非授權碼本身過期）。這裡要先判斷，才不會被下面
+    // 「強制走 session」的清除邏輯誤刪。
+    const lsStored = localStorage.getItem(_LK);
+    if (lsStored) {
+      try {
+        const { key, expiry } = JSON.parse(lsStored);
+        if (_isPersistKey(key)) {
+          if (expiry && new Date() <= new Date(expiry + 'T23:59:59')) return; // 白名單，直接放行
+          // 白名單授權碼過期 → 重新驗證，驗過再續存 localStorage
+          const result = await _validateWithBackend(key);
+          if (result.valid) { _persistLicense(key, result.expiry); return; }
+        }
+      } catch(e) {}
+      localStorage.removeItem(_LK); // 不是有效的白名單快取（含舊版殘留）→ 清掉，強制走 session
+    }
+
     // v7.27：改用 sessionStorage — 關閉分頁/瀏覽器即自動登出，每次重開需重新輸入授權碼
-    localStorage.removeItem(_LK); // 清除舊版 localStorage 殘留，強制走 session
     const stored = sessionStorage.getItem(_LK);
     if (stored) {
       try {
@@ -147,10 +184,7 @@
         if (expiry && new Date() <= new Date(expiry + 'T23:59:59')) return; // session 內快速通過
         // 過期 → 重新驗證
         const result = await _validateWithBackend(key);
-        if (result.valid) {
-          sessionStorage.setItem(_LK, JSON.stringify({ key, expiry: result.expiry, ts: Date.now() }));
-          return;
-        }
+        if (result.valid) { _persistLicense(key, result.expiry); return; }
       } catch(e) {}
       sessionStorage.removeItem(_LK);
     }
@@ -183,6 +217,7 @@
     document.getElementById('logoutCancelBtn').addEventListener('click', () => div.remove());
     document.getElementById('logoutOkBtn').addEventListener('click', () => {
       sessionStorage.removeItem(_LK);
+      localStorage.removeItem(_LK); // 白名單使用者也要能正常登出（清掉持久化快取）
       const u = new URL(location.href);
       const hadDemo = u.searchParams.has('demo');
       u.searchParams.delete('demo');
