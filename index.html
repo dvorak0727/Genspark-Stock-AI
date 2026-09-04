@@ -16051,6 +16051,7 @@ a.module-nav-item.acc-active {
           <option value="crush">💀 碎骨區探測</option>
           <option value="chippure">📉 資減人走·籌碼淨化探測</option>
           <option value="macdmatrix">📊 MACD 多方結構探測</option>
+          <option value="bandwalk">🏇 騎帶上行掃描</option>
           <option value="absorb">🧲 籌碼週期階段 — 吸籌期</option>
           <option value="washout">🌀 籌碼週期階段 — 洗盤期</option>
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
@@ -16312,6 +16313,7 @@ a.module-nav-item.acc-active {
           <option value="crush">💀 碎骨區探測</option>
           <option value="chippure">📉 資減人走·籌碼淨化探測</option>
           <option value="macdmatrix">📊 MACD 多方結構探測</option>
+          <option value="bandwalk">🏇 騎帶上行掃描</option>
           <option value="absorb">🧲 籌碼週期階段 — 吸籌期</option>
           <option value="washout">🌀 籌碼週期階段 — 洗盤期</option>
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
@@ -55728,6 +55730,7 @@ async function startScreener() {
           case 'distribution': result = calcDistributionScore(sid, instRaw, priceRaw);break;
           case 'chippure':     result = calcChipPurifyScore(sid, instRaw, priceRaw);  break;
           case 'macdmatrix':   result = calcMacdMatrixScore(sid, instRaw, priceRaw);  break;
+          case 'bandwalk':     result = calcBandWalkScore(sid, instRaw, priceRaw);    break;
           default:             result = calcBottomScore(sid, instRaw, priceRaw);       break;
         }
         // 快取原始資料供卡片快速展開面板使用（法人面板 + MACD面板）
@@ -56880,6 +56883,7 @@ const SCREENER_MODE_META = {
   distribution: { title:'籌碼週期階段 — 出貨期', subtitle:'高位量縮 · 外資轉賣 · MACD動能遞減 · 跌破月線 · 均線死叉確認', badge:'⚠️ 出貨期' },
   chippure:   { title:'資減人走·籌碼淨化',    subtitle:'融資減碼確認 · 散戶清洗完畢 · 法人悄悄集中 · 資減價揚底部質變', badge:'📉 淨化' },
   macdmatrix: { title:'MACD 多方結構掃瞄矩陣', subtitle:'C1 MACD柱翻紅擴張 · C2 DIF突破DEA · C3 零軸上方 · C4 法人買超 · C5 均線多排 · C6 KD多頭', badge:'📊 MACD矩陣' },
+  bandwalk:   { title:'騎帶上行掃描',           subtitle:'布林通道Band Walk — C1 近3日收盤貼上軌 · C2 帶寬同步擴張 · C3 量能同步放大 · C4 均線多排 · C5 法人買超（碰上軌不是要跌，是強勢的證明）', badge:'🏇 騎帶上行' },
   broker:     { title:'券商囤貨掃描',           subtitle:'C1 累積淨買超 · C2 連買天數 · C3 籌碼集中度 · C4 近5日加速 · C5 主力成本低於現價', badge:'🏦 囤貨' },
   exdiv:      { title:'除息填息候選雷達',        subtitle:'投信除息前佈局 · 外資製造恐懼換手 · 殖利率誘人 · 跌不下去確認 · 入場甜蜜點偵測', badge:'🎯 填息候選' },
   obi:        { title:'外盤強勢掃描',            subtitle:'收盤外盤比率排行 · 主動買盤強度確認 · 外盤>內盤篩選 · 資金動能方向', badge:'📡 外盤強' },
@@ -57227,6 +57231,112 @@ function calcMacdMatrixScore(stockId, instRaw, priceRaw) {
     lDif, lDea, lHist, pHist,
     lMA5, lMA20, lK, lD,
     instDays, candles, macdMini,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  🏇 v8.x 騎帶上行偵測（Band Walk）
+//  核心邏輯：收盤連續貼著布林上軌走 + 帶寬同步擴張 + 量能放大確認 +
+//  均線多頭排列 + 法人買超，5項評分，總分 0~5 分，≥3.5 強烈、≥2.5 明確
+// ═══════════════════════════════════════════════════════════════
+function calcBandWalkScore(stockId, instRaw, priceRaw) {
+  instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+
+  const instMap  = buildInstMap(instRaw);
+  const instDays = Object.keys(instMap).sort().slice(-10);
+  const fSeries  = instDays.map(d => (instMap[d]?.Foreign_Investor?.net||0)/1000);
+  const tSeries  = instDays.map(d => (instMap[d]?.Investment_Trust?.net||0)/1000);
+
+  const closes = priceRaw.map(d => +d.close);
+  const vols   = priceRaw.map(d => +d.Trading_Volume);
+  if (closes.length < 22) { const _lc=closes.at(-1)||0,_pc=closes.at(-2)||_lc; return { stockId, score:0, checks:[], lc:_lc, chgPct:_pc?(_lc-_pc)/_pc*100:0, fCons:0, tCons:0 }; }
+
+  const lc = closes.at(-1), pc = closes.at(-2) || lc;
+  const chgPct = pc ? (lc - pc) / pc * 100 : 0;
+
+  const boll = calcBoll(closes, 20, 2);
+  const { upper: bu, lower: bl, mid: bm } = boll;
+  const n = closes.length;
+
+  // ── 法人連買 ──
+  const revF = [...fSeries].reverse();
+  const revT = [...tSeries].reverse();
+  let fCons = 0; for(const v of revF){ if(v > 0) fCons++; else break; }
+  let tCons = 0; for(const v of revT){ if(v > 0) tCons++; else break; }
+
+  // ══ C1：近3日收盤連續貼著上軌走（核心條件）══
+  const LOOKBACK = 3;
+  let upHit = 0;
+  for (let i = n - LOOKBACK; i < n; i++) {
+    if (bu[i] != null && closes[i] >= bu[i] * 0.985) upHit++;
+  }
+  const c1hit  = upHit >= LOOKBACK;
+  const c1warn = !c1hit && upHit >= LOOKBACK - 1;
+  const c1val  = `近${LOOKBACK}日貼上軌${upHit}天`;
+
+  // ══ C2：帶寬同步擴張（不是價格單邊硬撐，波動範圍真的在放大）══
+  const bwOf = i => (bu[i] > 0 && bl[i] > 0 && bm[i] > 0) ? (bu[i] - bl[i]) / bm[i] * 100 : null;
+  const bwNow = bwOf(n - 1), bwBefore = bwOf(n - LOOKBACK);
+  const bwRatio = (bwNow != null && bwBefore != null && bwBefore > 0) ? bwNow / bwBefore : null;
+  const c2hit  = bwRatio != null && bwRatio >= 1.10;
+  const c2warn = !c2hit && bwRatio != null && bwRatio >= 1.0;
+  const c2val  = bwNow != null ? `帶寬${bwNow.toFixed(1)}%` : '—';
+
+  // ══ C3：成交量隨行情放大（近3日均量 vs 20日均量，排除無量假突破）══
+  const vol20 = vols.slice(-20).reduce((s,v)=>s+v,0) / Math.min(20, vols.length);
+  const vol3  = vols.slice(-LOOKBACK).reduce((s,v)=>s+v,0) / LOOKBACK;
+  const volRatio = vol20 > 0 ? vol3 / vol20 : null;
+  const c3hit  = volRatio != null && volRatio >= 1.2;
+  const c3warn = !c3hit && volRatio != null && volRatio >= 1.0;
+  const c3val  = volRatio != null ? `量比${(volRatio*100).toFixed(0)}%` : '—';
+
+  // ══ C4：均線多頭排列（收盤>MA5>MA20，短中期趨勢一致）══
+  const ma5arr  = calcMA(closes, 5);
+  const ma20arr = calcMA(closes, 20);
+  const lMA5  = ma5arr.at(-1)  || 0;
+  const lMA20 = ma20arr.at(-1) || 0;
+  const c4hit  = lc > lMA5 && lMA5 > lMA20;
+  const c4warn = !c4hit && lMA5 > lMA20;
+  const c4val  = lMA20 ? `MA5${lMA5>lMA20?'>':'<'}MA20` : '—';
+
+  // ══ C5：法人買超（外資或投信連買，騎帶行情有籌碼支撐比較安心）══
+  const c5hit  = fCons >= 2 || tCons >= 2;
+  const c5warn = !c5hit && (fCons >= 1 || tCons >= 1);
+  const c5val  = `外${fCons}投${tCons}`;
+
+  let score = 0;
+  if (c1hit)  score += 1.5; else if (c1warn) score += 0.7;
+  if (c2hit)  score += 1;   else if (c2warn) score += 0.4;
+  if (c3hit)  score += 1;   else if (c3warn) score += 0.4;
+  if (c4hit)  score += 1;   else if (c4warn) score += 0.4;
+  if (c5hit)  score += 0.5; else if (c5warn) score += 0.2;
+  score = Math.min(Math.round(score * 10) / 10, 5);
+
+  const _n15  = Math.min(15, priceRaw.length);
+  const _pr15 = priceRaw.slice(-_n15);
+  const candles = {
+    closes: _pr15.map(d => +d.close),
+    opens:  _pr15.map(d => +(d.open || d.close)),
+    highs:  _pr15.map(d => +d.max),
+    lows:   _pr15.map(d => +d.min),
+    dates:  _pr15.map(d => d.date || ''),
+    vols:   _pr15.map(d => +d.Trading_Volume || 0),
+  };
+
+  return {
+    stockId, score,
+    lc, chgPct,
+    fCons, tCons,
+    checks: [
+      { label: 'C1 貼上軌天數', hit: c1hit, warn: c1warn, val: c1val },
+      { label: 'C2 帶寬擴張',   hit: c2hit, warn: c2warn, val: c2val },
+      { label: 'C3 量能放大',   hit: c3hit, warn: c3warn, val: c3val },
+      { label: 'C4 均線多排',   hit: c4hit, warn: c4warn, val: c4val },
+      { label: `C5 法人買${Math.max(fCons,tCons)}日`, hit: c5hit, warn: c5warn, val: c5val },
+    ],
+    lMA5, lMA20, bollUpper: bu.at(-1), bollMid: bm.at(-1),
+    instDays, candles,
   };
 }
 
@@ -60360,6 +60470,27 @@ const MODE_GUIDE = {
       '配合量能：C1 擴張時若量能也同步放大，為最佳確認；量縮擴張為「虛張聲勢」，需謹慎。',
     ],
     action: '📌 操作思路：優先選擇 C1+C2+C3 同時成立（零軸上方金叉擴張）的個股，這是趨勢中段最安全的追多時機。若只有 C2+C4，代表法人進場但 MACD 剛剛翻多，為「趨勢初期」，風險報酬比更高但需要更嚴格停損（設在 MA20 下方）。',
+  },
+
+  bandwalk: {
+    icon: '🏇',
+    name: '騎帶上行掃描',
+    tag:  '布林通道 Band Walk · 碰上軌不是要跌，是強勢的證明',
+    summary: '布林通道平常是「震盪邊界」，碰到上軌容易被拉回。但一旦趨勢真的成立，股價會轉為貼著上軌邊緣「騎」著走，此時上軌不再是壓力，而是動能跑道。這個模式專門找出正在騎帶上行、而且量能/籌碼都配合的股票，避免把單日觸頂誤判成該賣的訊號。',
+    features: [
+      { icon: '🎯', text: '<b>C1 近3日收盤連續貼上軌（最高 1.5 分）</b>：收盤價連續3天貼近或站上布林上軌（≥上軌×0.985），這是騎帶上行成立的核心條件，只碰1~2天不算數。' },
+      { icon: '📏', text: '<b>C2 帶寬同步擴張（1 分）</b>：上軌向上、下軌向下同時張開，代表波動範圍真的在放大，不是價格單邊硬撐出來的假象。' },
+      { icon: '📊', text: '<b>C3 量能同步放大（1 分）</b>：近3日均量 ≥ 20日均量的1.2倍，確認是「真突破」而非無量衝出上軌的假動作。' },
+      { icon: '📈', text: '<b>C4 均線多頭排列（1 分）</b>：收盤 > MA5 > MA20，短中期趨勢一致，騎帶邏輯才站得住腳。' },
+      { icon: '🏦', text: '<b>C5 法人買超（0.5 分）</b>：外資或投信連買 ≥ 2 日，有籌碼面撐著的騎帶行情比較不容易一日反轉。' },
+    ],
+    warns: [
+      '騎帶上行是「強勢延續」訊號，不是「進場訊號」——追高一樣有風險，建議等回測不破中軌再考慮加碼，而不是看到燈號就衝進去。',
+      '真正的轉弱訊號是「收盤跌破中軌、且反彈站不回中軌上方」，不是股價回測一下上軌或小拉回就急著獲利了結。',
+      '若 C1 成立但 C3 量能沒放大（量縮價漲），屬於「成色不足的啟動」，隨時可能拉回帶內，不宜重倉追價。',
+      '此模式只適用於趨勢盤，若大盤或類股本身在盤整，個股容易假突破後迅速拉回，務必搭配大盤環境判斷。',
+    ],
+    action: '📌 操作思路：優先選擇 C1+C2+C3 同時成立的個股（真突破、量價齊揚），可續抱不追高減碼；停損設在跌破中軌（MA20）且反彈站不回上方。若只有 C1 但量能沒配合，先觀察不進場，等量能確認再說。',
   },
 
   broker: {
