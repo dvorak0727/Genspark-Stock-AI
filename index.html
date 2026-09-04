@@ -3125,6 +3125,28 @@
     .h300 { height: 300px; }
     .h200 { height: 200px; }
 
+    /* 📈 技術指標圖表「放大」全螢幕檢視——把 #techZoomArea 整個節點移進 overlay，
+       Chart.js 是 responsive，容器變大會自動重繪，不用重建 Chart 實例。 */
+    .tech-zoom-overlay {
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:rgba(15,23,42,0.72); backdrop-filter:blur(2px);
+      padding:16px; overflow-y:auto;
+    }
+    .tech-zoom-overlay.open { display:block; }
+    .tech-zoom-panel {
+      max-width:1100px; margin:0 auto; background:var(--card-bg,#fff);
+      border-radius:14px; padding:16px 16px 20px; position:relative;
+      box-shadow:0 20px 60px rgba(0,0,0,0.35);
+    }
+    [data-theme="dark"] .tech-zoom-panel { background:#1E293B; }
+    .tech-zoom-close {
+      position:sticky; top:0; float:right; z-index:2;
+      background:#EF4444; color:#fff; border:none; border-radius:20px;
+      padding:6px 14px; font-size:0.72rem; font-weight:800; cursor:pointer;
+    }
+    .tech-zoom-open .h300 { height:min(60vh, 520px); }
+    .tech-zoom-open .h200 { height:min(30vh, 260px); }
+
     /* ══════════════════════════════════════════════════
        🗂️ 模組快速錨點導覽列
     ══════════════════════════════════════════════════ */
@@ -18336,6 +18358,7 @@ a.module-nav-item.acc-active {
         <button class="chart-period-tab"        id="tabW" onclick="switchPeriod('W')">📆 週線</button>
         <button class="chart-period-tab"        id="tabM" onclick="switchPeriod('M')">🗓️ 月線</button>
         <span class="chart-period-label" id="periodLabel">近 30 日 · 日線</span>
+        <button class="chart-period-tab" id="techZoomBtn" onclick="techZoomOpen()" title="放大圖表全螢幕檢視" style="margin-left:auto;">🔍 放大</button>
       </div>
 
       <!-- 🔔 價格警示 Banner -->
@@ -18374,6 +18397,7 @@ a.module-nav-item.acc-active {
         <span class="kannot-reset" onclick="resetKAnnot()">全開</span>
       </div>
 
+      <div id="techZoomArea">
       <div class="chart-wrap h300" style="position:relative;">
         <canvas id="priceChart"></canvas>
       </div>
@@ -18398,6 +18422,7 @@ a.module-nav-item.acc-active {
       <div class="chart-wrap h200" style="margin-top:8px;">
         <canvas id="volChart"></canvas>
       </div>
+      </div><!-- /#techZoomArea -->
       <!-- v7.78：價量關係明確提醒——價漲量增(健康)/價漲量縮(無力)/價跌量增(賣壓重)/價跌量縮(惜售) -->
       <div id="pvSignalBanner" style="display:none;margin-top:6px;padding:7px 10px;border-radius:8px;font-size:0.68rem;font-weight:700;align-items:center;gap:6px;"></div>
 
@@ -43939,6 +43964,59 @@ function aggregatePeriod(priceRaw, period) {
   });
   return Object.values(buckets).sort((a,b) => a.date.localeCompare(b.date));
 }
+
+// 📈 技術指標圖表「放大」全螢幕檢視——把 #techZoomArea（K棒圖＋成交量圖）整個
+// DOM節點搬進全螢幕overlay，關閉時再搬回原位。因為Chart.js是responsive:true，
+// 容器尺寸變了呼叫一次 chart.resize() 就會自動重繪成大圖，不用重建Chart實例，
+// 也不會弄丟K線標注層(kannot)、支撐壓力線等custom plugin掛在chart實例上的資料。
+function techZoomOpen() {
+  const area = document.getElementById('techZoomArea');
+  if (!area) return;
+  let overlay = document.getElementById('techZoomOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'techZoomOverlay';
+    overlay.className = 'tech-zoom-overlay';
+    overlay.innerHTML = `<div class="tech-zoom-panel" id="techZoomPanel">
+      <button class="tech-zoom-close" onclick="techZoomClose()">✕ 關閉</button>
+      <div style="clear:both;"></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) techZoomClose(); });
+  }
+  // 留一個佔位標記在原本的位置，關閉時才知道要塞回哪裡
+  if (!document.getElementById('techZoomPlaceholder')) {
+    const marker = document.createElement('div');
+    marker.id = 'techZoomPlaceholder';
+    marker.style.display = 'none';
+    area.parentNode.insertBefore(marker, area);
+  }
+  document.getElementById('techZoomPanel').appendChild(area);
+  area.classList.add('tech-zoom-open');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    if (charts['priceChart']) charts['priceChart'].resize();
+    if (charts['volChart'])   charts['volChart'].resize();
+  }, 60);
+  document.addEventListener('keydown', _techZoomEscHandler);
+}
+function techZoomClose() {
+  const overlay = document.getElementById('techZoomOverlay');
+  const area    = document.getElementById('techZoomArea');
+  const marker  = document.getElementById('techZoomPlaceholder');
+  if (!overlay || !area || !marker) return;
+  marker.parentNode.insertBefore(area, marker);
+  area.classList.remove('tech-zoom-open');
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  setTimeout(() => {
+    if (charts['priceChart']) charts['priceChart'].resize();
+    if (charts['volChart'])   charts['volChart'].resize();
+  }, 60);
+  document.removeEventListener('keydown', _techZoomEscHandler);
+}
+function _techZoomEscHandler(e) { if (e.key === 'Escape') techZoomClose(); }
 
 // 切換週期並重繪
 function switchPeriod(period) {
