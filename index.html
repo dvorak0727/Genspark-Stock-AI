@@ -47075,6 +47075,33 @@ function _buildIndSignals(type) {
     else                sigs.push({ icon:'🚀', cls:'bull', badge:'突破下軌', txt:`BB%B ${bpct.toFixed(1)}% 跌破下軌（<5%），極度超賣。但若布林帶寬同步擴張（Band Walk Down），下跌趨勢強烈，不宜強接。` });
     if (bw < 5)  sigs.push({ icon:'💥', cls:'warn', badge:'帶寬擠壓', txt:`布林帶寬 ${bw.toFixed(2)}% 進入極度擠壓（<5%），大行情即將爆發！方向待確認，可用小倉卡位。` });
     if (bw > 20) sigs.push({ icon:'📊', cls:'neut', badge:'高波動', txt:`布林帶寬 ${bw.toFixed(2)}% 擴張至高位（>20%），波動已爆發且在消化階段。追高需謹慎。` });
+
+    // v8.x：騎帶上行／騎帶下行（Band Walk）偵測——連續N日收盤貼著上軌(或下軌)走，
+    // 是「強勢單邊行情」訊號，跟單日的「突破上軌/跌破下軌」意義不同：
+    // 單日觸軌可能只是一次性超買/超賣，連續貼軌才是趨勢真的在「騎著帶子跑」，
+    // 此時軌道不是壓力/支撐，是動能/加速通道，不宜逆勢摸頭摸底。
+    if (d.closes && d.boll?.upper && d.boll?.lower && d.boll?.mid) {
+      const { upper: bu, lower: bl, mid: bm } = d.boll;
+      const n = d.closes.length;
+      const LOOKBACK = 3;
+      if (n >= LOOKBACK) {
+        let upCount = 0, dnCount = 0;
+        for (let i = n - LOOKBACK; i < n; i++) {
+          const c = d.closes[i], u = bu[i], l = bl[i];
+          if (c == null || u == null || l == null) continue;
+          if (c >= u * 0.985) upCount++;   // 收盤貼近或站上上軌（容許1.5%緩衝，不用每天都真正破軌）
+          if (c <= l * 1.015) dnCount++;   // 收盤貼近或跌破下軌
+        }
+        const bwOf = i => (bu[i] > 0 && bl[i] > 0 && bm[i] > 0) ? (bu[i] - bl[i]) / bm[i] * 100 : null;
+        const bwNow = bwOf(n - 1), bwBefore = bwOf(n - LOOKBACK);
+        const bwRising = bwNow != null && bwBefore != null && bwNow > bwBefore;
+        if (upCount >= LOOKBACK) {
+          sigs.push({ icon:'🏇', cls:'bull', badge:'騎帶上行', txt:`近${LOOKBACK}日收盤持續貼著布林上軌走（Band Walk），${bwRising ? '帶寬同步擴張，' : ''}屬於強勢單邊上漲格局，上軌此時是「動能軌道」不是壓力，別看到碰上軌就急著空手接刀。真正轉弱訊號是「收盤跌破中軌、且反彈站不回中軌上方」，不是碰一下上軌。` });
+        } else if (dnCount >= LOOKBACK) {
+          sigs.push({ icon:'🐻', cls:'bear', badge:'騎帶下行', txt:`近${LOOKBACK}日收盤持續貼著布林下軌走（Band Walk Down），${bwRising ? '帶寬同步擴張，' : ''}屬於強勢單邊下跌格局，下軌此時是「加速通道」不是支撐，切忌用「碰下軌就撿便宜」的邏輯進場，等收盤站回中軌才考慮抄底。` });
+        }
+      }
+    }
   }
 
   else if (type === 'MA排列') {
@@ -70949,6 +70976,11 @@ const INDICATOR_TIP_DB = {
     title: '布林帶寬（Bollinger Bandwidth）',
     formula: 'BW = (上軌 − 下軌) / MA20 × 100%\n上軌 = MA20 + 2σ　下軌 = MA20 − 2σ',
     body: '• BW < 5%（極窄）：高壓擠壓！市場憋氣，大行情即將爆發，方向待籌碼確認\n• BW 5~10%（收縮）：波動溫和收斂，醞釀突破，可配合量能方向判斷\n• BW 10~18%（正常）：通道寬窄適中，趨勢穩定推進\n• BW > 18%（擴張）：剛完成一波爆發，波動正在消化，追高需謹慎\n\n💡 帶寬不告訴你方向，只告訴你「能量蓄積程度」\n搭配法人籌碼：量增+法人買→向上爆；量增+法人賣→向下爆'
+  },
+  'BAND_WALK': {
+    title: '騎帶上行／騎帶下行（Band Walk）',
+    formula: '連續3日收盤 ≥ 上軌×0.985 → 騎帶上行\n連續3日收盤 ≤ 下軌×1.015 → 騎帶下行',
+    body: '• 布林軌道平常是「震盪時的邊界」，一旦進入強趨勢，價格會沿著軌道貼著走，不會馬上均值回歸\n• 騎帶上行：上軌不是壓力，是動能軌道；別看到碰上軌就急著空手接刀\n• 騎帶下行：下軌不是支撐，是加速通道；別用「碰下軌就撿便宜」邏輯抄底\n• 真正轉弱訊號：收盤跌破中軌，且反彈站不回中軌上方，才是趨勢可能結束\n• 判斷震盪市 vs 趨勢市優先於用軌道找買賣點：均線多頭排列＋MACD在零軸上＋成交量放大，才適用「騎帶」邏輯'
   },
   'MA排列': {
     title: 'MA 均線排列',
