@@ -6475,6 +6475,15 @@
       display:flex; align-items:center; gap:5px; margin-bottom:4px; flex-wrap:nowrap;
       min-height:28px;
     }
+    /* v8.x 手機版修正：這一列塞了icon/標題/家數差/成本矩陣/籌碼轉正badge/OBV/
+       股份金字塔/3日意圖共7個區塊，nowrap時窄螢幕一定裝不下，父層.cs-card又是
+       overflow:hidden，超出的按鈕（OBV、股份金字塔）會直接被裁掉，完全點不到、
+       也滑不到。這裡讓.cs-header自己變成可以左右滑動的區域，裁掉的按鈕改用
+       滑動就能滑出來，不用整個大改版面結構。 */
+    @media (max-width:640px){
+      .cs-header{ overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+      .cs-header::-webkit-scrollbar{ display:none; }
+    }
     .cs-header-icon {
       width:24px; height:24px; border-radius:7px; flex-shrink:0;
       background:linear-gradient(135deg,#1976D2,#0D47A1);
@@ -10081,6 +10090,16 @@
 .sr-api-badge.live { background:rgba(16,185,129,0.1);color:#059669;border-color:rgba(16,185,129,0.25); }
 .sr-api-badge.sim  { background:rgba(245,158,11,0.1);color:#D97706;border-color:rgba(245,158,11,0.25); }
 .sr-api-badge.loading { background:rgba(99,102,241,0.1);color:#4F46E5;border-color:rgba(99,102,241,0.25); }
+
+/* v8.x 手機版修正：.sr-header-text 是 min-width:0 的 flex 子項，旁邊兩個
+   不換行的badge(sr-api-badge/sr-link)寬度固定不縮小，窄螢幕下會把
+   .sr-header-text 擠壓到只剩幾px，內含的長說明文字被迫逐字換行、
+   整個header被拉得極高，留下大片空白。給它一個合理的最小寬度＋讓
+   整列可以換行，badge擠不下就自動掉到下一行，不再逐字換行。 */
+@media (max-width:560px){
+  .sr-header{ flex-wrap:wrap; row-gap:4px; }
+  .sr-header-text{ min-width:150px; }
+}
 
 /* 震央 + 本股定位 並排 */
 .sr-main-row {
@@ -18131,6 +18150,7 @@ a.module-nav-item.acc-active {
           </div>
           <!-- v7.55：顏色（漲跌幅）可切成即時，格子大小（市值）維持當天固定值不變 -->
           <button id="heatmapRtBtn" onclick="hmRtToggle()" title="開啟後顏色改用即時報價更新（需FinMind贊助會員Token），格子大小仍是當天市值排名，不會即時變動" style="border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;background:var(--bg2);color:var(--fg2);">⚡ 即時 OFF</button>
+          <button onclick="heatmapZoomOpen()" title="手機版格子太小看不到字時，放大並可左右滑動查看" style="border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:0.68rem;font-weight:700;cursor:pointer;background:var(--bg2);color:var(--fg2);">🔍 放大</button>
           <span style="font-size:0.6rem;color:var(--text-muted);" id="heatmapUpdated"></span>
         </div>
         <div id="heatmapBody">
@@ -55249,8 +55269,8 @@ function _hmColor(changePct) {
   return 'rgba(148,163,184,0.25)'; // 平盤：灰
 }
 
-function renderHeatmapTiles(list) {
-  const body = document.getElementById('heatmapBody');
+function renderHeatmapTiles(list, targetId, forcedWidth) {
+  const body = document.getElementById(targetId || 'heatmapBody');
   if (!body) return;
   const valueOf = it => _hmSortKey === 'val' ? Math.max(it.tradeValue, 1) : Math.max(it.marketCap, 1);
 
@@ -55261,7 +55281,9 @@ function renderHeatmapTiles(list) {
     industry, items, value: items.reduce((s, it) => s + valueOf(it), 0),
   })).sort((a, b) => b.value - a.value);
 
-  const W = body.clientWidth || 900, H = 520;
+  // v8.x：手機版「🔍 放大」用固定的較寬 forcedWidth 重新計算格子（而非螢幕實際
+  // 寬度），格子變大自然就超過顯示文字的門檻，不用動門檻邏輯本身。
+  const W = forcedWidth || body.clientWidth || 900, H = 520;
   const groupRects = _squarify(groupList, 0, 0, W, H);
 
   let html = `<div style="position:relative;width:100%;height:${H}px;border-radius:8px;overflow:hidden;background:var(--bg2);">`;
@@ -55303,6 +55325,42 @@ function renderHeatmapTiles(list) {
   html += '</div>';
   body.innerHTML = html;
 }
+
+// 🔍 手機版熱力圖放大——用比裝置寬度大很多的固定寬度(900px)重新計算格子，
+// 格子變大自然就顯示得出文字，裝進可以左右滑動的容器裡讓使用者滑著看。
+// 沿用技術指標圖表放大時的 .tech-zoom-overlay/.tech-zoom-panel 樣式。
+function heatmapZoomOpen() {
+  if (!_hmData || !_hmData.length) {
+    if (typeof showEpicToast === 'function') showEpicToast('請先按「🔥 載入熱力圖」再放大', '#d97706');
+    return;
+  }
+  let overlay = document.getElementById('hmZoomOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'hmZoomOverlay';
+    overlay.className = 'tech-zoom-overlay';
+    overlay.innerHTML = `<div class="tech-zoom-panel">
+      <button class="tech-zoom-close" onclick="heatmapZoomClose()">✕ 關閉</button>
+      <div style="clear:both;font-size:0.66rem;color:var(--fg3);margin-bottom:8px;">💡 格子放大了，手指左右滑動可看到完整熱力圖</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <div id="heatmapBodyZoom" style="width:900px;"></div>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) heatmapZoomClose(); });
+  }
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderHeatmapTiles(_hmData, 'heatmapBodyZoom', 900);
+  document.addEventListener('keydown', _hmZoomEscHandler);
+}
+function heatmapZoomClose() {
+  const overlay = document.getElementById('hmZoomOverlay');
+  if (overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', _hmZoomEscHandler);
+}
+function _hmZoomEscHandler(e) { if (e.key === 'Escape') heatmapZoomClose(); }
 
 async function loadHeatmap() {
   if (_demoBlockMultiStock()) return;
