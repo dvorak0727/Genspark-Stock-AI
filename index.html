@@ -18478,6 +18478,9 @@ a.module-nav-item.acc-active {
         <button class="kannot-btn kb-breakout active" id="kbBreakout" onclick="toggleKAnnot('breakout')" title="站上候選壓力＋隔日站穩＋量能/均線/法人至少兩項疊加確認">🚀 突破共振</button>
         <!-- v7.92：雙頂/雙重底/頭肩頂/頭肩底——沿用峰谷序列+頸線突破確認 -->
         <button class="kannot-btn kb-classic active" id="kbClassic" onclick="toggleKAnnot('classic')" title="雙頂(M頭)／雙重底(W底)／頭肩頂／頭肩底，頸線突破確認">📐 圖表形態</button>
+        <!-- v8.x：回踩確認——教學影片學到的第四招，突破後等它回測前波壓力(轉支撐)
+             不破、隔日收盤走高才進場，比追突破更好的進場價+更清楚的停損位置 -->
+        <button class="kannot-btn kb-retest active" id="kbRetest" onclick="toggleKAnnot('retest')" title="突破共振後，股價回測前波壓力(已轉支撐)不破、隔日收盤走高，比追突破更好的進場點">🎯 回踩確認</button>
         <span class="kannot-reset" onclick="resetKAnnot()">全開</span>
       </div>
 
@@ -18499,6 +18502,7 @@ a.module-nav-item.acc-active {
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#16A34A;"></span>刺透/陰孕陽(見底)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#DC2626;"></span>烏雲蓋頂/陽孕陰(見頂)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#F59E0B;"></span>突破共振(壓力轉支撐)</span>
+        <span class="kannot-legend-item"><span class="kl-dot" style="background:#0D9488;"></span>回踩確認(甜蜜進場點)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#16A34A;"></span>雙重底/頭肩底(見底)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#DC2626;"></span>雙頂/頭肩頂(見頂)</span>
       </div>
@@ -41926,7 +41930,7 @@ function renderInst(stockId, instMap, instDays, fS, tS, mS) {
 // ==============================================================
 //  📍 v6.40 K線標注層（afterDraw plugin）
 // ==============================================================
-const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true, pattern:true, breakout:true, classic:true };
+const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true, pattern:true, breakout:true, classic:true, retest:true };
 let _kannotEvents = {}; // { dateLabel: [{type, color, symbol, tip}] }
 let _kannotHover  = null; // { lbl, ei, ev, date }
 
@@ -41955,7 +41959,7 @@ function _kannotShowTooltip(found, cx, cy, chart) {
   const rect = canvas.getBoundingClientRect();
   const px = rect.left + cx;
   const py = rect.top  + cy - 38;
-  const typeNames = {inst:'法人大量買',instS:'法人大量賣',macd:'MACD訊號',ma20:'均線穿越',vol:'爆量日',swingLowS:'短期低點(N=3)',swingLowM:'中期低點(N=10)',pattern:'K線形態',breakout:'突破共振',classic:'圖表形態'};
+  const typeNames = {inst:'法人大量買',instS:'法人大量賣',macd:'MACD訊號',ma20:'均線穿越',vol:'爆量日',swingLowS:'短期低點(N=3)',swingLowM:'中期低點(N=10)',pattern:'K線形態',breakout:'突破共振',classic:'圖表形態',retest:'回踩確認'};
   el.innerHTML = `<span style="color:${found.ev.color};font-size:0.8rem;">${found.ev.symbol==='🔥'?'🔥':found.ev.symbol}</span>  <strong>${typeNames[found.ev.type]||''}</strong><br/><span style="color:#CBD5E1;">${found.ev.tip}</span><br/><span style="color:#64748B;font-size:0.58rem;">${found.date} (近30日)</span>`;
   el.style.display = 'block';
   el.style.left = px + 'px';
@@ -43421,6 +43425,13 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows
         .forEach(r => _breakoutByIdx.set(r.index, r));
     }
 
+    // v8.x：回踩確認——沿用上面剛算好的突破共振清單，往後找第一次回踩不破+隔日走高
+    const _retestByIdx = new Map();
+    if (_breakoutByIdx.size) {
+      detectRetestConfirmation(closes, lowArr, [..._breakoutByIdx.values()])
+        .forEach(r => _retestByIdx.set(r.index, r));
+    }
+
     // v7.92：雙頂/雙重底/頭肩頂/頭肩底——沿用大盤同一套detectSwingPoints()抓峰谷序列
     const _classicByIdx = new Map();
     if (Array.isArray(highs) && Array.isArray(opens)) {
@@ -43490,6 +43501,13 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows
         // 標記也是同樣理由才特別轉成「F」），漢字比較穩定清楚
         evts.push({ type:'breakout', color:'#F59E0B', symbol:'爆',
           tip:`突破候選壓力 ${b.level.toFixed(1)}（${b.touches}次觸及）並站穩，${forces}力量疊加確認（${b.forceCount}/3）。壓力轉支撐，建議等回測不破再進場，不追高。` });
+      }
+
+      // ── v8.x：回踩確認（突破共振後的第二段訊號，比追突破更好的進場位置）──
+      if (_retestByIdx.has(i)) {
+        const r = _retestByIdx.get(i);
+        evts.push({ type:'retest', color:'#0D9488', symbol:'踩',
+          tip:`回踩確認：股價回測前波壓力（已轉支撐）${r.level.toFixed(1)} 未破，且隔日收盤走高，買盤在這裡接手。這是比追突破更好的進場點：價格更好、停損位置更清楚（跌破 ${r.level.toFixed(1)} 就代表這次確認失敗）。` });
       }
 
       // ── v7.92：雙頂/雙重底/頭肩頂/頭肩底 ──
@@ -43684,6 +43702,36 @@ function detectBreakoutResonance(dates, closes, vols, ma5arr, ma20arr, fSeries, 
       results.push({ index: i, level: broken.level, touches: broken.touches, volOk, maOk, instOk, forceCount });
     }
   }
+  return results;
+}
+
+// v8.x：回踩確認——使用者看教學影片學到的第四招，跟「突破共振」是同一套劇本
+// 的下一幕：壓力被站上、力量疊加確認之後，價格常會回頭測試這條線（角色已經
+// 從壓力轉成支撐），只要回踩「不破」就拉回、隔天收盤又走高，這比追在突破那天
+// 進場更好——理由跟影片講的一樣：①二次確認突破是真的 ②拿到更好的進場價
+// ③停損點很明確（就設在這條線下方）。
+// 規則（沿用 detectBreakoutResonance() 已經算好的突破清單，不重算支撐壓力）：
+//   從突破隔天起，最多往後看15個交易日：
+//   ① 回踩：當天最低價貼近（≤ 關鍵位×1.5%緩衝）或跌到關鍵位以下，但收盤沒有
+//      跌破太多（≥ 關鍵位×97%，避免真的破線又拉回的雜訊被誤判成回踩）
+//   ② 反彈確認：隔天收盤比回踩當天收盤高，代表買盤在這條線接手
+//   每個突破只標記第一次符合的回踩日，避免同一次突破後續每次拉回都重複標記。
+function detectRetestConfirmation(closes, lows, breakouts) {
+  const results = [];
+  const N = closes.length;
+  breakouts.forEach(b => {
+    const level = b.level;
+    const start = b.index + 1;
+    const end = Math.min(N - 2, b.index + 15);
+    for (let i = start; i <= end; i++) {
+      const touchedBack = lows[i] <= level * 1.015 && closes[i] >= level * 0.97;
+      if (!touchedBack) continue;
+      if (closes[i + 1] > closes[i]) {
+        results.push({ index: i, level, breakoutIndex: b.index });
+      }
+      break; // 不管這次回踩有沒有反彈成功，同一個突破只判斷「第一次」回踩，不繼續往後找
+    }
+  });
   return results;
 }
 
