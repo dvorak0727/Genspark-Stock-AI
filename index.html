@@ -7814,6 +7814,16 @@
     .wop-cond.hit  { background: #D1FAE5; color: #065F46; border-color: #6EE7B7; }
     .wop-cond.miss { background: #FEE2E2; color: #991B1B; border-color: #FCA5A5; }
 
+    /* v8.x 手機版修正：窄螢幕下 .wop-conds（5個條件pill）會把 .wop-info
+       (min-width:0，會被優先犧牲) 擠壓到只剩幾px寬，導致中文標籤被迫
+       逐字換行、整列被拉得極高、頁面出現大片空白（使用者回報「排版跑掉」）。
+       用 flex-wrap 讓資訊列跟條件pill各自獨立換到新的一行，不再互相擠壓。 */
+    @media (max-width: 560px) {
+      .wash-order-plan { flex-wrap: wrap; row-gap: 6px; }
+      .wop-info  { flex: 1 1 100%; order: 2; min-width: 100%; }
+      .wop-conds { flex: 1 1 100%; order: 3; min-width: 100%; padding-left: 28px; }
+    }
+
     /* ── 掛單詳情面板 ── */
     .wash-order-detail {
       margin: 0 8px 10px;
@@ -8288,7 +8298,9 @@
       display: flex; align-items: center; gap: 6px;
       font-size: 0.7rem; padding: 4px 6px; border-radius: 5px;
       background: var(--surface); border: 1px solid var(--border);
+      transition: background 0.15s, border-color 0.15s;
     }
+    .hedge-target-item:hover { background: rgba(99,102,241,0.10); border-color: #6366f1; }
     .ht-icon  { font-size: 0.75rem; flex-shrink: 0; }
     .ht-name  { flex: 1; font-weight: 700; color: var(--fg); }
     .ht-code  { color: var(--fg3); font-size: 0.62rem; }
@@ -60248,7 +60260,7 @@ function renderHedge(stockId, lc, lRSI, fSeries, tSeries) {
     { icon:'🥇', name:'期元大S&P黃金',  code:'00635U', fit: geoScore > 65 ? 'high' : 'mid' },
   ];
   const ROTATION_TARGETS = [
-    { icon:'⚡', name:'國防/航太題材',   code:'航太概念', fit: geoScore > 60 ? 'high' : 'mid' },
+    { icon:'⚡', name:'國防/航太-漢翔',   code:'2634', fit: geoScore > 60 ? 'high' : 'mid' },
     { icon:'💊', name:'生技醫療',        code:'00922',   fit: 'mid' },
     { icon:'🌿', name:'綠能/低碳',       code:'00813',   fit: geoScore < 50 ? 'high' : 'mid' },
     { icon:'🏗️', name:'公共工程/傳產',  code:'2002',    fit: geoScore > 55 ? 'mid'  : 'high' },
@@ -60307,7 +60319,7 @@ function renderHedge(stockId, lc, lRSI, fSeries, tSeries) {
     const el = document.getElementById(id);
     if (!el) return;
     el.innerHTML = targets.slice(0,4).map(t => `
-      <li class="hedge-target-item">
+      <li class="hedge-target-item" onclick="gsGoToStock('${t.code}')" style="cursor:pointer;" title="點擊查看 ${t.code} 詳細分析">
         <span class="ht-icon">${t.icon}</span>
         <span class="ht-name">${t.name}</span>
         <span class="ht-code">${t.code}</span>
