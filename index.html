@@ -18481,6 +18481,11 @@ a.module-nav-item.acc-active {
         <!-- v8.x：回踩確認——教學影片學到的第四招，突破後等它回測前波壓力(轉支撐)
              不破、隔日收盤走高才進場，比追突破更好的進場價+更清楚的停損位置 -->
         <button class="kannot-btn kb-retest active" id="kbRetest" onclick="toggleKAnnot('retest')" title="突破共振後，股價回測前波壓力(已轉支撐)不破、隔日收盤走高，比追突破更好的進場點">🎯 回踩確認</button>
+        <!-- v8.x：標注越來越多，把「常駐畫在圖上」的支撐壓力線/趨勢線/頭底文字
+             也做成可關閉的開關，跟其他標注放一起管理，不用另外找地方關 -->
+        <button class="kannot-btn kb-srLines active" id="kbSrLines" onclick="toggleKAnnot('srLines')" title="近60日轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
+        <button class="kannot-btn kb-trendline active" id="kbTrendline" onclick="toggleKAnnot('trendline')" title="上升趨勢連接越來越高的低點／下降趨勢連接越來越低的高點，延伸至今天判斷是否仍成立">📈 趨勢線</button>
+        <button class="kannot-btn kb-peakTrough active" id="kbPeakTrough" onclick="toggleKAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
         <span class="kannot-reset" onclick="resetKAnnot()">全開</span>
       </div>
 
@@ -18503,6 +18508,8 @@ a.module-nav-item.acc-active {
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#DC2626;"></span>烏雲蓋頂/陽孕陰(見頂)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#F59E0B;"></span>突破共振(壓力轉支撐)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#0D9488;"></span>回踩確認(甜蜜進場點)</span>
+        <span class="kannot-legend-item"><span class="kl-dot" style="background:#16A34A;width:10px;height:2px;border-radius:0;"></span>上升趨勢線</span>
+        <span class="kannot-legend-item"><span class="kl-dot" style="background:#E8343A;width:10px;height:2px;border-radius:0;"></span>下降趨勢線</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#16A34A;"></span>雙重底/頭肩底(見底)</span>
         <span class="kannot-legend-item"><span class="kl-dot" style="background:#DC2626;"></span>雙頂/頭肩頂(見頂)</span>
       </div>
@@ -41930,7 +41937,7 @@ function renderInst(stockId, instMap, instDays, fS, tS, mS) {
 // ==============================================================
 //  📍 v6.40 K線標注層（afterDraw plugin）
 // ==============================================================
-const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true, pattern:true, breakout:true, classic:true, retest:true };
+const _kannotState = { inst:true, instS:true, macd:true, ma20:true, vol:true, swingLowS:true, swingLowM:true, pattern:true, breakout:true, classic:true, retest:true, srLines:true, trendline:true, peakTrough:true };
 let _kannotEvents = {}; // { dateLabel: [{type, color, symbol, tip}] }
 let _kannotHover  = null; // { lbl, ei, ev, date }
 
@@ -41978,7 +41985,7 @@ function toggleKAnnot(key) {
   if (charts['priceChart']) charts['priceChart'].update();
 }
 function resetKAnnot() {
-  ['inst','instS','macd','ma20','vol','swingLowS','swingLowM','pattern','breakout','classic'].forEach(k=>{
+  ['inst','instS','macd','ma20','vol','swingLowS','swingLowM','pattern','breakout','classic','retest','srLines','trendline','peakTrough'].forEach(k=>{
     _kannotState[k]=true;
     const id='kb'+k.charAt(0).toUpperCase()+k.slice(1);
     const b=document.getElementById(id); if(b) b.classList.add('active');
@@ -43656,6 +43663,61 @@ function detectSupportResistance(highs, lows, lookback = 60, tolerancePct = 0.01
   return { support: cluster(swingLows), resistance: cluster(swingHighs) };
 }
 
+// v8.x：趨勢線——使用者看教學影片學到的畫法：
+//   上升趨勢＝連接一連串「越來越高的低點」；下降趨勢＝連接一連串「越來越低
+//   的高點」。畫線看影線（用K棒的最高/最低），判斷突破/跌破看收盤價。
+//   流程對應影片教的三步驟：①找兩個明顯轉折點 ②連成直線向右延伸 ③等待
+//   第三次觸碰驗證（有驗證過的線比純2點連線可信）。
+// 沿用既有 detectSwingPoints()（跟頭肩型態、突破共振同一套抓轉折點邏輯，
+// 不重新發明），只取「最近一組方向正確」的低點對/高點對，避免圖上線條太
+// 多反而更亂——這也是影片提醒的「不要為了畫趨勢線而畫趨勢線」。
+function detectTrendLines(highs, lows, closes) {
+  const N = closes.length;
+  if (N < 10) return [];
+  const { peaks, troughs } = detectSwingPoints(highs, lows, 2);
+  const lines = [];
+
+  // 上升趨勢線：由近而遠找第一組「後面的低點比前面高」的相鄰低點
+  for (let i = troughs.length - 1; i > 0; i--) {
+    const t1 = troughs[i - 1], t2 = troughs[i];
+    if (t2.val <= t1.val) continue;
+    const slope = (t2.val - t1.val) / (t2.i - t1.i);
+    const valAt = (idx) => t1.val + slope * (idx - t1.i);
+    const endIdx = N - 1;
+    const endVal = valAt(endIdx);
+    // 現價若已經遠低於趨勢線延伸值（跌破超過15%），這條線早就沒有參考意義，不畫
+    if (closes[endIdx] < endVal * 0.85) continue;
+    // 第三次觸碰驗證：t2之後有沒有K棒低點貼近趨勢線（±2%）且收盤沒有真的跌破
+    let confirmed = false;
+    for (let k = t2.i + 1; k < N; k++) {
+      const lv = valAt(k);
+      if (lows[k] <= lv * 1.02 && closes[k] >= lv * 0.98) { confirmed = true; break; }
+    }
+    lines.push({ type: 'up', startIdx: t1.i, startVal: t1.val, slope, endVal, confirmed, broken: closes[endIdx] < endVal });
+    break; // 只取最近一組，避免畫面太亂
+  }
+
+  // 下降趨勢線：由近而遠找第一組「後面的高點比前面低」的相鄰高點
+  for (let i = peaks.length - 1; i > 0; i--) {
+    const p1 = peaks[i - 1], p2 = peaks[i];
+    if (p2.val >= p1.val) continue;
+    const slope = (p2.val - p1.val) / (p2.i - p1.i);
+    const valAt = (idx) => p1.val + slope * (idx - p1.i);
+    const endIdx = N - 1;
+    const endVal = valAt(endIdx);
+    if (closes[endIdx] > endVal * 1.15) continue;
+    let confirmed = false;
+    for (let k = p2.i + 1; k < N; k++) {
+      const lv = valAt(k);
+      if (highs[k] >= lv * 0.98 && closes[k] <= lv * 1.02) { confirmed = true; break; }
+    }
+    lines.push({ type: 'down', startIdx: p1.i, startVal: p1.val, slope, endVal, confirmed, broken: closes[endIdx] > endVal });
+    break;
+  }
+
+  return lines;
+}
+
 // v7.90：突破確認 + 力量疊加（三股力量共振）——使用者看教學影片學到的概念：
 // 壓力被站上後角色互換成支撐，若同時有「空頭回補＋買盤加碼＋觀望資金追漲」
 // 三股力量疊加，容易出現急拉行情；反過來，只是價格一日碰過壓力線但沒有
@@ -43887,23 +43949,61 @@ const _candlestickPlugin = {
 
     // 候選支撐/壓力水平線（v7.93：新增 type:'fib' 斐波那契回撤線，用獨立配色+標籤，
     // 不套用「候選支撐/壓力」那套文字，避免使用者誤以為斐波那契線是觸碰次數算出來的）
-    (meta.resLines || []).forEach(({ level, touches, type, label }) => {
-      const y = yScale.getPixelForValue(level);
-      if (y < chartArea.top || y > chartArea.bottom) return;
-      const isFib = type === 'fib';
-      ctx.strokeStyle = isFib ? 'rgba(217,119,6,0.6)' : (type === 'support' ? 'rgba(22,163,74,0.55)' : 'rgba(232,52,58,0.55)');
-      ctx.setLineDash(isFib ? [2,2] : [5,3]);
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(chartArea.left, y);
-      ctx.lineTo(chartArea.right, y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = isFib ? '#D97706' : (type === 'support' ? '#16A34A' : '#E8343A');
-      ctx.font = '10px sans-serif';
-      const text = isFib ? label : (type === 'support' ? '候選支撐 ' : '候選壓力 ') + level.toFixed(1) + '（' + touches + '次）';
-      ctx.fillText(text, chartArea.left + 4, y - 4);
-    });
+    // v8.x：改成可關閉——標注越來越多，讓使用者能自己選要不要常駐畫在圖上
+    if (_kannotState.srLines !== false) {
+      (meta.resLines || []).forEach(({ level, touches, type, label }) => {
+        const y = yScale.getPixelForValue(level);
+        if (y < chartArea.top || y > chartArea.bottom) return;
+        const isFib = type === 'fib';
+        ctx.strokeStyle = isFib ? 'rgba(217,119,6,0.6)' : (type === 'support' ? 'rgba(22,163,74,0.55)' : 'rgba(232,52,58,0.55)');
+        ctx.setLineDash(isFib ? [2,2] : [5,3]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, y);
+        ctx.lineTo(chartArea.right, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = isFib ? '#D97706' : (type === 'support' ? '#16A34A' : '#E8343A');
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'left';
+        const text = isFib ? label : (type === 'support' ? '候選支撐 ' : '候選壓力 ') + level.toFixed(1) + '（' + touches + '次）';
+        ctx.fillText(text, chartArea.left + 4, y - 4);
+      });
+    }
+
+    // v8.x：趨勢線——上升趨勢連接越來越高的低點／下降趨勢連接越來越低的高點，
+    // 從第一個轉折點延伸畫到今天（若轉折點在目前顯示視窗之前，從左邊界開始畫，
+    // 高度用同一條線的公式换算，不會斷線）。虛線代表已跌破/已站上（線的意義
+    // 已改變），實線代表目前仍然成立。
+    if (_kannotState.trendline !== false && barCount > 0) {
+      (meta.trendLines || []).forEach(tl => {
+        const { startIdx, startVal, slope, endVal, confirmed, broken, type } = tl;
+        const endIdx = barCount - 1;
+        const drawStartIdx = Math.max(0, startIdx);
+        const startY = startVal + slope * (drawStartIdx - startIdx);
+        const xStart = xScale.getPixelForValue(drawStartIdx);
+        const xEnd = xScale.getPixelForValue(endIdx);
+        const yStart = yScale.getPixelForValue(startY);
+        const yEnd = yScale.getPixelForValue(endVal);
+        const baseColor = type === 'up' ? '22,163,74' : '232,52,58';
+        ctx.strokeStyle = broken ? 'rgba(148,163,184,0.7)' : `rgba(${baseColor},0.8)`;
+        ctx.setLineDash(broken ? [3,3] : []);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(xStart, yStart);
+        ctx.lineTo(xEnd, yEnd);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = broken ? '#94A3B8' : (type === 'up' ? '#16A34A' : '#E8343A');
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'right';
+        const statusTxt = broken ? '（已' + (type === 'up' ? '跌破' : '站上') + '）' : confirmed ? '（已驗證）' : '（草稿）';
+        ctx.fillText((type === 'up' ? '上升趨勢線' : '下降趨勢線') + statusTxt, xEnd - 4, yEnd - 6);
+        ctx.textAlign = 'left';
+      });
+    }
+
+    // v8.x：頭/底轉折文字——同樣做成可關閉，其餘照舊由 _peakTroughPlugin 畫
     ctx.restore();
   }
 };
@@ -43974,6 +44074,11 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens
   const ptOffset = hasOHLC ? closes.length - n : 0;
   const { peaks, troughs } = hasOHLC ? detectSwingPoints(highs, lows, 2) : { peaks: [], troughs: [] };
 
+  // v8.x：趨勢線——同樣用完整歷史找轉折點對（避免視窗邊緣漏抓兩個轉折點），
+  // 畫的時候再用 ptOffset 換算成顯示視窗內的相對index
+  const trendLinesFull = hasOHLC ? detectTrendLines(highs, lows, closes) : [];
+  const trendLines = trendLinesFull.map(tl => ({ ...tl, startIdx: tl.startIdx - ptOffset }));
+
   _renderPVSignal(closes, vols);
 
   destroyChart('priceChart');
@@ -44010,7 +44115,7 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens
       return opts;
     })(),
   });
-  charts['priceChart'].$candleData = hasOHLC ? { opens: op, highs: hi, lows: lo, closes: cl, resLines } : null;
+  charts['priceChart'].$candleData = hasOHLC ? { opens: op, highs: hi, lows: lo, closes: cl, resLines, trendLines } : null;
   charts['priceChart'].$peakTroughData = { peaks, troughs, offset: ptOffset };
   charts['priceChart'].update('none');
 
@@ -44242,6 +44347,11 @@ function _drawPeriodCharts(period, longPriceRows) {
   // v7.81：頭/底轉折——月線也仿照日線/週線，沿用大盤同一套 detectSwingPoints()，
   // 用「全部聚合資料」算避免視窗邊緣漏抓轉折點，畫的時候換算成畫面視窗內的index
   const ptOffset = agg.length - N;
+
+  // v8.x：趨勢線——週/月線也套用同一套，用全部聚合資料找轉折點對，
+  // 再把起點index換算成畫面視窗內的相對index（跟頭/底轉折同一套offset邏輯）
+  const trendLinesFullAgg = detectTrendLines(fullHi, fullLo, fullCloseAgg);
+  const trendLinesAgg = trendLinesFullAgg.map(tl => ({ ...tl, startIdx: tl.startIdx - ptOffset }));
   const { peaks: peaksAgg, troughs: troughsAgg } = detectSwingPoints(fullHi, fullLo, 2);
 
   // 若日線，直接用原始 MA；否則用全聚合資料重算（確保 MA/Boll 有足夠期數）
@@ -44435,7 +44545,7 @@ function _drawPeriodCharts(period, longPriceRows) {
   });
   // v7.77：K棒+候選支撐壓力線資料要透過 $candleData 交給 _candlestickPlugin，
   // 跟日線renderTechCharts()同一套機制，週線/月線之前完全沒接這段
-  charts['priceChart'].$candleData = { opens: op, highs: hi, lows: lo, closes: cl, resLines: resLinesAgg };
+  charts['priceChart'].$candleData = { opens: op, highs: hi, lows: lo, closes: cl, resLines: resLinesAgg, trendLines: trendLinesAgg };
   charts['priceChart'].$peakTroughData = { peaks: peaksAgg, troughs: troughsAgg, offset: ptOffset };
   charts['priceChart'].update('none');
 
@@ -68025,6 +68135,7 @@ function _twseTrendVerdict(peaks, troughs) {
 const _peakTroughPlugin = {
   id: '_peakTroughPlugin',
   afterDatasetsDraw(chart) {
+    if (typeof _kannotState !== 'undefined' && _kannotState.peakTrough === false) return;
     const meta = chart.$peakTroughData;
     if (!meta) return;
     const { scales, ctx, chartArea } = chart;
