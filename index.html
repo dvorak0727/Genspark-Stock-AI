@@ -2008,7 +2008,21 @@
       display: flex;
       align-items: center;
       gap: 6px;
+      flex-wrap: wrap;
+      row-gap: 4px;
     }
+    .mcl-refresh-btn {
+      margin-left: auto;
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: 3px 10px; font-size: 0.6rem; font-weight: 700;
+      background: var(--surface); color: var(--fg2); cursor: pointer;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .mcl-refresh-btn:hover { background: rgba(99,102,241,0.1); border-color: #6366F1; color: #4F46E5; }
+    .mcl-refresh-btn:disabled { opacity: 0.6; cursor: default; }
+    .mcl-mode-note { font-size: 0.55rem; font-weight: 400; }
+    .mcl-mode-note.real { color: #059669; font-weight: 700; }
+    .mcl-mode-note.sim  { color: var(--fg3); }
     .mcl-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -18215,7 +18229,8 @@ a.module-nav-item.acc-active {
       <div class="mcl-wrap" id="mclWrap" style="display:none;">
         <div class="mcl-title">
           📡 McClellan Oscillator — 市場廣度指標
-          <span style="font-size:0.55rem;color:var(--fg3);font-weight:400;">（模擬推算・供參考）</span>
+          <span class="mcl-mode-note sim" id="mclModeNote">（模擬推算・供參考）</span>
+          <button class="mcl-refresh-btn" id="mclRefreshBtn" onclick="mclRefreshReal()" title="抓取8檔美股近3個月真實日漲跌資料，重新計算市場廣度（非模擬）">🔄 抓取真實數據</button>
         </div>
         <div class="mcl-grid">
           <div class="mcl-cell">
@@ -66090,25 +66105,22 @@ async function renderUSLeading(stockId) {
 //  ③ 依 results 的每日漲跌計算連續多空日數
 // ==============================================================
 function _renderMcClellan(results) {
-  const wrap    = document.getElementById('mclWrap');
-  const oscEl   = document.getElementById('mclOscVal');
-  const sumEl   = document.getElementById('mclSumVal');
-  const brdEl   = document.getElementById('mclBreadthVal');
-  const barFill = document.getElementById('mclBarFill');
-  const verdEl  = document.getElementById('mclVerdict');
-  if (!wrap || !oscEl) return;
+  const wrap = document.getElementById('mclWrap');
+  if (!wrap) return;
 
   // 用 results 的 chg 陣列模擬近期廣度
   const n = results.length;
   if (n < 3) { wrap.style.display = 'none'; return; }
 
+  // 記住目前這批美股ticker，供「🔄 抓取真實數據」按鈕使用
+  window._mclTickers = results.map(r => r.ticker).filter(Boolean);
+
   // 用最近一批美股的漲跌比例作為廣度代理
   const advArr  = results.filter(r => r.chg > 0).length;
-  const declArr = results.filter(r => r.chg < 0).length;
-  const neutArr = n - advArr - declArr;
   const advRatio = n > 0 ? advArr / n : 0.5; // 0~1
 
-  // 偽隨機模擬近 39 日廣度序列（日期種子）
+  // 偽隨機模擬近 39 日廣度序列（日期種子）——預設路徑，使用者按下
+  // 「🔄 抓取真實數據」之前顯示的就是這組模擬值，明確標示為模擬。
   const today = new Date();
   const breadthSeries = [];
   for (let i = 38; i >= 0; i--) {
@@ -66119,6 +66131,22 @@ function _renderMcClellan(results) {
     const base  = advRatio + noise * 0.25;
     breadthSeries.push(Math.max(0.1, Math.min(0.9, base)));
   }
+
+  _mclComputeAndRender(breadthSeries, advRatio, n, { isReal: false });
+}
+
+// v8.x：McClellan Oscillator 的實際計算+DOM渲染，抽出來讓「模擬版」
+// （_renderMcClellan，每次切股票自動跑）跟「真實版」（mclRefreshReal，
+// 按鈕觸發）共用同一套公式，只有 breadthSeries 的來源不同。
+function _mclComputeAndRender(breadthSeries, advRatio, n, meta) {
+  const oscEl   = document.getElementById('mclOscVal');
+  const sumEl   = document.getElementById('mclSumVal');
+  const brdEl   = document.getElementById('mclBreadthVal');
+  const barFill = document.getElementById('mclBarFill');
+  const verdEl  = document.getElementById('mclVerdict');
+  const wrap    = document.getElementById('mclWrap');
+  const noteEl  = document.getElementById('mclModeNote');
+  if (!wrap || !oscEl || !breadthSeries.length) return;
 
   // EMA 計算
   function ema(arr, period) {
@@ -66132,7 +66160,7 @@ function _renderMcClellan(results) {
   // McClellan Oscillator（代理值，乘 1000 轉為慣用量級）
   const osc = (ema19 - ema39) * 1000;
 
-  // Summation Index（近20日 osc 累加，偽模擬）
+  // Summation Index（近20日 osc 累加）
   let sumIdx = 0;
   for (let i = Math.max(0, breadthSeries.length - 20); i < breadthSeries.length; i++) {
     const e19 = ema(breadthSeries.slice(0, i + 1), 19);
@@ -66175,10 +66203,65 @@ function _renderMcClellan(results) {
   brdEl.textContent = brdTxt;
   brdEl.className   = `mcl-cell-val ${brdCls}`;
   if (barFill) { barFill.style.width = barPct + '%'; barFill.style.background = barColor; }
-  if (verdEl)  verdEl.innerHTML = mclVerdict +
-    `<br><span style="font-size:0.55rem;color:var(--fg3);">※ 基於 ${n} 支供應鏈美股廣度代理計算，非真實 NYSE Advance/Decline，僅供參考</span>`;
+
+  const sourceNote = meta.isReal
+    ? `※ 基於 ${meta.tickerCount || n} 支供應鏈美股「近3個月真實日漲跌」計算出的近${breadthSeries.length}日廣度序列（Yahoo Finance 真實資料，非模擬），仍非真實 NYSE Advance/Decline，僅供參考。${meta.updatedAt ? ` 更新於 ${meta.updatedAt}` : ''}`
+    : `※ 基於 ${n} 支供應鏈美股「今日」漲跌比例＋偽隨機模擬出的近39日序列，非真實歷史資料，僅供參考。點上方「🔄 抓取真實數據」可改用真實歷史計算。`;
+  if (verdEl) verdEl.innerHTML = mclVerdict + `<br><span style="font-size:0.55rem;color:var(--fg3);">${sourceNote}</span>`;
+
+  if (noteEl) {
+    noteEl.className = `mcl-mode-note ${meta.isReal ? 'real' : 'sim'}`;
+    noteEl.textContent = meta.isReal ? `（✅ 真實計算・${meta.updatedAt || ''}）` : '（模擬推算・供參考）';
+  }
 
   wrap.style.display = '';
+}
+
+// v8.x：抓取真實數據按鈕——拿目前這批美股ticker，向既有的Yahoo歷史資料
+// proxy（fetchUSPriceSeries，跟「近3月相關係數」共用同一支API）各拉近3個月
+// 每日漲跌%序列，換算成「每日8檔中幾支上漲/下跌」的真實廣度序列，取代
+// 原本的偽隨機模擬，餵進同一套EMA19/EMA39公式重新計算。
+async function mclRefreshReal() {
+  const btn = document.getElementById('mclRefreshBtn');
+  const tickers = window._mclTickers || [];
+  if (!tickers.length) {
+    if (typeof showEpicToast === 'function') showEpicToast('請先讓美股領先指標載入完成再抓取', '#d97706');
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 抓取中…'; }
+  try {
+    const seriesList = await Promise.all(tickers.map(t => fetchUSPriceSeries(t).catch(() => [])));
+    // 依日期彙整「幾支上漲/幾支下跌」
+    const dateMap = {}; // date -> {adv, decl}
+    seriesList.forEach(series => {
+      series.forEach(({ date, chg }) => {
+        if (!dateMap[date]) dateMap[date] = { adv: 0, decl: 0 };
+        if (chg > 0) dateMap[date].adv++;
+        else if (chg < 0) dateMap[date].decl++;
+      });
+    });
+    const dates = Object.keys(dateMap).sort();
+    if (dates.length < 15) {
+      throw new Error('真實歷史資料筆數不足，可能是 Yahoo 代理連線失敗');
+    }
+    const last39 = dates.slice(-39);
+    const breadthSeries = last39.map(d => {
+      const { adv, decl } = dateMap[d];
+      const total = adv + decl;
+      return total > 0 ? adv / total : 0.5;
+    });
+    const advRatioToday = breadthSeries.at(-1) ?? 0.5;
+    const updatedAt = new Date().toLocaleString('zh-TW', { hour12:false, month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+    _mclComputeAndRender(breadthSeries, advRatioToday, tickers.length, {
+      isReal: true, tickerCount: tickers.length, updatedAt,
+    });
+    if (typeof showEpicToast === 'function') showEpicToast(`✅ 已用真實歷史資料更新（近${last39.length}個交易日）`, '#059669');
+  } catch (e) {
+    console.warn('[McClellan 真實數據]', e.message);
+    if (typeof showEpicToast === 'function') showEpicToast('⚠️ 抓取真實數據失敗（可能是連線限制），維持模擬值顯示', '#d97706');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 抓取真實數據'; }
+  }
 }
 
 // ══════════════════════════════════════════════════
