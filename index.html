@@ -54681,10 +54681,15 @@ function _copyWodScript() {
 // 迷你K線 + 量柱 渲染（v5.69 量縮極致視覺化）
 // v7.46：新增 scale 參數（預設 1 = 原本卡片尺寸）
 //   放大鏡 modal 以 scale 4~8 重畫同一份資料，供截圖使用
-function buildMiniCandles(closes, opens, highs, lows, dates, vols, scale = 1) {
+function buildMiniCandles(closes, opens, highs, lows, dates, vols, scale = 1, boll = null) {
   if (!closes || closes.length === 0) return '<div style="color:var(--fg3);font-size:0.72rem;padding:4px;">無資料</div>';
   const n      = closes.length;
-  const allVals= [...closes, ...opens, ...highs, ...lows].filter(v=>!isNaN(v));
+  // v8.x：若有帶入布林通道資料（boll.upper/mid/lower，長度需跟K棒對齊），
+  // 一併納入 min/max 計算範圍，避免帶子被裁到框外看不到「騎帶」的感覺。
+  const hasBoll = boll && Array.isArray(boll.upper) && boll.upper.length === n;
+  const allVals= [...closes, ...opens, ...highs, ...lows,
+    ...(hasBoll ? boll.upper.filter(v=>v!=null) : []),
+    ...(hasBoll ? boll.lower.filter(v=>v!=null) : [])].filter(v=>!isNaN(v));
   const minV   = Math.min(...allVals);
   const maxV   = Math.max(...allVals);
   const range  = maxV - minV || 1;
@@ -54747,8 +54752,27 @@ function buildMiniCandles(closes, opens, highs, lows, dates, vols, scale = 1) {
     `</div>`;
   }
 
+  // ── 布林通道疊圖（v8.x：讓「騎帶上行」這種貼著上軌走的感覺看得出來）──
+  let bollHtml = '';
+  if (hasBoll) {
+    const toPts = arr => arr.map((v, i) => {
+      if (v == null || isNaN(v)) return null;
+      const x = (i * W + W / 2).toFixed(1);
+      const y = ((maxV - v) / range * KH).toFixed(1);
+      return `${x},${y}`;
+    }).filter(Boolean).join(' ');
+    const upperPts = toPts(boll.upper);
+    const midPts   = boll.mid   ? toPts(boll.mid)   : '';
+    const lowerPts = toPts(boll.lower);
+    bollHtml = `<svg viewBox="0 0 100 ${KH}" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+      ${lowerPts ? `<polyline points="${lowerPts}" fill="none" stroke="#F59E0B" stroke-width="0.8" stroke-dasharray="2,1.5" opacity="0.8" vector-effect="non-scaling-stroke"/>` : ''}
+      ${midPts   ? `<polyline points="${midPts}"   fill="none" stroke="#94A3B8" stroke-width="0.6" opacity="0.6" vector-effect="non-scaling-stroke"/>` : ''}
+      ${upperPts ? `<polyline points="${upperPts}" fill="none" stroke="#F59E0B" stroke-width="0.8" stroke-dasharray="2,1.5" opacity="0.8" vector-effect="non-scaling-stroke"/>` : ''}
+    </svg>`;
+  }
+
   const totalH = KH + (volHtml ? VH + GAP : 0);
-  return `<div style="position:relative;height:${KH}px;overflow:visible;">${candlesHtml}</div>${volHtml}`;
+  return `<div style="position:relative;height:${KH}px;overflow:visible;">${candlesHtml}${bollHtml}</div>${volHtml}`;
 }
 
 // ══════════════════════════════════════════════════
@@ -57442,6 +57466,8 @@ function calcBandWalkScore(stockId, instRaw, priceRaw) {
     lows:   _pr15.map(d => +d.min),
     dates:  _pr15.map(d => d.date || ''),
     vols:   _pr15.map(d => +d.Trading_Volume || 0),
+    // v8.x：帶上跟K棒對齊的近15日布林通道，讓卡片小圖能疊出「騎帶上行」的視覺感
+    boll: { upper: bu.slice(-_n15), mid: bm.slice(-_n15), lower: bl.slice(-_n15) },
   };
 
   return {
@@ -61709,7 +61735,7 @@ function renderScreenerCards(showStats=false) {
     const miniK = (_curMode === 'macdmatrix' && r.macdMini)
       ? buildMiniMacdHist(r.macdMini)
       : (r.candles
-          ? buildMiniCandles(r.candles.closes, r.candles.opens, r.candles.highs, r.candles.lows, r.candles.dates, r.candles.vols)
+          ? buildMiniCandles(r.candles.closes, r.candles.opens, r.candles.highs, r.candles.lows, r.candles.dates, r.candles.vols, 1, r.candles.boll)
           : '');
 
     // ── v5.69 法人連買 badge（v7.30：broker 模式改為囤貨強度標籤；v7.55：whale 模式改為籌碼集中標籤）──
