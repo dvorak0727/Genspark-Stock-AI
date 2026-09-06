@@ -45174,7 +45174,10 @@ function _detectMarketState() {
 
 // 依市場狀態，回傳應該圈起來提醒的指標卡片tip清單
 const _TREND_TOOLS = ['MA排列', 'MACD', '柱狀'];
-const _RANGE_TOOLS = ['RSI(14)', 'K值', 'BB%B'];
+// v8.x：乖離率跟RSI/K值/BB%B同屬「均值回歸」類型指標——量的是現在偏離正常
+// 軌道多遠，盤整盤時最準（漲跌都會回歸均線），趨勢盤時強勢股容易長期不回歸、
+// 用乖離率猜頭猜底反而會被巴，所以歸進區間工具，跟RSI等一起被圈起來提示。
+const _RANGE_TOOLS = ['RSI(14)', 'K值', 'BB%B', '乖離率'];
 
 function _renderMarketStateBanner() {
   const el = document.getElementById('marketStateBanner');
@@ -45204,6 +45207,14 @@ function renderIndCards(rsi, K, D, macd, sig, hist, upper, lower, close, ma5, ma
   const bsig  = bpct>85?['sig-up','觸上軌']:bpct<15?['sig-dn','觸下軌']:['sig-neu','通道內'];
   const masig = ma5>ma20?['sig-dn','多頭']:['sig-up','空頭'];
 
+  // ── v8.x 乖離率（Bias）指標 ──
+  // 乖離率 = (收盤 - MA20) / MA20 × 100%，量股價現在偏離月線多遠
+  const bias = ma20 > 0 ? (close - ma20) / ma20 * 100 : null;
+  const biasSig = bias == null ? ['sig-neu', '—']
+    : bias > 8  ? ['sig-up', '正乖離過大']   // 短線漲多，注意拉回
+    : bias < -5 ? ['sig-dn', '負乖離過大']   // 短線跌深，留意反彈
+    : ['sig-neu', '正常範圍'];
+
   // ── 布林帶寬（Bandwidth）指標 ──
   // BW = (上軌 - 下軌) / 中軌(MA20) × 100
   // 帶寬越小 = 越擠壓，即將爆發；帶寬越大 = 已爆發，波動正在消化
@@ -45228,6 +45239,8 @@ function renderIndCards(rsi, K, D, macd, sig, hist, upper, lower, close, ma5, ma
 
   const cards = [
     { n:'RSI(14)',  v: rsi  != null ? rsi.toFixed(1)  : '—', sub:'',                              sig:rsig,  tip:'RSI(14)' },
+    // v8.x：乖離率放在RSI右邊——同屬「離正常軌道多遠」的均值回歸類指標，方便並排比對
+    { n:'乖離率',  v: bias != null ? (bias>=0?'+':'')+bias.toFixed(2)+'%' : '—', sub: ma20 ? `MA20 ${ma20.toFixed(1)}` : 'MA20 —', sig:biasSig, tip:'乖離率' },
     { n:'K值',      v: K    != null ? K.toFixed(1)    : '—', sub: D != null ? `D: ${D.toFixed(1)}` : 'D: —', sig:kdsig, tip:'K值' },
     { n:'MACD',    v: macd != null ? macd.toFixed(3)  : '—', sub: sig != null ? `DEA: ${sig.toFixed(3)}` : 'DEA: —', sig:msig, tip:'MACD' },
     { n:'柱狀體',  v: hist != null ? hist.toFixed(3)  : '—', sub:'MACD Histogram',                sig:hist>0?['sig-dn','多方']:['sig-up','空方'], tip:'柱狀', _histPhase: (() => { const prevH = window.aData?.macd?.Hist?.at(-2) ?? hist; return (Math.abs(hist??0)<0.5)?'zero-cross': (hist>0&&hist>prevH)?'bull-expand': (hist>0&&hist<=prevH)?'bull-contract': (hist<0&&hist<prevH)?'bear-expand':'bear-contract'; })() },
@@ -47253,6 +47266,42 @@ const IND_CHART_META = {
     },
     desc: '🌸 布林帶寬 = (上軌-下軌)/中軌×100%。帶寬收窄至 5% 以下是「大行情爆發前兆」；帶寬超過 18% 表示波動已在高位消化。搭配 BB%B 判斷突破方向。'
   },
+  // v8.x：乖離率走勢圖——放在RSI旁邊的新卡片，點開看「股價 vs MA20」的距離變化
+  '乖離率': {
+    title: '乖離率（Bias）— 股價偏離月線多遠',
+    series: days => {
+      const d = window.aData; if (!d) return null;
+      const N = Math.min(days, d.dates.length);
+      const labels = d.dates.slice(-N);
+      const cl  = d.closes.slice(-N);
+      const m20 = d.ma20.slice(-N);
+      const biasArr = cl.map((c,i) => (m20[i] > 0) ? (c - m20[i]) / m20[i] * 100 : null);
+      return {
+        labels,
+        datasets: [
+          { label:'乖離率%', data:biasArr, borderColor:'#0EA5E9', backgroundColor:'rgba(14,165,233,.12)',
+            fill:true, tension:0.35, pointRadius:2, borderWidth:2 },
+          { label:'零軸', data:Array(N).fill(0), borderColor:'rgba(148,163,184,.4)',
+            borderDash:[4,4], borderWidth:1, pointRadius:0, fill:false },
+          { label:'正乖離過大(+8%)', data:Array(N).fill(8), borderColor:'rgba(239,68,68,.5)',
+            borderDash:[6,3], borderWidth:1.5, pointRadius:0, fill:false },
+          { label:'負乖離過大(-5%)', data:Array(N).fill(-5), borderColor:'rgba(16,185,129,.5)',
+            borderDash:[6,3], borderWidth:1.5, pointRadius:0, fill:false },
+        ],
+        yMin: undefined, yMax: undefined
+      };
+    },
+    stats: () => {
+      const d = window.aData; if (!d) return [];
+      const bias = d.lMA20 > 0 ? (d.lc - d.lMA20) / d.lMA20 * 100 : null;
+      return [
+        { val: bias != null ? (bias>=0?'+':'')+bias.toFixed(2)+'%' : '—', lbl: '目前乖離率' },
+        { val: bias == null ? '—' : bias > 8 ? '正乖離過大' : bias < -5 ? '負乖離過大' : '正常範圍', lbl: '狀態' },
+        { val: d.lMA20?.toFixed(1) ?? '—', lbl: 'MA20（月線）' }
+      ];
+    },
+    desc: '🔵 乖離率：股價偏離月線（MA20）的距離，反映短線是不是漲/跌得太急。正乖離過大（>+8%）通常代表短線漲多，有拉回壓力；負乖離過大（<-5%）代表短線跌深，反彈機率提高。強勢股常會「長期正乖離不回歸」，乖離率適合當風險提示，不宜單獨當作進出場訊號。'
+  },
 };
 
 /** 目前 Modal 狀態 */
@@ -47690,6 +47739,26 @@ function _buildIndSignals(type) {
     else if (lc > m5 && m5 < m20) sigs.push({ icon:'💡', cls:'warn', badge:'空頭反彈', txt:`MA5 < MA20（空頭），但收盤站上 MA5，短線反彈嘗試。能否突破 MA20 是關鍵壓力。` });
     else if (lc < m5 && m5 < m20) sigs.push({ icon:'🔻', cls:'bear', badge:'完全空頭', txt:`收盤 < MA5 < MA20，完全空頭排列。趨勢向下，避免逆勢買入，等 MA5 重新站上 MA20 才考慮。` });
     if (Math.abs(dev) > 10) sigs.push({ icon:'⚠️', cls:'warn', badge:'乖離過大', txt:`月線乖離 ${dev.toFixed(1)}%${dev > 0 ? '（偏高）' : '（偏低）'}。乖離過大時往往有均值回歸壓力，${dev > 0 ? '追高風險高，等拉回至月線附近。' : '距下方支撐大，反彈空間可觀。'}` });
+  }
+
+  else if (type === '乖離率') {
+    const bias = d.lMA20 > 0 ? (d.lc - d.lMA20) / d.lMA20 * 100 : null;
+    if (bias == null) return [];
+    if (bias > 15)      sigs.push({ icon:'🔴', cls:'bear', badge:'極端正乖離', txt:`乖離率 +${bias.toFixed(1)}%，短線漲幅嚴重超前月線（>15%），拉回修正機率很高。除非是剛突破的強勢股，否則不宜追高。` });
+    else if (bias > 8)  sigs.push({ icon:'🟡', cls:'warn', badge:'正乖離過大', txt:`乖離率 +${bias.toFixed(1)}%，股價明顯超前月線，短線過熱。若是強勢股可續抱但停利上移；一般股票宜減碼保護獲利。` });
+    else if (bias > 3)  sigs.push({ icon:'📊', cls:'neut', badge:'偏強', txt:`乖離率 +${bias.toFixed(1)}%，股價略高於月線，偏強格局但未過熱，可續抱觀察。` });
+    else if (bias > -3) sigs.push({ icon:'⚪', cls:'neut', badge:'貼著月線', txt:`乖離率 ${bias.toFixed(1)}%，股價貼著月線走，沒有明顯偏離，處於盤整或轉折觀察期。` });
+    else if (bias > -8) sigs.push({ icon:'📉', cls:'neut', badge:'偏弱', txt:`乖離率 ${bias.toFixed(1)}%，股價略低於月線，偏弱格局，觀察是否跌破前低。` });
+    else if (bias > -15)sigs.push({ icon:'🟢', cls:'bull', badge:'負乖離過大', txt:`乖離率 ${bias.toFixed(1)}%，股價明顯跌深、遠離月線，短線超賣，技術性反彈機率提高，但仍要等止跌訊號（如量縮止跌、KD低檔金叉）再進場，不要單靠乖離率猜底。` });
+    else                sigs.push({ icon:'💡', cls:'bull', badge:'極端負乖離', txt:`乖離率 ${bias.toFixed(1)}%，跌幅嚴重超前月線（<-15%），歷史上這種等級的負乖離常出現技術性反彈，但也可能是趨勢真的轉空、月線本身在往下掉，務必搭配成交量與基本面確認，不宜盲目摸底。` });
+    // 提醒：強勢/弱勢股常態性乖離不回歸，避免誤用
+    const m20arr = d.ma20.slice(-20).filter(x=>x!=null);
+    if (m20arr.length >= 10) {
+      const m20Rising = m20arr.at(-1) > m20arr[0] * 1.03;
+      const m20Falling = m20arr.at(-1) < m20arr[0] * 0.97;
+      if (bias > 8 && m20Rising) sigs.push({ icon:'⚠️', cls:'warn', badge:'趨勢股提醒', txt:'月線本身也在明顯上揚，屬於強勢股「常態性正乖離」，不要單純因為乖離率大就急著放空或減碼，真正的轉弱訊號是收盤跌破月線才算數。' });
+      if (bias < -8 && m20Falling) sigs.push({ icon:'⚠️', cls:'warn', badge:'趨勢股提醒', txt:'月線本身也在明顯下彎，屬於弱勢股「常態性負乖離」，不要單純因為乖離率深就急著抄底，真正的止穩訊號是收盤站回月線才算數。' });
+    }
   }
 
   else if (type === '布林帶寬') {
