@@ -322,16 +322,23 @@ export default {
       // v7.55：新增可選 range 參數，給「美股 vs 台股板塊 連動強度」功能用
       // （需要抓近3個月的歷史序列才夠算相關係數，不是只要最新5天報價）。
       // 白名單限制在幾個常見值，避免被亂帶參數打爆快取。
-      const RANGE_WHITELIST = new Set(["5d", "1mo", "3mo", "6mo", "1y"]);
+      // v8.x：新增 5y/10y/max，給「10Y-3M利差」年線/月線走勢圖用（總經指標
+      // 要看長期趨勢才有意義，5天/1年不夠看出殖利率倒掛的長波週期）；同時
+      // 新增可選 interval 參數（長區間預設用週線/月線降低資料量，不用整條
+      // 10年日線）。
+      const RANGE_WHITELIST = new Set(["5d", "1mo", "3mo", "6mo", "1y", "5y", "10y", "max"]);
       const rangeParam = url.searchParams.get("range") || "5d";
       const range = RANGE_WHITELIST.has(rangeParam) ? rangeParam : "5d";
+      const INTERVAL_WHITELIST = new Set(["1d", "1wk", "1mo"]);
+      const intervalParam = url.searchParams.get("interval") || "1d";
+      const interval = INTERVAL_WHITELIST.has(intervalParam) ? intervalParam : "1d";
       try {
         const res = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=${range}&interval=1d&includePrePost=false`,
+          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=${range}&interval=${interval}&includePrePost=false`,
           {
             headers: { "User-Agent": "Mozilla/5.0" },
-            // range=5d（即時報價用途）維持5分鐘短快取；其他長區間（連動強度計算用）
-            // 資料變動慢，用6小時快取，減少不必要的重複打Yahoo。
+            // range=5d（即時報價用途）維持5分鐘短快取；其他長區間（連動強度/
+            // 長期趨勢圖用）資料變動慢，用6小時快取，減少不必要的重複打Yahoo。
             cf: { cacheTtl: range === "5d" ? 300 : 21600, cacheEverything: true },
           }
         );

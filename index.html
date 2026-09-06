@@ -66485,6 +66485,155 @@ async function _fetchMacroSnapshot() {
 }
 
 // ══════════════════════════════════════════════════
+//  📉 10Y-3M 利差走勢圖彈窗（v8.x）——使用者點開盤壓力表的「10Y-3M利差」
+//  卡片，跳出年線(近40年月資料)/月線(近5年週資料)走勢圖 + 白話說明。
+//  沿用 license-worker 的 /yahoo 代理，range 白名單新增了 5y/10y/max、
+//  interval 新增了 1wk/1mo（原本只有5天即時報價用的1d日資料）。
+// ══════════════════════════════════════════════════
+let _yieldSpreadChart = null;
+let _yieldSpreadMode = 'year';
+
+async function _fetchYieldSpreadSeries(range, interval) {
+  try {
+    const [tnxJson, irxJson] = await Promise.all([
+      fetch(`https://license-worker.dvorak0727.workers.dev/yahoo?ticker=%5ETNX&range=${range}&interval=${interval}`).then(r => r.json()),
+      fetch(`https://license-worker.dvorak0727.workers.dev/yahoo?ticker=%5EIRX&range=${range}&interval=${interval}`).then(r => r.json()),
+    ]);
+    const tnxRes = tnxJson?.chart?.result?.[0], irxRes = irxJson?.chart?.result?.[0];
+    if (!tnxRes || !irxRes) return null;
+    const tnxTs = tnxRes.timestamp || [], tnxC = tnxRes.indicators?.quote?.[0]?.close || [];
+    const irxTs = irxRes.timestamp || [], irxC = irxRes.indicators?.quote?.[0]?.close || [];
+    // 兩條序列各自來源獨立抓取，時間點可能有些微落差，用「日期字串 <= 目標日的最近一筆」對齊
+    const irxByDate = {};
+    irxTs.forEach((t, i) => { if (irxC[i] != null) irxByDate[new Date(t * 1000).toISOString().slice(0, 10)] = irxC[i]; });
+    const irxDatesSorted = Object.keys(irxByDate).sort();
+    const nearestIrx = (dateStr) => {
+      let val = null;
+      for (const d of irxDatesSorted) { if (d <= dateStr) val = irxByDate[d]; else break; }
+      return val;
+    };
+    const out = [];
+    tnxTs.forEach((t, i) => {
+      if (tnxC[i] == null) return;
+      const dateStr = new Date(t * 1000).toISOString().slice(0, 10);
+      const irxVal = nearestIrx(dateStr);
+      if (irxVal == null) return;
+      out.push({ date: dateStr, spread: tnxC[i] - irxVal });
+    });
+    return out;
+  } catch (e) {
+    console.warn('[10Y-3M利差走勢圖]', e.message);
+    return null;
+  }
+}
+
+function openYieldSpreadModal() {
+  let overlay = document.getElementById('yieldSpreadOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'yieldSpreadOverlay';
+    overlay.className = 'tech-zoom-overlay';
+    overlay.innerHTML = `<div class="tech-zoom-panel" style="max-width:820px;">
+      <button class="tech-zoom-close" onclick="closeYieldSpreadModal()">✕ 關閉</button>
+      <div style="clear:both;">
+        <div style="font-weight:900;font-size:0.9rem;margin-bottom:4px;color:var(--fg);">📉 10Y-3M 殖利率利差走勢</div>
+        <div style="font-size:0.66rem;color:var(--fg3);margin-bottom:10px;">美國10年期公債殖利率 − 3個月期國庫券殖利率，紐約聯準會常用的景氣衰退先行指標</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+          <button class="chart-period-tab active" id="ysTabYear" onclick="switchYieldSpreadMode('year')">📅 年線（近40年・月資料）</button>
+          <button class="chart-period-tab" id="ysTabMonth" onclick="switchYieldSpreadMode('month')">🗓️ 月線（近5年・週資料）</button>
+        </div>
+        <div style="position:relative;height:280px;"><canvas id="yieldSpreadCanvas"></canvas></div>
+        <div id="yieldSpreadStatus" style="font-size:0.66rem;color:var(--fg3);margin-top:8px;">載入中…</div>
+        <div id="yieldSpreadExplain" style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--bg2);font-size:0.7rem;line-height:1.8;color:var(--fg2);"></div>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeYieldSpreadModal(); });
+  }
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  switchYieldSpreadMode(_yieldSpreadMode);
+}
+
+function closeYieldSpreadModal() {
+  const overlay = document.getElementById('yieldSpreadOverlay');
+  if (overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function switchYieldSpreadMode(mode) {
+  _yieldSpreadMode = mode;
+  document.getElementById('ysTabYear')?.classList.toggle('active', mode === 'year');
+  document.getElementById('ysTabMonth')?.classList.toggle('active', mode === 'month');
+  const statusEl = document.getElementById('yieldSpreadStatus');
+  if (statusEl) statusEl.textContent = '載入中…';
+
+  const { range, interval } = mode === 'year' ? { range: 'max', interval: '1mo' } : { range: '5y', interval: '1wk' };
+  const series = await _fetchYieldSpreadSeries(range, interval);
+  if (!series || series.length < 2) {
+    if (statusEl) statusEl.textContent = '⚠️ 資料抓取失敗，請稍後再試（可能是Yahoo Finance連線限制）';
+    return;
+  }
+
+  const labels = series.map(s => mode === 'year' ? s.date.slice(0, 7) : s.date.slice(2));
+  const data = series.map(s => +s.spread.toFixed(2));
+  const canvasEl = document.getElementById('yieldSpreadCanvas');
+  if (!canvasEl) return;
+  const ctx = canvasEl.getContext('2d');
+  if (_yieldSpreadChart) { _yieldSpreadChart.destroy(); _yieldSpreadChart = null; }
+  _yieldSpreadChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '10Y-3M利差(%)', data,
+        borderColor: '#7C3AED', borderWidth: 1.5, pointRadius: 0, tension: 0.15,
+        segment: { borderColor: c => (c.p0.parsed.y < 0 || c.p1.parsed.y < 0) ? '#DC2626' : '#7C3AED' },
+        fill: { target: { value: 0 }, above: 'rgba(124,58,237,0.08)', below: 'rgba(220,38,38,0.15)' },
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `利差 ${c.parsed.y >= 0 ? '+' : ''}${c.parsed.y}%` } },
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, font: { size: 9 } } },
+        y: { ticks: { font: { size: 9 }, callback: v => v + '%' } },
+      },
+    },
+    plugins: [{
+      id: 'yieldSpreadZeroLine',
+      afterDraw(chart) {
+        const { ctx: c, chartArea, scales } = chart;
+        const y0 = scales.y.getPixelForValue(0);
+        if (y0 < chartArea.top || y0 > chartArea.bottom) return;
+        c.save();
+        c.strokeStyle = '#94A3B8'; c.setLineDash([4, 3]); c.lineWidth = 1;
+        c.beginPath(); c.moveTo(chartArea.left, y0); c.lineTo(chartArea.right, y0); c.stroke();
+        c.restore();
+      },
+    }],
+  });
+
+  const latest = data.at(-1);
+  const invertedCount = data.filter(v => v < 0).length;
+  if (statusEl) statusEl.textContent = `最新：${latest >= 0 ? '+' : ''}${latest}%　·　這段期間曾倒掛 ${invertedCount} 次（約${(invertedCount / data.length * 100).toFixed(0)}%的時間落在倒掛區）`;
+
+  const explainEl = document.getElementById('yieldSpreadExplain');
+  if (explainEl) {
+    explainEl.innerHTML = `
+      <b>白話說明：</b>這條線 = 美國10年期公債殖利率 − 3個月期國庫券殖利率。<br>
+      • 正常情況下線在<b style="color:#16A34A">0以上</b>：市場對長期比短期要求更高的報酬，是健康的常態。<br>
+      • 一旦跌到<b style="color:#DC2626">0以下（虛線下方紅色區塊，倒掛）</b>：代表市場認為「短期利率反而比長期高」，通常是Fed升息壓過頭、市場提前反映未來會降息或景氣走弱——歷史上每次倒掛之後，大約<b>6個月到2年內</b>美國經濟多半出現衰退，是最被關注的衰退先行指標之一。<br>
+      • 倒掛之後<b>回正</b>（線重新爬回0以上）不是立刻沒事——真正的風險窗口常常是「倒掛之後開始回正」的那段期間，這時候景氣通常已經在放緩。<br>
+      • ${mode === 'year' ? '年線用近40年月資料，可以看出這是每隔幾年就會發生一次的長波景氣循環，不是新鮮事。' : '月線用近5年週資料，適合看最近這一輪循環走到哪個階段。'}
+    `;
+  }
+}
+
+// ══════════════════════════════════════════════════
 //  🏦 美國聯準會利率警示（v7.62）— 併入開盤壓力表
 //  資料源：紐約聯準會公開API（markets.newyorkfed.org，官方公開資料、
 //  不需金鑰、允許跨網域直接呼叫，不需經過 license-worker 代理）。
@@ -76539,10 +76688,10 @@ async function fetchOpeningPressure() {
       <div class="opp-item-sim">${vix < 15 ? '極度樂觀' : vix < 25 ? '正常波動' : vix < 35 ? '偏謹慎' : '極度恐慌'}</div>
     </div>`;
     const spCls = spread < 0 ? 'bear' : '';
-    gridEl.innerHTML += `<div class="opp-item ${spCls}">
+    gridEl.innerHTML += `<div class="opp-item ${spCls}" onclick="openYieldSpreadModal()" style="cursor:pointer;" title="點擊查看歷史走勢圖">
       <div class="opp-item-name">📉 10Y-3M利差</div>
       <div class="opp-item-price">${spread>=0?'+':''}${spread.toFixed(2)}%</div>
-      <div class="opp-item-sim">${spread < 0 ? '倒掛中' : spread < 0.5 ? '利差收斂' : '正常曲線'}</div>
+      <div class="opp-item-sim">${spread < 0 ? '倒掛中' : spread < 0.5 ? '利差收斂' : '正常曲線'} 🔍</div>
     </div>`;
   } else {
     gridEl.innerHTML += `<div class="opp-item" style="opacity:0.5;">
