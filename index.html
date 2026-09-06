@@ -17087,6 +17087,10 @@ a.module-nav-item.acc-active {
           🌙 台指夜盤走勢圖＋MACD/KD <span style="opacity:.6;font-weight:400;">▼ 點擊展開</span>
         </button>
         <div id="nightFutChartArea" style="display:none;margin-top:6px;background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <span style="font-size:.6rem;color:var(--fg3);" id="nightFutDateLabel">資料日期：—</span>
+            <button onclick="refreshNightFutChart()" id="nightFutRefreshBtn" style="margin-left:auto;font-size:.6rem;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--fg2);cursor:pointer;">🔄 更新</button>
+          </div>
           <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
             <button class="kannot-btn kb-srLines" id="nightFutAnnot_srLines" onclick="toggleNightFutAnnot('srLines')" title="近期轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
             <button class="kannot-btn kb-trendline" id="nightFutAnnot_trendline" onclick="toggleNightFutAnnot('trendline')" title="兩點成線，三點確認——只顯示已出現第3次觸碰驗證過的趨勢線">📈 趨勢線</button>
@@ -77045,6 +77049,18 @@ async function toggleNightFutChart() {
   }
 }
 
+// v8.x：手動更新——清掉快取重抓，讓使用者不用等90分鐘快取過期，隨時想
+// 看最新一根夜盤K棒就自己按（跟開盤壓力表本身的🔄更新是同一種概念）
+async function refreshNightFutChart() {
+  const btn = document.getElementById('nightFutRefreshBtn');
+  const verdictEl = document.getElementById('nightFutVerdict');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 更新中…'; }
+  if (verdictEl) verdictEl.textContent = '⏳ 重新抓取近90日夜盤資料中…';
+  _nightFutCache = await _fetchNightFuturesHistory(90);
+  renderNightFuturesChart();
+  if (btn) { btn.disabled = false; btn.textContent = '🔄 更新'; }
+}
+
 function toggleNightFutAnnot(key) {
   _nightFutAnnotState[key] = !_nightFutAnnotState[key];
   const btn = document.getElementById('nightFutAnnot_' + key);
@@ -77187,6 +77203,14 @@ function renderNightFuturesChart() {
     const lHist = macd.Hist.at(-1);
     const macdTxt = lHist != null ? (lHist >= 0 ? `多方 +${lHist.toFixed(1)}` : `空方 ${lHist.toFixed(1)}`) : '—';
     verdictEl.innerHTML = `📊 <b>台指夜盤最新：${lc.toLocaleString()}點（${chgPct >= 0 ? '+' : ''}${chgPct}%）</b>　MACD：${macdTxt}　KD：${kdTxt}`;
+  }
+
+  // v8.x：填上收盤價的資料日期/時間，以及這次是什麼時候更新（重整頁面／按更新鍵的當下）
+  const dateLabelEl = document.getElementById('nightFutDateLabel');
+  if (dateLabelEl) {
+    const lastDate = cache.dates.at(-1);
+    const nowStr = new Date().toLocaleString('zh-TW', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    dateLabelEl.textContent = `資料日期：${lastDate}（夜盤收盤）　·　更新於 ${nowStr}`;
   }
 }
 
