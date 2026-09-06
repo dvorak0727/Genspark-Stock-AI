@@ -18484,7 +18484,7 @@ a.module-nav-item.acc-active {
         <!-- v8.x：標注越來越多，把「常駐畫在圖上」的支撐壓力線/趨勢線/頭底文字
              也做成可關閉的開關，跟其他標注放一起管理，不用另外找地方關 -->
         <button class="kannot-btn kb-srLines active" id="kbSrLines" onclick="toggleKAnnot('srLines')" title="近60日轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
-        <button class="kannot-btn kb-trendline active" id="kbTrendline" onclick="toggleKAnnot('trendline')" title="上升趨勢連接越來越高的低點／下降趨勢連接越來越低的高點，延伸至今天判斷是否仍成立">📈 趨勢線</button>
+        <button class="kannot-btn kb-trendline active" id="kbTrendline" onclick="toggleKAnnot('trendline')" title="兩點成線，三點確認——只顯示已出現第3次觸碰驗證過的趨勢線，只有2點連線的草稿不畫，避免過度自信">📈 趨勢線</button>
         <button class="kannot-btn kb-peakTrough active" id="kbPeakTrough" onclick="toggleKAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
         <span class="kannot-reset" onclick="resetKAnnot()">全開</span>
       </div>
@@ -19112,7 +19112,7 @@ a.module-nav-item.acc-active {
                預設全開不同，大盤圖是給看大方向用的，預設乾淨） -->
           <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
             <button class="kannot-btn kb-srLines" id="twseAnnot_srLines" onclick="toggleTwseAnnot('srLines')" title="近60日轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
-            <button class="kannot-btn kb-trendline" id="twseAnnot_trendline" onclick="toggleTwseAnnot('trendline')" title="上升趨勢連接越來越高的低點／下降趨勢連接越來越低的高點">📈 趨勢線</button>
+            <button class="kannot-btn kb-trendline" id="twseAnnot_trendline" onclick="toggleTwseAnnot('trendline')" title="兩點成線，三點確認——只顯示已出現第3次觸碰驗證過的趨勢線，只有2點連線的草稿不畫，避免過度自信">📈 趨勢線</button>
             <button class="kannot-btn kb-peakTrough" id="twseAnnot_peakTrough" onclick="toggleTwseAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
           </div>
           <div class="chart-wrap" style="position:relative;height:340px;">
@@ -43988,13 +43988,15 @@ const _candlestickPlugin = {
       });
     }
 
-    // v8.x：趨勢線——上升趨勢連接越來越高的低點／下降趨勢連接越來越低的高點，
-    // 從第一個轉折點延伸畫到今天（若轉折點在目前顯示視窗之前，從左邊界開始畫，
-    // 高度用同一條線的公式换算，不會斷線）。虛線代表已跌破/已站上（線的意義
-    // 已改變），實線代表目前仍然成立。
+    // v8.x → v8.x-2（方案A）：趨勢線只畫「已驗證」的，兩點連線的草稿版不畫。
+    // 原因：任何一段走勢都找得出兩個「依序墊高/依序走低」的點連成一條線，
+    // 兩點連線在統計上沒有意義，畫出一條實線延伸到今天，視覺上卻像是「這是
+    // 真的」，容易誤導。標準改成「兩點成線，三點確認」——沒有第三次觸碰驗證
+    // 過，就不算數，圖上完全不顯示，不用小字警語去掩蓋一條過度自信的線。
     if (_annotVisible(chart, 'trendline') && barCount > 0) {
-      (meta.trendLines || []).forEach(tl => {
-        const { startIdx, startVal, slope, endVal, confirmed, broken, type } = tl;
+      const confirmedLines = (meta.trendLines || []).filter(tl => tl.confirmed);
+      confirmedLines.forEach(tl => {
+        const { startIdx, startVal, slope, endVal, broken, type } = tl;
         const endIdx = barCount - 1;
         const drawStartIdx = Math.max(0, startIdx);
         const startY = startVal + slope * (drawStartIdx - startIdx);
@@ -44014,10 +44016,19 @@ const _candlestickPlugin = {
         ctx.fillStyle = broken ? '#94A3B8' : (type === 'up' ? '#16A34A' : '#E8343A');
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'right';
-        const statusTxt = broken ? '（已' + (type === 'up' ? '跌破' : '站上') + '）' : confirmed ? '（已驗證）' : '（草稿）';
+        const statusTxt = broken ? '（已' + (type === 'up' ? '跌破' : '站上') + '）' : '（已驗證）';
         ctx.fillText((type === 'up' ? '上升趨勢線' : '下降趨勢線') + statusTxt, xEnd - 4, yEnd - 6);
         ctx.textAlign = 'left';
       });
+      // 開了趨勢線開關、但目前沒有任何一條通過第三次驗證——老實告訴使用者
+      // 現在沒有明確的證據，而不是沉默不畫、讓人誤以為是程式忘了畫。
+      if (confirmedLines.length === 0) {
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = '#94A3B8';
+        ctx.textAlign = 'center';
+        ctx.fillText('目前無已驗證趨勢線（僅2點連線，尚待第3次觸碰確認，不列入顯示）', (chartArea.left + chartArea.right) / 2, chartArea.top + 12);
+        ctx.textAlign = 'left';
+      }
     }
 
     // v8.x：頭/底轉折文字——同樣做成可關閉，其餘照舊由 _peakTroughPlugin 畫
