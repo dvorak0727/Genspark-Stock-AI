@@ -17089,20 +17089,37 @@ a.module-nav-item.acc-active {
         <div id="nightFutChartArea" style="display:none;margin-top:6px;background:var(--bg2);border-radius:10px;padding:10px;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
             <span style="font-size:.6rem;color:var(--fg3);" id="nightFutDateLabel">資料日期：—</span>
+            <button onclick="nightFutZoomOpen()" style="font-size:.6rem;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--fg2);cursor:pointer;">🔍 放大</button>
             <button onclick="refreshNightFutChart()" id="nightFutRefreshBtn" style="margin-left:auto;font-size:.6rem;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--fg2);cursor:pointer;">🔄 更新</button>
           </div>
-          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+          <!-- v8.x：把個股頁面「K線標注層」整組工具列搬過來（缺法人買/法人賣，
+               期貨沒有對應的三大法人籌碼資料源），每個按鈕都是真的可以點選開關，
+               不想看的標注點一下就關掉，不是裝飾用的 -->
+          <div class="kannot-toolbar" id="nightFutKannotToolbar" style="position:static;">
+            <span class="kannot-label">📍 標注層</span>
+            <button class="kannot-btn kb-macd active" id="nightFutAnnot_macd" onclick="toggleNightFutAnnot('macd')" title="MACD 金叉 / 死叉日">⚡ MACD叉</button>
+            <button class="kannot-btn kb-ma20 active" id="nightFutAnnot_ma20" onclick="toggleNightFutAnnot('ma20')" title="突破 / 跌破 MA20">📈 MA20穿越</button>
+            <button class="kannot-btn kb-vol active" id="nightFutAnnot_vol" onclick="toggleNightFutAnnot('vol')" title="量能超過20日均量200%">🔥 爆量</button>
+            <button class="kannot-btn kb-swingLowM active" id="nightFutAnnot_swingLowM" onclick="toggleNightFutAnnot('swingLowM')" title="前後10日最低價（中期轉折低點）">▽ 中期低點</button>
+            <button class="kannot-btn kb-swingLowS active" id="nightFutAnnot_swingLowS" onclick="toggleNightFutAnnot('swingLowS')" title="前後3日最低價（短期擺動低點）">▿ 短期低點</button>
+            <button class="kannot-btn kb-pattern active" id="nightFutAnnot_pattern" onclick="toggleNightFutAnnot('pattern')" title="刺透形態／烏雲蓋頂／陰孕陽／陽孕陰">🕯️ K線形態</button>
+            <button class="kannot-btn kb-breakout active" id="nightFutAnnot_breakout" onclick="toggleNightFutAnnot('breakout')" title="站上候選壓力＋隔日站穩＋量能/均線至少兩項疊加確認">🚀 突破共振</button>
+            <button class="kannot-btn kb-classic active" id="nightFutAnnot_classic" onclick="toggleNightFutAnnot('classic')" title="雙頂(M頭)／雙重底(W底)／頭肩頂／頭肩底，頸線突破確認">📐 圖表形態</button>
+            <button class="kannot-btn kb-retest active" id="nightFutAnnot_retest" onclick="toggleNightFutAnnot('retest')" title="突破共振後，股價回測前波壓力(已轉支撐)不破、隔日收盤走高">🎯 回踩確認</button>
             <button class="kannot-btn kb-srLines" id="nightFutAnnot_srLines" onclick="toggleNightFutAnnot('srLines')" title="近期轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
             <button class="kannot-btn kb-trendline" id="nightFutAnnot_trendline" onclick="toggleNightFutAnnot('trendline')" title="兩點成線，三點確認——只顯示已出現第3次觸碰驗證過的趨勢線">📈 趨勢線</button>
             <span onclick="showTrendlineTip(event)" title="①②③是什麼？點我看說明" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--surface2);color:var(--fg3);font-size:.6rem;font-weight:900;cursor:help;margin-left:-4px;">?</span>
             <button class="kannot-btn kb-peakTrough" id="nightFutAnnot_peakTrough" onclick="toggleNightFutAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
+            <span class="kannot-reset" onclick="resetNightFutAnnot()">全開</span>
           </div>
+          <div id="nightFutZoomArea">
           <div class="chart-wrap" style="position:relative;height:300px;">
             <canvas id="nightFutCandleChart"></canvas>
           </div>
           <div class="chart-wrap" style="position:relative;height:90px;margin-top:4px;">
             <canvas id="nightFutVolChart"></canvas>
           </div>
+          </div><!-- /#nightFutZoomArea -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
             <div>
               <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">📊 MACD</div>
@@ -43460,8 +43477,14 @@ function _renderRadar_disabled() {
 // 建立標注事件資料（在 renderTechCharts 呼叫前由 buildKAnnotEvents 準備）
 // v7.88：新增 opens/highs 參數，供K線形態(刺透/烏雲蓋頂/陰孕陽/陽孕陰)偵測使用
 // v7.90：新增 ma5arr/fSeries/tSeries 參數，供突破確認+力量疊加偵測使用
-function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows, opens, highs, ma5arr, fSeries, tSeries) {
-  _kannotEvents = {};
+// v8.x：新增第13個參數 targetEvents——不帶時維持原行為（寫進個股頁面共用
+// 的全域 _kannotEvents，跟以前完全一樣）；帶了就寫進呼叫端自己的物件、
+// 不動全域狀態，並把結果 return 回去。給台指夜盤這種「另一張獨立圖表也要
+// 用同一套K線標注邏輯，但不能互相干擾個股頁面狀態」的場景用。
+function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows, opens, highs, ma5arr, fSeries, tSeries, targetEvents) {
+  const usingGlobal = !targetEvents;
+  if (usingGlobal) { _kannotEvents = {}; }
+  const events = targetEvents || _kannotEvents;
   try {
     const N = dates.length;
     // EMA12/26 for MACD cross detection
@@ -43604,10 +43627,11 @@ function buildKAnnotEvents(dates, closes, ma20arr, vols, instMap, instDays, lows
           tip:`${c.name}：頸線約 ${c.level.toFixed(1)}，${actionTxt}（規則式偵測，實際形態仍建議肉眼複核）。` });
       }
 
-      if(evts.length>0) _kannotEvents[lbl] = evts;
+      if(evts.length>0) events[lbl] = evts;
     }
-    console.log(`[v6.40 KAnnot] built events: ${Object.keys(_kannotEvents).length} dates marked`);
+    console.log(`[v6.40 KAnnot] built events: ${Object.keys(events).length} dates marked`);
   } catch(e){ console.warn('[v6.40 KAnnot]',e.message); }
+  return events;
 }
 
 // afterDraw plugin
@@ -43615,8 +43639,13 @@ const _kannotPlugin = {
   id: 'kannotLayer',
 
   // ── 繪製標注圓點 ──
+  // v8.x：改成優先讀 chart.$kannotEvents/chart.$annotState（若圖表有掛
+  // 自己的一份，例如台指夜盤），沒有才退回用個股頁面的全域
+  // _kannotEvents/_kannotState，兩邊互不干擾（跟支撐壓力線/趨勢線同一套
+  // 「chart實例優先」設計，複用_annotVisible()判斷）。
   afterDatasetsDraw(chart) {
-    if(!Object.keys(_kannotEvents).length) return;
+    const events = chart.$kannotEvents || _kannotEvents;
+    if(!Object.keys(events).length) return;
     const ctx = chart.ctx;
     const xAxis = chart.scales['x'];
     const yAxis = chart.scales['y'];
@@ -43625,7 +43654,7 @@ const _kannotPlugin = {
     const RADIUS = 5;
 
     labels.forEach((lbl, i) => {
-      const evts = (_kannotEvents[lbl]||[]).filter(e=>_kannotState[e.type]);
+      const evts = (events[lbl]||[]).filter(e=>_annotVisible(chart, e.type));
       if(!evts.length) return;
       const x = xAxis.getPixelForValue(i);
       const yTop = yAxis.top;
@@ -43672,9 +43701,10 @@ const _kannotPlugin = {
     let found = null;
     let foundX = 0, foundY = 0;
 
+    const events = chart.$kannotEvents || _kannotEvents;
     outer: for(let i=0;i<labels.length;i++){
       const lbl = labels[i];
-      const evts = (_kannotEvents[lbl]||[]).filter(ev=>_kannotState[ev.type]);
+      const evts = (events[lbl]||[]).filter(ev=>_annotVisible(chart, ev.type));
       if(!evts.length) continue;
       const x = xAxis.getPixelForValue(i);
       const yTop = yAxis.top;
@@ -44418,6 +44448,58 @@ function techZoomClose() {
   document.removeEventListener('keydown', _techZoomEscHandler);
 }
 function _techZoomEscHandler(e) { if (e.key === 'Escape') techZoomClose(); }
+
+// v8.x：台指夜盤走勢圖放大——完全比照 techZoomOpen/Close 同一套「搬移
+// DOM節點」做法（不重建Chart.js實例，K線標注/支撐壓力/趨勢線的狀態都
+// 會完整保留），只是換一個獨立的overlay id，避免跟個股頁面的放大互相
+// 打架（兩邊各自的zoom如果同時開，會搶用同一個overlay/marker）。
+function nightFutZoomOpen() {
+  const area = document.getElementById('nightFutZoomArea');
+  if (!area) return;
+  let overlay = document.getElementById('nightFutZoomOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'nightFutZoomOverlay';
+    overlay.className = 'tech-zoom-overlay';
+    overlay.innerHTML = `<div class="tech-zoom-panel" id="nightFutZoomPanel">
+      <button class="tech-zoom-close" onclick="nightFutZoomClose()">✕ 關閉</button>
+      <div style="clear:both;"></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) nightFutZoomClose(); });
+  }
+  if (!document.getElementById('nightFutZoomPlaceholder')) {
+    const marker = document.createElement('div');
+    marker.id = 'nightFutZoomPlaceholder';
+    marker.style.display = 'none';
+    area.parentNode.insertBefore(marker, area);
+  }
+  document.getElementById('nightFutZoomPanel').appendChild(area);
+  area.classList.add('tech-zoom-open');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    if (charts['nightFutCandleChart']) charts['nightFutCandleChart'].resize();
+    if (charts['nightFutVolChart'])    charts['nightFutVolChart'].resize();
+  }, 60);
+  document.addEventListener('keydown', _nightFutZoomEscHandler);
+}
+function nightFutZoomClose() {
+  const overlay = document.getElementById('nightFutZoomOverlay');
+  const area    = document.getElementById('nightFutZoomArea');
+  const marker  = document.getElementById('nightFutZoomPlaceholder');
+  if (!overlay || !area || !marker) return;
+  marker.parentNode.insertBefore(area, marker);
+  area.classList.remove('tech-zoom-open');
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  setTimeout(() => {
+    if (charts['nightFutCandleChart']) charts['nightFutCandleChart'].resize();
+    if (charts['nightFutVolChart'])    charts['nightFutVolChart'].resize();
+  }, 60);
+  document.removeEventListener('keydown', _nightFutZoomEscHandler);
+}
+function _nightFutZoomEscHandler(e) { if (e.key === 'Escape') nightFutZoomClose(); }
 
 // 切換週期並重繪
 function switchPeriod(period) {
@@ -76997,7 +77079,15 @@ async function _fetchNightFutures() {
 // 同一天可能有好幾個合約月份，跟 _fetchNightFutures() 同一套規則：排除
 // 跨月價差合約，取當天成交量最大的近月合約，逐日建成一條乾淨的序列。
 let _nightFutCache = null;
-let _nightFutAnnotState = { srLines: false, trendline: false, peakTrough: false };
+// v8.x：把個股頁面「K線標注層」整組工具列搬過來，跟個股頁面一樣預設全開
+// （法人買/法人賣沒有對應的期貨籌碼資料源，這裡不提供這兩個按鈕）；
+// 支撐壓力線/趨勢線/頭底沿用先前的決定，維持預設關閉（大盤/期貨這種
+// 指數類圖表，先前使用者已經決定「平時不顯示、點了才出現」）。
+let _nightFutAnnotState = {
+  srLines: false, trendline: false, peakTrough: false,
+  macd: true, ma20: true, vol: true, swingLowS: true, swingLowM: true,
+  pattern: true, breakout: true, classic: true, retest: true,
+};
 
 async function _fetchNightFuturesHistory(days = 90) {
   const fmt = d => d.toISOString().slice(0, 10);
@@ -77067,6 +77157,13 @@ function toggleNightFutAnnot(key) {
   if (btn) btn.classList.toggle('active', _nightFutAnnotState[key]);
   if (charts['nightFutCandleChart']) charts['nightFutCandleChart'].update();
 }
+function resetNightFutAnnot() {
+  Object.keys(_nightFutAnnotState).forEach(k => {
+    _nightFutAnnotState[k] = true;
+    document.getElementById('nightFutAnnot_' + k)?.classList.add('active');
+  });
+  if (charts['nightFutCandleChart']) charts['nightFutCandleChart'].update();
+}
 
 function renderNightFuturesChart() {
   const verdictEl = document.getElementById('nightFutVerdict');
@@ -77087,11 +77184,25 @@ function renderNightFuturesChart() {
   const vols = cache.vols.slice(-n);
   const dl = dates.map(d => d.slice(5).replace('-', '/'));
 
-  const ma5 = calcMA(cache.closes, 5).slice(-n);
-  const ma10 = calcMA(cache.closes, 10).slice(-n);
-  const ma20 = calcMA(cache.closes, 20).slice(-n);
+  const ma5Full = calcMA(cache.closes, 5);
+  const ma10Full = calcMA(cache.closes, 10);
+  const ma20Full = calcMA(cache.closes, 20);
+  const ma5 = ma5Full.slice(-n);
+  const ma10 = ma10Full.slice(-n);
+  const ma20 = ma20Full.slice(-n);
   const boll = calcBoll(cache.closes, 20, 2);
   const bu = boll.upper.slice(-n), bl = boll.lower.slice(-n);
+
+  // v8.x：把個股頁面的「K線標注層」整套邏輯搬過來——MACD金叉死叉/MA20穿越/
+  // 爆量/中短期低點/K線形態/突破共振/圖表形態/回踩確認，全部沿用同一套
+  // buildKAnnotEvents()，用完整歷史算（避免視窗邊緣漏抓事件）。法人買/
+  // 法人賣沒有對應的期貨籌碼資料源，這裡帶空的instMap/fSeries/tSeries，
+  // 這兩種事件自然不會產生，不特別處理。用第13個參數帶自己的物件進去，
+  // 不會動到個股頁面共用的全域 _kannotEvents。
+  const nightFutKannotEvents = buildKAnnotEvents(
+    cache.dates, cache.closes, ma20Full, cache.vols, {}, [],
+    cache.lows, cache.opens, cache.highs, ma5Full, [], [], {}
+  );
 
   const sr = detectSupportResistance(cache.highs, cache.lows);
   const resLines = [
@@ -77124,7 +77235,7 @@ function renderNightFuturesChart() {
         { label: '_low', data: lows, borderWidth: 0, pointRadius: 0, fill: false, borderColor: 'transparent', backgroundColor: 'transparent' },
       ],
     },
-    plugins: [_candlestickPlugin, _peakTroughPlugin],
+    plugins: [_kannotPlugin, _candlestickPlugin, _peakTroughPlugin],
     options: (() => {
       const opts = lightChartOpts('台指夜盤K棒 + MA5/10/20 + 布林通道 + 候選支撐壓力 + 趨勢線（規則式偵測，非型態學AI判讀）', false, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
@@ -77137,6 +77248,7 @@ function renderNightFuturesChart() {
   charts['nightFutCandleChart'].$candleData = { opens, highs, lows, closes, resLines, trendLines };
   charts['nightFutCandleChart'].$peakTroughData = { peaks, troughs, offset };
   charts['nightFutCandleChart'].$annotState = _nightFutAnnotState;
+  charts['nightFutCandleChart'].$kannotEvents = nightFutKannotEvents;
   charts['nightFutCandleChart'].update('none');
 
   destroyChart('nightFutVolChart');
