@@ -16744,6 +16744,11 @@ a.module-nav-item.acc-active {
     </button>
     <button class="btn-realtime" id="rtToggleBtn" onclick="rtToggle()" title="即時報價（約 10 秒更新，需 FinMind 贊助會員 Token）">⚡ 即時 OFF</button>
     <span id="rtStatus" style="font-size:0.68rem;font-weight:700;white-space:nowrap;"></span>
+    <!-- v8.x：FinMind 等級常駐提示——使用者要求「整個程式，sponsor等級的
+         記得在旁邊提示，免得跑出模擬數據」。之前是每個功能各自寫小字警語，
+         使用者要用到才會看到；這裡加一個隨時可見的小徽章，一眼就知道目前
+         是免費/註冊/贊助等級，點下去可以直接開Token設定看細節或升級。 -->
+    <span id="finmindTierBadge" onclick="openTokenModal()" title="點擊查看/設定 FinMind Token 等級" style="cursor:pointer;font-size:0.62rem;font-weight:700;padding:3px 9px;border-radius:14px;white-space:nowrap;background:var(--bg2);border:1px solid var(--border);color:var(--fg3);">🔌 FinMind：檢查中…</span>
     <div class="quick-chips">
       <span class="chip" onclick="quickSearch('2330')">台積電</span>
       <span class="chip" onclick="quickSearch('0050')">元大50</span>
@@ -67723,6 +67728,59 @@ function getToken() {
   return window._userToken || TOKEN || '';
 }
 
+// ══════════════════════════════════════════════════
+//  🔌 FinMind 等級常駐提示（v8.x）——使用者要求整個程式常駐顯示目前的
+//  FinMind Token 等級，避免不知不覺跑出模擬資料還以為是真實數字。用跟
+//  testToken()同一層邏輯的「輕量版」單一探測（股權分散表 API），結果
+//  快取6小時，不用每次開頁面/每支股票都重打一次判斷用的API。
+// ══════════════════════════════════════════════════
+const _FM_TIER_CACHE_KEY = 'tsai_fm_tier_cache_v1';
+const _FM_TIER_BANNER = {
+  sponsor : { bg:'#D1FAE5', border:'#6EE7B7', fg:'#065F46', text:'🎉 FinMind：贊助會員' },
+  register: { bg:'#FEF3C7', border:'#FCD34D', fg:'#92400E', text:'⚠️ FinMind：註冊會員（部分功能為模擬資料）' },
+  anon    : { bg:'#DBEAFE', border:'#93C5FD', fg:'#1E40AF', text:'ℹ️ FinMind：未設定Token（多數進階功能為模擬資料）' },
+  invalid : { bg:'#FEE2E2', border:'#FCA5A5', fg:'#991B1B', text:'❌ FinMind：Token無效' },
+  offline : { bg:'#FEE2E2', border:'#FCA5A5', fg:'#991B1B', text:'❌ FinMind：連線失敗' },
+  checking: { bg:'var(--bg2)', border:'var(--border)', fg:'var(--fg3)', text:'🔌 FinMind：檢查中…' },
+};
+function _renderFinMindTierBadge(level) {
+  const el = document.getElementById('finmindTierBadge');
+  if (!el) return;
+  const b = _FM_TIER_BANNER[level] || _FM_TIER_BANNER.checking;
+  el.style.background = b.bg; el.style.borderColor = b.border; el.style.color = b.fg;
+  el.textContent = b.text;
+}
+async function _checkFinMindTierOnce(force) {
+  try {
+    // 有快取且未過期(6小時)，直接用快取，不重打API
+    if (!force) {
+      const cached = JSON.parse(localStorage.getItem(_FM_TIER_CACHE_KEY) || 'null');
+      if (cached && Date.now() - cached.ts < 6 * 3600 * 1000) {
+        _renderFinMindTierBadge(cached.level);
+        return;
+      }
+    }
+    const token = getToken();
+    if (!token) { _renderFinMindTierBadge('anon'); localStorage.setItem(_FM_TIER_CACHE_KEY, JSON.stringify({ level:'anon', ts:Date.now() })); return; }
+
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 8000);
+    const url = `${FINMIND}?dataset=TaiwanStockHoldingSharesPer&data_id=2330&start_date=${new Date().toISOString().slice(0,10)}&token=${encodeURIComponent(token)}`;
+    const r = await fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(tid));
+    const j = await r.json();
+    const msg = String(j.msg || '');
+    let level;
+    if (/illegal|invalid.*token|token.*invalid/i.test(msg)) level = 'invalid';
+    else if ((j.data || []).length > 0) level = 'sponsor';
+    else if (/level is free|sponsor/i.test(msg)) level = 'register';
+    else level = 'register'; // 保守判斷：查不到資料但不是明確token無效，當作等級不足
+    _renderFinMindTierBadge(level);
+    localStorage.setItem(_FM_TIER_CACHE_KEY, JSON.stringify({ level, ts: Date.now() }));
+  } catch (e) {
+    _renderFinMindTierBadge('offline');
+  }
+}
+
 // ── 強制刷新：清除籌碼 & 股價全部快取，重新分析當前股票 ──
 function forceRefreshAll() {
   const btn = document.getElementById('forceRefreshBtn');
@@ -69525,6 +69583,7 @@ function saveToken() {
     showEpicToast('🗑️ Token 已清除，使用匿名模式', '#B45309');
   }
   closeTokenModal();
+  try { _checkFinMindTierOnce(true); } catch(e) {} // 換了Token，強制重新檢查等級徽章，不要沿用舊快取
 }
 
 // ══════════════════════════════════════════════════
@@ -72592,6 +72651,9 @@ document.addEventListener('DOMContentLoaded', function _onDOMReady() {
 
   // 6.5 台股大盤脈搏自動載入
   try { setTimeout(fetchTWSEIndex, 1200); } catch(e) {}
+
+  // 6.55 FinMind 等級常駐徽章（v8.x）
+  try { setTimeout(() => _checkFinMindTierOnce(false), 800); } catch(e) {}
 
   // 6.6 期貨市場先行指標自動載入（v7.54）
   try { setTimeout(fetchFuturesModule, 1400); } catch(e) {}
