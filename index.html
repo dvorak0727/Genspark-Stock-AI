@@ -35215,25 +35215,27 @@ const SR_SECTOR_DEF = [
       {code:'2330',name:'台積電',  role:'最先進製程，量子晶片代工首選'},
     ],
   },
-  // ── v6.35d AI PC / Edge AI 新屢 ──────────────────────────────────────────────
-  // AI PC 在賺什麼？
-  // 1. Copilot+ PC NB 代工：NPU 內建小模型推理 → 廣達、仁寶、和榧、败耄
-  // 2. AI PC 處理器競爭：Intel Core Ultra / AMD Ryzen AI / Qualcomm Snapdragon X → 聯發科張量天房
-  // 3. 品牌電腦 OEM：AI 功能差异化報價 → 華穩、宏碑、微星
-  // 4. Edge AI 模組：Edge AI 推理卸載加速卡 → 研華、復盛算法專案 IC
+  // ── v6.35d AI PC / Edge AI 新增 ──────────────────────────────────────────────
+  // AI PC 在賺什麼？（v8.x 修正：這段註解跟下方keyStocks陣列裡有幾個公司
+  // 名稱/描述曾經被誤植成不存在的字詞，例如「宏碑」應為「宏碁」、「華穩」
+  // 應為「華碩」，這裡一併修正回真實公司名稱）
+  // 1. Copilot+ PC NB 代工：NPU 內建小模型推理 → 廣達、仁寶
+  // 2. AI PC 處理器競爭：Intel Core Ultra / AMD Ryzen AI / Qualcomm Snapdragon X → 聯發科
+  // 3. 品牌電腦 OEM：AI 功能差異化競爭 → 華碩、宏碁、微星
+  // 4. Edge AI 模組：Edge AI 推理卸載加速卡 → 技嘉、華擎
   {
     id:'ai_pc', name:'AI PC/Edge AI', emoji:'💻',
     // v6.35d 新增板塊定義（stocks[] = genSim 已有 + v6.35d 新增）
     stocks:['2357','2377','2382','2353','2324','2454','2376','3515'],
     corrToSemi:0.75, dependency:'中高度相關',
     keyStocks:[
-      {code:'2357',name:'華穩',    role:'Copilot+ PC OEM品牌龍頭'},
+      {code:'2357',name:'華碩',    role:'Copilot+ PC OEM品牌龍頭'},
       {code:'2377',name:'微星',    role:'AI PC/遊戲筆電品牌'},
       {code:'2382',name:'廣達',    role:'Copilot+ PC ODM（微軟大客）'},
-      {code:'2353',name:'宏碑',    role:'AI PC品牌，最大出貨量些亞房'},
-      {code:'2324',name:'仁寶',    role:'NB ODM，AI PC張量天手'},
+      {code:'2353',name:'宏碁',    role:'AI PC品牌，筆電出貨量全球前三'},
+      {code:'2324',name:'仁寶',    role:'NB ODM大廠，AI PC代工重要供應鏈'},
       {code:'2454',name:'聯發科',role:'Dimensity AI PC SoC，NPU IP授權'},
-      {code:'2376',name:'技嘉',    role:'AI PC主機板/小型公器電腦'},
+      {code:'2376',name:'技嘉',    role:'AI PC主機板／小型電腦'},
       {code:'3515',name:'華擎',    role:'Edge AI加速卡，NPU模組OEM'},
     ],
   },
