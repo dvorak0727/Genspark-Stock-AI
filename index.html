@@ -43678,18 +43678,40 @@ function detectSupportResistance(highs, lows, lookback = 60, tolerancePct = 0.01
 // 沿用既有 detectSwingPoints()（跟頭肩型態、突破共振同一套抓轉折點邏輯，
 // 不重新發明），只取「最近一組方向正確」的低點對/高點對，避免圖上線條太
 // 多反而更亂——這也是影片提醒的「不要為了畫趨勢線而畫趨勢線」。
-function detectTrendLines(highs, lows, closes) {
+//
+// v8.x-3（使用者實測截圖回報）：加上「不可切西瓜」鐵律——趨勢線是一面牆，
+// 兩個定義點之間，只要有任何一根K棒的「實體」（開盤/收盤之間，不是影線）
+// 穿過這條線，這條線就已經失效，不能拿來用。原本沒做這個檢查，找到第一組
+// 方向正確的兩點就直接採用；現在改成：不合格就continue往更早的點繼續找，
+// 找不到任何一組通過檢查才放棄（不會硬湊一條有瑕疵的線）。
+function _lineCutsBody(opens, closes, i, lineVal) {
+  const o = opens[i], c = closes[i];
+  if (o == null || c == null) return false;
+  const bodyHi = Math.max(o, c), bodyLo = Math.min(o, c);
+  return lineVal > bodyLo && lineVal < bodyHi;
+}
+
+function detectTrendLines(highs, lows, closes, opens) {
   const N = closes.length;
   if (N < 10) return [];
   const { peaks, troughs } = detectSwingPoints(highs, lows, 2);
+  const hasOpens = Array.isArray(opens) && opens.length === N;
   const lines = [];
 
-  // 上升趨勢線：由近而遠找第一組「後面的低點比前面高」的相鄰低點
+  // 上升趨勢線：由近而遠找第一組「後面的低點比前面高」且中間沒被實體切過的相鄰低點
   for (let i = troughs.length - 1; i > 0; i--) {
     const t1 = troughs[i - 1], t2 = troughs[i];
     if (t2.val <= t1.val) continue;
     const slope = (t2.val - t1.val) / (t2.i - t1.i);
     const valAt = (idx) => t1.val + slope * (idx - t1.i);
+    // 切西瓜檢查：t1與t2之間，任何一根K棒的實體都不能被這條線切過，否則這組不合格，換更早的點再試
+    if (hasOpens) {
+      let cut = false;
+      for (let k = t1.i + 1; k < t2.i; k++) {
+        if (_lineCutsBody(opens, closes, k, valAt(k))) { cut = true; break; }
+      }
+      if (cut) continue;
+    }
     const endIdx = N - 1;
     const endVal = valAt(endIdx);
     // 現價若已經遠低於趨勢線延伸值（跌破超過15%），這條線早就沒有參考意義，不畫
@@ -43701,15 +43723,22 @@ function detectTrendLines(highs, lows, closes) {
       if (lows[k] <= lv * 1.02 && closes[k] >= lv * 0.98) { confirmed = true; break; }
     }
     lines.push({ type: 'up', startIdx: t1.i, startVal: t1.val, slope, endVal, confirmed, broken: closes[endIdx] < endVal });
-    break; // 只取最近一組，避免畫面太亂
+    break; // 找到合格的一組就用它，避免畫面太亂
   }
 
-  // 下降趨勢線：由近而遠找第一組「後面的高點比前面低」的相鄰高點
+  // 下降趨勢線：由近而遠找第一組「後面的高點比前面低」且中間沒被實體切過的相鄰高點
   for (let i = peaks.length - 1; i > 0; i--) {
     const p1 = peaks[i - 1], p2 = peaks[i];
     if (p2.val >= p1.val) continue;
     const slope = (p2.val - p1.val) / (p2.i - p1.i);
     const valAt = (idx) => p1.val + slope * (idx - p1.i);
+    if (hasOpens) {
+      let cut = false;
+      for (let k = p1.i + 1; k < p2.i; k++) {
+        if (_lineCutsBody(opens, closes, k, valAt(k))) { cut = true; break; }
+      }
+      if (cut) continue;
+    }
     const endIdx = N - 1;
     const endVal = valAt(endIdx);
     if (closes[endIdx] > endVal * 1.15) continue;
@@ -44104,7 +44133,7 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens
 
   // v8.x：趨勢線——同樣用完整歷史找轉折點對（避免視窗邊緣漏抓兩個轉折點），
   // 畫的時候再用 ptOffset 換算成顯示視窗內的相對index
-  const trendLinesFull = hasOHLC ? detectTrendLines(highs, lows, closes) : [];
+  const trendLinesFull = hasOHLC ? detectTrendLines(highs, lows, closes, opens) : [];
   const trendLines = trendLinesFull.map(tl => ({ ...tl, startIdx: tl.startIdx - ptOffset }));
 
   _renderPVSignal(closes, vols);
@@ -44359,6 +44388,7 @@ function _drawPeriodCharts(period, longPriceRows) {
   const lo = slice.map(r => r.low  !== undefined ? r.low  : r.min);
   const fullHi = agg.map(r => r.high !== undefined ? r.high : r.max);
   const fullLo = agg.map(r => r.low  !== undefined ? r.low  : r.min);
+  const fullOpenAgg = agg.map(r => r.open);
   const srAgg = detectSupportResistance(fullHi, fullLo);
   // v7.93：斐波那契回撤——只在週/月線（長線模式）畫，日線資料量不夠、雜訊也大
   const fullCloseAgg = agg.map(r => r.close);
@@ -44378,7 +44408,7 @@ function _drawPeriodCharts(period, longPriceRows) {
 
   // v8.x：趨勢線——週/月線也套用同一套，用全部聚合資料找轉折點對，
   // 再把起點index換算成畫面視窗內的相對index（跟頭/底轉折同一套offset邏輯）
-  const trendLinesFullAgg = detectTrendLines(fullHi, fullLo, fullCloseAgg);
+  const trendLinesFullAgg = detectTrendLines(fullHi, fullLo, fullCloseAgg, fullOpenAgg);
   const trendLinesAgg = trendLinesFullAgg.map(tl => ({ ...tl, startIdx: tl.startIdx - ptOffset }));
   const { peaks: peaksAgg, troughs: troughsAgg } = detectSwingPoints(fullHi, fullLo, 2);
 
@@ -68584,7 +68614,7 @@ function renderTwseCandleChart() {
   const { peaks, troughs } = detectSwingPoints(cache.highs, cache.lows, 2);
 
   // v8.x：趨勢線——同一套 detectTrendLines()，用完整歷史算再換算成顯示視窗的相對index
-  const trendLinesFull = detectTrendLines(cache.highs, cache.lows, cache.closes);
+  const trendLinesFull = detectTrendLines(cache.highs, cache.lows, cache.closes, cache.opens);
   const trendLines = trendLinesFull.map(tl => ({ ...tl, startIdx: tl.startIdx - offset }));
 
   const verdict = _twseTrendVerdict(peaks, troughs);
