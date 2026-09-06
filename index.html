@@ -3333,13 +3333,14 @@
     /* ====== INDICATOR GRID ====== */
     .ind-grid {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
+      /* v8.x：桌機固定8欄1排（新增乖離率後共8張卡）；手機改用auto-fit自動
+         偵測可放幾欄，卡片本身有最小寬度，畫面窄就自動縮成更少欄，不用
+         再對應各斷點手動指定3欄/4欄，新增/減少卡片數也不用回來調斷點 */
+      grid-template-columns: repeat(8, 1fr);
       gap: 6px;
       margin-top: 8px;
     }
-    @media(max-width:720px){ .ind-grid{ grid-template-columns:repeat(4,1fr); } }
-    @media(max-width:500px){ .ind-grid{ grid-template-columns:repeat(3,1fr); } }
-    @media(max-width:360px){ .ind-grid{ grid-template-columns:repeat(2,1fr); } }
+    @media(max-width:720px){ .ind-grid{ grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); } }
     .ind-card {
       background: var(--surface2);
       border: 1px solid var(--border);
