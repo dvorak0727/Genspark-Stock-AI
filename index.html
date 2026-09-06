@@ -16744,11 +16744,6 @@ a.module-nav-item.acc-active {
     </button>
     <button class="btn-realtime" id="rtToggleBtn" onclick="rtToggle()" title="即時報價（約 10 秒更新，需 FinMind 贊助會員 Token）">⚡ 即時 OFF</button>
     <span id="rtStatus" style="font-size:0.68rem;font-weight:700;white-space:nowrap;"></span>
-    <!-- v8.x：FinMind 等級常駐提示——使用者要求「整個程式，sponsor等級的
-         記得在旁邊提示，免得跑出模擬數據」。之前是每個功能各自寫小字警語，
-         使用者要用到才會看到；這裡加一個隨時可見的小徽章，一眼就知道目前
-         是免費/註冊/贊助等級，點下去可以直接開Token設定看細節或升級。 -->
-    <span id="finmindTierBadge" onclick="openTokenModal()" title="點擊查看/設定 FinMind Token 等級" style="cursor:pointer;font-size:0.62rem;font-weight:700;padding:3px 9px;border-radius:14px;white-space:nowrap;background:var(--bg2);border:1px solid var(--border);color:var(--fg3);">🔌 FinMind：檢查中…</span>
     <div class="quick-chips">
       <span class="chip" onclick="quickSearch('2330')">台積電</span>
       <span class="chip" onclick="quickSearch('0050')">元大50</span>
@@ -17343,6 +17338,10 @@ a.module-nav-item.acc-active {
         <button class="cs-obv-btn" id="csOBVBtn" onclick="toggleOBVPanel()">📊 OBV</button>
         <!-- v7.60 股份金字塔按鈕（千張大戶持股分級，需FinMind Sponsor付費token） -->
         <button class="cs-obv-btn" id="csPyramidBtn" onclick="toggleSharePyramidPanel()" style="border-color:#7c3aed;color:#7c3aed;">🔺 股份金字塔</button>
+        <!-- v8.x：改成只在需要的功能旁邊掛小圖示，不是全站常駐大徽章（使用者反饋：
+             常駐徽章「寫跟沒寫是一樣的效果」，沒人會去點，改成只在真的用到贊助資料
+             的功能旁邊提示，等級足夠時自動隱藏，不足時顯示可點擊小圖示） -->
+        <span id="pyramidSponsorTag" onclick="openTokenModal()" title="此功能需要FinMind贊助會員Token才有真實資料，點擊查看/設定" style="display:none;cursor:pointer;font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;margin-left:4px;">🔒 需Sponsor</span>
         <!-- v7.18 3日意圖長條移至此 header 右側空白區（v7.60：縮小，讓位給股份金字塔按鈕） -->
         <div class="cs-header-3d" id="csHeader3d" style="transform:scale(0.82);transform-origin:right center;">
           <div class="cs-header-3d-label">⚖️ 3日意圖 <span id="cs3dText" style="color:var(--fg);font-weight:900;">—</span></div>
@@ -17672,6 +17671,10 @@ a.module-nav-item.acc-active {
           <div class="cs-panel-tabs">
             <button class="cs-panel-tab active" id="csPanelTabCost" onclick="switchMatrixPanel('cost')" data-tip="法人成本矩陣｜統計外資／投信在不同時間窗口的加權平均持倉成本，與現價對比判斷多空方向">⚖️ 法人成本矩陣</button>
             <button class="cs-panel-tab" id="csPanelTabGame" onclick="switchMatrixPanel('game')" data-tip="籌碼博弈矩陣｜解析前五大分點券商買賣淨額與方向，判斷主力進出與控盤節律">🎯 籌碼博弈矩陣</button>
+            <!-- v8.x：券商分點明細FinMind不論免費/贊助都不提供（需另外付費方案），
+                 這個模組固定是AI推算模擬資料，不是Sponsor等級能解決的，所以掛靜態
+                 圖示（不用像股份金字塔那樣動態依token等級顯示/隱藏） -->
+            <span title="券商分點明細非FinMind Sponsor方案涵蓋範圍，本模組固定為AI推算模擬資料，非真實數字" style="cursor:help;font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;margin-left:4px;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;">⚙️ 模擬資料</span>
           </div>
         </div>
 
@@ -67746,11 +67749,17 @@ const _FM_TIER_BANNER = {
   checking: { bg:'var(--bg2)', border:'var(--border)', fg:'var(--fg3)', text:'🔌 FinMind：檢查中…' },
 };
 function _renderFinMindTierBadge(level) {
-  const el = document.getElementById('finmindTierBadge');
+  // v8.x：改成只掛在「股份金字塔」按鈕旁邊的小圖示——原本是常駐在搜尋列的
+  // 大徽章，使用者反饋「寫跟沒寫是一樣的效果」（沒人會抬頭去看），拿掉；
+  // 改成只在真的需要 Sponsor 才有真實資料的功能旁邊提示，等級足夠(sponsor)
+  // 就直接隱藏，不足才顯示可點擊的小圖示。
+  const el = document.getElementById('pyramidSponsorTag');
   if (!el) return;
+  if (level === 'sponsor') { el.style.display = 'none'; return; }
   const b = _FM_TIER_BANNER[level] || _FM_TIER_BANNER.checking;
+  el.style.display = 'inline-block';
   el.style.background = b.bg; el.style.borderColor = b.border; el.style.color = b.fg;
-  el.textContent = b.text;
+  el.textContent = '🔒 ' + (level === 'checking' ? '檢查中…' : '需Sponsor');
 }
 async function _checkFinMindTierOnce(force) {
   try {
