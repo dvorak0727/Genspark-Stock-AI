@@ -18485,6 +18485,7 @@ a.module-nav-item.acc-active {
              也做成可關閉的開關，跟其他標注放一起管理，不用另外找地方關 -->
         <button class="kannot-btn kb-srLines active" id="kbSrLines" onclick="toggleKAnnot('srLines')" title="近60日轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
         <button class="kannot-btn kb-trendline active" id="kbTrendline" onclick="toggleKAnnot('trendline')" title="兩點成線，三點確認——只顯示已出現第3次觸碰驗證過的趨勢線，只有2點連線的草稿不畫，避免過度自信">📈 趨勢線</button>
+        <span onclick="showTrendlineTip(event)" title="①②③是什麼？點我看說明" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--bg2);color:var(--fg3);font-size:.6rem;font-weight:900;cursor:help;margin-left:-4px;">?</span>
         <button class="kannot-btn kb-peakTrough active" id="kbPeakTrough" onclick="toggleKAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
         <span class="kannot-reset" onclick="resetKAnnot()">全開</span>
       </div>
@@ -19113,6 +19114,7 @@ a.module-nav-item.acc-active {
           <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
             <button class="kannot-btn kb-srLines" id="twseAnnot_srLines" onclick="toggleTwseAnnot('srLines')" title="近60日轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
             <button class="kannot-btn kb-trendline" id="twseAnnot_trendline" onclick="toggleTwseAnnot('trendline')" title="兩點成線，三點確認——只顯示已出現第3次觸碰驗證過的趨勢線，只有2點連線的草稿不畫，避免過度自信">📈 趨勢線</button>
+            <span onclick="showTrendlineTip(event)" title="①②③是什麼？點我看說明" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--bg2);color:var(--fg3);font-size:.6rem;font-weight:900;cursor:help;margin-left:-4px;">?</span>
             <button class="kannot-btn kb-peakTrough" id="twseAnnot_peakTrough" onclick="toggleTwseAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
           </div>
           <div class="chart-wrap" style="position:relative;height:340px;">
@@ -36930,6 +36932,32 @@ function srCloseTip() {
   if (window._srTipKeyHandler) { document.removeEventListener('keydown', window._srTipKeyHandler); window._srTipKeyHandler = null; }
 }
 
+// v8.x：趨勢線①②③說明——沿用srShowRotationTip同一套彈窗機制/CSS，不重寫一份
+function showTrendlineTip(e) {
+  if (e) e.stopPropagation();
+  const tip = INDICATOR_TIP_DB['TRENDLINE_123'];
+  if (!tip) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'sr-popup-overlay';
+  overlay.id = 'srTipOverlay';
+  overlay.onclick = function(ev) { if (ev.target === overlay) srCloseTip(); };
+  overlay.innerHTML = ''
+    + '<div class="sr-popup" style="max-width:360px;">'
+    +   '<div class="sr-popup-head">'
+    +     '<div class="sr-popup-head-emoji">📈</div>'
+    +     '<div class="sr-popup-head-info"><div class="sr-popup-head-name">' + tip.title + '</div></div>'
+    +     '<button class="sr-popup-close" onclick="srCloseTip()">✕</button>'
+    +   '</div>'
+    +   '<div style="padding:10px 14px;font-size:.68rem;color:var(--fg2,#475569);white-space:pre-wrap;line-height:1.7;">'
+    +     '<div style="font-family:monospace;font-size:.62rem;background:rgba(0,0,0,0.05);border-radius:6px;padding:6px 9px;margin-bottom:8px;color:#B45309;">' + tip.formula + '</div>'
+    +     tip.body
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  window._srTipKeyHandler = ev => { if (ev.key === 'Escape') srCloseTip(); };
+  document.addEventListener('keydown', window._srTipKeyHandler);
+}
+
 function srPopupGo(code) {
   srClosePopup();
   // 捲回頁面頂部後執行搜尋
@@ -43716,13 +43744,21 @@ function detectTrendLines(highs, lows, closes, opens) {
     const endVal = valAt(endIdx);
     // 現價若已經遠低於趨勢線延伸值（跌破超過15%），這條線早就沒有參考意義，不畫
     if (closes[endIdx] < endVal * 0.85) continue;
-    // 第三次觸碰驗證：t2之後有沒有K棒低點貼近趨勢線（±2%）且收盤沒有真的跌破
+    // 第三次觸碰驗證：t2之後有沒有K棒低點真的「貼近」趨勢線（上下1%以內，
+    // 不是只設上限）且收盤沒有真的跌破（只留0.5%緩衝，不是原本鬆散的2%）。
+    // v8.x-4（使用者實測回報「抓太鬆」）：原本 lows[k] <= lv*1.02 只有上限、
+    // 沒有下限，代表低點不管跌到比線低多少都符合條件，等於完全沒在檢查
+    // 「有沒有貼近」，隨便一根收盤沒跌破的K棒就會被誤判成第三次觸碰。改成
+    // 用絕對距離(|low-線|/線 <= 1%)真的判斷「貼近」，收盤緩衝也從2%收緊
+    // 到0.5%，避免無關緊要的普通K棒被誤算成有效驗證。
     // v8.x：記下confirmIdx（第三個點的位置），讓「已驗證」不是一句看不到證據
     // 的口號——畫圖時要能在線上標出這個點，使用者才看得到「第3點在哪裡」。
     let confirmed = false, confirmIdx = null;
     for (let k = t2.i + 1; k < N; k++) {
       const lv = valAt(k);
-      if (lows[k] <= lv * 1.02 && closes[k] >= lv * 0.98) { confirmed = true; confirmIdx = k; break; }
+      const nearLine = Math.abs(lows[k] - lv) / lv <= 0.01;
+      const held = closes[k] >= lv * 0.995;
+      if (nearLine && held) { confirmed = true; confirmIdx = k; break; }
     }
     lines.push({ type: 'up', startIdx: t1.i, startVal: t1.val, t2Idx: t2.i, slope, endVal, confirmed, confirmIdx, broken: closes[endIdx] < endVal });
     break; // 找到合格的一組就用它，避免畫面太亂
@@ -43744,10 +43780,13 @@ function detectTrendLines(highs, lows, closes, opens) {
     const endIdx = N - 1;
     const endVal = valAt(endIdx);
     if (closes[endIdx] > endVal * 1.15) continue;
+    // 同上修正：改用絕對距離判斷「真的貼近」，收盤緩衝從2%收緊到0.5%
     let confirmed = false, confirmIdx = null;
     for (let k = p2.i + 1; k < N; k++) {
       const lv = valAt(k);
-      if (highs[k] >= lv * 0.98 && closes[k] <= lv * 1.02) { confirmed = true; confirmIdx = k; break; }
+      const nearLine = Math.abs(highs[k] - lv) / lv <= 0.01;
+      const held = closes[k] <= lv * 1.005;
+      if (nearLine && held) { confirmed = true; confirmIdx = k; break; }
     }
     lines.push({ type: 'down', startIdx: p1.i, startVal: p1.val, t2Idx: p2.i, slope, endVal, confirmed, confirmIdx, broken: closes[endIdx] > endVal });
     break;
@@ -72026,6 +72065,11 @@ const INDICATOR_TIP_DB = {
     title: '騎帶上行／騎帶下行（Band Walk）',
     formula: '連續3日收盤 ≥ 上軌×0.985 → 騎帶上行\n連續3日收盤 ≤ 下軌×1.015 → 騎帶下行',
     body: '• 布林軌道平常是「震盪時的邊界」，一旦進入強趨勢，價格會沿著軌道貼著走，不會馬上均值回歸\n• 騎帶上行：上軌不是壓力，是動能軌道；別看到碰上軌就急著空手接刀\n• 騎帶下行：下軌不是支撐，是加速通道；別用「碰下軌就撿便宜」邏輯抄底\n• 真正轉弱訊號：收盤跌破中軌，且反彈站不回中軌上方，才是趨勢可能結束\n• 判斷震盪市 vs 趨勢市優先於用軌道找買賣點：均線多頭排列＋MACD在零軸上＋成交量放大，才適用「騎帶」邏輯'
+  },
+  'TRENDLINE_123': {
+    title: '趨勢線的①②③是什麼？',
+    formula: '①②：構成線的兩個原始轉折點（兩點成線）\n③：第三次觸碰不破，驗證這條線成立（三點確認）',
+    body: '• ①②（同色圓點）：上升趨勢線抓兩個依序墊高的低點；下降趨勢線抓兩個依序走低的高點——單獨這兩點，只是「兩點連線」，統計上還不算數\n• ③（橘色圓點）：線畫好之後，股價第三次回來貼近這條線、沒有真的跌破/站上，才代表市場真的認這條線，這條線才「三點確認」成立\n• 圖上完全不畫沒有③的線——只有兩個點，隨便找都連得出來，不會顯示\n• 兩點之間如果有K棒實體切過這條線，這組點會直接被淘汰、改用更早的點，不會硬湊一條有瑕疵的線'
   },
   'MA排列': {
     title: 'MA 均線排列',
