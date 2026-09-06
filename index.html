@@ -66485,6 +66485,197 @@ async function _fetchMacroSnapshot() {
 }
 
 // ══════════════════════════════════════════════════
+//  😨 VIX 恐慌指數走勢圖彈窗（v8.x）——使用者發現VIX「有均值回歸特性但
+//  沒有固定週期、事件驅動、極端值不長期持續、有淡季效應」，覺得這個現象
+//  很有趣，要求點卡片跳出年線/月線走勢圖+白話說明+歷史重大波動事件標注。
+//  資料源同10Y-3M利差走勢圖，共用同一支license-worker /yahoo代理。
+// ══════════════════════════════════════════════════
+let _vixChart = null;
+let _vixMode = 'year';
+
+// 近35年VIX史上幾次最有代表性的急升事件（月份對應VIX月線資料的月份粒度，
+// 抓「事件發生／股市恐慌最劇烈」的那個月，不是精確到那一天——年線資料
+// 本身就是月度粒度，精確到日沒有意義）。highlight的兩筆是VIX歷史前兩高。
+const VIX_EVENTS = [
+  { date: '1990-08', name: '波灣戰爭', desc: '伊拉克入侵科威特，油價飆漲、市場恐慌' },
+  { date: '1997-10', name: '亞洲金融風暴', desc: '亞洲貨幣競貶蔓延，全球股市重挫' },
+  { date: '1998-08', name: 'LTCM危機', desc: '俄羅斯債務違約＋長期資本管理公司瀕臨倒閉' },
+  { date: '2001-09', name: '911恐怖攻擊', desc: '美股史上少見的停市事件，重開後VIX急升' },
+  { date: '2002-07', name: '網路泡沫尾聲', desc: '安隆／世界通訊會計醜聞，股市探底' },
+  { date: '2008-10', name: '雷曼倒閉／金融海嘯', desc: '全球金融體系瀕臨崩潰，VIX盤中一度衝破80', highlight: true },
+  { date: '2010-05', name: '歐債危機／閃崩', desc: '希臘債務危機＋美股Flash Crash單日重挫' },
+  { date: '2011-08', name: '美債主權降評', desc: '標普首次調降美國AAA信評' },
+  { date: '2015-08', name: '中國股災', desc: '人民幣意外貶值，全球股市連動重挫' },
+  { date: '2018-02', name: 'Volmageddon', desc: '放空波動率商品(XIV)集體崩盤，VIX單日暴衝逾100%' },
+  { date: '2020-03', name: 'COVID-19疫情崩盤', desc: 'VIX盤中衝上史上最高82.69，史上最快速的一次熊市', highlight: true },
+  { date: '2022-02', name: '俄烏戰爭爆發', desc: '地緣政治風險＋能源價格急升' },
+  { date: '2024-08', name: '日圓套利交易平倉', desc: '日本升息引發全球套利交易急速平倉，VIX單日飆升逾180%' },
+];
+
+async function _fetchVixSeries(range, interval) {
+  try {
+    const j = await fetch(`https://license-worker.dvorak0727.workers.dev/yahoo?ticker=%5EVIX&range=${range}&interval=${interval}`).then(r => r.json());
+    const res = j?.chart?.result?.[0];
+    if (!res) return null;
+    const ts = res.timestamp || [], closes = res.indicators?.quote?.[0]?.close || [];
+    const out = [];
+    ts.forEach((t, i) => {
+      if (closes[i] == null) return;
+      out.push({ date: new Date(t * 1000).toISOString().slice(0, 10), val: closes[i] });
+    });
+    return out;
+  } catch (e) {
+    console.warn('[VIX走勢圖]', e.message);
+    return null;
+  }
+}
+
+function openVixModal() {
+  let overlay = document.getElementById('vixModalOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'vixModalOverlay';
+    overlay.className = 'tech-zoom-overlay';
+    overlay.innerHTML = `<div class="tech-zoom-panel" style="max-width:820px;">
+      <button class="tech-zoom-close" onclick="closeVixModal()">✕ 關閉</button>
+      <div style="clear:both;">
+        <div style="font-weight:900;font-size:0.9rem;margin-bottom:4px;color:var(--fg);">😨 VIX 恐慌指數走勢</div>
+        <div style="font-size:0.66rem;color:var(--fg3);margin-bottom:10px;">芝加哥選擇權交易所(CBOE)波動率指數，反映市場對未來30天S&amp;P 500波動的預期，數字越高代表市場越恐慌</div>
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+          <button class="chart-period-tab active" id="vixTabYear" onclick="switchVixMode('year')">📅 年線（近35年・月資料，含歷史事件）</button>
+          <button class="chart-period-tab" id="vixTabMonth" onclick="switchVixMode('month')">🗓️ 月線（近5年・週資料）</button>
+        </div>
+        <div style="position:relative;height:280px;"><canvas id="vixCanvas"></canvas></div>
+        <div id="vixStatus" style="font-size:0.66rem;color:var(--fg3);margin-top:8px;">載入中…</div>
+        <div id="vixEventList" style="margin-top:8px;"></div>
+        <div id="vixExplain" style="margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--bg2);font-size:0.7rem;line-height:1.8;color:var(--fg2);"></div>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeVixModal(); });
+  }
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  switchVixMode(_vixMode);
+}
+
+function closeVixModal() {
+  const overlay = document.getElementById('vixModalOverlay');
+  if (overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function switchVixMode(mode) {
+  _vixMode = mode;
+  document.getElementById('vixTabYear')?.classList.toggle('active', mode === 'year');
+  document.getElementById('vixTabMonth')?.classList.toggle('active', mode === 'month');
+  const statusEl = document.getElementById('vixStatus');
+  const eventListEl = document.getElementById('vixEventList');
+  if (statusEl) statusEl.textContent = '載入中…';
+  if (eventListEl) eventListEl.innerHTML = '';
+
+  const { range, interval } = mode === 'year' ? { range: 'max', interval: '1mo' } : { range: '5y', interval: '1wk' };
+  const series = await _fetchVixSeries(range, interval);
+  if (!series || series.length < 2) {
+    if (statusEl) statusEl.textContent = '⚠️ 資料抓取失敗，請稍後再試（可能是Yahoo Finance連線限制）';
+    return;
+  }
+
+  const monthKeys = series.map(s => s.date.slice(0, 7)); // 'YYYY-MM'
+  const labels = series.map(s => mode === 'year' ? s.date.slice(0, 7) : s.date.slice(2));
+  const data = series.map(s => +s.val.toFixed(1));
+
+  // 只在圖表涵蓋的月份範圍內找得到的歷史事件才標注（月線只看近5年，通常沒有舊事件）
+  const eventsInRange = mode === 'year'
+    ? VIX_EVENTS.map(ev => ({ ...ev, idx: monthKeys.indexOf(ev.date) })).filter(ev => ev.idx >= 0)
+    : [];
+
+  const canvasEl = document.getElementById('vixCanvas');
+  if (!canvasEl) return;
+  const ctx = canvasEl.getContext('2d');
+  if (_vixChart) { _vixChart.destroy(); _vixChart = null; }
+  _vixChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'VIX', data,
+        borderColor: '#7C3AED', borderWidth: 1.5, pointRadius: 0, tension: 0.15,
+        segment: { borderColor: c => (c.p0.parsed.y >= 30 || c.p1.parsed.y >= 30) ? '#DC2626' : '#7C3AED' },
+        fill: { target: { value: 0 }, above: 'rgba(124,58,237,0.06)' },
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `VIX ${c.parsed.y}` } },
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 10, font: { size: 9 } } },
+        y: { ticks: { font: { size: 9 } } },
+      },
+    },
+    plugins: [{
+      id: 'vixEventMarkers',
+      afterDraw(chart) {
+        const { ctx: c, chartArea, scales } = chart;
+        c.save();
+        // 20/30 參考虛線（20=正常上緣、30=偏謹慎門檻，跟卡片本身的判讀級距一致）
+        [20, 30].forEach(level => {
+          const y = scales.y.getPixelForValue(level);
+          if (y < chartArea.top || y > chartArea.bottom) return;
+          c.strokeStyle = '#94A3B8'; c.setLineDash([3, 3]); c.lineWidth = 1;
+          c.beginPath(); c.moveTo(chartArea.left, y); c.lineTo(chartArea.right, y); c.stroke();
+        });
+        c.setLineDash([]);
+        // 歷史事件：垂直虛線 + 編號小圓標在圖表頂端
+        eventsInRange.forEach((ev, n) => {
+          const x = scales.x.getPixelForValue(ev.idx);
+          if (x < chartArea.left || x > chartArea.right) return;
+          c.strokeStyle = ev.highlight ? 'rgba(220,38,38,0.55)' : 'rgba(217,119,6,0.5)';
+          c.lineWidth = ev.highlight ? 1.5 : 1;
+          c.beginPath(); c.moveTo(x, chartArea.top); c.lineTo(x, chartArea.bottom); c.stroke();
+          const r = 8;
+          c.beginPath(); c.arc(x, chartArea.top + r, r, 0, Math.PI * 2);
+          c.fillStyle = ev.highlight ? '#DC2626' : '#D97706';
+          c.fill();
+          c.fillStyle = '#fff'; c.font = '700 9px sans-serif';
+          c.textAlign = 'center'; c.textBaseline = 'middle';
+          c.fillText(String(n + 1), x, chartArea.top + r + 1);
+        });
+        c.restore();
+        c.textAlign = 'left';
+      },
+    }],
+  });
+
+  const latest = data.at(-1);
+  const peakIdx = data.indexOf(Math.max(...data));
+  if (statusEl) statusEl.textContent = `最新：${latest}　·　這段期間最高點：${data[peakIdx]}（${labels[peakIdx]}）`;
+
+  if (eventListEl && eventsInRange.length) {
+    eventListEl.innerHTML = `<div style="font-size:0.66rem;color:var(--fg3);margin-bottom:4px;">圖上標注的重大波動事件：</div>` +
+      eventsInRange.map((ev, n) => `
+        <div style="display:flex;gap:6px;align-items:flex-start;font-size:0.68rem;line-height:1.6;margin-bottom:2px;">
+          <span style="flex:none;width:16px;height:16px;border-radius:50%;background:${ev.highlight ? '#DC2626' : '#D97706'};color:#fff;font-weight:700;font-size:9px;display:flex;align-items:center;justify-content:center;">${n + 1}</span>
+          <span><b>${ev.name}</b>（${ev.date}）— ${ev.desc}</span>
+        </div>`).join('');
+  }
+
+  const explainEl = document.getElementById('vixExplain');
+  if (explainEl) {
+    explainEl.innerHTML = `
+      <b>白話說明：</b>VIX是市場對「未來30天S&amp;P 500會有多震盪」的預期，不是股價本身。<br>
+      • <b>事件驅動，沒有固定週期</b>：VIX不會像四季一樣規律循環，平時長期待在低檔（10~15，代表市場風平浪靜），一有系統性風險（戰爭、金融危機、疫情、政策意外）就急速飆高，圖上橘色/紅色圓點標注的都是這種急升事件。<br>
+      • <b>均值回歸</b>：極端高點（虛線30以上，偏謹慎/恐慌區）不會長期持續——市場不可能永遠恐慌，事件過後通常會緩慢回落到10~20的正常區間。<br>
+      • <b>淡季效應</b>：每年7-8月市場相對清淡、9-10月歷史上波動常放大（美股傳統的「9月效應」），是統計上的季節性傾向，不是嚴格的物理規律。<br>
+      • ${mode === 'year' ? '年線用近35年月資料，可以看到VIX史上最極端的幾次事件（雷曼、疫情兩次都衝破70），也能感受到「事件來得快、退得也不算慢」的均值回歸特性。' : '月線用近5年週資料，適合看最近這段時間的波動水位是偏高還是偏低。'}
+    `;
+  }
+}
+
+// ══════════════════════════════════════════════════
 //  📉 10Y-3M 利差走勢圖彈窗（v8.x）——使用者點開盤壓力表的「10Y-3M利差」
 //  卡片，跳出年線(近40年月資料)/月線(近5年週資料)走勢圖 + 白話說明。
 //  沿用 license-worker 的 /yahoo 代理，range 白名單新增了 5y/10y/max、
@@ -76682,10 +76873,10 @@ async function fetchOpeningPressure() {
   if (macroSnap) {
     const { vix, spread } = macroSnap;
     const vixCls = vix >= 25 ? 'bear' : '';
-    gridEl.innerHTML += `<div class="opp-item ${vixCls}">
+    gridEl.innerHTML += `<div class="opp-item ${vixCls}" onclick="openVixModal()" style="cursor:pointer;" title="點擊查看歷史走勢圖">
       <div class="opp-item-name">😨 美股VIX</div>
       <div class="opp-item-price">${vix.toFixed(1)}</div>
-      <div class="opp-item-sim">${vix < 15 ? '極度樂觀' : vix < 25 ? '正常波動' : vix < 35 ? '偏謹慎' : '極度恐慌'}</div>
+      <div class="opp-item-sim">${vix < 15 ? '極度樂觀' : vix < 25 ? '正常波動' : vix < 35 ? '偏謹慎' : '極度恐慌'} 🔍</div>
     </div>`;
     const spCls = spread < 0 ? 'bear' : '';
     gridEl.innerHTML += `<div class="opp-item ${spCls}" onclick="openYieldSpreadModal()" style="cursor:pointer;" title="點擊查看歷史走勢圖">
