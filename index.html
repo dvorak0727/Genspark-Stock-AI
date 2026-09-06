@@ -17079,6 +17079,45 @@ a.module-nav-item.acc-active {
         <div class="vd-main">⏳ 正在抓取全球市場數據...</div>
       </div>
 
+      <!-- v8.x：台指夜盤走勢圖——使用者要求給台指夜盤也做完整的技術指標
+           （K棒+MA+布林通道+支撐壓力+趨勢線+MACD/KD），跟大盤K棒圖同一套
+           規格，只是資料源換成TaiwanFuturesDaily近月合約夜盤收盤 -->
+      <div style="margin-top:10px;">
+        <button id="nightFutChartBtn" onclick="toggleNightFutChart()" style="width:100%;text-align:left;font-size:.62rem;padding:8px 10px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;color:var(--fg);font-weight:700;">
+          🌙 台指夜盤走勢圖＋MACD/KD <span style="opacity:.6;font-weight:400;">▼ 點擊展開</span>
+        </button>
+        <div id="nightFutChartArea" style="display:none;margin-top:6px;background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+            <button class="kannot-btn kb-srLines" id="nightFutAnnot_srLines" onclick="toggleNightFutAnnot('srLines')" title="近期轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
+            <button class="kannot-btn kb-trendline" id="nightFutAnnot_trendline" onclick="toggleNightFutAnnot('trendline')" title="兩點成線，三點確認——只顯示已出現第3次觸碰驗證過的趨勢線">📈 趨勢線</button>
+            <span onclick="showTrendlineTip(event)" title="①②③是什麼？點我看說明" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--surface2);color:var(--fg3);font-size:.6rem;font-weight:900;cursor:help;margin-left:-4px;">?</span>
+            <button class="kannot-btn kb-peakTrough" id="nightFutAnnot_peakTrough" onclick="toggleNightFutAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
+          </div>
+          <div class="chart-wrap" style="position:relative;height:300px;">
+            <canvas id="nightFutCandleChart"></canvas>
+          </div>
+          <div class="chart-wrap" style="position:relative;height:90px;margin-top:4px;">
+            <canvas id="nightFutVolChart"></canvas>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+            <div>
+              <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">📊 MACD</div>
+              <div class="chart-wrap" style="position:relative;height:100px;"><canvas id="nightFutMacdChart"></canvas></div>
+            </div>
+            <div>
+              <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">🎯 KD</div>
+              <div class="chart-wrap" style="position:relative;height:100px;"><canvas id="nightFutKdChart"></canvas></div>
+            </div>
+          </div>
+          <div id="nightFutVerdict" style="font-size:.66rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--surface2);border-radius:8px;border-left:3px solid #1e3a8a;margin-top:8px;">
+            載入中…
+          </div>
+          <div class="peg-notice" style="margin-top:8px;">
+            ⚠️ 資料源：TaiwanFuturesDaily 近月合約夜盤收盤（trading_session=after_market），非即時報價，僅供隔日開盤參考，不構成投資建議。
+          </div>
+        </div>
+      </div>
+
       <!-- 🇺🇸 美股熱力圖（v7.61：併入開盤壓力表，不再獨立開一張卡）——
            風格比照XQ市場表現熱力圖：兩層squarify（先分11大類股區塊，區塊
            大小=類股內權重總和，區塊內再依個股權重排方形樹狀圖），不是
@@ -76948,6 +76987,207 @@ async function _fetchNightFutures() {
       : (latest.close - latest.spread > 0 ? (latest.spread / (latest.close - latest.spread)) * 100 : 0);
     return { date: latest.date, close: latest.close, chg: +Number(chgPct).toFixed(2), spread: latest.spread };
   } catch(e) { return null; }
+}
+
+// v8.x：台指夜盤走勢圖——抓一段夠長的歷史（近90天）夜盤近月合約OHLC，
+// 同一天可能有好幾個合約月份，跟 _fetchNightFutures() 同一套規則：排除
+// 跨月價差合約，取當天成交量最大的近月合約，逐日建成一條乾淨的序列。
+let _nightFutCache = null;
+let _nightFutAnnotState = { srLines: false, trendline: false, peakTrough: false };
+
+async function _fetchNightFuturesHistory(days = 90) {
+  const fmt = d => d.toISOString().slice(0, 10);
+  const end = new Date();
+  const start = new Date(); start.setDate(start.getDate() - days);
+  const token = getToken();
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 12000);
+    const url = `${FINMIND}?dataset=TaiwanFuturesDaily&data_id=TX&start_date=${fmt(start)}&end_date=${fmt(end)}${token ? '&token=' + token : ''}`;
+    const r = await fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(tid));
+    if (!r.ok) return null;
+    const j = await r.json();
+    const rows = (j.data || []).filter(d =>
+      d.trading_session === 'after_market' && d.close > 0 && !String(d.contract_date || '').includes('/')
+    );
+    if (!rows.length) return null;
+    // 依日期分組，每天只取成交量最大的近月合約
+    const byDate = {};
+    rows.forEach(r => { (byDate[r.date] ||= []).push(r); });
+    const dates = Object.keys(byDate).sort();
+    const picked = dates.map(d => byDate[d].reduce((mx, r) => r.volume > mx.volume ? r : mx, byDate[d][0]));
+    return {
+      dates,
+      opens: picked.map(r => +r.open),
+      highs: picked.map(r => +r.max),
+      lows: picked.map(r => +r.min),
+      closes: picked.map(r => +r.close),
+      vols: picked.map(r => +r.volume || 0),
+    };
+  } catch (e) {
+    console.warn('[台指夜盤走勢圖]', e.message);
+    return null;
+  }
+}
+
+async function toggleNightFutChart() {
+  const area = document.getElementById('nightFutChartArea');
+  if (!area) return;
+  const opening = area.style.display === 'none';
+  area.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    if (!_nightFutCache) {
+      const verdictEl = document.getElementById('nightFutVerdict');
+      if (verdictEl) verdictEl.textContent = '⏳ 抓取近90日夜盤資料中…';
+      _nightFutCache = await _fetchNightFuturesHistory(90);
+    }
+    renderNightFuturesChart();
+  }
+}
+
+function toggleNightFutAnnot(key) {
+  _nightFutAnnotState[key] = !_nightFutAnnotState[key];
+  const btn = document.getElementById('nightFutAnnot_' + key);
+  if (btn) btn.classList.toggle('active', _nightFutAnnotState[key]);
+  if (charts['nightFutCandleChart']) charts['nightFutCandleChart'].update();
+}
+
+function renderNightFuturesChart() {
+  const verdictEl = document.getElementById('nightFutVerdict');
+  const canvasEl = document.getElementById('nightFutCandleChart');
+  if (!canvasEl) return;
+  const cache = _nightFutCache;
+  if (!cache || !cache.closes || !cache.closes.length) {
+    if (verdictEl) verdictEl.textContent = '⚠️ 抓不到夜盤歷史資料（可能是連線限制或近期夜盤無交易），請稍後再試。';
+    return;
+  }
+
+  const n = Math.min(30, cache.closes.length);
+  const dates = cache.dates.slice(-n);
+  const opens = cache.opens.slice(-n);
+  const highs = cache.highs.slice(-n);
+  const lows = cache.lows.slice(-n);
+  const closes = cache.closes.slice(-n);
+  const vols = cache.vols.slice(-n);
+  const dl = dates.map(d => d.slice(5).replace('-', '/'));
+
+  const ma5 = calcMA(cache.closes, 5).slice(-n);
+  const ma10 = calcMA(cache.closes, 10).slice(-n);
+  const ma20 = calcMA(cache.closes, 20).slice(-n);
+  const boll = calcBoll(cache.closes, 20, 2);
+  const bu = boll.upper.slice(-n), bl = boll.lower.slice(-n);
+
+  const sr = detectSupportResistance(cache.highs, cache.lows);
+  const resLines = [
+    ...sr.support.map(s => ({ ...s, type: 'support' })),
+    ...sr.resistance.map(s => ({ ...s, type: 'resistance' })),
+  ];
+  const offset = cache.closes.length - n;
+  const { peaks, troughs } = detectSwingPoints(cache.highs, cache.lows, 2);
+  const trendLinesFull = detectTrendLines(cache.highs, cache.lows, cache.closes, cache.opens);
+  const trendLines = trendLinesFull.map(tl => ({
+    ...tl, startIdx: tl.startIdx - offset,
+    t2Idx: tl.t2Idx - offset,
+    confirmIdx: tl.confirmIdx != null ? tl.confirmIdx - offset : null,
+  }));
+
+  destroyChart('nightFutCandleChart');
+  const ctx = canvasEl.getContext('2d');
+  charts['nightFutCandleChart'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: dl,
+      datasets: [
+        { label: '收盤價', data: closes, borderColor: 'rgba(30,58,138,0.2)', borderWidth: 1, pointRadius: 0, fill: false, tension: 0.1 },
+        { label: 'MA5', data: ma5, borderColor: '#FF7043', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'MA10', data: ma10, borderColor: '#22C55E', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'MA20', data: ma20, borderColor: '#6C5CE7', borderWidth: 1.2, pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'BB上', data: bu, borderColor: 'rgba(255,193,7,0.5)', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'BB下', data: bl, borderColor: 'rgba(255,193,7,0.5)', borderWidth: 1, borderDash: [4, 3], pointRadius: 0, fill: '-1', backgroundColor: 'rgba(255,193,7,0.05)', tension: 0.3 },
+        { label: '_high', data: highs, borderWidth: 0, pointRadius: 0, fill: false, borderColor: 'transparent', backgroundColor: 'transparent' },
+        { label: '_low', data: lows, borderWidth: 0, pointRadius: 0, fill: false, borderColor: 'transparent', backgroundColor: 'transparent' },
+      ],
+    },
+    plugins: [_candlestickPlugin, _peakTroughPlugin],
+    options: (() => {
+      const opts = lightChartOpts('台指夜盤K棒 + MA5/10/20 + 布林通道 + 候選支撐壓力 + 趨勢線（規則式偵測，非型態學AI判讀）', false, true);
+      opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
+      const yr = _candleYRange(highs, lows);
+      if (yr) { opts.scales.y.min = yr.min; opts.scales.y.max = yr.max; }
+      opts.scales.x.offset = true;
+      return opts;
+    })(),
+  });
+  charts['nightFutCandleChart'].$candleData = { opens, highs, lows, closes, resLines, trendLines };
+  charts['nightFutCandleChart'].$peakTroughData = { peaks, troughs, offset };
+  charts['nightFutCandleChart'].$annotState = _nightFutAnnotState;
+  charts['nightFutCandleChart'].update('none');
+
+  destroyChart('nightFutVolChart');
+  const volCtx = document.getElementById('nightFutVolChart').getContext('2d');
+  const volColors = vols.map((v, i) => closes[i] >= (i > 0 ? closes[i - 1] : opens[0]) ? 'rgba(232,52,58,0.65)' : 'rgba(22,163,74,0.65)');
+  charts['nightFutVolChart'] = new Chart(volCtx, {
+    type: 'bar',
+    data: { labels: dl, datasets: [{ label: '成交量(口)', data: vols, backgroundColor: volColors, borderRadius: 2 }] },
+    options: (() => {
+      const opts = lightChartOpts('夜盤成交量(口)', false, true);
+      opts.plugins.legend.display = false;
+      return opts;
+    })(),
+  });
+
+  // MACD / KD 小圖——沿用計算函式，畫法用簡單的Chart.js組合，跟主K棒圖共用同一批歷史資料（不是只近30日視窗）
+  const macd = calcMACD(cache.closes);
+  const kd = calcKD(cache.highs, cache.lows, cache.closes, 9);
+  const mN = Math.min(40, cache.closes.length);
+  const mdl = cache.dates.slice(-mN).map(d => d.slice(5).replace('-', '/'));
+
+  destroyChart('nightFutMacdChart');
+  const macdCtx = document.getElementById('nightFutMacdChart').getContext('2d');
+  charts['nightFutMacdChart'] = new Chart(macdCtx, {
+    type: 'bar',
+    data: {
+      labels: mdl,
+      datasets: [
+        { type: 'bar', label: 'OSC', data: macd.Hist.slice(-mN), backgroundColor: macd.Hist.slice(-mN).map(v => v >= 0 ? '#E8343A' : '#16A34A'), borderRadius: 1 },
+        { type: 'line', label: 'DIF', data: macd.MACD.slice(-mN), borderColor: '#F59E0B', borderWidth: 1.3, pointRadius: 0, tension: 0.2 },
+        { type: 'line', label: 'MACD', data: macd.Signal.slice(-mN), borderColor: '#6366F1', borderWidth: 1.3, pointRadius: 0, tension: 0.2 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 8, font: { size: 8 } } } },
+      scales: { x: { ticks: { maxTicksLimit: 6, font: { size: 8 } } }, y: { ticks: { font: { size: 8 } } } },
+    },
+  });
+
+  destroyChart('nightFutKdChart');
+  const kdCtx = document.getElementById('nightFutKdChart').getContext('2d');
+  charts['nightFutKdChart'] = new Chart(kdCtx, {
+    type: 'line',
+    data: {
+      labels: mdl,
+      datasets: [
+        { label: 'K', data: kd.K.slice(-mN), borderColor: '#F59E0B', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
+        { label: 'D', data: kd.D.slice(-mN), borderColor: '#3B82F6', borderWidth: 1.5, pointRadius: 0, tension: 0.2 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 8, font: { size: 8 } } } },
+      scales: { x: { ticks: { maxTicksLimit: 6, font: { size: 8 } } }, y: { min: 0, max: 100, ticks: { font: { size: 8 }, stepSize: 20 } } },
+    },
+  });
+
+  if (verdictEl) {
+    const lc = cache.closes.at(-1), pc = cache.closes.at(-2) || lc;
+    const chgPct = pc ? ((lc - pc) / pc * 100).toFixed(2) : '0.00';
+    const lK = kd.K.at(-1), lD = kd.D.at(-1);
+    const kdTxt = lK != null ? `K${lK.toFixed(0)}/D${lD.toFixed(0)}（${lK > 80 ? '超買區' : lK < 20 ? '超賣區' : '中性區'}）` : '—';
+    const lHist = macd.Hist.at(-1);
+    const macdTxt = lHist != null ? (lHist >= 0 ? `多方 +${lHist.toFixed(1)}` : `空方 ${lHist.toFixed(1)}`) : '—';
+    verdictEl.innerHTML = `📊 <b>台指夜盤最新：${lc.toLocaleString()}點（${chgPct >= 0 ? '+' : ''}${chgPct}%）</b>　MACD：${macdTxt}　KD：${kdTxt}`;
+  }
 }
 
 /* ── 主渲染 ── */
