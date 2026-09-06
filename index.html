@@ -19108,6 +19108,13 @@ a.module-nav-item.acc-active {
           📊 大盤K棒圖＋頭/底轉折偵測 <span style="opacity:.6;font-weight:400;">▼ 點擊展開</span>
         </button>
         <div id="twseCandleArea" style="display:none;margin-top:6px;background:var(--bg2);border-radius:10px;padding:10px;">
+          <!-- v8.x：支撐線/壓力線/趨勢線平時不顯示，點按鈕才個別出現（跟個股頁面
+               預設全開不同，大盤圖是給看大方向用的，預設乾淨） -->
+          <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+            <button class="kannot-btn kb-srLines" id="twseAnnot_srLines" onclick="toggleTwseAnnot('srLines')" title="近60日轉折點聚集偵測出的候選支撐/壓力水平線">➖ 支撐壓力線</button>
+            <button class="kannot-btn kb-trendline" id="twseAnnot_trendline" onclick="toggleTwseAnnot('trendline')" title="上升趨勢連接越來越高的低點／下降趨勢連接越來越低的高點">📈 趨勢線</button>
+            <button class="kannot-btn kb-peakTrough" id="twseAnnot_peakTrough" onclick="toggleTwseAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
+          </div>
           <div class="chart-wrap" style="position:relative;height:340px;">
             <canvas id="twseCandleChart"></canvas>
           </div>
@@ -43911,6 +43918,16 @@ function _candleYRange(highs, lows, padPct = 0.06) {
 
 // v7.53：自訂 Chart.js 外掛，在收盤線圖的座標系統上疊畫K棒（開高低收）
 // 跟支撐/壓力水平線——不依賴任何外部K棒繪圖套件，純手刻，資料源不變。
+// v8.x：標注圖層開關——大部分圖表（個股技術指標）用全域 _kannotState，預設全開；
+// 但像「大盤K棒圖」這種圖，使用者要求支撐線/壓力線/趨勢線平時不顯示、點按鈕才
+// 個別出現，不能套用全域狀態（會被個股頁面的開關互相干擾）。做法：允許在
+// chart實例上掛一個獨立的 chart.$annotState，若有掛就優先用它，沒有掛的圖表
+// （個股技術指標）自動退回用全域 _kannotState，兩邊互不影響。
+function _annotVisible(chart, key) {
+  const state = chart.$annotState || _kannotState;
+  return state[key] !== false;
+}
+
 const _candlestickPlugin = {
   id: '_candlestickPlugin',
   beforeDatasetsDraw(chart) {
@@ -43950,7 +43967,7 @@ const _candlestickPlugin = {
     // 候選支撐/壓力水平線（v7.93：新增 type:'fib' 斐波那契回撤線，用獨立配色+標籤，
     // 不套用「候選支撐/壓力」那套文字，避免使用者誤以為斐波那契線是觸碰次數算出來的）
     // v8.x：改成可關閉——標注越來越多，讓使用者能自己選要不要常駐畫在圖上
-    if (_kannotState.srLines !== false) {
+    if (_annotVisible(chart, 'srLines')) {
       (meta.resLines || []).forEach(({ level, touches, type, label }) => {
         const y = yScale.getPixelForValue(level);
         if (y < chartArea.top || y > chartArea.bottom) return;
@@ -43975,7 +43992,7 @@ const _candlestickPlugin = {
     // 從第一個轉折點延伸畫到今天（若轉折點在目前顯示視窗之前，從左邊界開始畫，
     // 高度用同一條線的公式换算，不會斷線）。虛線代表已跌破/已站上（線的意義
     // 已改變），實線代表目前仍然成立。
-    if (_kannotState.trendline !== false && barCount > 0) {
+    if (_annotVisible(chart, 'trendline') && barCount > 0) {
       (meta.trendLines || []).forEach(tl => {
         const { startIdx, startVal, slope, endVal, confirmed, broken, type } = tl;
         const endIdx = barCount - 1;
@@ -68475,7 +68492,7 @@ function _twseTrendVerdict(peaks, troughs) {
 const _peakTroughPlugin = {
   id: '_peakTroughPlugin',
   afterDatasetsDraw(chart) {
-    if (typeof _kannotState !== 'undefined' && _kannotState.peakTrough === false) return;
+    if (!_annotVisible(chart, 'peakTrough')) return;
     const meta = chart.$peakTroughData;
     if (!meta) return;
     const { scales, ctx, chartArea } = chart;
@@ -68507,6 +68524,17 @@ function toggleTwseCandle() {
   const opening = area.style.display === 'none';
   area.style.display = opening ? 'block' : 'none';
   if (opening) renderTwseCandleChart();
+}
+
+// v8.x：大盤K棒圖的支撐線/壓力線/趨勢線——使用者要求平時不顯示、
+// 點按鈕才個別出現，用獨立狀態物件（不是全域_kannotState），避免跟
+// 個股技術指標卡片的開關互相干擾。
+const _twseAnnotState = { srLines: false, trendline: false, peakTrough: false };
+function toggleTwseAnnot(key) {
+  _twseAnnotState[key] = !_twseAnnotState[key];
+  const btn = document.getElementById('twseAnnot_' + key);
+  if (btn) btn.classList.toggle('active', _twseAnnotState[key]);
+  if (charts['twseCandleChart']) charts['twseCandleChart'].update();
 }
 
 function renderTwseCandleChart() {
@@ -68543,6 +68571,11 @@ function renderTwseCandleChart() {
   // 轉折點偵測（頭/底標記）也用完整歷史算，避免視窗邊緣漏抓，畫的時候只顯示落在近30日視窗內的
   const offset = cache.closes.length - n;
   const { peaks, troughs } = detectSwingPoints(cache.highs, cache.lows, 2);
+
+  // v8.x：趨勢線——同一套 detectTrendLines()，用完整歷史算再換算成顯示視窗的相對index
+  const trendLinesFull = detectTrendLines(cache.highs, cache.lows, cache.closes);
+  const trendLines = trendLinesFull.map(tl => ({ ...tl, startIdx: tl.startIdx - offset }));
+
   const verdict = _twseTrendVerdict(peaks, troughs);
   if (verdictEl) {
     verdictEl.innerHTML = `📊 <b>頭/底轉折判讀</b>：${verdict.text}`;
@@ -68575,8 +68608,9 @@ function renderTwseCandleChart() {
       return opts;
     })(),
   });
-  charts['twseCandleChart'].$candleData = { opens, highs, lows, closes, resLines };
+  charts['twseCandleChart'].$candleData = { opens, highs, lows, closes, resLines, trendLines };
   charts['twseCandleChart'].$peakTroughData = { peaks, troughs, offset };
+  charts['twseCandleChart'].$annotState = _twseAnnotState; // 平時不顯示，點按鈕才個別出現
   charts['twseCandleChart'].update('none'); // 強制立即重繪一次，$candleData 設完才有東西給plugin畫
 
   // 成交金額（億元）— 紅漲綠跌，跟K棒同一批日期對齊
