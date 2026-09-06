@@ -16114,17 +16114,17 @@ a.module-nav-item.acc-active {
       </div>
       <div class="screener-ctrl">
         <select class="screener-pool-select" id="screenerPool">
-          <option value="core20">核心20檔（快速）</option>
-          <option value="semi">半導體族群</option>
-          <option value="ai">AI相關族群</option>
-          <option value="finance">金融族群</option>
-          <option value="ship">航運族群</option>
+          <option value="core20">⚡ 核心20檔（快速）</option>
+          <option value="semi">🔧 半導體族群</option>
+          <option value="ai">🤖 AI相關族群</option>
+          <option value="finance">🏦 金融族群</option>
+          <option value="ship">🚢 航運族群</option>
           <option value="leo">🛰️ SpaceX/LEO衛星供應鏈</option>
           <option value="arglasses">🕶️ AI智慧眼鏡族群</option>
           <option value="quantum">⚛️ 量子電腦族群</option>
           <option value="asic">🔲 ASIC供應鏈</option>
           <option value="defense">🛡️ 台灣軍工鏈（無人機／國防）</option>
-          <option value="all50">精選50檔權值股（固定清單）</option>
+          <option value="all50">📋 精選50檔權值股（固定清單）</option>
           <option value="dynamic50">🔄 市值前50大（即時計算）</option>
         </select>
         <div class="screener-mode-divider">▸</div>
@@ -16378,12 +16378,12 @@ a.module-nav-item.acc-active {
       <div class="bt-config-group">
         <label class="bt-label">股票池</label>
         <select class="bt-select" id="btPool">
-          <option value="core20">核心20檔</option>
-          <option value="semi">半導體族群</option>
-          <option value="ai">AI相關族群</option>
-          <option value="finance">金融族群</option>
-          <option value="ship">航運族群</option>
-          <option value="all50">精選50檔權值股（固定清單）</option>
+          <option value="core20">⚡ 核心20檔</option>
+          <option value="semi">🔧 半導體族群</option>
+          <option value="ai">🤖 AI相關族群</option>
+          <option value="finance">🏦 金融族群</option>
+          <option value="ship">🚢 航運族群</option>
+          <option value="all50">📋 精選50檔權值股（固定清單）</option>
           <option value="dynamic50">🔄 市值前50大（即時計算）</option>
         </select>
       </div>
@@ -55440,18 +55440,18 @@ function buildAdviceLines(bullRatio, bull, bear, rsi, k, d, macd, sig, price, ma
 // 各股票池定義
 const SCREENER_POOLS = {
   core20: {
-    label: '核心20檔',
+    label: '⚡ 核心20檔',
     ids: ['2330','2317','2454','2382','0050','2303','3711','2308',
           '2412','2882','2881','2891','6505','1301','2609','2603',
           '2357','2395','2002','3008']
   },
   semi: {
-    label: '半導體族群',
+    label: '🔧 半導體族群',
     ids: ['2330','2303','2454','3711','2408','3034','5347','2449',
           '6510','3443','3081','2337','6770']
   },
   ai: {
-    label: 'AI相關族群',
+    label: '🤖 AI相關族群',
     // v7.98：使用者比對口袋證券「NVIDIA台灣供應鏈」研究，原本這裡缺了
     // 液冷散熱/PCB載板/機構件三層，只有晶圓代工+ODM組裝，補齊成完整的
     // AI伺服器供應鏈：
@@ -55480,12 +55480,12 @@ const SCREENER_POOLS = {
           '6669','2382','2317','3231','2308']
   },
   finance: {
-    label: '金融族群',
+    label: '🏦 金融族群',
     ids: ['2882','2881','2891','2886','2887','2884','2885','2883',
           '2892','5880','2888','2890','2801']
   },
   ship: {
-    label: '航運族群',
+    label: '🚢 航運族群',
     ids: ['2609','2603','2615','2610','2618','2412','3045','4904']
   },
   // ── 🛰️ 低軌衛星（LEO Satellite / SpaceX Starlink）供應鏈 ──
@@ -55576,7 +55576,7 @@ const SCREENER_POOLS = {
   // 不是即時從全市場篩出來的，名字容易誤導，改叫「精選50檔權值股」講清楚它是什麼。
   // 真正動態的版本見下面 dynamic50。
   all50: {
-    label: '精選50檔權值股（固定清單）',
+    label: '📋 精選50檔權值股（固定清單）',
     ids: ['2330','2317','2454','2382','0050','2303','3711','2308',
           '2412','2882','2881','2891','6505','1301','2609','2603',
           '2357','2395','2002','3008','2379','6669','3231','2408',
