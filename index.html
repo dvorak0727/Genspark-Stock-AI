@@ -6772,20 +6772,21 @@
   background:rgba(99,102,241,0.07);
   border-left:3px solid #6366F1;
 }
-/* ── v6.29 Hero 季底倒計時 chip ── */
+/* ── v6.31 Hero 季底倒計時 chip（v6.30的半透明淡底+淡字組合對比度還是不夠，改實心底+白字，動畫改發光不再閃爍透明度） ── */
 .fit-qend-chip {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 0.72rem; font-weight: 800;
-  padding: 3px 10px; border-radius: 99px;
+  padding: 4px 12px; border-radius: 99px;
   margin-top: 6px; letter-spacing: 0.02em;
-  animation: chipPulse 2s ease-in-out infinite;
+  color: #FFFFFF; border: none;
+  animation: chipGlow 2s ease-in-out infinite;
 }
-.fit-qend-chip.urgent  { background:rgba(239,68,68,0.18);  color:#FCA5A5; border:1px solid rgba(239,68,68,0.45); }
-.fit-qend-chip.warning { background:rgba(245,158,11,0.18); color:#FDE68A; border:1px solid rgba(245,158,11,0.45); }
-.fit-qend-chip.notice  { background:rgba(99,102,241,0.14); color:#A5B4FC; border:1px solid rgba(99,102,241,0.35); }
-@keyframes chipPulse {
-  0%,100% { opacity:1; }
-  50%      { opacity:.70; }
+.fit-qend-chip.urgent  { background:#DC2626; box-shadow:0 0 0 0 rgba(220,38,38,.5); }
+.fit-qend-chip.warning { background:#D97706; box-shadow:0 0 0 0 rgba(217,119,6,.5); }
+.fit-qend-chip.notice  { background:#4338CA; box-shadow:0 0 0 0 rgba(67,56,202,.5); }
+@keyframes chipGlow {
+  0%,100% { box-shadow:0 0 0 0 rgba(0,0,0,0); }
+  50%      { box-shadow:0 0 6px 2px rgba(0,0,0,.25); }
 }
 /* ── v6.29 FIT 歷史回測面板 ── */
 .fit-backtest-panel {
@@ -37707,13 +37708,24 @@ function renderFITPanel(instMap, instDays, fSeries, tSeries, closes, dates, lc) 
   // ── 儲存至 window 供 QOE 劇本調整使用 ──
   window._fitResult = { state: fit.state, smokeIndex: fit.smokeIndex, qEndDays: qEnd.daysLeft };
 
-  // ── v6.29 Hero 季底倒計時 chip ──
+  // ── v6.29 Hero 季底倒計時 chip（v6.30：加上做帳/倒貨提醒 tooltip + 點擊跳轉FIT判讀區） ──
   const heroChip = document.getElementById('heroQEndChip');
   if (heroChip) {
     if (qEnd.daysLeft <= 21) {
       const lvl = qEnd.daysLeft <= 7 ? 'urgent' : qEnd.daysLeft <= 14 ? 'warning' : 'notice';
+      const hint = qEnd.daysLeft <= 7
+        ? '做帳衝刺期：投信可能集中拉抬權值股，也是主力倒貨最愛掩護的時機——留意「投信買、外資賣」背離組合，季底後2週要確認投信是否轉賣'
+        : qEnd.daysLeft <= 14
+        ? '做帳高峰期：外資若借投信拉抬出貨，散戶容易追高被套——點擊查看下方FIT判讀，先看籌碼集中度再決定要不要跟'
+        : '進入做帳觀察期：開始追蹤外資／投信是否同向，同向才是真趨勢，投信單獨買可能只是作帳擾動';
       heroChip.className = `fit-qend-chip ${lvl}`;
-      heroChip.textContent = `⚠️ ${qEnd.qName} 季底 · 剩 ${qEnd.daysLeft} 日`;
+      heroChip.textContent = `⚠️ ${qEnd.qName} 季底 · 剩 ${qEnd.daysLeft} 日 · 點我看避險重點`;
+      heroChip.title = hint;
+      heroChip.style.cursor = 'pointer';
+      heroChip.onclick = () => {
+        const panel = document.getElementById('fitPanel');
+        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
       heroChip.style.display = 'inline-flex';
     } else {
       heroChip.style.display = 'none';
@@ -44170,9 +44182,21 @@ const _candlestickPlugin = {
         const drawStartIdx = Math.max(0, startIdx);
         const startY = startVal + slope * (drawStartIdx - startIdx);
         const xStart = xScale.getPixelForValue(drawStartIdx);
-        const xEnd = xScale.getPixelForValue(endIdx);
+        let xEnd = xScale.getPixelForValue(endIdx);
         const yStart = yScale.getPixelForValue(startY);
-        const yEnd = yScale.getPixelForValue(endVal);
+        let yEnd = yScale.getPixelForValue(endVal);
+        // v8.x-5（使用者實測回報「畫到圖外面去了」）：定義這條線的兩個轉折點如果
+        // 間距太近，算出來的斜率會偏陡，外推到今天(endIdx)時數值可能直接爆表，
+        // 畫出來的線衝出圖表範圍上緣/下緣，飄到座標軸外的空白處。
+        // 做法：用線性內插，算出線段跟圖表上/下邊界的交點，超出範圍的部分直接
+        // 不畫，只畫「還在圖表可視範圍內」的那一段——不改動判斷邏輯本身
+        // （已驗證/已跌破的狀態不受影響），只是畫圖時不讓線衝出框外。
+        if (yEnd < chartArea.top || yEnd > chartArea.bottom) {
+          const boundary = yEnd < chartArea.top ? chartArea.top : chartArea.bottom;
+          const t = (boundary - yStart) / (yEnd - yStart);
+          xEnd = xStart + t * (xEnd - xStart);
+          yEnd = boundary;
+        }
         const baseColor = type === 'up' ? '22,163,74' : '232,52,58';
         ctx.strokeStyle = broken ? 'rgba(148,163,184,0.7)' : `rgba(${baseColor},0.8)`;
         ctx.setLineDash(broken ? [3,3] : []);
