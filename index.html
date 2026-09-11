@@ -37821,11 +37821,13 @@ function renderFITPanel(instMap, instDays, fSeries, tSeries, closes, dates, lc) 
 }
 
 // ==============================================================
-//  v6.32 新台幣匯率背離警示 + 資金真實動向月度記錄卡
+//  v6.34 新台幣匯率背離警示 + 資金真實動向月度記錄卡
 //  外資賣股後有沒有真的撤出台灣，要看「賣股方向」跟「新台幣匯率方向」有沒有背離：
 //  外資大賣＋新台幣同步貶值 = 正常撤資；外資大賣＋新台幣卻沒貶（甚至升值）= 資金疑似換成現金留台觀望
-//  ⚠️ 免費匯率API（open.er-api.com）一天只更新一次，不是逐筆報價；5日趨勢靠每次開啟本站
-//  自己存一筆歷史值累積出來，不是官方逐日資料庫，僅供粗略參考，不是精確金融數據源
+//  v6.34：改用排程腳本 fetch_usdtwd_history.py 抓的真實近30交易日歷史
+//  （scripts/usdtwd_history.json，Yahoo Finance TWD=X），不用再靠使用者
+//  每天開站累積localStorage——原本那個方法要等快一個月資料才夠比對，
+//  現在一開站就有完整30天可用。JSON抓不到時退回舊的localStorage累積法當備援。
 // ==============================================================
 const FX_HISTORY_KEY = 'twStockFxHistory_v1';
 const FX_MONTHLY_KEY = 'twStockFxMonthly_v1';
@@ -37834,26 +37836,36 @@ function getFxHistory() {
   try { return JSON.parse(localStorage.getItem(FX_HISTORY_KEY)) || {}; } catch(_) { return {}; }
 }
 function saveFxHistory(hist) {
-  // 只留最近 40 筆，避免無限長大
   const keys = Object.keys(hist).sort();
   if (keys.length > 40) keys.slice(0, keys.length - 40).forEach(k => delete hist[k]);
   localStorage.setItem(FX_HISTORY_KEY, JSON.stringify(hist));
 }
 
-async function fetchAndStoreFxRate() {
+// 優先讀排程腳本抓好的30日真實歷史；抓不到（本機開檔案、或排程還沒跑過）
+// 才退回舊方法：打免費API存今天一筆、慢慢用localStorage累積。
+async function fetchFxHistoryDict() {
+  try {
+    const res = await fetch('scripts/usdtwd_history.json', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      const dict = {};
+      (data.history || []).forEach(row => { dict[row.date] = row.rate; });
+      if (Object.keys(dict).length >= 2) return dict;
+    }
+  } catch (_) { /* 掉到下面的備援 */ }
+
+  // 備援：舊的localStorage累積法
   const today = new Date().toISOString().slice(0, 10);
   const hist = getFxHistory();
-  if (hist[today]) return hist; // 今天已經存過了，不用重打 API
-  try {
-    const res = await fetch('https://open.er-api.com/v6/latest/USD');
-    const data = await res.json();
-    const rate = data?.rates?.TWD;
-    if (rate) {
-      hist[today] = rate;
-      saveFxHistory(hist);
+  if (!hist[today]) {
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      const data = await res.json();
+      const rate = data?.rates?.TWD;
+      if (rate) { hist[today] = rate; saveFxHistory(hist); }
+    } catch (e) {
+      console.warn('[匯率背離] 兩種資料源都抓不到（排程JSON+備援API），不影響其他功能', e);
     }
-  } catch (e) {
-    console.warn('[匯率背離] 抓取失敗（免費API或網路問題，不影響其他功能）', e);
   }
   return hist;
 }
@@ -37862,7 +37874,7 @@ function updateFxDivergence(f5) {
   const el = document.getElementById('fitFxDivergence');
   const sub = document.getElementById('fitFxSub');
   if (!el) return;
-  fetchAndStoreFxRate().then(hist => {
+  fetchFxHistoryDict().then(hist => {
     const dates = Object.keys(hist).sort();
     if (dates.length < 2) {
       el.textContent = '累積中';
@@ -37871,7 +37883,7 @@ function updateFxDivergence(f5) {
       return;
     }
     const todayRate = hist[dates[dates.length - 1]];
-    // 找最接近「5天前」的一筆（本地累積資料，不一定剛好5個交易日）
+    // 找最接近「5個交易日前」的一筆
     const pastIdx = Math.max(0, dates.length - 6);
     const pastRate = hist[dates[pastIdx]];
     const pctChange = ((todayRate - pastRate) / pastRate) * 100; // 正值=新台幣貶值(USD/TWD變大)
