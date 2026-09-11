@@ -6727,6 +6727,10 @@
 .fit-fx-msg { font-size:0.65rem; margin-top:4px; flex:1 1 100%; }
 .fit-fx-msg.ok   { color:#059669; }
 .fit-fx-msg.wait { color:#A16207; }
+.fit-fx-row .fx-label.clickable { cursor:pointer; }
+.fit-fx-row .fx-label.clickable:hover { text-decoration:underline; }
+.fx-trend { flex:1 1 100%; display:none; }
+.fx-trend.open { display:block; }
 .fit-metric-card {
   background: var(--card); border-radius: 7px;
   padding: 6px 8px; text-align: center;
@@ -17834,7 +17838,7 @@ a.module-nav-item.acc-active {
             <div class="fit-metric-val" id="fitPowerRatio">—</div>
             <div class="fit-metric-sub">外資/投信力道</div>
           </div>
-          <div class="fit-metric-card" data-tip="外資大賣但新台幣沒貶值，可能只是賣股換現金留在台灣，不是真的撤資">
+          <div class="fit-metric-card clickable" onclick="fitFxHistoryToggle()" data-tip="外資大賣但新台幣沒貶值，可能只是賣股換現金留在台灣，不是真的撤資——點擊看連續15日匯率變化，單看一天看不出趨勢">
             <div class="fit-metric-label">💱 匯率背離</div>
             <div class="fit-metric-val" id="fitFxDivergence">—</div>
             <div class="fit-metric-sub" id="fitFxSub">資料累積中</div>
@@ -17857,31 +17861,57 @@ a.module-nav-item.acc-active {
             📋 資金真實動向月度記錄——判斷外資是「真撤資」還是「賣股換現金留台觀望」
           </div>
           <div class="fit-fx-row">
-            <span class="fx-label">① 金管會外資淨匯入／匯出（億美元）</span>
+            <span class="fx-label clickable" onclick="fitFxTrendToggle(1)" title="點擊看近12個月走勢">① 金管會外資淨匯入／匯出（億美元） 📈</span>
             <input type="number" step="0.01" id="fxInput1" placeholder="輸入本月數字">
             <button class="fx-btn" onclick="fitFxUpdate(1)">更新</button>
             <a class="fx-link" href="https://www.fsc.gov.tw" target="_blank" rel="noopener">前往金管會官網查詢 ↗</a>
             <div class="fx-sub">每月初（約5日前）公布上月數據</div>
             <div class="fit-fx-msg" id="fxMsg1"></div>
+            <div class="fx-trend" id="fxTrend1"></div>
           </div>
           <div class="fit-fx-row">
-            <span class="fx-label">② 央行外人新台幣存款餘額（億元）</span>
+            <span class="fx-label clickable" onclick="fitFxTrendToggle(2)" title="點擊看近12個月走勢">② 央行外人新台幣存款餘額（億元） 📈</span>
             <input type="number" step="0.01" id="fxInput2" placeholder="輸入本月數字">
             <button class="fx-btn" onclick="fitFxUpdate(2)">更新</button>
             <a class="fx-link" href="https://www.cbc.gov.tw" target="_blank" rel="noopener">前往央行官網查詢 ↗</a>
             <div class="fx-sub">每月下旬公布（央行「金融概況」新聞稿）</div>
             <div class="fit-fx-msg" id="fxMsg2"></div>
+            <div class="fx-trend" id="fxTrend2"></div>
           </div>
           <div class="fit-fx-row">
-            <span class="fx-label">④ 外資在台資產＋存款／外匯存底佔比（%）</span>
+            <span class="fx-label clickable" onclick="fitFxTrendToggle(4)" title="點擊看近12個月走勢">④ 外資在台資產＋存款／外匯存底佔比（%） 📈</span>
             <input type="number" step="0.01" id="fxInput4" placeholder="輸入本月數字">
             <button class="fx-btn" onclick="fitFxUpdate(4)">更新</button>
             <a class="fx-link" href="https://www.cbc.gov.tw" target="_blank" rel="noopener">前往央行官網查詢 ↗</a>
             <div class="fx-sub">每月初隨外匯存底新聞稿附帶公布</div>
             <div class="fit-fx-msg" id="fxMsg4"></div>
+            <div class="fx-trend" id="fxTrend4"></div>
           </div>
           <div style="font-size:0.62rem;color:var(--fg3);margin-top:6px;">
-            ⚠️ 這三項官方網站沒有開放資料API，「更新」按鈕無法自動抓數字，只能幫你判斷這個月數據該不該公布了——查到真實數字後，麻煩手動填入儲存，下次開啟會記得。
+            ⚠️ 這三項官方網站沒有開放資料API，「更新」按鈕無法自動抓數字，只能幫你判斷這個月數據該不該公布了——查到真實數字後，麻煩手動填入儲存，下次開啟會記得。點各項標題 📈 可看近12個月走勢——單月數字看不出外資是真撤離還是只是觀望，要看連續多月才能推估。
+          </div>
+        </div>
+
+        <!-- v6.35 匯率背離 連續15日明細（展開面板） -->
+        <div class="fit-fx-panel" id="fitFxHistoryPanel">
+          <div style="font-size:0.72rem;font-weight:800;color:var(--fg);margin-bottom:6px;">
+            💱 新台幣匯率 連續15日走勢——單看一天看不出外資是不是真撤資，要看連續趨勢
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.68rem;">
+              <thead>
+                <tr style="color:var(--fg3);">
+                  <th style="text-align:left;padding:3px 6px;">日期</th>
+                  <th style="text-align:right;padding:3px 6px;">USD/TWD</th>
+                  <th style="text-align:right;padding:3px 6px;">單日變動</th>
+                  <th style="text-align:right;padding:3px 6px;">累計變動</th>
+                </tr>
+              </thead>
+              <tbody id="fitFxHistoryBody"></tbody>
+            </table>
+          </div>
+          <div style="font-size:0.62rem;color:var(--fg3);margin-top:6px;">
+            💡 累計變動為正＝新台幣貶值（USD/TWD變大）；外資賣超同時新台幣連續貶值，才是較可信的真撤資訊號。
           </div>
         </div>
 
@@ -37875,6 +37905,7 @@ function updateFxDivergence(f5) {
   const sub = document.getElementById('fitFxSub');
   if (!el) return;
   fetchFxHistoryDict().then(hist => {
+    window._fxHistDict = hist; // v6.35：存起來供 fitFxHistoryToggle() 畫15日明細表用
     const dates = Object.keys(hist).sort();
     if (dates.length < 2) {
       el.textContent = '累積中';
@@ -37905,6 +37936,46 @@ function updateFxDivergence(f5) {
   });
 }
 
+// v6.35：匯率背離卡片點擊 → 展開連續15日USD/TWD明細表（單看一天看不出趨勢）
+function fitFxHistoryToggle() {
+  const panel = document.getElementById('fitFxHistoryPanel');
+  if (!panel) return;
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) fitFxHistoryRender();
+}
+
+function fitFxHistoryRender() {
+  const body = document.getElementById('fitFxHistoryBody');
+  if (!body) return;
+  const render = (hist) => {
+    const dates = Object.keys(hist || {}).sort();
+    if (dates.length < 2) {
+      body.innerHTML = '<tr><td colspan="4" style="padding:6px;color:var(--fg3);">資料累積中，尚不足以顯示15日走勢</td></tr>';
+      return;
+    }
+    const last15 = dates.slice(-15);
+    const baseRate = hist[last15[0]];
+    let rows = '';
+    last15.forEach((d, i) => {
+      const rate = hist[d];
+      const prevRate = i > 0 ? hist[last15[i - 1]] : rate;
+      const dayChg = ((rate - prevRate) / prevRate) * 100;
+      const cumChg = ((rate - baseRate) / baseRate) * 100;
+      const dayColor = dayChg > 0 ? 'var(--dn,#EF4444)' : dayChg < 0 ? 'var(--up,#10B981)' : 'var(--fg3)';
+      const cumColor = cumChg > 0 ? 'var(--dn,#EF4444)' : cumChg < 0 ? 'var(--up,#10B981)' : 'var(--fg3)';
+      rows += `<tr>
+        <td style="padding:3px 6px;color:var(--fg2);">${d}</td>
+        <td style="padding:3px 6px;text-align:right;color:var(--fg);">${rate.toFixed(3)}</td>
+        <td style="padding:3px 6px;text-align:right;color:${dayColor};">${i === 0 ? '—' : (dayChg > 0 ? '+' : '') + dayChg.toFixed(2) + '%'}</td>
+        <td style="padding:3px 6px;text-align:right;font-weight:700;color:${cumColor};">${i === 0 ? '—' : (cumChg > 0 ? '+' : '') + cumChg.toFixed(2) + '%'}</td>
+      </tr>`;
+    });
+    body.innerHTML = rows;
+  };
+  if (window._fxHistDict) render(window._fxHistDict);
+  else fetchFxHistoryDict().then(h => { window._fxHistDict = h; render(h); });
+}
+
 function fitFxPanelToggle() {
   const panel = document.getElementById('fitFxPanel');
   if (!panel) return;
@@ -37919,23 +37990,74 @@ const FX_MONTHLY_SPEC = {
   4: { label: '外資在台資產/外匯存底佔比', dueDay: 10, url: 'https://www.cbc.gov.tw' }
 };
 
+// v6.36：把「每項只存最後一筆」改成「每項存近12個月的歷史」，才能推估外資是
+// 真撤資（連續多月流出）還是暫時觀望（單月波動、之後又流回）——單一數字看不出趨勢。
+// 舊格式 store[n] = {value, month, year, savedAt} 會自動搬成新格式 store[n] = {"YYYY-MM": value, ...}
 function getFxMonthly() {
-  try { return JSON.parse(localStorage.getItem(FX_MONTHLY_KEY)) || {}; } catch(_) { return {}; }
+  let store;
+  try { store = JSON.parse(localStorage.getItem(FX_MONTHLY_KEY)) || {}; } catch(_) { store = {}; }
+  let migrated = false;
+  [1, 2, 4].forEach(n => {
+    const rec = store[n];
+    if (rec && typeof rec === 'object' && 'value' in rec && 'month' in rec) {
+      const ym = `${rec.year}-${String(rec.month).padStart(2, '0')}`;
+      store[n] = { [ym]: rec.value };
+      migrated = true;
+    }
+  });
+  if (migrated) localStorage.setItem(FX_MONTHLY_KEY, JSON.stringify(store));
+  return store;
+}
+
+// 回傳某項目 [ [ym, value], ... ] 依時間升冪排序
+function fxMonthlySorted(store, n) {
+  const rec = store[n] || {};
+  return Object.keys(rec).sort().map(ym => [ym, rec[ym]]);
 }
 
 function fitFxRenderMonthly() {
   const store = getFxMonthly();
   [1, 2, 4].forEach(n => {
-    const rec = store[n];
+    const entries = fxMonthlySorted(store, n);
+    const latest = entries[entries.length - 1];
     const input = document.getElementById('fxInput' + n);
-    if (input && rec) input.value = rec.value;
+    if (input && latest) input.value = latest[1];
     const msg = document.getElementById('fxMsg' + n);
-    if (msg && rec) {
-      msg.textContent = `✅ 已記錄：${rec.month}月填入 ${rec.value}（${rec.savedAt}）`;
+    if (msg && latest) {
+      msg.textContent = `✅ 已記錄：${latest[0]} 填入 ${latest[1]}`;
       msg.className = 'fit-fx-msg ok';
     }
   });
   fitFxAutoFillFromScript();
+}
+
+// v6.36：點各項標題展開/收合近12個月走勢表
+function fitFxTrendToggle(n) {
+  const box = document.getElementById('fxTrend' + n);
+  if (!box) return;
+  if (box.classList.contains('open')) { box.classList.remove('open'); return; }
+  box.classList.add('open');
+  const store = getFxMonthly();
+  const entries = fxMonthlySorted(store, n).slice(-12);
+  if (entries.length < 2) {
+    box.innerHTML = '<div style="padding:4px 0;color:var(--fg3);">目前累積不到2個月的記錄，先每月按「更新」存檔，累積後才看得出趨勢</div>';
+    return;
+  }
+  const baseVal = entries[0][1];
+  let rows = entries.map(([ym, val], i) => {
+    const cumChg = baseVal !== 0 ? ((val - baseVal) / Math.abs(baseVal)) * 100 : 0;
+    const color = cumChg > 0 ? 'var(--up,#10B981)' : cumChg < 0 ? 'var(--dn,#EF4444)' : 'var(--fg3)';
+    return `<tr>
+      <td style="padding:2px 6px;color:var(--fg2);">${ym}</td>
+      <td style="padding:2px 6px;text-align:right;color:var(--fg);">${val}</td>
+      <td style="padding:2px 6px;text-align:right;color:${color};">${i === 0 ? '—' : (cumChg > 0 ? '+' : '') + cumChg.toFixed(1) + '%'}</td>
+    </tr>`;
+  }).join('');
+  box.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:0.66rem;margin-top:4px;">
+    <thead><tr style="color:var(--fg3);"><th style="text-align:left;padding:2px 6px;">月份</th><th style="text-align:right;padding:2px 6px;">數值</th><th style="text-align:right;padding:2px 6px;">較首月累計</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div style="font-size:0.6rem;color:var(--fg3);margin-top:4px;">💡 連續多月同方向變化才有推估意義：持續下滑＝資金可能真的外流；單月波動、隔月又回升＝較可能只是短期觀望。</div>`;
 }
 
 // v6.32：④「外資在台資產/外匯存底佔比」有排程腳本自動抓（scripts/fetch_cbc_fx_ratio.py），
@@ -37982,19 +38104,21 @@ function fitFxUpdate(n) {
   const now = new Date();
   const curMonth = now.getMonth() + 1;
   const curDay = now.getDate();
+  const ym = `${now.getFullYear()}-${String(curMonth).padStart(2, '0')}`;
   const store = getFxMonthly();
-  const rec = store[n];
+  if (!store[n]) store[n] = {};
+  const existing = store[n][ym];
 
   // 這個月的數字是不是已經記錄過了
-  if (rec && rec.month === curMonth && rec.year === now.getFullYear()) {
-    if (input.value && parseFloat(input.value) !== rec.value) {
+  if (existing !== undefined) {
+    if (input.value && parseFloat(input.value) !== existing) {
       // 使用者改了數字，當作更新
-      store[n] = { value: parseFloat(input.value), month: curMonth, year: now.getFullYear(), savedAt: now.toLocaleDateString('zh-TW') };
-      localStorage.setItem(FX_MONTHLY_KEY, JSON.stringify(store));
+      store[n][ym] = parseFloat(input.value);
+      fitFxSaveMonthly(store);
       msg.textContent = `✅ 已更新本月數字：${input.value}`;
       msg.className = 'fit-fx-msg ok';
     } else {
-      msg.textContent = `ℹ️ 本月（${curMonth}月）已經記錄過了，數字：${rec.value}`;
+      msg.textContent = `ℹ️ 本月（${ym}）已經記錄過了，數字：${existing}`;
       msg.className = 'fit-fx-msg ok';
     }
     return;
@@ -38013,10 +38137,21 @@ function fitFxUpdate(n) {
     return;
   }
 
-  store[n] = { value: parseFloat(input.value), month: curMonth, year: now.getFullYear(), savedAt: now.toLocaleDateString('zh-TW') };
-  localStorage.setItem(FX_MONTHLY_KEY, JSON.stringify(store));
-  msg.textContent = `✅ 已記錄本月（${curMonth}月）數字：${input.value}`;
+  store[n][ym] = parseFloat(input.value);
+  fitFxSaveMonthly(store);
+  msg.textContent = `✅ 已記錄本月（${ym}）數字：${input.value}`;
   msg.className = 'fit-fx-msg ok';
+}
+
+// v6.36：存檔時順手把每項超過12個月的舊紀錄裁掉，localStorage不會無限長大
+function fitFxSaveMonthly(store) {
+  [1, 2, 4].forEach(n => {
+    const rec = store[n];
+    if (!rec) return;
+    const keys = Object.keys(rec).sort();
+    if (keys.length > 12) keys.slice(0, keys.length - 12).forEach(k => delete rec[k]);
+  });
+  localStorage.setItem(FX_MONTHLY_KEY, JSON.stringify(store));
 }
 
 // ==============================================================
