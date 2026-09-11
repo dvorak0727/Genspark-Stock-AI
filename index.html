@@ -38060,6 +38060,29 @@ function fitFxTrendToggle(n) {
   <div style="font-size:0.6rem;color:var(--fg3);margin-top:4px;">💡 連續多月同方向變化才有推估意義：持續下滑＝資金可能真的外流；單月波動、隔月又回升＝較可能只是短期觀望。</div>`;
 }
 
+// v6.36：把「XX年X月」這種民國年標題轉成 "YYYY-MM"，用來把排程腳本抓到的月份
+// 直接寫進歷史紀錄，不用等使用者手動按「更新」才存一筆。
+function rocTitleToYm(title) {
+  const m = /(\d+)年(\d+)月/.exec(title || '');
+  if (!m) return null;
+  const year = parseInt(m[1], 10) + 1911;
+  const month = String(parseInt(m[2], 10)).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+// 把自動抓到的數字寫進歷史（若該月已有人手動填過不同數字，不覆蓋，尊重手動輸入）
+function fitFxAutoSeed(n, ym, value) {
+  if (!ym || value === undefined || value === null || Number.isNaN(value)) return;
+  const store = getFxMonthly();
+  if (!store[n]) store[n] = {};
+  if (store[n][ym] === undefined) {
+    store[n][ym] = value;
+    fitFxSaveMonthly(store);
+    const box = document.getElementById('fxTrend' + n);
+    if (box && box.classList.contains('open')) { box.classList.remove('open'); fitFxTrendToggle(n); } // 重繪
+  }
+}
+
 // v6.32：④「外資在台資產/外匯存底佔比」有排程腳本自動抓（scripts/fetch_cbc_fx_ratio.py），
 // 這裡讀它寫出來的JSON，同源檔案fetch不會有CORS問題；抓不到就靜默放棄，回退成手動填寫。
 function fitFxAutoFillFromScript() {
@@ -38074,6 +38097,8 @@ function fitFxAutoFillFromScript() {
         msg.textContent = `🤖 自動抓取（${data.month_roc}，來源：央行外匯存底新聞稿）：${data.pct_of_reserves}%，資產+存款共${data.amount_billion_usd.toLocaleString()}億美元——確認沒問題可直接按「更新」存檔`;
         msg.className = 'fit-fx-msg ok';
       }
+      // v6.36：自動把這個月的數字補進歷史紀錄，不用等使用者按「更新」
+      fitFxAutoSeed(4, rocTitleToYm(data.month_roc), data.pct_of_reserves);
     })
     .catch(() => { /* 排程還沒跑過、或本機開啟沒有這個檔案，靜默忽略，維持手動填寫 */ });
 
@@ -38090,6 +38115,17 @@ function fitFxAutoFillFromScript() {
         const warn = data.divergence_flag ? '　⚠️ 買賣超與淨匯入方向背離，疑似賣股但資金留台' : '';
         msg.textContent = `🤖 自動抓取（${data.title}）：累積淨匯入 ${data.cumulative_net_inflow_usd_billion.toLocaleString()} 億美元，外資買賣超 ${data.net_buysell_ntd_billion.toLocaleString()} 億台幣${warn}——確認沒問題可直接按「更新」存檔`;
         msg.className = 'fit-fx-msg ' + (data.divergence_flag ? 'wait' : 'ok');
+      }
+      // v6.36：同一份PDF裡「本月」跟「上月底」累積淨匯入都有，一次補進兩個月歷史，
+      // 不用等使用者一個月一個月手動按過去。
+      const ym = rocTitleToYm(data.title);
+      fitFxAutoSeed(1, ym, data.cumulative_net_inflow_usd_billion);
+      if (ym) {
+        const [y, m] = ym.split('-').map(Number);
+        const prevM = m === 1 ? 12 : m - 1;
+        const prevY = m === 1 ? y - 1 : y;
+        const prevYm = `${prevY}-${String(prevM).padStart(2, '0')}`;
+        fitFxAutoSeed(1, prevYm, data.cumulative_net_inflow_prev_month);
       }
     })
     .catch(() => { /* 同上，靜默忽略 */ });
