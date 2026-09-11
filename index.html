@@ -6692,9 +6692,41 @@
 .fit-body.open { display: block; }
 /* 頂部指標列 */
 .fit-metrics {
-  display: grid; grid-template-columns: repeat(4,1fr);
+  display: grid; grid-template-columns: repeat(6,1fr);
   gap: 6px; margin-bottom: 10px;
 }
+@media (max-width: 900px) {
+  .fit-metrics { grid-template-columns: repeat(3,1fr); }
+}
+.fit-metric-card.clickable { cursor:pointer; }
+.fit-metric-card.clickable:hover { filter:brightness(1.08); }
+/* v6.32 資金真實動向月度記錄卡（展開面板） */
+.fit-fx-panel {
+  display:none; margin: 4px 0 10px; border-radius: 8px;
+  border: 1px solid rgba(99,102,241,0.3); background: rgba(99,102,241,0.05);
+  padding: 10px 12px;
+}
+.fit-fx-panel.open { display:block; }
+.fit-fx-row {
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding: 7px 0; border-bottom: 1px dashed rgba(148,163,184,0.25);
+  font-size: 0.72rem;
+}
+.fit-fx-row:last-of-type { border-bottom:none; }
+.fit-fx-row .fx-label { flex: 1 1 180px; font-weight:700; color:var(--fg); }
+.fit-fx-row .fx-sub { flex: 1 1 100%; font-size:0.65rem; color:var(--fg3); margin-top:-4px; }
+.fit-fx-row input[type=number] {
+  width: 100px; padding: 3px 6px; border-radius: 5px;
+  border: 1px solid var(--border2); background: var(--surface); color: var(--fg); font-size:0.72rem;
+}
+.fit-fx-row .fx-btn {
+  padding: 3px 10px; border-radius: 6px; border:none; cursor:pointer;
+  background: var(--accent); color:#fff; font-size:0.68rem; font-weight:800;
+}
+.fit-fx-row .fx-link { font-size:0.65rem; color: var(--accent); text-decoration:underline; }
+.fit-fx-msg { font-size:0.65rem; margin-top:4px; flex:1 1 100%; }
+.fit-fx-msg.ok   { color:#059669; }
+.fit-fx-msg.wait { color:#A16207; }
 .fit-metric-card {
   background: var(--card); border-radius: 7px;
   padding: 6px 8px; text-align: center;
@@ -17802,10 +17834,54 @@ a.module-nav-item.acc-active {
             <div class="fit-metric-val" id="fitPowerRatio">—</div>
             <div class="fit-metric-sub">外資/投信力道</div>
           </div>
+          <div class="fit-metric-card" data-tip="外資大賣但新台幣沒貶值，可能只是賣股換現金留在台灣，不是真的撤資">
+            <div class="fit-metric-label">💱 匯率背離</div>
+            <div class="fit-metric-val" id="fitFxDivergence">—</div>
+            <div class="fit-metric-sub" id="fitFxSub">資料累積中</div>
+          </div>
+          <div class="fit-metric-card clickable" onclick="fitFxPanelToggle()" data-tip="金管會/央行每月公布的外資淨匯入匯出、新台幣存款餘額——點擊查看與登錄">
+            <div class="fit-metric-label">📋 資金動向<br>月度記錄</div>
+            <div class="fit-metric-val" id="fitFxMonthlyBadge" style="font-size:0.68rem;">點擊查看▾</div>
+            <div class="fit-metric-sub">金管會／央行月報</div>
+          </div>
           <div class="fit-metric-card">
             <div class="fit-metric-label">📅 距季底</div>
             <div class="fit-metric-val" id="fitQEndDays">—</div>
             <div class="fit-metric-sub" id="fitQEndLabel">—</div>
+          </div>
+        </div>
+
+        <!-- v6.32 資金真實動向月度記錄卡（展開面板） -->
+        <div class="fit-fx-panel" id="fitFxPanel">
+          <div style="font-size:0.72rem;font-weight:800;color:var(--fg);margin-bottom:6px;">
+            📋 資金真實動向月度記錄——判斷外資是「真撤資」還是「賣股換現金留台觀望」
+          </div>
+          <div class="fit-fx-row">
+            <span class="fx-label">① 金管會外資淨匯入／匯出（億美元）</span>
+            <input type="number" step="0.01" id="fxInput1" placeholder="輸入本月數字">
+            <button class="fx-btn" onclick="fitFxUpdate(1)">更新</button>
+            <a class="fx-link" href="https://www.fsc.gov.tw" target="_blank" rel="noopener">前往金管會官網查詢 ↗</a>
+            <div class="fx-sub">每月初（約5日前）公布上月數據</div>
+            <div class="fit-fx-msg" id="fxMsg1"></div>
+          </div>
+          <div class="fit-fx-row">
+            <span class="fx-label">② 央行外人新台幣存款餘額（億元）</span>
+            <input type="number" step="0.01" id="fxInput2" placeholder="輸入本月數字">
+            <button class="fx-btn" onclick="fitFxUpdate(2)">更新</button>
+            <a class="fx-link" href="https://www.cbc.gov.tw" target="_blank" rel="noopener">前往央行官網查詢 ↗</a>
+            <div class="fx-sub">每月下旬公布（央行「金融概況」新聞稿）</div>
+            <div class="fit-fx-msg" id="fxMsg2"></div>
+          </div>
+          <div class="fit-fx-row">
+            <span class="fx-label">④ 外資在台資產＋存款／外匯存底佔比（%）</span>
+            <input type="number" step="0.01" id="fxInput4" placeholder="輸入本月數字">
+            <button class="fx-btn" onclick="fitFxUpdate(4)">更新</button>
+            <a class="fx-link" href="https://www.cbc.gov.tw" target="_blank" rel="noopener">前往央行官網查詢 ↗</a>
+            <div class="fx-sub">每月初隨外匯存底新聞稿附帶公布</div>
+            <div class="fit-fx-msg" id="fxMsg4"></div>
+          </div>
+          <div style="font-size:0.62rem;color:var(--fg3);margin-top:6px;">
+            ⚠️ 這三項官方網站沒有開放資料API，「更新」按鈕無法自動抓數字，只能幫你判斷這個月數據該不該公布了——查到真實數字後，麻煩手動填入儲存，下次開啟會記得。
           </div>
         </div>
 
@@ -37665,6 +37741,9 @@ function renderFITPanel(instMap, instDays, fSeries, tSeries, closes, dates, lc) 
     $('fitQEndDays').className = 'fit-metric-val ' + (qEnd.daysLeft <= 14 ? 'dn' : qEnd.daysLeft <= 21 ? 'warn' : 'up');
   }
 
+  // ── v6.32 新台幣匯率背離警示：外資大賣但新台幣沒貶，可能只是換現金留台觀望 ──
+  updateFxDivergence(fit.f5);
+
   // ── 季底進度條 ──
   const qBarPct = Math.round(qEnd.urgency * 100);
   if ($('fitQEndDesc')) $('fitQEndDesc').textContent = `${qEnd.qName}（${qEnd.label}）`;
@@ -37739,6 +37818,193 @@ function renderFITPanel(instMap, instDays, fSeries, tSeries, closes, dates, lc) 
     const btResult = runFITBacktest(instMap, closes, dates);
     renderFITBacktest(btResult);
   } catch(e) { console.warn('[FIT Backtest]', e); }
+}
+
+// ==============================================================
+//  v6.32 新台幣匯率背離警示 + 資金真實動向月度記錄卡
+//  外資賣股後有沒有真的撤出台灣，要看「賣股方向」跟「新台幣匯率方向」有沒有背離：
+//  外資大賣＋新台幣同步貶值 = 正常撤資；外資大賣＋新台幣卻沒貶（甚至升值）= 資金疑似換成現金留台觀望
+//  ⚠️ 免費匯率API（open.er-api.com）一天只更新一次，不是逐筆報價；5日趨勢靠每次開啟本站
+//  自己存一筆歷史值累積出來，不是官方逐日資料庫，僅供粗略參考，不是精確金融數據源
+// ==============================================================
+const FX_HISTORY_KEY = 'twStockFxHistory_v1';
+const FX_MONTHLY_KEY = 'twStockFxMonthly_v1';
+
+function getFxHistory() {
+  try { return JSON.parse(localStorage.getItem(FX_HISTORY_KEY)) || {}; } catch(_) { return {}; }
+}
+function saveFxHistory(hist) {
+  // 只留最近 40 筆，避免無限長大
+  const keys = Object.keys(hist).sort();
+  if (keys.length > 40) keys.slice(0, keys.length - 40).forEach(k => delete hist[k]);
+  localStorage.setItem(FX_HISTORY_KEY, JSON.stringify(hist));
+}
+
+async function fetchAndStoreFxRate() {
+  const today = new Date().toISOString().slice(0, 10);
+  const hist = getFxHistory();
+  if (hist[today]) return hist; // 今天已經存過了，不用重打 API
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+    const data = await res.json();
+    const rate = data?.rates?.TWD;
+    if (rate) {
+      hist[today] = rate;
+      saveFxHistory(hist);
+    }
+  } catch (e) {
+    console.warn('[匯率背離] 抓取失敗（免費API或網路問題，不影響其他功能）', e);
+  }
+  return hist;
+}
+
+function updateFxDivergence(f5) {
+  const el = document.getElementById('fitFxDivergence');
+  const sub = document.getElementById('fitFxSub');
+  if (!el) return;
+  fetchAndStoreFxRate().then(hist => {
+    const dates = Object.keys(hist).sort();
+    if (dates.length < 2) {
+      el.textContent = '累積中';
+      el.className = 'fit-metric-val';
+      if (sub) sub.textContent = '每天開站多存一筆';
+      return;
+    }
+    const todayRate = hist[dates[dates.length - 1]];
+    // 找最接近「5天前」的一筆（本地累積資料，不一定剛好5個交易日）
+    const pastIdx = Math.max(0, dates.length - 6);
+    const pastRate = hist[dates[pastIdx]];
+    const pctChange = ((todayRate - pastRate) / pastRate) * 100; // 正值=新台幣貶值(USD/TWD變大)
+    const fiSold = f5 < -3000; // 外資5日賣超超過3000張，視為「大賣」門檻（可再調整）
+
+    if (fiSold && pctChange < 0.3) {
+      el.textContent = '🔴 疑似留台';
+      el.className = 'fit-metric-val dn';
+      if (sub) sub.textContent = `外資賣但台幣未貶(${pctChange.toFixed(2)}%)`;
+    } else if (fiSold && pctChange >= 0.5) {
+      el.textContent = '🟢 賣壓+貶值';
+      el.className = 'fit-metric-val up';
+      if (sub) sub.textContent = `同步貶值${pctChange.toFixed(2)}%，資金可能真外流`;
+    } else {
+      el.textContent = '⚪ 無明顯訊號';
+      el.className = 'fit-metric-val';
+      if (sub) sub.textContent = '外資未達大賣門檻';
+    }
+  });
+}
+
+function fitFxPanelToggle() {
+  const panel = document.getElementById('fitFxPanel');
+  if (!panel) return;
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) fitFxRenderMonthly();
+}
+
+// 每月官方數據「預期公布時間窗」：① ④ 月初(~10日前)、② 月下旬(21日後)
+const FX_MONTHLY_SPEC = {
+  1: { label: '金管會外資淨匯入/匯出', dueDay: 10, url: 'https://www.fsc.gov.tw' },
+  2: { label: '央行外人新台幣存款餘額', dueDay: 25, url: 'https://www.cbc.gov.tw' },
+  4: { label: '外資在台資產/外匯存底佔比', dueDay: 10, url: 'https://www.cbc.gov.tw' }
+};
+
+function getFxMonthly() {
+  try { return JSON.parse(localStorage.getItem(FX_MONTHLY_KEY)) || {}; } catch(_) { return {}; }
+}
+
+function fitFxRenderMonthly() {
+  const store = getFxMonthly();
+  [1, 2, 4].forEach(n => {
+    const rec = store[n];
+    const input = document.getElementById('fxInput' + n);
+    if (input && rec) input.value = rec.value;
+    const msg = document.getElementById('fxMsg' + n);
+    if (msg && rec) {
+      msg.textContent = `✅ 已記錄：${rec.month}月填入 ${rec.value}（${rec.savedAt}）`;
+      msg.className = 'fit-fx-msg ok';
+    }
+  });
+  fitFxAutoFillFromScript();
+}
+
+// v6.32：④「外資在台資產/外匯存底佔比」有排程腳本自動抓（scripts/fetch_cbc_fx_ratio.py），
+// 這裡讀它寫出來的JSON，同源檔案fetch不會有CORS問題；抓不到就靜默放棄，回退成手動填寫。
+function fitFxAutoFillFromScript() {
+  fetch('scripts/cbc_fx_ratio.json', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      const input = document.getElementById('fxInput4');
+      const msg = document.getElementById('fxMsg4');
+      if (input) input.value = data.pct_of_reserves;
+      if (msg) {
+        msg.textContent = `🤖 自動抓取（${data.month_roc}，來源：央行外匯存底新聞稿）：${data.pct_of_reserves}%，資產+存款共${data.amount_billion_usd.toLocaleString()}億美元——確認沒問題可直接按「更新」存檔`;
+        msg.className = 'fit-fx-msg ok';
+      }
+    })
+    .catch(() => { /* 排程還沒跑過、或本機開啟沒有這個檔案，靜默忽略，維持手動填寫 */ });
+
+  // v6.33：①「外資淨匯入/買賣超」也有排程腳本了（scripts/fetch_fsc_fx_flow.py），
+  // 同一套模式讀JSON帶入，並把背離判斷（divergence_flag）直接標在訊息裡。
+  fetch('scripts/fsc_fx_flow.json', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      const input = document.getElementById('fxInput1');
+      const msg = document.getElementById('fxMsg1');
+      if (input) input.value = data.cumulative_net_inflow_usd_billion;
+      if (msg) {
+        const warn = data.divergence_flag ? '　⚠️ 買賣超與淨匯入方向背離，疑似賣股但資金留台' : '';
+        msg.textContent = `🤖 自動抓取（${data.title}）：累積淨匯入 ${data.cumulative_net_inflow_usd_billion.toLocaleString()} 億美元，外資買賣超 ${data.net_buysell_ntd_billion.toLocaleString()} 億台幣${warn}——確認沒問題可直接按「更新」存檔`;
+        msg.className = 'fit-fx-msg ' + (data.divergence_flag ? 'wait' : 'ok');
+      }
+    })
+    .catch(() => { /* 同上，靜默忽略 */ });
+}
+
+function fitFxUpdate(n) {
+  const spec = FX_MONTHLY_SPEC[n];
+  const input = document.getElementById('fxInput' + n);
+  const msg = document.getElementById('fxMsg' + n);
+  if (!spec || !input || !msg) return;
+
+  const now = new Date();
+  const curMonth = now.getMonth() + 1;
+  const curDay = now.getDate();
+  const store = getFxMonthly();
+  const rec = store[n];
+
+  // 這個月的數字是不是已經記錄過了
+  if (rec && rec.month === curMonth && rec.year === now.getFullYear()) {
+    if (input.value && parseFloat(input.value) !== rec.value) {
+      // 使用者改了數字，當作更新
+      store[n] = { value: parseFloat(input.value), month: curMonth, year: now.getFullYear(), savedAt: now.toLocaleDateString('zh-TW') };
+      localStorage.setItem(FX_MONTHLY_KEY, JSON.stringify(store));
+      msg.textContent = `✅ 已更新本月數字：${input.value}`;
+      msg.className = 'fit-fx-msg ok';
+    } else {
+      msg.textContent = `ℹ️ 本月（${curMonth}月）已經記錄過了，數字：${rec.value}`;
+      msg.className = 'fit-fx-msg ok';
+    }
+    return;
+  }
+
+  // 還沒記錄本月數字：先判斷官方是否已經公布（用預期公布日粗略估計）
+  if (curDay < spec.dueDay) {
+    msg.textContent = `⏳ 官方通常${spec.dueDay}日前後才公布，目前還沒到更新日期，或您可以到官網確認：${spec.url}`;
+    msg.className = 'fit-fx-msg wait';
+    return;
+  }
+
+  if (!input.value) {
+    msg.textContent = `⏳ 已經過了預估公布日，但欄位是空的——請到官網查詢後手動填入數字：${spec.url}`;
+    msg.className = 'fit-fx-msg wait';
+    return;
+  }
+
+  store[n] = { value: parseFloat(input.value), month: curMonth, year: now.getFullYear(), savedAt: now.toLocaleDateString('zh-TW') };
+  localStorage.setItem(FX_MONTHLY_KEY, JSON.stringify(store));
+  msg.textContent = `✅ 已記錄本月（${curMonth}月）數字：${input.value}`;
+  msg.className = 'fit-fx-msg ok';
 }
 
 // ==============================================================

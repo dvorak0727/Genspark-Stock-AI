@@ -1,0 +1,3 @@
+
+# 本機排程用的套件vendor資料夾，不需要跟著網站一起部署
+scripts/vendor/
