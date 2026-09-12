@@ -292,6 +292,11 @@ export default {
       // 「白名單限制、避免變成任意開放代理」的設計初衷。
       const YAHOO_TICKERS = new Set([
         "SPY", "QQQ", "SOXX", "EWJ", "EWY",
+        // v7.74：開盤壓力表改抓真正的指數本身，不再用ETF價格代理——
+        // ETF跟對應指數成分股不完全相同（尤其QQQ只有那斯達克100檔，
+        // 跟NASDAQ綜合指數^IXIC的漲跌幅會有落差），使用者比對Yahoo股市
+        // 首頁數字時容易誤以為抓錯了。Yahoo chart API本身就支援^開頭代號。
+        "^GSPC", "^IXIC", "^SOX",
         "NVDA", "AMD", "AVGO", "ARM", "QCOM", "INTC", "MU", "TSM", "AMAT", "LRCX",
         "MSFT", "GOOG", "GOOGL", "META", "AMZN", "SMCI", "AAPL",
         "SPCE", "RKLB", "ASTS", "TSAT", "SNAP",
