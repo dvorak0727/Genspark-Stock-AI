@@ -77670,8 +77670,10 @@ const OPP_STOCKS = [
   { ticker:'%5EIXIC', name:'NASDAQ',  base:26300.0, weight:2, label:'科技股' },
   { ticker:'%5ESOX',  name:'費城半導體', base:11800.0, weight:3, label:'費半' },
   { ticker:'TSM',  name:'台積電ADR',base:258.4, weight:3, label:'台積ADR' },
-  { ticker:'EWJ',  name:'日股ETF',  base:73.0,  weight:1, label:'日本' },
-  { ticker:'EWY',  name:'韓股ETF',  base:72.0,  weight:1, label:'韓國' },
+  // v7.76：日本/韓國同樣改抓真正的指數（^N225日經225／^KS11 KOSPI），
+  // 不再用EWJ/EWY這兩檔ETF代理，理由同上——指數才是新聞/Yahoo比對的數字。
+  { ticker:'%5EN225', name:'日經225指數', base:64000.0, weight:1, label:'日本', tip:'日本／日經225指數(Nikkei 225)　股價加權，權值股影響力大，是國際媒體最常報價的日股指標，適合快速掌握日股情緒與主流大型股表現' },
+  { ticker:'%5EKS11', name:'韓國KOSPI指數', base:6900.0,  weight:1, label:'韓國', tip:'韓國／KOSPI指數(韓國綜合股價指數)　市值加權，涵蓋三星電子、SK海力士等大型權值股，最能反映韓國整體經濟動能與外資動向' },
 ];
 
 /* ── 抓取單一 Yahoo 報價 ──
@@ -78041,7 +78043,7 @@ async function fetchOpeningPressure() {
     const cls  = Math.abs(r.chg) > 1 ? (up ? 'bull' : 'bear') : '';
     const sign = up ? '+' : '';
     return `<div class="opp-item ${cls}">
-      <div class="opp-item-name">${r.label}</div>
+      <div class="opp-item-name">${r.label}${r.tip ? ` <span data-tip="${r.tip.replace(/"/g,'&quot;')}" style="cursor:help;opacity:.6;">?</span>` : ''}</div>
       <div class="opp-item-price">${r.price.toFixed(r.price>=100?0:2)}</div>
       <div class="opp-item-chg ${up?'up':'down'}">${sign}${r.chg.toFixed(2)}%</div>
       ${r.sim ? '<div class="opp-item-sim">模擬</div>' : ''}
