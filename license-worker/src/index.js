@@ -297,6 +297,10 @@ export default {
         // 跟NASDAQ綜合指數^IXIC的漲跌幅會有落差），使用者比對Yahoo股市
         // 首頁數字時容易誤以為抓錯了。Yahoo chart API本身就支援^開頭代號。
         "^GSPC", "^IXIC", "^SOX",
+        // v7.76：日本／韓國改抓「日經225指數」「KOSPI指數」本身，不再用
+        // EWJ/EWY這兩檔ETF代理──理由跟GSPC/IXIC/SOX那次一樣，指數才是
+        // 使用者比對新聞/Yahoo時看到的數字。
+        "^N225", "^KS11",
         "NVDA", "AMD", "AVGO", "ARM", "QCOM", "INTC", "MU", "TSM", "AMAT", "LRCX",
         "MSFT", "GOOG", "GOOGL", "META", "AMZN", "SMCI", "AAPL",
         "SPCE", "RKLB", "ASTS", "TSAT", "SNAP",
