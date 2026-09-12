@@ -6761,6 +6761,15 @@
 .state-B .fit-state-action { background:rgba(239,68,68,0.15); color:#EF4444; }
 .state-C .fit-state-action { background:rgba(245,158,11,0.15); color:#F59E0B; }
 .state-D .fit-state-action { background:rgba(99,102,241,0.15); color:#818CF8; }
+/* v6.36 匯率背離自動判讀卡（跟ABCD狀態卡同一套視覺語言，色系另外開） */
+.fit-state-card.state-fxOut  { border-color:#EF4444; background:rgba(239,68,68,0.10); }
+.fit-state-card.state-fxPark { border-color:#10B981; background:rgba(16,185,129,0.08); }
+.fit-state-card.state-fxWait { border-color:#F59E0B; background:rgba(245,158,11,0.08); }
+.fit-state-card.state-fxNone { border-color:#64748B; background:rgba(100,116,139,0.06); }
+.state-fxOut  .fit-state-action { background:rgba(239,68,68,0.15); color:#EF4444; }
+.state-fxPark .fit-state-action { background:rgba(16,185,129,0.15); color:#10B981; }
+.state-fxWait .fit-state-action { background:rgba(245,158,11,0.15); color:#F59E0B; }
+.state-fxNone .fit-state-action { background:rgba(100,116,139,0.15); color:#94A3B8; }
 /* 季底倒計時列 */
 .fit-qend-row {
   display:flex; align-items:center; gap:8px;
@@ -17941,6 +17950,17 @@ a.module-nav-item.acc-active {
           </div>
           <div class="fit-state-desc" id="fitStateDesc">—</div>
           <span class="fit-state-action" id="fitStateAction">—</span>
+        </div>
+
+        <!-- v6.36 匯率背離自動判讀卡：外資賣超是否真的轉成外匯需求，不是只丟一個「疑似留台」的短標籤，
+             給完整判讀語句跟建議動作，跟上面ABCD狀態卡同一套邏輯 -->
+        <div class="fit-state-card" id="fitFxStateCard" style="display:none;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span class="fit-state-icon" id="fitFxStateIcon">—</span>
+            <span class="fit-state-title" id="fitFxStateTitle">—</span>
+          </div>
+          <div class="fit-state-desc" id="fitFxStateDesc">—</div>
+          <span class="fit-state-action" id="fitFxStateAction">—</span>
         </div>
 
         <!-- 投信推估成本帶 -->
@@ -37900,9 +37920,49 @@ async function fetchFxHistoryDict() {
   return hist;
 }
 
+// v6.36：匯率背離自動判讀——把「外資賣超 × 新台幣匯率」的交叉邏輯寫成完整判讀語句
+// （不只是短標籤），套用跟ABCD狀態卡一樣的 icon/title/desc/action 格式，直接
+// 回答「這波是收割完就跑，還是只是換手不出場」。
+function buildFxNarrative(f5, pctChange, fiSold) {
+  const f5r = Math.round(f5).toLocaleString();
+  const pct = pctChange.toFixed(2);
+  if (!fiSold) {
+    return {
+      icon: '⚪', title: '外資未達大賣門檻，暫無需要交叉比對的訊號',
+      desc: `外資近5日賣超${f5r}張，還沒到判斷「是否撤資」的門檻（-3,000張）。這個力道不足以推斷資金去留，看FIT上面ABCD狀態卡的法人共識就好，不用額外解讀匯率。`,
+      action: '📊 暫不需理會匯率背離，回頭看ABCD狀態卡即可',
+      cls: 'state-fxNone'
+    };
+  }
+  if (pctChange < 0.3) {
+    return {
+      icon: '🟢', title: '疑似留台觀望：賣股沒轉成外匯需求',
+      desc: `外資5日賣超${f5r}張，但同期新台幣只變動${pct}%，賣壓沒有換成美元需求——錢很可能還停在台幣資產（債券、票券）裡等機會，不是真的要離開台灣。單純看到「外資大賣」新聞就恐慌出場，容易被洗掉。`,
+      action: '👀 資金可能還在系統內：觀察是否與B狀態（季底作帳出貨）重疊，再決定要不要跟著賣',
+      cls: 'state-fxPark'
+    };
+  }
+  if (pctChange >= 0.5) {
+    return {
+      icon: '🔴', title: '疑似真實撤資：賣壓已轉換成匯率貶值',
+      desc: `外資5日賣超${f5r}張，新台幣同步貶值${pct}%，賣股跟換匯需求同步出現，這批資金比較像是真的要離開台灣，不只是換個部位停泊。真撤資通常不是單日事件，會延續數週。`,
+      action: '⚠️ 提高警覺：留意後續幾天是否持續加速貶值，別只看單日數字',
+      cls: 'state-fxOut'
+    };
+  }
+  // 0.3% ≤ pctChange < 0.5%：介於「有感」與「不夠有感」之間，資料還不夠肯定
+  return {
+    icon: '🟡', title: '訊號曖昧：貶值幅度介於臨界值之間',
+    desc: `外資5日賣超${f5r}張已達門檻，新台幣貶值${pct}%——落在「還不算明顯」跟「已經有感」的中間，單日/單週資料還不夠下定論。`,
+    action: '🔍 點擊「匯率背離」卡看連續15日明細，觀察趨勢是否持續加深再判斷',
+    cls: 'state-fxWait'
+  };
+}
+
 function updateFxDivergence(f5) {
   const el = document.getElementById('fitFxDivergence');
   const sub = document.getElementById('fitFxSub');
+  const card = document.getElementById('fitFxStateCard');
   if (!el) return;
   fetchFxHistoryDict().then(hist => {
     window._fxHistDict = hist; // v6.35：存起來供 fitFxHistoryToggle() 畫15日明細表用
@@ -37911,6 +37971,7 @@ function updateFxDivergence(f5) {
       el.textContent = '累積中';
       el.className = 'fit-metric-val';
       if (sub) sub.textContent = '每天開站多存一筆';
+      if (card) card.style.display = 'none';
       return;
     }
     const todayRate = hist[dates[dates.length - 1]];
@@ -37932,6 +37993,18 @@ function updateFxDivergence(f5) {
       el.textContent = '⚪ 無明顯訊號';
       el.className = 'fit-metric-val';
       if (sub) sub.textContent = '外資未達大賣門檻';
+    }
+
+    // ── 自動判讀卡：把上面的短標籤展開成完整判讀語句 ──
+    if (card) {
+      const n = buildFxNarrative(f5, pctChange, fiSold);
+      card.style.display = '';
+      card.className = `fit-state-card ${n.cls}`;
+      const $ = id => document.getElementById(id);
+      if ($('fitFxStateIcon'))   $('fitFxStateIcon').textContent   = n.icon;
+      if ($('fitFxStateTitle'))  $('fitFxStateTitle').textContent  = n.title;
+      if ($('fitFxStateDesc'))   $('fitFxStateDesc').textContent   = n.desc;
+      if ($('fitFxStateAction')) $('fitFxStateAction').textContent = n.action;
     }
   });
 }
