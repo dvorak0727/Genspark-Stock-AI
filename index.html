@@ -17160,11 +17160,11 @@ a.module-nav-item.acc-active {
           </div>
           </div><!-- /#nightFutZoomArea -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-            <div id="nightFutMacdZoomArea" onclick="genericZoomOpen('nightFutMacdZoomArea',['nightFutMacdChart'])" title="點擊放大" style="cursor:zoom-in;">
+            <div onclick="openIndChart('nightFutMACD')" title="點擊放大" style="cursor:zoom-in;">
               <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">📊 MACD <span style="opacity:.5;font-weight:400;">🔍</span></div>
               <div class="chart-wrap" style="position:relative;height:100px;"><canvas id="nightFutMacdChart"></canvas></div>
             </div>
-            <div id="nightFutKdZoomArea" onclick="genericZoomOpen('nightFutKdZoomArea',['nightFutKdChart'])" title="點擊放大" style="cursor:zoom-in;">
+            <div onclick="openIndChart('nightFutKD')" title="點擊放大" style="cursor:zoom-in;">
               <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">🎯 KD <span style="opacity:.5;font-weight:400;">🔍</span></div>
               <div class="chart-wrap" style="position:relative;height:100px;"><canvas id="nightFutKdChart"></canvas></div>
             </div>
@@ -45000,55 +45000,6 @@ function nightFutZoomClose() {
 }
 function _nightFutZoomEscHandler(e) { if (e.key === 'Escape') nightFutZoomClose(); }
 
-// v8.x：MACD／KD 小圖也各自可點擊放大，跟上面K線+量的nightFutZoomOpen
-// 同一套「搬移DOM節點」做法，寫成通用版本，兩張圖共用不用各刻一份。
-const _genericZoomCharts = {};
-function genericZoomOpen(areaId, chartKeys) {
-  const area = document.getElementById(areaId);
-  if (!area) return;
-  _genericZoomCharts[areaId] = chartKeys;
-  const overlayId = areaId + 'Overlay', panelId = areaId + 'Panel', markerId = areaId + 'Placeholder';
-  let overlay = document.getElementById(overlayId);
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = overlayId;
-    overlay.className = 'tech-zoom-overlay';
-    overlay.innerHTML = `<div class="tech-zoom-panel" id="${panelId}">
-      <button class="tech-zoom-close" onclick="genericZoomClose('${areaId}')">✕ 關閉</button>
-      <div style="clear:both;"></div>
-    </div>`;
-    document.body.appendChild(overlay);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) genericZoomClose(areaId); });
-  }
-  if (!document.getElementById(markerId)) {
-    const marker = document.createElement('div');
-    marker.id = markerId;
-    marker.style.display = 'none';
-    area.parentNode.insertBefore(marker, area);
-  }
-  document.getElementById(panelId).appendChild(area);
-  area.classList.add('tech-zoom-open');
-  overlay.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => { chartKeys.forEach(k => charts[k] && charts[k].resize()); }, 60);
-  const handler = (e) => { if (e.key === 'Escape') genericZoomClose(areaId); };
-  area._gzEscHandler = handler;
-  document.addEventListener('keydown', handler);
-}
-function genericZoomClose(areaId) {
-  const overlay = document.getElementById(areaId + 'Overlay');
-  const area    = document.getElementById(areaId);
-  const marker  = document.getElementById(areaId + 'Placeholder');
-  if (!overlay || !area || !marker) return;
-  marker.parentNode.insertBefore(area, marker);
-  area.classList.remove('tech-zoom-open');
-  overlay.classList.remove('open');
-  document.body.style.overflow = '';
-  const chartKeys = _genericZoomCharts[areaId] || [];
-  setTimeout(() => { chartKeys.forEach(k => charts[k] && charts[k].resize()); }, 60);
-  if (area._gzEscHandler) { document.removeEventListener('keydown', area._gzEscHandler); area._gzEscHandler = null; }
-}
-
 // 切換週期並重繪
 function switchPeriod(period) {
   if (!window.aData) return;
@@ -47650,6 +47601,75 @@ const IND_CHART_META = {
     },
     desc: '【MACD 兩條線怎麼看】\nDIF（快線）= 12日均線 - 26日均線，反應最近的動能方向\nDEA（慢線）= DIF 的 9 日平均，代表中期趨勢\n\n✅ 買訊：DIF 從下方穿越 DEA（金叉）\n❌ 賣訊：DIF 從上方跌破 DEA（死叉）\n\n💡 實用小技巧：\n柱狀圖（Histogram）翻正，比金叉早出現 1~3 天\n所以先看柱狀圖，再用金叉做最終確認'
   },
+  // v8.x：台指夜盤走勢圖的 MACD/KD 小圖點擊放大，跟個股頁面共用同一套
+  // indChartModal（標題列+近1/5/10/20/60日Tab+統計摘要卡+圖表），
+  // 只是資料源換成window._nightFutIndData（台指期近月合約夜盤收盤算出的
+  // MACD/KD），不是window.aData。訊號解讀列(_buildIndSignals)沒有對應
+  // 這兩個type的case，會回傳空陣列，那一列自然不顯示，不影響其他部分。
+  'nightFutKD': {
+    title: '🌙 台指夜盤 KD 隨機指標（K值 & D值）',
+    series: days => {
+      const d = window._nightFutIndData; if (!d) return null;
+      const N = Math.min(days, d.dates.length);
+      const labels = d.dates.slice(-N).map(x => x.slice(5).replace('-', '/'));
+      const kArr = d.kd.K.slice(-N);
+      const dArr = d.kd.D.slice(-N);
+      return {
+        labels,
+        datasets: [
+          { label:'K值', data:kArr, borderColor:'#F59E0B', backgroundColor:'rgba(245,158,11,.10)',
+            fill:false, tension:0.3, pointRadius:2, borderWidth:2 },
+          { label:'D值', data:dArr, borderColor:'#EF4444', backgroundColor:'rgba(239,68,68,.08)',
+            fill:false, tension:0.3, pointRadius:2, borderWidth:2 },
+          { label:'超買線(80)', data:Array(N).fill(80), borderColor:'rgba(239,68,68,.4)',
+            borderDash:[5,4], borderWidth:1.2, pointRadius:0, fill:false },
+          { label:'超賣線(20)', data:Array(N).fill(20), borderColor:'rgba(16,185,129,.4)',
+            borderDash:[5,4], borderWidth:1.2, pointRadius:0, fill:false },
+        ],
+        yMin:0, yMax:100
+      };
+    },
+    stats: () => {
+      const d = window._nightFutIndData; if (!d) return [];
+      const K = d.kd.K.at(-1), D = d.kd.D.at(-1);
+      return [
+        { val: K?.toFixed(1) ?? '—', lbl: 'K值' },
+        { val: D?.toFixed(1) ?? '—', lbl: 'D值' },
+        { val: K > D ? '黃金交叉 ▲' : '死亡交叉 ▼', lbl: 'KD關係' }
+      ];
+    },
+    desc: '🟡 KD 指標：K 為快線（敏感），D 為 K 的 3 日均線（穩定）。黃金交叉（K 上穿 D）看多；死亡交叉（K 下穿 D）看空。K<20 超賣區黃金交叉訊號最強。\n（資料源：TaiwanFuturesDaily 台指期近月合約夜盤收盤，非即時報價）'
+  },
+  'nightFutMACD': {
+    title: '🌙 台指夜盤 MACD 指標（DIF 線 & 訊號線）',
+    series: days => {
+      const d = window._nightFutIndData; if (!d) return null;
+      const N = Math.min(days, d.dates.length);
+      const labels = d.dates.slice(-N).map(x => x.slice(5).replace('-', '/'));
+      const macdArr = d.macd.MACD.slice(-N);
+      const sigArr  = d.macd.Signal.slice(-N);
+      return {
+        labels,
+        datasets: [
+          { label:'DIF(MACD)', data:macdArr, borderColor:'#3B82F6', backgroundColor:'rgba(59,130,246,.12)',
+            fill:false, tension:0.3, pointRadius:2, borderWidth:2 },
+          { label:'DEA(訊號線)', data:sigArr, borderColor:'#F59E0B', backgroundColor:'rgba(245,158,11,.08)',
+            fill:false, tension:0.3, pointRadius:2, borderWidth:2 },
+          { label:'零軸', data:Array(N).fill(0), borderColor:'rgba(148,163,184,.4)',
+            borderDash:[4,4], borderWidth:1, pointRadius:0, fill:false },
+        ],
+      };
+    },
+    stats: () => {
+      const d = window._nightFutIndData; if (!d) return [];
+      return [
+        { val: d.macd.MACD.at(-1)?.toFixed(1) ?? '—', lbl: 'DIF' },
+        { val: d.macd.Signal.at(-1)?.toFixed(1) ?? '—', lbl: 'DEA' },
+        { val: d.macd.Hist.at(-1)?.toFixed(1) ?? '—', lbl: '柱狀體' }
+      ];
+    },
+    desc: '【MACD 兩條線怎麼看】\nDIF（快線）= 12日均線 - 26日均線，反應最近的動能方向\nDEA（慢線）= DIF 的 9 日平均，代表中期趨勢\n\n✅ 買訊：DIF 從下方穿越 DEA（金叉）\n❌ 賣訊：DIF 從上方跌破 DEA（死叉）\n（資料源：TaiwanFuturesDaily 台指期近月合約夜盤收盤，非即時報價）'
+  },
   '柱狀': {
     title: 'MACD 柱狀體（Histogram）動能圖',
     series: days => {
@@ -47884,11 +47904,12 @@ function toggleShareMode() {
   btn.style.fontSize = isShare ? '0.72rem' : '1rem';
 
   if (isShare) {
-    // 填入股票資訊
-    const d = window.aData;
-    const id = d?.stockId || '';
+    // 填入股票資訊（v8.x：夜盤指標modal沒有對應個股，用台指期近月合約代替）
+    const isNightFut = _icmType && _icmType.startsWith('nightFut');
+    const d = isNightFut ? window._nightFutIndData : window.aData;
+    const id = isNightFut ? '' : (d?.stockId || '');
     const info = window.STOCK_DB?.[id] || {};
-    const name = info.name || id;
+    const name = isNightFut ? '台指期近月合約（夜盤）' : (info.name || id);
     const today = d?.dates?.at(-1) || new Date().toISOString().slice(0,10);
     document.getElementById('shareStockName').textContent = name;
     document.getElementById('shareStockCode').textContent = id;
@@ -77997,6 +78018,11 @@ function renderNightFuturesChart() {
   const kd = calcKD(cache.highs, cache.lows, cache.closes, 9);
   const mN = Math.min(40, cache.closes.length);
   const mdl = cache.dates.slice(-mN).map(d => d.slice(5).replace('-', '/'));
+
+  // v8.x：把完整歷史(不只mN=40那個小圖視窗)存起來，供點擊放大時彈出的
+  // indChartModal（跟個股頁面「近1/5/10/20/60日」同一套Modal）使用，
+  // 這樣放大就不只是把小圖拉大，而是可以切換天數區間、看統計摘要卡。
+  window._nightFutIndData = { dates: cache.dates, closes: cache.closes, macd, kd };
 
   destroyChart('nightFutMacdChart');
   const macdCtx = document.getElementById('nightFutMacdChart').getContext('2d');
