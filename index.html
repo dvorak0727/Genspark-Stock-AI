@@ -66826,8 +66826,13 @@ async function fetchUSPrice(ticker) {
     if (!meta) throw new Error(raw?.msg || 'no meta');
     const closes = (quotes?.close || []).filter(Boolean);
     const last   = meta.regularMarketPrice ?? closes.at(-1) ?? 0;
-    const prev   = closes.length >= 2 ? closes.at(-2) : last;
-    const chg    = prev > 0 ? (last - prev) / prev * 100 : 0;
+    // v7.75 修復：同開盤壓力表_oppFetchOne()那個bug——美股當天還沒收盤時，
+    // 今天K棒的close是null，濾掉後closes.at(-2)會誤指向「前天」而非「昨天」，
+    // 漲跌幅方向可能算反。優先用Yahoo已經算好的regularMarketChangePercent。
+    const prev = closes.length >= 2 ? closes.at(-2) : last;
+    const chg = meta.regularMarketChangePercent != null
+      ? meta.regularMarketChangePercent
+      : (prev > 0 ? (last - prev) / prev * 100 : 0);
     _usProxyStatus = 'ok';
     return { ticker, price: last, prev, chg, closes };
   } catch (e) {
@@ -77686,8 +77691,21 @@ async function _oppFetchOne(stock) {
       if (meta) {
         const closes = (quotes?.close || []).filter(Boolean);
         const last   = meta.regularMarketPrice ?? closes.at(-1) ?? 0;
-        const prev   = closes.length >= 2 ? closes.at(-2) : last;
-        const chg    = prev > 0 ? (last - prev) / prev * 100 : 0;
+        // v7.75 修復：原本用 closes.at(-2) 當「昨收」算漲跌幅，但美股當天交易
+        // 還沒收盤時，今天這根K棒的close是null，被filter(Boolean)濾掉後，
+        // closes.at(-1)其實變成「昨天」的收盤價，導致closes.at(-2)變成「前天」──
+        // 用錯了兩天前的價格去跟即時價比較，漲跌幅方向可能整個算反（例如TSM
+        // 明明收漲卻顯示跌）。試過用meta.chartPreviousClose，結果發現那欄位
+        // 語意是「這次range最早一天之前」的收盤價，range=5d時等於再往前推快
+        // 一週，一樣是錯的參考點。真正正確的做法：Yahoo自己算好的
+        // regularMarketChangePercent就是對的（跟Yahoo股市頁面顯示一致），
+        // 直接拿來用最可靠，不用自己土法算前收盤。
+        const chg = meta.regularMarketChangePercent != null
+          ? meta.regularMarketChangePercent
+          : (() => {
+              const prev = closes.length >= 2 ? closes.at(-2) : last;
+              return prev > 0 ? (last - prev) / prev * 100 : 0;
+            })();
         if (last > 0) return { ...stock, price: last, chg: +chg.toFixed(2), sim: false };
       }
     }
