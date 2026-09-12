@@ -17151,7 +17151,7 @@ a.module-nav-item.acc-active {
             <button class="kannot-btn kb-peakTrough" id="nightFutAnnot_peakTrough" onclick="toggleNightFutAnnot('peakTrough')" title="近期相對高低點自動偵測出的頭/底轉折文字標記">🔺 頭/底</button>
             <span class="kannot-reset" onclick="resetNightFutAnnot()">全開</span>
           </div>
-          <div id="nightFutZoomArea">
+          <div id="nightFutZoomArea" onclick="nightFutZoomOpen()" title="點擊放大" style="cursor:zoom-in;">
           <div class="chart-wrap" style="position:relative;height:300px;">
             <canvas id="nightFutCandleChart"></canvas>
           </div>
@@ -17160,12 +17160,12 @@ a.module-nav-item.acc-active {
           </div>
           </div><!-- /#nightFutZoomArea -->
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-            <div>
-              <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">📊 MACD</div>
+            <div id="nightFutMacdZoomArea" onclick="genericZoomOpen('nightFutMacdZoomArea',['nightFutMacdChart'])" title="點擊放大" style="cursor:zoom-in;">
+              <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">📊 MACD <span style="opacity:.5;font-weight:400;">🔍</span></div>
               <div class="chart-wrap" style="position:relative;height:100px;"><canvas id="nightFutMacdChart"></canvas></div>
             </div>
-            <div>
-              <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">🎯 KD</div>
+            <div id="nightFutKdZoomArea" onclick="genericZoomOpen('nightFutKdZoomArea',['nightFutKdChart'])" title="點擊放大" style="cursor:zoom-in;">
+              <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">🎯 KD <span style="opacity:.5;font-weight:400;">🔍</span></div>
               <div class="chart-wrap" style="position:relative;height:100px;"><canvas id="nightFutKdChart"></canvas></div>
             </div>
           </div>
@@ -44999,6 +44999,55 @@ function nightFutZoomClose() {
   document.removeEventListener('keydown', _nightFutZoomEscHandler);
 }
 function _nightFutZoomEscHandler(e) { if (e.key === 'Escape') nightFutZoomClose(); }
+
+// v8.x：MACD／KD 小圖也各自可點擊放大，跟上面K線+量的nightFutZoomOpen
+// 同一套「搬移DOM節點」做法，寫成通用版本，兩張圖共用不用各刻一份。
+const _genericZoomCharts = {};
+function genericZoomOpen(areaId, chartKeys) {
+  const area = document.getElementById(areaId);
+  if (!area) return;
+  _genericZoomCharts[areaId] = chartKeys;
+  const overlayId = areaId + 'Overlay', panelId = areaId + 'Panel', markerId = areaId + 'Placeholder';
+  let overlay = document.getElementById(overlayId);
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = overlayId;
+    overlay.className = 'tech-zoom-overlay';
+    overlay.innerHTML = `<div class="tech-zoom-panel" id="${panelId}">
+      <button class="tech-zoom-close" onclick="genericZoomClose('${areaId}')">✕ 關閉</button>
+      <div style="clear:both;"></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) genericZoomClose(areaId); });
+  }
+  if (!document.getElementById(markerId)) {
+    const marker = document.createElement('div');
+    marker.id = markerId;
+    marker.style.display = 'none';
+    area.parentNode.insertBefore(marker, area);
+  }
+  document.getElementById(panelId).appendChild(area);
+  area.classList.add('tech-zoom-open');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => { chartKeys.forEach(k => charts[k] && charts[k].resize()); }, 60);
+  const handler = (e) => { if (e.key === 'Escape') genericZoomClose(areaId); };
+  area._gzEscHandler = handler;
+  document.addEventListener('keydown', handler);
+}
+function genericZoomClose(areaId) {
+  const overlay = document.getElementById(areaId + 'Overlay');
+  const area    = document.getElementById(areaId);
+  const marker  = document.getElementById(areaId + 'Placeholder');
+  if (!overlay || !area || !marker) return;
+  marker.parentNode.insertBefore(area, marker);
+  area.classList.remove('tech-zoom-open');
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  const chartKeys = _genericZoomCharts[areaId] || [];
+  setTimeout(() => { chartKeys.forEach(k => charts[k] && charts[k].resize()); }, 60);
+  if (area._gzEscHandler) { document.removeEventListener('keydown', area._gzEscHandler); area._gzEscHandler = null; }
+}
 
 // 切換週期並重繪
 function switchPeriod(period) {
