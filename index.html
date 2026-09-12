@@ -77656,9 +77656,14 @@ function _renderCmpReturnBadges(stocks) {
 <script>
 /* ── 全球指數清單（Yahoo Finance 代號 + 2026-07-03 定錨價）── */
 const OPP_STOCKS = [
-  { ticker:'SPY',  name:'S&P 500',  base:565.0, weight:2, label:'美大盤' },
-  { ticker:'QQQ',  name:'那斯達克', base:493.0, weight:2, label:'科技股' },
-  { ticker:'SOXX', name:'費城半導', base:208.0, weight:3, label:'費半' },
+  // v7.74：美大盤/科技股/費半 改抓真正的指數本身（^GSPC/^IXIC/^SOX），
+  // 不再用SPY/QQQ/SOXX這幾檔ETF的價格代理——ETF成分股跟指數不完全相同
+  // （尤其QQQ只有那斯達克100檔，跟綜合指數^IXIC漲跌幅會有落差），
+  // 使用者比對Yahoo股市首頁數字時容易誤以為抓錯資料。base改成對應
+  // 指數的定錨點數（模擬備援用），跟%5EVIX同樣做法用URL編碼的^。
+  { ticker:'%5EGSPC', name:'S&P 500', base:7650.0,  weight:2, label:'美大盤' },
+  { ticker:'%5EIXIC', name:'NASDAQ',  base:26300.0, weight:2, label:'科技股' },
+  { ticker:'%5ESOX',  name:'費城半導體', base:11800.0, weight:3, label:'費半' },
   { ticker:'TSM',  name:'台積電ADR',base:258.4, weight:3, label:'台積ADR' },
   { ticker:'EWJ',  name:'日股ETF',  base:73.0,  weight:1, label:'日本' },
   { ticker:'EWY',  name:'韓股ETF',  base:72.0,  weight:1, label:'韓國' },
@@ -78096,8 +78101,8 @@ async function fetchOpeningPressure() {
 
   // TSM ADR 特別分析
   const tsm = results.find(r=>r.ticker==='TSM');
-  const spy = results.find(r=>r.ticker==='SPY');
-  const soxx= results.find(r=>r.ticker==='SOXX');
+  const spy = results.find(r=>r.ticker==='%5EGSPC');
+  const soxx= results.find(r=>r.ticker==='%5ESOX');
 
   // 結論
   let vdMain, vdSub, badgeCls, badgeTxt;
