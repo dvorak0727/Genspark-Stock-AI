@@ -65445,6 +65445,11 @@ async function wlScanBreakout() {
         const wlList2 = loadWatchlist();
         const wlItem  = wlList2.find(w => w.id === item.id);
         if (wlItem && latestClose) { wlItem.price = latestClose.toFixed(2); wlItem.priceDate = rows.at(-1)?.date; }
+        // v7.51修正：有些股票加入追蹤清單時股名存成跟代碼一樣（例如加入時
+        // STOCK_DB剛好還沒抓到那檔的名稱），之後突破掃描清單只顯示代碼、
+        // 看不出是哪支股票。這裡順便修一下：STOCK_DB有正確名稱就覆蓋回去，
+        // 之後不管日報/突破掃描/清單本身都會顯示對的名字，一次修好不用每次補。
+        if (wlItem && STOCK_DB[item.id]?.name) { wlItem.name = STOCK_DB[item.id].name; item.name = STOCK_DB[item.id].name; }
         saveWatchlist(wlList2);
         if (signals.length > 0) results.push({ item, signals, isSim: false, price: latestClose });
       }
