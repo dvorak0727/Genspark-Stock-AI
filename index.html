@@ -21313,6 +21313,7 @@ a.module-nav-item.acc-active {
     <button class="wl-scan-btn" id="wlScanBtn" onclick="wlScanBreakout()" title="掃描清單中所有股票的技術突破訊號">⚡ 突破掃描</button>
     <button class="wl-alert-btn" id="wlAlertBtn" onclick="wlToggleAlertPanel()" title="設定個股價格/技術警示條件">🔔 警示設定</button>
     <button class="wl-report-btn" id="wlReportBtn" onclick="wlGenReport()" title="產生今日追蹤清單盤後摘要日報">📰 日報</button>
+    <button class="wl-report-btn" id="wlNotifyBtn" onclick="wlToggleNotifyPanel()" title="設定每日07:00自動寄送追蹤股票重大訊息">📧 每日通知</button>
   </div>
   <!-- 最新價更新時間提示 -->
   <div id="wlPriceUpdateBar" style="display:none;font-size:0.68rem;color:var(--fg3);padding:4px 12px;background:var(--surface2);border-bottom:1px solid var(--border);"></div>
@@ -21385,6 +21386,24 @@ a.module-nav-item.acc-active {
       <div class="wl-report-prog-bar"><div class="wl-report-prog-fill" id="wlReportProgFill" style="width:0%"></div></div>
     </div>
     <div class="wl-report-body" id="wlReportBody"></div>
+  </div>
+
+  <!-- 📧 每日07:00重大訊息通知設定面板（2026-09-13新增） -->
+  <div class="wl-report-panel" id="wlNotifyPanel">
+    <div class="wl-report-header">
+      <span>📧 每日07:00重大訊息通知</span>
+      <button onclick="document.getElementById('wlNotifyPanel').classList.remove('show')"
+        style="background:none;border:none;cursor:pointer;color:var(--fg3);font-size:1rem;padding:0 4px;">✕</button>
+    </div>
+    <div style="padding:10px 12px;font-size:0.7rem;color:var(--fg2);line-height:1.6;">
+      每天早上07:00，系統會自動比對你目前追蹤清單裡的股票，看有沒有在公開資訊觀測站發布新的重大訊息公告——有才會寄信給你，沒有不會打擾你。<br>
+      目前只涵蓋<b>上市公司</b>的重大訊息，上櫃公司暫不支援。
+    </div>
+    <div style="padding:0 12px 10px;display:flex;gap:6px;align-items:center;">
+      <input type="email" id="wlNotifyEmail" placeholder="輸入接收通知的Email" style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--fg);font-size:0.72rem;">
+      <button class="wl-report-copy-btn" id="wlNotifySaveBtn" onclick="wlSaveNotifySettings()">儲存</button>
+    </div>
+    <div id="wlNotifyStatus" style="padding:0 12px 10px;font-size:0.66rem;color:var(--fg3);"></div>
   </div>
 
   <!-- 突破警示掃描結果面板 -->
@@ -70174,6 +70193,74 @@ function clearAllWatchlist() {
   if (!confirm('確定要清空所有追蹤清單嗎？')) return;
   saveWatchlist([]);
   renderWatchlist();
+}
+
+// ══════════════════════════════════════════════════════════════
+//  📧 每日07:00重大訊息通知（2026-09-13新增）
+//  追蹤清單本身只存在瀏覽器localStorage裡，伺服器排程讀不到；
+//  這裡把「目前追蹤的股票代碼＋通知信箱」同步一份到 license-worker
+//  的 KV（用登入時的授權碼當帳號識別，不用另外做登入系統）。
+//  ⚠️ 這是「手動同步」，不是即時的——之後在追蹤清單裡增減股票，
+//  要記得回來點一次「儲存」，通知才會用到最新的清單。
+// ══════════════════════════════════════════════════════════════
+function wlGetLicenseKey() {
+  try {
+    const raw = sessionStorage.getItem('tsai_license_v3') || localStorage.getItem('tsai_license_v3');
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return (obj.key || '').trim().toUpperCase() || null;
+  } catch { return null; }
+}
+
+function wlToggleNotifyPanel() {
+  const panel = document.getElementById('wlNotifyPanel');
+  if (!panel) return;
+  panel.classList.toggle('show');
+  if (panel.classList.contains('show')) {
+    const cachedEmail = localStorage.getItem('tsai_notify_email_v1') || '';
+    const input = document.getElementById('wlNotifyEmail');
+    if (input && cachedEmail && !input.value) input.value = cachedEmail;
+  }
+}
+
+async function wlSaveNotifySettings() {
+  const statusEl = document.getElementById('wlNotifyStatus');
+  const key = wlGetLicenseKey();
+  if (!key) {
+    if (statusEl) statusEl.textContent = '⚠️ 找不到授權碼，請先登入後再設定通知';
+    return;
+  }
+  const emailInput = document.getElementById('wlNotifyEmail');
+  const email = (emailInput?.value || '').trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (statusEl) statusEl.textContent = '⚠️ 請輸入有效的Email';
+    return;
+  }
+  const codes = loadWatchlist().map(w => w.id);
+  const btn = document.getElementById('wlNotifySaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '儲存中…'; }
+  if (statusEl) statusEl.textContent = '';
+  try {
+    const r = await fetch('https://license-worker.dvorak0727.workers.dev/watchlist/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, email, codes }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      localStorage.setItem('tsai_notify_email_v1', email);
+      statusEl && (statusEl.textContent = `✅ 已設定！目前 ${j.count} 檔追蹤股票會納入每日07:00通知（追蹤清單有異動記得回來重新儲存一次）`);
+      statusEl && (statusEl.style.color = '#059669');
+    } else {
+      statusEl && (statusEl.textContent = '❌ 設定失敗：' + (j.reason || '未知錯誤'));
+      statusEl && (statusEl.style.color = '#dc2626');
+    }
+  } catch (e) {
+    statusEl && (statusEl.textContent = '❌ 網路錯誤，請稍後再試');
+    statusEl && (statusEl.style.color = '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '儲存'; }
+  }
 }
 function updateWlCount() {
   const cnt = loadWatchlist().length + tlLoad().length;
