@@ -1133,9 +1133,14 @@
       border-bottom: 1px solid var(--border);
       display: flex; gap: 7px; align-items: center;
       flex-shrink: 0;
+      /* v7.51（2026-09-13）修正：這排按鈕原本沒有flex-wrap，隨著功能越加越多
+         （日報、警示、突破掃描、每日通知…），寬度不夠時後面的按鈕會被擠出
+         可視範圍外、沒有橫向捲軸，使用者完全看不到也點不到——不是快取問題，
+         是版面本身裝不下。改成允許換行，裝不下就自動排到第二行。 */
+      flex-wrap: wrap;
     }
     .wl-search {
-      flex: 1;
+      flex: 1 1 140px;
       background: var(--bg);
       border: 1px solid var(--border2);
       border-radius: 7px;
