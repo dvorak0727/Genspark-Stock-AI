@@ -17723,11 +17723,17 @@ a.module-nav-item.acc-active {
         <div class="cs-matrix-head">
           <div class="cs-panel-tabs">
             <button class="cs-panel-tab active" id="csPanelTabCost" onclick="switchMatrixPanel('cost')" data-tip="法人成本矩陣｜統計外資／投信在不同時間窗口的加權平均持倉成本，與現價對比判斷多空方向">⚖️ 法人成本矩陣</button>
-            <button class="cs-panel-tab" id="csPanelTabGame" onclick="switchMatrixPanel('game')" data-tip="籌碼博弈矩陣｜解析前五大分點券商買賣淨額與方向，判斷主力進出與控盤節律">🎯 籌碼博弈矩陣</button>
-            <!-- v8.x：券商分點明細FinMind不論免費/贊助都不提供（需另外付費方案），
-                 這個模組固定是AI推算模擬資料，不是Sponsor等級能解決的，所以掛靜態
-                 圖示（不用像股份金字塔那樣動態依token等級顯示/隱藏） -->
-            <span title="券商分點明細非FinMind Sponsor方案涵蓋範圍，本模組固定為AI推算模擬資料，非真實數字" style="cursor:help;font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;margin-left:4px;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;">⚙️ 模擬資料</span>
+            <!-- 2026-09-16 暫時隱藏：FinLab broker_transactions 回傳「僅限VIP」，
+                 已寄信詢問客服正確資料集名稱/權限問題，回覆確認、
+                 fetch_broker_data.py 補做完之前，先隱藏整個籌碼博弈矩陣分頁，
+                 避免使用者看到還是模擬資料的版本。等資料源接好，
+                 把下面這個 style="display:none" 拿掉即可恢復。 -->
+            <button class="cs-panel-tab" id="csPanelTabGame" onclick="switchMatrixPanel('game')" data-tip="籌碼博弈矩陣｜解析前五大分點券商買賣淨額與方向，判斷主力進出與控盤節律" style="display:none;">🎯 籌碼博弈矩陣</button>
+            <!-- v7.70 試作：原本這裡固定寫死「⚙️ 模擬資料」，因為 FinMind 免費/
+                 贊助方案都不含分點明細。現在改成依實際抓到的資料來源動態切換
+                 （見 _renderGameMatrix 裡對 gmSourceBadge 的更新），FinLab JSON
+                 或 FinMind proxy 真的拿到資料時顯示來源徽章，都失敗才顯示模擬警語。 -->
+            <span id="gmSourceBadge" style="display:none;cursor:help;font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;margin-left:4px;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;">⚙️ 模擬資料</span>
           </div>
         </div>
 
@@ -40785,7 +40791,39 @@ function _renderPCAPanel(pca, containerId) {
 //  3. 最終改用 taiwan_stock_trading_daily_report（單日端點，data_id 可
 //     單獨使用），由 finmind-broker-proxy 這個 Worker 在後端迴圈打 N 天、
 //     彙整後一次回傳，同時補上 CORS（FinMind 該端點不回傳 CORS 標頭）。
+// v7.70 試作：FinLab 排程輸出的真實分點 JSON（優先於 FinMind proxy）。
+// 資料來源：GitHub Actions 每日收盤後跑 fetch_broker_data.py，用 FinLab
+// 的 broker_transactions 資料集，輸出成 ./broker_data.json 放在同一個
+// repo 裡（見 fetch_broker_data.py + .github/workflows/update-broker-data.yml）。
+// 檔案不存在或抓不到該檔股票的資料時，靜靜地 return null，讓外層繼續往下
+// 試 FinMind proxy，不影響原本的 fallback 鏈。
+let _finlabJsonCache = null; // 一次載入、整頁共用，避免每檔股票都重新 fetch 同一個檔案
+async function _tryLoadFinLabBrokerData(stockId, days) {
+  try {
+    if (_finlabJsonCache === null) {
+      const r = await fetch('./broker_data.json', { cache: 'no-store' });
+      _finlabJsonCache = r.ok ? await r.json() : false; // false = 確認抓不到，之後不再重試
+    }
+    if (!_finlabJsonCache) return null;
+    // 預期格式：{ "2330": [{date, broker_id, buy, sell}, ...], "2454": [...], ... }
+    // buy/sell 單位請在 fetch_broker_data.py 那邊就換算成「張」，這裡不再做單位轉換。
+    const rows = _finlabJsonCache[String(stockId)];
+    if (!Array.isArray(rows) || rows.length < 5) return null;
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const recent = rows.filter(r => r.date >= cutoffStr);
+    return recent.length > 5 ? recent : rows.slice(-days * 5); // 保底：日期篩完太少就退回全部尾段
+  } catch (e) {
+    console.warn('[博弈矩陣] FinLab JSON 讀取失敗，改走下一順位', e.message);
+    return null;
+  }
+}
+
 async function _fetchBrokerData(stockId, days = 20) {
+  // 第一順位：FinLab 排程輸出的真實分點資料
+  const finlabRows = await _tryLoadFinLabBrokerData(stockId, days);
+  if (finlabRows) return { rows: finlabRows, live: true, source: 'finlab' };
+
   const token     = getToken();
   const endDate   = new Date();
   const startDate = new Date(); startDate.setDate(endDate.getDate() - days * 2);
@@ -40821,7 +40859,7 @@ async function _fetchBrokerData(stockId, days = 20) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const rows = await _attempt();
-      return { rows, live: true };
+      return { rows, live: true, source: 'finmind' };
     } catch (e) {
       lastErr = e;
       if (attempt === 0) await new Promise(res => setTimeout(res, 800)); // 給限流冷卻時間再試一次
@@ -40829,7 +40867,7 @@ async function _fetchBrokerData(stockId, days = 20) {
   }
   // 兩次都失敗才真的退回模擬資料
   console.warn('[博弈矩陣] 使用模擬資料', lastErr?.message);
-  return { rows: _genSimBrokerData(stockId, days), live: false, reason: lastErr?.message || '未知原因' };
+  return { rows: _genSimBrokerData(stockId, days), live: false, source: 'sim', reason: lastErr?.message || '未知原因' };
 }
 
 // ── 模擬券商資料產生器（v6.21e：修復 window.LARGE_IDS 未掛載問題，改用內嵌 Set）─
@@ -41008,13 +41046,39 @@ async function _renderGameMatrix(stockId) {
   matrixTable.innerHTML = '';
 
   // 拉取資料
-  const { rows, live } = await _fetchBrokerData(stockId, 20);
+  const { rows, live, source } = await _fetchBrokerData(stockId, 20);
 
   // v7.51：強警示橫幅 + 表格浮水印（模擬資料時開啟）
   const simBanner = document.getElementById('gmSimBanner');
   const matrixWrap = matrixTable.closest('.gm-matrix-wrap');
   if (simBanner) simBanner.style.display = live ? 'none' : 'flex';
   if (matrixWrap) matrixWrap.classList.toggle('gm-sim-mode', !live);
+
+  // v7.70 試作：分頁標題旁的來源徽章，依實際抓到的資料來源動態切換文字/顏色，
+  // 不再固定寫死「模擬資料」——FinLab JSON 是最準的真實分點，FinMind proxy
+  // 次之，兩個都失敗才是真的模擬。
+  const sourceBadge = document.getElementById('gmSourceBadge');
+  if (sourceBadge) {
+    if (source === 'finlab') {
+      sourceBadge.textContent = '✅ FinLab 真實分點';
+      sourceBadge.title = '資料來源：FinLab broker_transactions（GitHub Actions 每日排程更新），為真實券商分點買賣超數字。';
+      sourceBadge.style.background = '#DCFCE7';
+      sourceBadge.style.borderColor = '#86EFAC';
+      sourceBadge.style.color = '#166534';
+    } else if (source === 'finmind') {
+      sourceBadge.textContent = '🟢 FinMind 真實資料';
+      sourceBadge.title = '資料來源：FinMind taiwan_stock_trading_daily_report（經 finmind-broker-proxy 彙整），為真實數字。';
+      sourceBadge.style.background = '#DCFCE7';
+      sourceBadge.style.borderColor = '#86EFAC';
+      sourceBadge.style.color = '#166534';
+    } else {
+      sourceBadge.textContent = '⚙️ 模擬資料';
+      sourceBadge.title = 'FinLab JSON 與 FinMind proxy 皆未取得資料，本表由系統演算法推算生成，僅供功能展示，請勿作為買賣依據。';
+      sourceBadge.style.background = '#FEF3C7';
+      sourceBadge.style.borderColor = '#FCD34D';
+      sourceBadge.style.color = '#92400E';
+    }
+  }
 
   // ── 整理資料 ──
   // 取出所有日期（最近20日）
