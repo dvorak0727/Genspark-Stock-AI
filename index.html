@@ -34238,6 +34238,7 @@ const STOCK_DB = {
   '2449': { name:'京元電子',    industry:'測試' },
   '6510': { name:'精測',        industry:'測試座' },
   '2451': { name:'創見',        industry:'記憶體模組' },
+  '4919': { name:'新唐',        industry:'IC設計/微控制器' }, // 母公司為華邦電(2344)，2008年分割獨立掛牌
   // v7.60：海選市值前50大掃描出現、STOCK_DB原本沒有的股票，名稱已對照證交所
   // t187ap03_L（上市公司基本資料）「公司簡稱」欄位核實，不是用猜的
   '2368': { name:'金像電',      industry:'PCB' },
@@ -45939,7 +45940,11 @@ function renderIndCards(rsi, K, D, macd, sig, hist, upper, lower, close, ma5, ma
 
   const maDeviation = ma20 > 0 ? ((close - ma20) / ma20 * 100).toFixed(2) : null;
   const tags = [];
-  if(ma5>ma20) tags.push(['bull','MA5>MA20 多頭 ✅','MA排列']); else tags.push(['bear','MA5<MA20 空頭','MA排列']);
+  // v7.xx 修復：文字裡的 > < 若直接塞進 innerHTML，瀏覽器會誤判成HTML標籤
+  // 開頭（例如 "MA5<MA20" 被解析成 <MA20...> 標籤），把後面所有 .ma-tag
+  // span 都吞進這個假標籤裡，導致整排pill版面錯亂疊在一起。改用全形
+  // ＞／＜ 避免被誤判為標籤，視覺上意思不變。
+  if(ma5>ma20) tags.push(['bull','MA5＞MA20 多頭 ✅','MA排列']); else tags.push(['bear','MA5＜MA20 空頭','MA排列']);
   if(close>ma5) tags.push(['bull','站上MA5 ✅','MA5']); else tags.push(['bear','跌破MA5','MA5']);
   if(close>ma20) tags.push(['bull','站上月線 ✅','MA20']); else tags.push(['bear','跌破月線','MA20']);
   if(maDeviation !== null) {
@@ -58791,7 +58796,7 @@ function calcLaunchScore(stockId, instRaw, priceRaw) {
   // L5: MA5 站穩 MA20 上（1.0分）
   const maOk = lMA5 > lMA20 && lc > lMA5;
   score += maOk ? 1.0 : 0;
-  checks.push({ label:'均線多排', hit:maOk, val:maOk?'MA5>MA20':'待確認' });
+  checks.push({ label:'均線多排', hit:maOk, val:maOk?'MA5＞MA20':'待確認' }); // 全形＞避免被innerHTML誤判成標籤
 
   // L6: 中關價連續上移（收盤在中關以上 + 中關連漲2日）（1.0分）
   const midpoints = priceRaw.map(d => (+d.max + +d.min) / 2);
@@ -58883,7 +58888,7 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
   // D5: MA5 跌破 MA20（均線死叉）
   const maDead = ma5 < ma20 && lc < ma5;
   score += maDead ? 1 : 0;
-  checks.push({ label:'均線死叉', hit:maDead, val:maDead?'MA5<MA20':'未死叉' });
+  checks.push({ label:'均線死叉', hit:maDead, val:maDead?'MA5＜MA20':'未死叉' }); // 全形＜避免被innerHTML誤判成標籤
 
   // v7.97：補上迷你K棒資料，跟其他掃描模式一致
   const candles = (() => { const _n=Math.min(15,priceRaw.length),_p=priceRaw.slice(-_n); return { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) }; })();
