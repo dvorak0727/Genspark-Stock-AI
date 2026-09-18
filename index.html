@@ -7195,6 +7195,92 @@
     .leg-absorb { display:inline-block; width:10px; height:10px; border-radius:2px; background:rgba(220,38,38,0.4); }
     .leg-dist   { display:inline-block; width:10px; height:10px; border-radius:2px; background:rgba(37,99,235,0.4); }
 
+    /* ── v7.50+ 分點券商買賣面板（獨立區塊，⑤-d，2026-09-19移植自GenSpark版）─── */
+    .cs-broker-standalone {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 10px; background: var(--surface);
+      margin: 4px 0 6px;
+    }
+    .cs-broker-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px; gap: 6px; flex-wrap: wrap;
+    }
+    .cs-broker-title {
+      font-size: 0.72rem; font-weight: 700; color: var(--fg1); white-space: nowrap;
+    }
+    .cs-broker-tabs { display: flex; gap: 3px; }
+    .cs-broker-tab {
+      font-size: 0.6rem; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--border);
+      background: transparent; color: var(--fg2); cursor: pointer; transition: all .15s;
+    }
+    .cs-broker-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .cs-broker-summary {
+      display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px;
+    }
+    .cs-broker-card {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 7px; border-radius: 6px; font-size: 0.67rem;
+      border: 1px solid var(--border);
+    }
+    .cs-broker-card.buy  { background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.25); }
+    .cs-broker-card.sell { background: rgba(37,99,235,0.08);  border-color: rgba(37,99,235,0.25); }
+    .cs-broker-card .bk-name { color: var(--fg1); font-weight: 600; flex: 1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cs-broker-card .bk-net  { font-weight: 700; white-space: nowrap; margin-left: 6px; }
+    .cs-broker-card.buy  .bk-net { color: #ef4444; }
+    .cs-broker-card.sell .bk-net { color: #3b82f6; }
+    .cs-broker-card .bk-bar-wrap { width: 52px; height: 5px; background: var(--border); border-radius: 3px; margin-left: 6px; overflow:hidden; }
+    .cs-broker-card .bk-bar { height: 100%; border-radius: 3px; }
+    .cs-broker-card.buy  .bk-bar { background: #ef4444; }
+    .cs-broker-card.sell .bk-bar { background: #3b82f6; }
+    .cs-broker-signal {
+      font-size: 0.68rem; font-weight: 700; padding: 5px 8px; border-radius: 6px;
+      margin-bottom: 6px; text-align: center;
+    }
+    .cs-broker-signal.bull { background: rgba(220,38,38,0.12); color: #ef4444; border: 1px solid rgba(220,38,38,0.3); }
+    .cs-broker-signal.bear { background: rgba(37,99,235,0.12);  color: #3b82f6; border: 1px solid rgba(37,99,235,0.3);  }
+    .cs-broker-signal.neut { background: rgba(148,163,184,0.1); color: var(--fg2); border: 1px solid var(--border);      }
+    .cs-broker-table-wrap { overflow-x: auto; margin-bottom: 4px; }
+    .cs-broker-table { width: 100%; border-collapse: collapse; font-size: 0.62rem; }
+    .cs-broker-table th { color: var(--fg3); font-weight: 600; padding: 3px 5px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+    .cs-broker-table th:first-child { text-align: left; }
+    .cs-broker-table td { padding: 3px 5px; border-bottom: 1px solid rgba(255,255,255,0.04); text-align: right; color: var(--fg1); white-space: nowrap; }
+    .cs-broker-table td:first-child { text-align: left; color: var(--fg2); max-width: 90px; overflow:hidden; text-overflow:ellipsis; }
+    .cs-broker-table .td-buy  { color: #ef4444; font-weight: 600; }
+    .cs-broker-table .td-sell { color: #3b82f6; font-weight: 600; }
+    .cs-broker-table .td-net-pos { color: #ef4444; font-weight: 700; }
+    .cs-broker-table .td-net-neg { color: #3b82f6; font-weight: 700; }
+    .cs-broker-empty { font-size: 0.68rem; color: var(--fg3); text-align: center; padding: 18px 8px; }
+    .cs-broker-note  { font-size: 0.58rem; color: var(--fg3); margin-top: 4px; }
+    /* 籌碼週期診斷信號 */
+    .cs-broker-signal { padding: 7px 10px; border-radius: 8px; margin-bottom: 6px; border: 1px solid; }
+    .cs-broker-signal .bk-phase-main { font-size: 0.72rem; font-weight: 800; margin-bottom: 3px; }
+    .cs-broker-signal .bk-phase-sub  { font-size: 0.62rem; opacity: 0.85; margin-bottom: 4px; line-height: 1.4; }
+    .cs-broker-signal .bk-phase-stats{ font-size: 0.6rem; opacity: 0.75; }
+    .cp-dist      { background: rgba(37,99,235,0.10); color: #1d4ed8; border-color: rgba(37,99,235,0.3); }
+    .cp-markup    { background: rgba(220,38,38,0.10); color: #dc2626; border-color: rgba(220,38,38,0.3); }
+    .cp-accum     { background: rgba(5,150,105,0.10); color: #047857; border-color: rgba(5,150,105,0.3); }
+    .cp-wash      { background: rgba(217,119,6,0.10); color: #b45309; border-color: rgba(217,119,6,0.3); }
+    .cp-hold      { background: rgba(100,116,139,0.10); color: #475569; border-color: rgba(100,116,139,0.3); }
+    .cp-mild-bull { background: rgba(239,68,68,0.07);  color: #b91c1c; border-color: rgba(239,68,68,0.2); }
+    .cp-mild-bear { background: rgba(59,130,246,0.07); color: #1e40af; border-color: rgba(59,130,246,0.2); }
+    /* 行為標籤（卡片 + 表格共用） */
+    .bk-bv { font-size: 0.58rem; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+              white-space: nowrap; cursor: help; margin-left: 4px; }
+    .bk-bv-tag { font-size: 0.58rem; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+                 white-space: nowrap; cursor: help; }
+    .bv-accum     { background: rgba(5,150,105,0.15);   color: #047857; }
+    .bv-markup    { background: rgba(220,38,38,0.12);   color: #dc2626; }
+    .bv-dist      { background: rgba(37,99,235,0.12);   color: #1e40af; }
+    .bv-wash      { background: rgba(217,119,6,0.12);   color: #b45309; }
+    .bv-hold      { background: rgba(100,116,139,0.12); color: #475569; }
+    .bv-mild-buy  { background: rgba(239,68,68,0.08);   color: #ef4444; }
+    .bv-mild-sell { background: rgba(59,130,246,0.08);  color: #3b82f6; }
+    .bv-neutral   { background: var(--surface2); color: var(--fg3); }
+    .cs-broker-card { flex-wrap: wrap; gap: 4px 0; }
+    .cs-broker-card .bk-bv { order: 1; margin-left: 0; }
+    .cs-broker-card .bk-net { order: 2; margin-left: auto; }
+    .cs-broker-card .bk-bar-wrap { order: 3; width: 100%; margin: 0; }
+
     /* ====== 面板主 Tab（法人成本 vs 籌碼博弈）====== */
     .cs-panel-tabs {
       display:flex; gap:4px; padding:6px 8px 0;
@@ -17805,6 +17891,27 @@ a.module-nav-item.acc-active {
 
       <!-- ⑤-c v7.41 籌碼金字塔（持股分級統計，週更資料，4週趨勢） -->
       <div id="csHoldingPyramid" style="margin:4px 0 6px;"></div>
+
+      <!-- ⑤-d v7.50+ 分點券商買賣面板（FinMind TaiwanStockTradingDailyReport，2026-09-19移植自GenSpark版）-->
+      <div id="csBrokerPanel" class="cs-broker-standalone">
+        <div class="cs-broker-head">
+          <div class="cs-broker-title">🏦 分點券商買賣明細</div>
+          <div class="cs-broker-tabs">
+            <button class="cs-broker-tab active" id="csBrokerTab1"  onclick="switchBrokerTab(1)">今日</button>
+            <button class="cs-broker-tab"        id="csBrokerTab3"  onclick="switchBrokerTab(3)">3日</button>
+            <button class="cs-broker-tab"        id="csBrokerTab5"  onclick="switchBrokerTab(5)">5日</button>
+            <button class="cs-broker-tab"        id="csBrokerTab10" onclick="switchBrokerTab(10)">10日</button>
+          </div>
+        </div>
+        <div id="csBrokerSummary" class="cs-broker-summary">
+          <div class="cs-broker-empty">🔍 查詢個股後自動載入分點資料</div>
+        </div>
+        <div id="csBrokerSignal" class="cs-broker-signal" style="display:none;"></div>
+        <div class="cs-broker-table-wrap" id="csBrokerTableWrap" style="display:none;">
+          <table class="cs-broker-table" id="csBrokerTable"></table>
+        </div>
+        <div class="cs-broker-note" id="csBrokerNote" style="display:none;"></div>
+      </div>
 
       <!-- ⑥ 可折疊：10日明細表 -->
       <div class="cs-detail-toggle" onclick="toggleCsDetail()">
@@ -38843,6 +38950,434 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
 
   // ── v7.41 籌碼金字塔（非同步，週更資料，不阻塞主流程）──
   renderHoldingPyramid(window.aData?.stockId || '');
+
+  // ── v7.50+ 分點券商買賣面板（非同步，不阻塞主流程，2026-09-19移植自GenSpark版）──
+  try { setTimeout(() => fetchBrokerReport(window.aData?.stockId || ''), 800); } catch(e) {}
+}
+
+// ==============================================================
+//  v7.50+ 分點券商買賣面板（2026-09-19移植自GenSpark版）
+//  資料：FinMind TaiwanStockTradingDailyReport（license-worker /finmind 代理，
+//        失敗時直連 api.finmindtrade.com 備援）
+//  功能：前5大主力淨買超排行 + 明細表 + 威科夫（Wyckoff）籌碼週期診斷
+//  跟舊版 _fetchBrokerData／#maTags（籌碼博弈矩陣）是不同的兩套程式碼——
+//  舊版卡在FinLab VIP權限問題，這套改用FinMind單日查詢模式，實測能拉到真實資料。
+// ==============================================================
+let _brokerCache   = {};   // { stockId_days: { data, ts } }
+let _brokerDays    = 1;
+let _brokerStockId = '';
+
+/** 切換日期 tab */
+function switchBrokerTab(days) {
+  _brokerDays = days;
+  [1,3,5,10].forEach(d => {
+    const t = document.getElementById('csBrokerTab' + d);
+    if (t) t.classList.toggle('active', d === days);
+  });
+  if (_brokerStockId) _renderBrokerPanel(_brokerStockId, days);
+}
+
+/** 主入口：查詢並渲染分點券商面板 */
+async function fetchBrokerReport(stockId) {
+  _brokerStockId = stockId;
+  _brokerDays    = 1;
+  [1,3,5,10].forEach(d => {
+    const t = document.getElementById('csBrokerTab' + d);
+    if (t) t.classList.toggle('active', d === 1);
+  });
+  _setBrokerLoading(true);
+  await _renderBrokerPanel(stockId, 1);
+}
+
+function _setBrokerLoading(isLoading) {
+  const sum = document.getElementById('csBrokerSummary');
+  if (sum && isLoading) sum.innerHTML = '<div class="cs-broker-empty">⏳ 載入分點資料中…</div>';
+  const sig = document.getElementById('csBrokerSignal');
+  if (sig) sig.style.display = 'none';
+  const tw  = document.getElementById('csBrokerTableWrap');
+  if (tw)  tw.style.display  = 'none';
+  const nt  = document.getElementById('csBrokerNote');
+  if (nt)  nt.style.display  = 'none';
+}
+
+async function _renderBrokerPanel(stockId, days) {
+  const cacheKey = `${stockId}_${days}`;
+  const now = Date.now();
+  // 10分鐘快取
+  if (_brokerCache[cacheKey] && now - _brokerCache[cacheKey].ts < 600000) {
+    _drawBrokerUI(_brokerCache[cacheKey].data, days);
+    return;
+  }
+
+  // FinMind TaiwanStockTradingDailyReport 注意：
+  //   資料量很大（每日數百筆券商），必須「單日查詢」（start_date = end_date）
+  //   多日模式：找到最近 N 個交易日，並行分批抓取後合併
+
+  // 直接從 localStorage 讀 token（最保險，避免 getToken scope 問題）
+  const token = (typeof getToken === 'function' ? getToken() : '') ||
+                localStorage.getItem('tsai_finmind_token') || '';
+
+  // Step 1：建立候選交易日清單（跳過週末，往前掃 40 個自然日，至少取到 20 個交易日）
+  const validDates = [];
+  for (let i = 0; i < 40 && validDates.length < 20; i++) {
+    const d = new Date(Date.now() - i * 86400000);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue;
+    validDates.push(fmtDate(d));
+  }
+  console.log(`[Broker] 候選交易日(${validDates.length}):`, validDates.slice(0, 5).join(', '), '...');
+  console.log(`[Broker] token 長度=${token.length} / stockId=${stockId} / days=${days}`);
+
+  // FinMind 直連備援 URL（若代理有問題）
+  const FM_DIRECT = 'https://api.finmindtrade.com/api/v4/data';
+
+  // Step 2：並行抓取各日（每日單獨查詢，start_date=end_date）
+  const fetchDay = async (date) => {
+    // 先嘗試代理，失敗則直連 FinMind
+    const urls = [
+      `${FINMIND}?dataset=TaiwanStockTradingDailyReport&data_id=${stockId}&start_date=${date}&end_date=${date}${token ? '&token=' + token : ''}`,
+      token ? `${FM_DIRECT}?dataset=TaiwanStockTradingDailyReport&data_id=${stockId}&start_date=${date}&end_date=${date}&token=${token}` : null,
+    ].filter(Boolean);
+
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        if (!res.ok) {
+          console.warn(`[Broker] ${date} HTTP ${res.status} @ ${url.substring(0,60)}...`);
+          continue;
+        }
+        const j = await res.json();
+        const rowCount = Array.isArray(j.data) ? j.data.length : 0;
+        const msg = j.msg || '';
+        console.log(`[Broker] ${date} rows=${rowCount} status=${j.status} msg="${msg}" via=${url.includes('finmindtrade') ? 'direct' : 'proxy'}`);
+        if (rowCount > 0) return { date, rows: j.data, msg };
+        if (msg) return { date, rows: [], msg };          // 有 msg 就不再試第二個 URL
+      } catch(e) {
+        console.warn(`[Broker] ${date} error:`, e.message);
+      }
+    }
+    return { date, rows: [], msg: '' };
+  };
+
+  // 只取需要的天數，分批（3個並行）避免打爆 API
+  const targetDates = validDates.slice(0, days);
+  const allRows = [];
+  const usedDates = [];
+  let lastMsg = '';
+
+  for (let i = 0; i < targetDates.length; i += 3) {
+    const chunk = targetDates.slice(i, i + 3);
+    const results = await Promise.all(chunk.map(fetchDay));
+    results.forEach(({ date, rows, msg }) => {
+      if (msg) lastMsg = msg;
+      if (rows.length > 0) {
+        allRows.push(...rows);
+        usedDates.push(date);
+      }
+    });
+  }
+
+  // Step 3：若全部無資料（今日尚未收盤/無資料），往前再找最多 10 個交易日
+  if (allRows.length === 0) {
+    console.log('[Broker] 主查無資料，啟動 fallback，往前最多找10個交易日...');
+    const extra = validDates.slice(days, days + 10);
+    for (const d of extra) {
+      const { rows, msg } = await fetchDay(d);
+      if (msg) lastMsg = msg;
+      if (rows.length > 0) {
+        allRows.push(...rows);
+        usedDates.push(d);
+        console.log(`[Broker] fallback 找到資料於 ${d}`);
+        break;
+      }
+    }
+  }
+
+  if (allRows.length === 0) {
+    // 顯示 API 原始 msg 幫助診斷（token 問題 / 無資料）
+    const hint = lastMsg
+      ? `API 回應：${lastMsg.slice(0, 80)}`
+      : '今日尚未收盤或非交易日，請明天再查';
+    _brokerShowEmpty(`⚠️ 查無分點資料<br><small style="color:#888">${hint}</small>`);
+    return;
+  }
+
+  // Step 4：彙整各券商
+  // FinMind TaiwanStockTradingDailyReport 實際欄位：
+  //   securities_trader_id → 券商代號
+  //   securities_trader    → 券商名稱
+  //   buy / sell           → 單位：股（shares），需除以1000換算成「張」
+  //   （2026-09-19移植時修正：原註解誤寫「已是張、不用除」，但下面程式碼
+  //    其實一直都有除1000——這裡只是把註解改回跟程式碼一致，行為沒有變）
+  if (allRows.length > 0) console.log('[Broker] 欄位範例:', JSON.stringify(allRows[0]));
+
+  const brokerMap = {};
+  allRows.forEach(r => {
+    // 相容多種欄位命名（FinMind 實測：securities_trader_id / securities_trader）
+    const id   = r.securities_trader_id ?? r.broker_id ?? r.BrokerId ?? '';
+    const name = r.securities_trader    ?? r.broker     ?? r.BrokerName ?? id;
+    if (!id) return;
+    // FinMind buy/sell 單位：股（shares）→ 需除以 1000 換算成「張」
+    const buyLot  = parseFloat(r.buy  ?? r.buy_volume  ?? 0) / 1000;
+    const sellLot = parseFloat(r.sell ?? r.sell_volume ?? 0) / 1000;
+    if (!brokerMap[id]) brokerMap[id] = { id, name, buy: 0, sell: 0 };
+    brokerMap[id].buy  += buyLot;
+    brokerMap[id].sell += sellLot;
+  });
+
+  const brokers = Object.values(brokerMap).map(b => ({
+    ...b,
+    net:  b.buy - b.sell,
+    buy:  Math.round(b.buy),
+    sell: Math.round(b.sell),
+  })).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+
+  const result = { brokers, useDates: usedDates.sort().reverse(), stockId };
+  _brokerCache[cacheKey] = { data: result, ts: now };
+  _drawBrokerUI(result, days);
+}
+
+function _brokerShowEmpty(msg) {
+  const sum = document.getElementById('csBrokerSummary');
+  if (sum) sum.innerHTML = `<div class="cs-broker-empty">${msg}</div>`;
+  const sig = document.getElementById('csBrokerSignal');
+  if (sig) sig.style.display = 'none';
+  const tw = document.getElementById('csBrokerTableWrap');
+  if (tw) tw.style.display = 'none';
+  const nt = document.getElementById('csBrokerNote');
+  if (nt) nt.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  _diagnoseBrokerBehavior(b, days)
+//  根據單一券商的 buy/sell/net 比率，對映籌碼週期行為定義
+//  回傳 { label, cls, tip }
+//  ──────────────────────────────────────────────────────────────
+//  行為定義（籌碼流體動力學，CFD）：
+//
+//  吸籌（Accumulation）：
+//    買/賣比 ≥ 4:1，net > 0，且 volume 不大（低調買入）
+//    → 穩態層流：表面平靜，底部有定向買盤
+//
+//  洗盤（Wash）：
+//    買/賣比 1.0~1.5:1，買賣均大，net 輕微正/負（假湍流）
+//    → 人工局部湍流：震幅大、清除弱手，不出貨
+//
+//  拉升（Mark-up）：
+//    買/賣比 ≥ 3:1，net 大正，且 volume 顯著較大
+//    → 大尺度渦旋：明確方向性買盤，攻擊性強
+//
+//  出貨（Distribution）：
+//    買 << 賣，net 大負；或買=賣+high vol（對敲倒貨）
+//    → 出貨假湍流：量真、價假，量增幅 / 價增幅 >> 1
+//
+//  囤貨/換手（Holding / Rotation）：
+//    淨值小（|net| < 5% of total），但 volume 大（高換手）
+//    → 邊界層泵浦：吸籌完成後的低調持倉確認
+//
+//  觀察（Neutral）：
+//    量小、方向不明
+// ═══════════════════════════════════════════════════════════════
+function _diagnoseBrokerBehavior(b, allBrokersTotalVol) {
+  const buy  = b.buy  || 0;
+  const sell = b.sell || 0;
+  const net  = b.net  || 0;
+  const total = buy + sell;
+  if (total < 1) return { label: '—', cls: 'bv-neutral', tip: '量太小，無法判斷' };
+
+  const ratio    = sell > 0 ? buy / sell : 99;   // 買/賣 比
+  const netRatio = total > 0 ? Math.abs(net) / total : 0; // 淨/總 比（0~1）
+  const volShare = allBrokersTotalVol > 0 ? total / allBrokersTotalVol : 0; // 佔全場份量
+
+  // ── 出貨 ────────────────────────────────────────────────────
+  // 賣遠大於買，或買賣接近但 net 大負（對敲倒貨）
+  if (net < -100 && ratio < 0.5) {
+    return { label: '📤 倒貨', cls: 'bv-dist',
+      tip: `買${Math.round(buy)}張 賣${Math.round(sell)}張｜買賣比${ratio.toFixed(2)}:1\n淨賣${Math.abs(Math.round(net))}張，出貨力道強` };
+  }
+  if (net < -30 && ratio < 0.8) {
+    return { label: '📤 出貨', cls: 'bv-dist',
+      tip: `買賣比${ratio.toFixed(2)}:1，淨賣${Math.abs(Math.round(net))}張\n賣壓明顯` };
+  }
+
+  // ── 洗盤（假湍流）──────────────────────────────────────────
+  // 買賣均大（高換手），但 net 接近0（不出貨也不吸籌）
+  if (netRatio < 0.15 && total > 200 && ratio >= 0.7 && ratio <= 1.5) {
+    return { label: '🌀 洗盤', cls: 'bv-wash',
+      tip: `買${Math.round(buy)}張 賣${Math.round(sell)}張｜買賣比${ratio.toFixed(2)}:1\n淨值僅${Math.round(net)}張（${(netRatio*100).toFixed(0)}%），雙邊對敲，震倉洗盤` };
+  }
+
+  // ── 吸籌（低調買入）────────────────────────────────────────
+  // 買 >> 賣，但 volume 不是最大（靜悄悄）
+  if (ratio >= 4 && net > 50 && volShare < 0.3) {
+    return { label: '🧲 吸籌', cls: 'bv-accum',
+      tip: `買賣比${ratio.toFixed(2)}:1，淨買${Math.round(net)}張\n低調穩健買入，吸籌特徵明顯` };
+  }
+
+  // ── 拉升（攻擊性買入）──────────────────────────────────────
+  // 買遠大於賣，net 大正，且份量大
+  if (ratio >= 2.5 && net > 100 && volShare >= 0.15) {
+    return { label: '🚀 拉升', cls: 'bv-markup',
+      tip: `買賣比${ratio.toFixed(2)}:1，淨買${Math.round(net)}張\n量大方向明確，攻擊性拉升` };
+  }
+  if (ratio >= 2.5 && net > 50) {
+    return { label: '📈 買超', cls: 'bv-markup',
+      tip: `買賣比${ratio.toFixed(2)}:1，淨買${Math.round(net)}張\n方向性買超` };
+  }
+
+  // ── 囤貨/換手（持倉確認）────────────────────────────────────
+  // 淨值小但量大（持倉換手，不出也不進，維持）
+  if (netRatio < 0.1 && total > 100 && ratio >= 0.85 && ratio <= 1.2) {
+    return { label: '🔄 換手', cls: 'bv-hold',
+      tip: `買賣幾乎相等（比${ratio.toFixed(2)}:1）\n高換手低淨變，持倉確認或主力互換` };
+  }
+
+  // ── 中性 ────────────────────────────────────────────────────
+  if (net > 0) {
+    return { label: '⬆️ 輕買', cls: 'bv-mild-buy',
+      tip: `淨買${Math.round(net)}張（買賣比${ratio.toFixed(2)}:1）` };
+  }
+  return { label: '⬇️ 輕賣', cls: 'bv-mild-sell',
+    tip: `淨賣${Math.abs(Math.round(net))}張（買賣比${ratio.toFixed(2)}:1）` };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  _diagnoseCyclePhase(brokers, days)
+//  根據全場前10大合計行為，推估當前籌碼週期階段
+// ═══════════════════════════════════════════════════════════════
+function _diagnoseCyclePhase(top10, days) {
+  const totalBuy  = top10.reduce((s, b) => s + b.buy,  0);
+  const totalSell = top10.reduce((s, b) => s + b.sell, 0);
+  const totalNet  = top10.reduce((s, b) => s + b.net,  0);
+  const totalVol  = totalBuy + totalSell;
+  const netRatio  = totalVol > 0 ? totalNet / totalVol : 0;
+  const buyRatio  = totalSell > 0 ? totalBuy / totalSell : 99;
+
+  // 統計各行為分布
+  const allBrokersTotalVol = totalVol;
+  const behaviors = top10.map(b => _diagnoseBrokerBehavior(b, allBrokersTotalVol).label);
+  const countOf = (kw) => behaviors.filter(l => l.includes(kw)).length;
+
+  const nAccum  = countOf('吸籌');
+  const nMarkup = countOf('拉升') + countOf('買超');
+  const nDist   = countOf('出貨') + countOf('倒貨');
+  const nWash   = countOf('洗盤');
+  const nHold   = countOf('換手');
+
+  // 推估週期階段
+  let phase = '', phaseClass = '', phaseTip = '';
+
+  if (nDist >= 3 || (netRatio < -0.2 && totalNet < -500)) {
+    phase = '📤 威科夫：出貨/分配期（Distribution）';
+    phaseClass = 'cp-dist';
+    phaseTip = `前10大淨賣${Math.abs(Math.round(totalNet)).toLocaleString()}張，主力正在悄悄出脫籌碼。`;
+  } else if (nMarkup >= 3 || (buyRatio >= 2.5 && netRatio > 0.25)) {
+    phase = '🚀 威科夫：拉升期（Mark-Up）';
+    phaseClass = 'cp-markup';
+    phaseTip = `主力合計淨買${Math.round(totalNet).toLocaleString()}張（買賣比${buyRatio.toFixed(2)}:1），攻擊性推升股價。`;
+  } else if (nAccum >= 2 && nDist === 0) {
+    phase = '🧲 威科夫：吸籌期（Accumulation）';
+    phaseClass = 'cp-accum';
+    phaseTip = `多家外資低調建倉，量不大但方向明確，吸籌特徵。`;
+  } else if (nWash >= 2 || (Math.abs(netRatio) < 0.08 && totalVol > 1000)) {
+    phase = '🌀 威科夫：洗盤期（Spring / Test）';
+    phaseClass = 'cp-wash';
+    phaseTip = `雙邊交易量大但淨值小，主力製造假湍流清除浮額。`;
+  } else if (nHold >= 3) {
+    phase = '🔄 持倉確認期（Re-accumulation）';
+    phaseClass = 'cp-hold';
+    phaseTip = `高換手但方向持平，主力持倉確認或換手（機構間轉讓）。`;
+  } else if (totalNet > 0) {
+    phase = '📊 偏多格局（輕度淨買）';
+    phaseClass = 'cp-mild-bull';
+    phaseTip = `前10大合計淨買${Math.round(totalNet).toLocaleString()}張，方向偏多但力道溫和。`;
+  } else {
+    phase = '📊 偏空格局（輕度淨賣）';
+    phaseClass = 'cp-mild-bear';
+    phaseTip = `前10大合計淨賣${Math.abs(Math.round(totalNet)).toLocaleString()}張，賣壓略大。`;
+  }
+
+  return { phase, phaseClass, phaseTip, totalNet, totalBuy, totalSell, buyRatio, netRatio };
+}
+
+function _drawBrokerUI(result, days) {
+  const { brokers, useDates } = result;
+  if (!brokers || brokers.length === 0) { _brokerShowEmpty('⚠️ 查無分點資料'); return; }
+
+  const top10 = brokers.slice(0, 10);
+  const top5  = brokers.slice(0,  5);
+  const maxAbs = Math.max(...top5.map(b => Math.abs(b.net)), 1);
+  const allVol = top10.reduce((s, b) => s + b.buy + b.sell, 0);
+
+  // ── 前5大主力摘要卡 ──
+  const sum = document.getElementById('csBrokerSummary');
+  if (sum) {
+    sum.innerHTML = top5.map(b => {
+      const isBuy  = b.net >= 0;
+      const barPct = Math.round(Math.abs(b.net) / maxAbs * 100);
+      const netStr = (isBuy ? '+' : '') + Math.round(b.net).toLocaleString();
+      const bv     = _diagnoseBrokerBehavior(b, allVol);
+      return `<div class="cs-broker-card ${isBuy ? 'buy' : 'sell'}">
+        <span class="bk-name" title="${b.name}">${b.name}</span>
+        <span class="bk-bv ${bv.cls}" title="${bv.tip.replace(/\n/g,'&#10;')}">${bv.label}</span>
+        <span class="bk-net">${netStr}張</span>
+        <div class="bk-bar-wrap"><div class="bk-bar" style="width:${barPct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  // ── 籌碼週期診斷（取代舊的主力方向信號）──
+  const cp = _diagnoseCyclePhase(top10, days);
+  const sig = document.getElementById('csBrokerSignal');
+  if (sig) {
+    sig.className = `cs-broker-signal ${cp.phaseClass}`;
+    sig.innerHTML =
+      `<div class="bk-phase-main">${cp.phase}</div>` +
+      `<div class="bk-phase-sub">${cp.phaseTip}</div>` +
+      `<div class="bk-phase-stats">` +
+        `買合計 <strong>${Math.round(cp.totalBuy).toLocaleString()}</strong>張 ／ ` +
+        `賣合計 <strong>${Math.round(cp.totalSell).toLocaleString()}</strong>張 ／ ` +
+        `淨 <strong>${cp.totalNet>=0?'+':''}${Math.round(cp.totalNet).toLocaleString()}</strong>張 ／ ` +
+        `買賣比 <strong>${cp.buyRatio.toFixed(2)}:1</strong>` +
+      `</div>`;
+    sig.style.display = '';
+  }
+
+  // ── 明細表（前10）含行為診斷欄 ──
+  const tw = document.getElementById('csBrokerTableWrap');
+  const tb = document.getElementById('csBrokerTable');
+  if (tw && tb) {
+    tb.innerHTML = `<thead><tr>
+      <th>券商</th>
+      <th>買(張)</th><th>賣(張)</th><th>淨(張)</th>
+      <th>行為診斷</th>
+    </tr></thead><tbody>` +
+    top10.map(b => {
+      const net    = Math.round(b.net);
+      const netCls = net >= 0 ? 'td-net-pos' : 'td-net-neg';
+      const netStr = (net >= 0 ? '+' : '') + net.toLocaleString();
+      const bv     = _diagnoseBrokerBehavior(b, allVol);
+      return `<tr>
+        <td title="${b.name}">${b.name}</td>
+        <td class="td-buy">${Math.round(b.buy).toLocaleString()}</td>
+        <td class="td-sell">${Math.round(b.sell).toLocaleString()}</td>
+        <td class="${netCls}">${netStr}</td>
+        <td><span class="bk-bv-tag ${bv.cls}" title="${bv.tip.replace(/\n/g,'&#10;')}">${bv.label}</span></td>
+      </tr>`;
+    }).join('') + '</tbody>';
+    tw.style.display = '';
+  }
+
+  // ── 來源說明 ──
+  const nt = document.getElementById('csBrokerNote');
+  if (nt) {
+    const dStr = useDates.length > 0 ? `${useDates[useDates.length-1]} ~ ${useDates[0]}` : '';
+    const _tk  = (typeof getToken === 'function' ? getToken() : '') ||
+                  localStorage.getItem('tsai_finmind_token') || '';
+    const tierStr = _tk ? '🎉 Sponsor Token' : '⚠️ 無Token（公開額度）';
+    nt.textContent = `資料：FinMind TaiwanStockTradingDailyReport · ${dStr} · 共${useDates.length}交易日 · 單位：張 · ${tierStr}`;
+    nt.style.display = '';
+  }
 }
 
 // ==============================================================
