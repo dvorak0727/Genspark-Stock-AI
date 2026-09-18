@@ -7195,12 +7195,13 @@
     .leg-absorb { display:inline-block; width:10px; height:10px; border-radius:2px; background:rgba(220,38,38,0.4); }
     .leg-dist   { display:inline-block; width:10px; height:10px; border-radius:2px; background:rgba(37,99,235,0.4); }
 
-    /* ── v7.50+ 分點券商買賣面板（獨立區塊，⑤-d，2026-09-19移植自GenSpark版）─── */
+    /* ── v7.50+ 分點券商買賣面板（獨立區塊，⑤-d）─── */
     .cs-broker-standalone {
       border: 1px solid var(--border); border-radius: 8px;
       padding: 8px 10px; background: var(--surface);
       margin: 4px 0 6px;
     }
+    /* 分點券商 head */
     .cs-broker-head {
       display: flex; align-items: center; justify-content: space-between;
       margin-bottom: 6px; gap: 6px; flex-wrap: wrap;
@@ -7214,6 +7215,7 @@
       background: transparent; color: var(--fg2); cursor: pointer; transition: all .15s;
     }
     .cs-broker-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    /* 摘要卡（前5大主力） */
     .cs-broker-summary {
       display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px;
     }
@@ -7232,6 +7234,7 @@
     .cs-broker-card .bk-bar { height: 100%; border-radius: 3px; }
     .cs-broker-card.buy  .bk-bar { background: #ef4444; }
     .cs-broker-card.sell .bk-bar { background: #3b82f6; }
+    /* 主力方向信號 */
     .cs-broker-signal {
       font-size: 0.68rem; font-weight: 700; padding: 5px 8px; border-radius: 6px;
       margin-bottom: 6px; text-align: center;
@@ -7239,6 +7242,7 @@
     .cs-broker-signal.bull { background: rgba(220,38,38,0.12); color: #ef4444; border: 1px solid rgba(220,38,38,0.3); }
     .cs-broker-signal.bear { background: rgba(37,99,235,0.12);  color: #3b82f6; border: 1px solid rgba(37,99,235,0.3);  }
     .cs-broker-signal.neut { background: rgba(148,163,184,0.1); color: var(--fg2); border: 1px solid var(--border);      }
+    /* 明細表 */
     .cs-broker-table-wrap { overflow-x: auto; margin-bottom: 4px; }
     .cs-broker-table { width: 100%; border-collapse: collapse; font-size: 0.62rem; }
     .cs-broker-table th { color: var(--fg3); font-weight: 600; padding: 3px 5px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
@@ -7249,13 +7253,16 @@
     .cs-broker-table .td-sell { color: #3b82f6; font-weight: 600; }
     .cs-broker-table .td-net-pos { color: #ef4444; font-weight: 700; }
     .cs-broker-table .td-net-neg { color: #3b82f6; font-weight: 700; }
+    /* 空狀態 / loading */
     .cs-broker-empty { font-size: 0.68rem; color: var(--fg3); text-align: center; padding: 18px 8px; }
     .cs-broker-note  { font-size: 0.58rem; color: var(--fg3); margin-top: 4px; }
-    /* 籌碼週期診斷信號 */
+
+    /* ── 籌碼週期診斷信號（升級版） ── */
     .cs-broker-signal { padding: 7px 10px; border-radius: 8px; margin-bottom: 6px; border: 1px solid; }
     .cs-broker-signal .bk-phase-main { font-size: 0.72rem; font-weight: 800; margin-bottom: 3px; }
     .cs-broker-signal .bk-phase-sub  { font-size: 0.62rem; opacity: 0.85; margin-bottom: 4px; line-height: 1.4; }
     .cs-broker-signal .bk-phase-stats{ font-size: 0.6rem; opacity: 0.75; }
+    /* 週期顏色 */
     .cp-dist      { background: rgba(37,99,235,0.10); color: #1d4ed8; border-color: rgba(37,99,235,0.3); }
     .cp-markup    { background: rgba(220,38,38,0.10); color: #dc2626; border-color: rgba(220,38,38,0.3); }
     .cp-accum     { background: rgba(5,150,105,0.10); color: #047857; border-color: rgba(5,150,105,0.3); }
@@ -7263,11 +7270,13 @@
     .cp-hold      { background: rgba(100,116,139,0.10); color: #475569; border-color: rgba(100,116,139,0.3); }
     .cp-mild-bull { background: rgba(239,68,68,0.07);  color: #b91c1c; border-color: rgba(239,68,68,0.2); }
     .cp-mild-bear { background: rgba(59,130,246,0.07); color: #1e40af; border-color: rgba(59,130,246,0.2); }
-    /* 行為標籤（卡片 + 表格共用） */
+
+    /* ── 行為標籤（卡片 + 表格共用）── */
     .bk-bv { font-size: 0.58rem; font-weight: 700; padding: 1px 5px; border-radius: 4px;
               white-space: nowrap; cursor: help; margin-left: 4px; }
     .bk-bv-tag { font-size: 0.58rem; font-weight: 700; padding: 1px 5px; border-radius: 4px;
                  white-space: nowrap; cursor: help; }
+    /* 行為顏色 */
     .bv-accum     { background: rgba(5,150,105,0.15);   color: #047857; }
     .bv-markup    { background: rgba(220,38,38,0.12);   color: #dc2626; }
     .bv-dist      { background: rgba(37,99,235,0.12);   color: #1e40af; }
@@ -7276,10 +7285,147 @@
     .bv-mild-buy  { background: rgba(239,68,68,0.08);   color: #ef4444; }
     .bv-mild-sell { background: rgba(59,130,246,0.08);  color: #3b82f6; }
     .bv-neutral   { background: var(--surface2); color: var(--fg3); }
-    .cs-broker-card { flex-wrap: wrap; gap: 4px 0; }
-    .cs-broker-card .bk-bv { order: 1; margin-left: 0; }
-    .cs-broker-card .bk-net { order: 2; margin-left: auto; }
-    .cs-broker-card .bk-bar-wrap { order: 3; width: 100%; margin: 0; }
+
+    /* ── 一致性徽章（摘要卡用 .bk-cons，表格用 .bk-cons-tag）── */
+    .bk-cons, .bk-cons-tag {
+      font-size: 0.56rem; font-weight: 700; padding: 1px 5px; border-radius: 4px;
+      white-space: nowrap; cursor: help;
+    }
+    .bk-cons { display: block; margin-top: 2px; }
+    .cons-extreme { background: rgba(124,58,237,0.15); color: #7c3aed; }
+    .cons-high    { background: rgba(5,150,105,0.12);  color: #047857; }
+    .cons-mid     { background: rgba(217,119,6,0.12);  color: #b45309; }
+    .cons-low     { background: rgba(148,163,184,0.1); color: var(--fg3); }
+    .cons-na      { background: var(--surface2); color: var(--fg3); }
+
+    /* ── 全場一致性統計（信號欄）── */
+    .bk-phase-cons {
+      font-size: 0.6rem; opacity: 0.9; margin: 4px 0;
+      padding: 4px 6px; border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+    }
+    .bk-phase-cons .cons-buy  { color: #ef4444; }
+    .bk-phase-cons .cons-sell { color: #3b82f6; }
+
+    /* ── Sparkline 表格欄 ── */
+    .td-spark { padding: 2px 5px !important; vertical-align: middle; }
+    .td-spark svg { display: block; }
+
+    /* ── 追蹤模式表格寬度調整 ── */
+    .cs-broker-table th:nth-child(2),
+    .cs-broker-table td:nth-child(2) { min-width: 108px; }
+
+    /* ── 第二列控制列（TopN + 差異按鈕）── */
+    .cs-broker-ctrl {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 8px 6px; flex-wrap: wrap;
+    }
+    .cs-broker-ctrl-label { font-size: 0.6rem; color: var(--fg3); white-space: nowrap; }
+    .cs-broker-topn-group { display: flex; gap: 4px; align-items: center; }
+    .cs-broker-topn {
+      font-size: 0.6rem; font-weight: 700; padding: 2px 9px; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--surface2); color: var(--fg3);
+      cursor: pointer; transition: all .18s; white-space: nowrap;
+    }
+    .cs-broker-topn.active {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+    .cs-broker-topn:hover:not(.active) { background: var(--surface); color: var(--fg); }
+    .cs-broker-diff-btn {
+      font-size: 0.6rem; font-weight: 700; padding: 2px 10px; border-radius: 12px;
+      border: 1px solid var(--accent); color: var(--accent); background: transparent;
+      cursor: pointer; margin-left: auto; transition: all .18s; white-space: nowrap;
+    }
+    .cs-broker-diff-btn.active { background: var(--accent); color: #fff; }
+    .cs-broker-diff-btn:hover  { opacity: 0.8; }
+
+    /* ── 差異對比面板 ── */
+    .cs-broker-diff-panel {
+      margin: 0 8px 8px; padding: 10px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--surface2); font-size: 0.62rem;
+    }
+    .bk-diff-header { font-weight: 800; font-size: 0.66rem; margin-bottom: 8px; color: var(--fg); }
+    .bk-diff-verdict {
+      padding: 6px 10px; border-radius: 6px; margin-bottom: 8px;
+      border: 1px solid; line-height: 1.5;
+    }
+    .bk-diff-verdict strong { display: block; font-size: 0.68rem; margin-bottom: 2px; }
+    .bk-diff-tip { font-size: 0.6rem; opacity: 0.85; }
+    .diff-neutral  { background: rgba(148,163,184,0.1); color: var(--fg2); border-color: var(--border); }
+    .diff-alert    { background: rgba(239,68,68,0.1);  color: #dc2626; border-color: rgba(239,68,68,0.3); }
+    .diff-amplify  { background: rgba(5,150,105,0.1);  color: #047857; border-color: rgba(5,150,105,0.3); }
+    .diff-dilute   { background: rgba(217,119,6,0.1);  color: #b45309; border-color: rgba(217,119,6,0.3); }
+    .diff-minor    { background: rgba(100,116,139,0.1);color: var(--fg2); border-color: var(--border); }
+    /* 對比數據表 */
+    .bk-diff-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+    .bk-diff-table th { font-weight: 700; color: var(--fg3); padding: 3px 6px;
+                        border-bottom: 1px solid var(--border); text-align: center; font-size: 0.6rem; }
+    .bk-diff-table th:first-child { text-align: left; }
+    .bk-diff-table td { padding: 3px 6px; border-bottom: 1px solid rgba(255,255,255,0.04);
+                        text-align: center; color: var(--fg1); }
+    .bk-diff-table td:first-child { text-align: left; color: var(--fg3); }
+    /* 集中度橫條 */
+    .bk-diff-concen-wrap {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface); border-radius: 4px; padding: 3px 6px;
+    }
+    .bk-diff-concen-bar {
+      height: 6px; border-radius: 3px; background: var(--accent); flex-shrink: 0; max-width: 120px;
+    }
+    .bk-diff-concen-wrap span { font-size: 0.58rem; color: var(--fg2); }
+    /* 第11~20名明細 */
+    .bk-diff-tier2 { border-top: 1px solid var(--border); padding-top: 6px; }
+    .bk-diff-tier2-title { font-weight: 700; color: var(--fg3); margin-bottom: 4px; font-size: 0.6rem; }
+    .bk-diff-tier2-row {
+      display: flex; align-items: center; gap: 6px; padding: 2px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .bk-diff-tier2-row .bk-name { color: var(--fg2); min-width: 70px; font-size: 0.6rem; }
+
+    /* ── 券商類型標籤（.bk-type-tag）── */
+    .bk-type-tag {
+      font-size: 0.52rem; font-weight: 800; padding: 1px 5px; border-radius: 10px;
+      white-space: nowrap; cursor: help; letter-spacing: 0.01em;
+      line-height: 1.6; display: inline-block;
+    }
+    /* daytrader ⚡當沖 — 橘紅，高能量 */
+    .bt-day  { background: rgba(234,88,12,0.18);  color: #c2410c; border: 1px solid rgba(234,88,12,0.35); }
+    /* nextday  🌙隔沖 — 紫羅蘭 */
+    .bt-nxt  { background: rgba(124,58,237,0.14); color: #7c3aed; border: 1px solid rgba(124,58,237,0.3); }
+    /* foreign  🌐外資 — 天藍 */
+    .bt-fgn  { background: rgba(2,132,199,0.13);  color: #0369a1; border: 1px solid rgba(2,132,199,0.3); }
+    /* trust    📋投信 — 翠綠 */
+    .bt-tst  { background: rgba(5,150,105,0.13);  color: #047857; border: 1px solid rgba(5,150,105,0.3); }
+    /* dealer   🔄自營 — 靛藍 */
+    .bt-dlr  { background: rgba(99,102,241,0.13); color: #4338ca; border: 1px solid rgba(99,102,241,0.3); }
+    /* general  🏪一般 — 灰 */
+    .bt-gen  { background: rgba(148,163,184,0.1); color: var(--fg3); border: 1px solid var(--border); }
+
+    /* ── 當沖/隔沖行為標籤（bv-daytrade / bv-nextday）── */
+    .bv-daytrade { background: rgba(234,88,12,0.15); color: #c2410c; }
+    .bv-nextday  { background: rgba(124,58,237,0.12); color: #7c3aed; }
+
+    /* ── 校正淨量顯示（.bk-realnet）── */
+    .bk-realnet {
+      font-size: 0.52rem; padding: 1px 5px; border-radius: 8px; white-space: nowrap;
+      background: rgba(255,255,255,0.07); color: var(--fg3); font-style: italic;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* ── 摘要卡 order 調整（容納 type-tag + realnet）── */
+    .cs-broker-card { flex-wrap: wrap; gap: 3px 0; }
+    .cs-broker-card .bk-name     { order: 0; }
+    .cs-broker-card .bk-type-tag { order: 1; }
+    .cs-broker-card .bk-bv       { order: 2; margin-left: 0; }
+    .cs-broker-card .bk-net      { order: 3; margin-left: auto; }
+    .cs-broker-card .bk-realnet  { order: 4; }
+    .cs-broker-card .bk-cons     { order: 5; width: 100%; }
+    .cs-broker-card .bk-bar-wrap { order: 6; width: 100%; margin: 0; }
+
+    /* ── 明細表 broker-type 欄 ── */
+    .td-broker-type { white-space: nowrap; }
+    .td-broker-type .bk-type-tag { font-size: 0.5rem; }
+
 
     /* ====== 面板主 Tab（法人成本 vs 籌碼博弈）====== */
     .cs-panel-tabs {
@@ -17892,8 +18038,9 @@ a.module-nav-item.acc-active {
       <!-- ⑤-c v7.41 籌碼金字塔（持股分級統計，週更資料，4週趨勢） -->
       <div id="csHoldingPyramid" style="margin:4px 0 6px;"></div>
 
-      <!-- ⑤-d v7.50+ 分點券商買賣面板（FinMind TaiwanStockTradingDailyReport，2026-09-19移植自GenSpark版）-->
+      <!-- ⑤-d v7.50+ 分點券商買賣面板（FinMind TaiwanStockTradingDailyReport，2026-09-19移植；2026-09-19再更新：前10/20大切換+沖銷校正+一致性）-->
       <div id="csBrokerPanel" class="cs-broker-standalone">
+        <!-- 第一列：標題 + 日期 Tab -->
         <div class="cs-broker-head">
           <div class="cs-broker-title">🏦 分點券商買賣明細</div>
           <div class="cs-broker-tabs">
@@ -17903,6 +18050,19 @@ a.module-nav-item.acc-active {
             <button class="cs-broker-tab"        id="csBrokerTab10" onclick="switchBrokerTab(10)">10日</button>
           </div>
         </div>
+        <!-- 第二列：TopN 切換 + 差異對比 -->
+        <div class="cs-broker-ctrl">
+          <div class="cs-broker-topn-group">
+            <span class="cs-broker-ctrl-label">顯示</span>
+            <button class="cs-broker-topn active" id="csBrokerTopN10" onclick="switchBrokerTopN(10)">前10大</button>
+            <button class="cs-broker-topn"        id="csBrokerTopN20" onclick="switchBrokerTopN(20)">前20大</button>
+          </div>
+          <button class="cs-broker-diff-btn" id="csBrokerDiffBtn" onclick="toggleBrokerDiff()" style="display:none;">
+            📊 對比差異
+          </button>
+        </div>
+        <!-- 差異對比面板（預設隱藏）-->
+        <div id="csBrokerDiffPanel" class="cs-broker-diff-panel" style="display:none;"></div>
         <div id="csBrokerSummary" class="cs-broker-summary">
           <div class="cs-broker-empty">🔍 查詢個股後自動載入分點資料</div>
         </div>
@@ -38956,16 +39116,15 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
 }
 
 // ==============================================================
-//  v7.50+ 分點券商買賣面板（2026-09-19移植自GenSpark版）
-//  資料：FinMind TaiwanStockTradingDailyReport（license-worker /finmind 代理，
-//        失敗時直連 api.finmindtrade.com 備援）
-//  功能：前5大主力淨買超排行 + 明細表 + 威科夫（Wyckoff）籌碼週期診斷
-//  跟舊版 _fetchBrokerData／#maTags（籌碼博弈矩陣）是不同的兩套程式碼——
-//  舊版卡在FinLab VIP權限問題，這套改用FinMind單日查詢模式，實測能拉到真實資料。
+//  v7.50+ 分點券商買賣面板
+//  資料：FinMind TaiwanStockTradingDailyReport（license-worker /finmind 代理）
+//  功能：前5大主力淨買超排行 + 明細表 + 多空方向信號
 // ==============================================================
 let _brokerCache   = {};   // { stockId_days: { data, ts } }
 let _brokerDays    = 1;
 let _brokerStockId = '';
+let _brokerTopN    = 10;   // 10 或 20
+let _brokerDiffOpen = false;
 
 /** 切換日期 tab */
 function switchBrokerTab(days) {
@@ -38977,16 +39136,183 @@ function switchBrokerTab(days) {
   if (_brokerStockId) _renderBrokerPanel(_brokerStockId, days);
 }
 
+/** TopN 切換（10 / 20） */
+function switchBrokerTopN(n) {
+  _brokerTopN = n;
+  [10, 20].forEach(v => {
+    const btn = document.getElementById('csBrokerTopN' + v);
+    if (btn) btn.classList.toggle('active', v === n);
+  });
+  // 差異對比按鈕只在有快取時顯示
+  _updateDiffBtnVisibility();
+  // 重繪（用快取，不重新抓 API）
+  if (_brokerStockId) {
+    const cacheKey = `${_brokerStockId}_${_brokerDays}`;
+    const cached = _brokerCache[cacheKey];
+    if (cached) _drawBrokerUI(cached.data, _brokerDays);
+  }
+}
+
+/** 差異對比面板開關 */
+function toggleBrokerDiff() {
+  _brokerDiffOpen = !_brokerDiffOpen;
+  const btn = document.getElementById('csBrokerDiffBtn');
+  if (btn) btn.classList.toggle('active', _brokerDiffOpen);
+  _renderBrokerDiff();
+}
+
+/** 更新「對比差異」按鈕可見性（有 10 + 20 資料才顯示）*/
+function _updateDiffBtnVisibility() {
+  const btn = document.getElementById('csBrokerDiffBtn');
+  if (!btn || !_brokerStockId) return;
+  const has10 = !!_brokerCache[`${_brokerStockId}_${_brokerDays}`];
+  btn.style.display = has10 ? '' : 'none';
+}
+
+/** 渲染 Top10 vs Top20 差異對比面板 */
+function _renderBrokerDiff() {
+  const panel = document.getElementById('csBrokerDiffPanel');
+  if (!panel) return;
+
+  if (!_brokerDiffOpen) { panel.style.display = 'none'; return; }
+
+  const cacheKey = `${_brokerStockId}_${_brokerDays}`;
+  const cached   = _brokerCache[cacheKey];
+  if (!cached || !cached.data?.brokers) {
+    panel.innerHTML = '<div class="cs-broker-empty">⚠️ 請先載入資料</div>';
+    panel.style.display = '';
+    return;
+  }
+
+  const brokers = cached.data.brokers;
+  if (brokers.length < 11) {
+    panel.innerHTML = '<div class="cs-broker-empty">券商家數不足20家，無法對比</div>';
+    panel.style.display = '';
+    return;
+  }
+
+  // Top10 vs Top11~20 各維度統計
+  const top10  = brokers.slice(0, 10);
+  const top20  = brokers.slice(0, 20);
+  const tier2  = brokers.slice(10, 20);  // 第11~20名
+
+  function stats(list) {
+    const totalBuy  = list.reduce((s, b) => s + b.buy,  0);
+    const totalSell = list.reduce((s, b) => s + b.sell, 0);
+    const totalNet  = list.reduce((s, b) => s + b.net,  0);
+    const buyRatio  = totalSell > 0 ? totalBuy / totalSell : 99;
+    const allVol    = totalBuy + totalSell;
+    return { totalBuy, totalSell, totalNet, buyRatio, allVol };
+  }
+
+  const s10  = stats(top10);
+  const s20  = stats(top20);
+  const s11  = stats(tier2);
+
+  // 訊號稀釋度：Top10 vs Top20 方向一致性
+  const dir10 = Math.sign(s10.totalNet);
+  const dir20 = Math.sign(s20.totalNet);
+  const dirMatch = dir10 === dir20;
+
+  // 稀釋/放大效應判斷
+  const netChangeRatio = s10.totalNet !== 0
+    ? (s20.totalNet - s10.totalNet) / Math.abs(s10.totalNet)
+    : 0;
+  let dilutionLabel, dilutionCls, dilutionTip;
+  if (Math.abs(netChangeRatio) < 0.1) {
+    dilutionLabel = '⚖️ 無顯著差異'; dilutionCls = 'diff-neutral';
+    dilutionTip = '第11~20名的力道很小，Top20 ≈ Top10，主力集中度高';
+  } else if (!dirMatch) {
+    dilutionLabel = '⚠️ 方向逆轉！'; dilutionCls = 'diff-alert';
+    dilutionTip = `Top10 ${dir10>0?'買超':'賣超'}，但 Top11~20 方向相反，訊號矛盾`;
+  } else if (netChangeRatio > 0.3) {
+    dilutionLabel = dir10 > 0 ? '🔺 買方陣容擴大' : '🔻 賣方陣容擴大'; dilutionCls = 'diff-amplify';
+    dilutionTip = `加入第11~20名後，${dir10>0?'淨買':'淨賣'}放大 ${(netChangeRatio*100).toFixed(0)}%，方向獲確認`;
+  } else if (netChangeRatio < -0.3 && dirMatch) {
+    dilutionLabel = '📉 信號被稀釋'; dilutionCls = 'diff-dilute';
+    dilutionTip = `第11~20名方向相反，Top20 淨值縮水 ${(Math.abs(netChangeRatio)*100).toFixed(0)}%，主力意圖被遮蔽`;
+  } else {
+    dilutionLabel = '🔍 輕微影響'; dilutionCls = 'diff-minor';
+    dilutionTip = `加入第11~20名後變化 ${(netChangeRatio*100).toFixed(0)}%，影響有限`;
+  }
+
+  // 主力集中度：Top10 佔 Top20 的淨量比
+  const concen = s20.allVol > 0 ? s10.allVol / s20.allVol * 100 : 0;
+
+  panel.innerHTML = `
+    <div class="bk-diff-header">📊 Top10 vs Top20 差異對比</div>
+    <div class="bk-diff-verdict ${dilutionCls}">
+      <strong>${dilutionLabel}</strong>
+      <span class="bk-diff-tip">${dilutionTip}</span>
+    </div>
+    <table class="bk-diff-table">
+      <thead><tr><th>指標</th><th>前10大</th><th>前20大</th><th>第11~20名</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>買合計(張)</td>
+          <td class="td-buy">${Math.round(s10.totalBuy).toLocaleString()}</td>
+          <td class="td-buy">${Math.round(s20.totalBuy).toLocaleString()}</td>
+          <td>${Math.round(s11.totalBuy).toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td>賣合計(張)</td>
+          <td class="td-sell">${Math.round(s10.totalSell).toLocaleString()}</td>
+          <td class="td-sell">${Math.round(s20.totalSell).toLocaleString()}</td>
+          <td>${Math.round(s11.totalSell).toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td>淨(張)</td>
+          <td class="${s10.totalNet>=0?'td-net-pos':'td-net-neg'}">${s10.totalNet>=0?'+':''}${Math.round(s10.totalNet).toLocaleString()}</td>
+          <td class="${s20.totalNet>=0?'td-net-pos':'td-net-neg'}">${s20.totalNet>=0?'+':''}${Math.round(s20.totalNet).toLocaleString()}</td>
+          <td class="${s11.totalNet>=0?'td-net-pos':'td-net-neg'}">${s11.totalNet>=0?'+':''}${Math.round(s11.totalNet).toLocaleString()}</td>
+        </tr>
+        <tr>
+          <td>買賣比</td>
+          <td>${s10.buyRatio.toFixed(2)}:1</td>
+          <td>${s20.buyRatio.toFixed(2)}:1</td>
+          <td>${s11.buyRatio.toFixed(2)}:1</td>
+        </tr>
+        <tr>
+          <td>主力集中度</td>
+          <td colspan="3">
+            <div class="bk-diff-concen-wrap">
+              <div class="bk-diff-concen-bar" style="width:${concen.toFixed(0)}%"></div>
+              <span>Top10 佔 Top20 成交量 ${concen.toFixed(1)}%</span>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="bk-diff-tier2">
+      <div class="bk-diff-tier2-title">▸ 第 11~20 名 券商明細</div>
+      ${tier2.map(b => {
+        const net = Math.round(b.net);
+        const allVolTier = s11.allVol || 1;
+        const bv  = _diagnoseBrokerBehavior(b, allVolTier);
+        return `<div class="bk-diff-tier2-row">
+          <span class="bk-name">${b.name}</span>
+          <span class="bk-bv-tag ${bv.cls}">${bv.label}</span>
+          <span class="${net>=0?'td-net-pos':'td-net-neg'}" style="margin-left:auto">${net>=0?'+':''}${net.toLocaleString()}張</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  panel.style.display = '';
+}
+
 /** 主入口：查詢並渲染分點券商面板 */
 async function fetchBrokerReport(stockId) {
   _brokerStockId = stockId;
   _brokerDays    = 1;
+  _brokerDiffOpen = false;
+  const diffPanel = document.getElementById('csBrokerDiffPanel');
+  if (diffPanel) diffPanel.style.display = 'none';
   [1,3,5,10].forEach(d => {
     const t = document.getElementById('csBrokerTab' + d);
     if (t) t.classList.toggle('active', d === 1);
   });
   _setBrokerLoading(true);
   await _renderBrokerPanel(stockId, 1);
+  _updateDiffBtnVisibility();
 }
 
 function _setBrokerLoading(isLoading) {
@@ -39106,23 +39432,35 @@ async function _renderBrokerPanel(stockId, days) {
   // FinMind TaiwanStockTradingDailyReport 實際欄位：
   //   securities_trader_id → 券商代號
   //   securities_trader    → 券商名稱
-  //   buy / sell           → 單位：股（shares），需除以1000換算成「張」
-  //   （2026-09-19移植時修正：原註解誤寫「已是張、不用除」，但下面程式碼
-  //    其實一直都有除1000——這裡只是把註解改回跟程式碼一致，行為沒有變）
+  //   buy / sell           → 單位：股（÷ 1000 → 張）
+  //   date                 → 交易日 YYYY-MM-DD
   if (allRows.length > 0) console.log('[Broker] 欄位範例:', JSON.stringify(allRows[0]));
 
+  // dailyMap[date][brokerId] = { buy, sell }  ← 逐日逐商，供 sparkline 使用
+  const dailyMap  = {};
   const brokerMap = {};
+  const sortedDates = [...new Set(allRows.map(r => r.date))].sort();  // 升序（舊→新）
+
   allRows.forEach(r => {
-    // 相容多種欄位命名（FinMind 實測：securities_trader_id / securities_trader）
     const id   = r.securities_trader_id ?? r.broker_id ?? r.BrokerId ?? '';
     const name = r.securities_trader    ?? r.broker     ?? r.BrokerName ?? id;
+    const date = r.date ?? '';
     if (!id) return;
-    // FinMind buy/sell 單位：股（shares）→ 需除以 1000 換算成「張」
     const buyLot  = parseFloat(r.buy  ?? r.buy_volume  ?? 0) / 1000;
     const sellLot = parseFloat(r.sell ?? r.sell_volume ?? 0) / 1000;
+
+    // 累計（合計）
     if (!brokerMap[id]) brokerMap[id] = { id, name, buy: 0, sell: 0 };
     brokerMap[id].buy  += buyLot;
     brokerMap[id].sell += sellLot;
+
+    // 逐日
+    if (date) {
+      if (!dailyMap[date]) dailyMap[date] = {};
+      if (!dailyMap[date][id]) dailyMap[date][id] = { buy: 0, sell: 0 };
+      dailyMap[date][id].buy  += buyLot;
+      dailyMap[date][id].sell += sellLot;
+    }
   });
 
   const brokers = Object.values(brokerMap).map(b => ({
@@ -39132,9 +39470,11 @@ async function _renderBrokerPanel(stockId, days) {
     sell: Math.round(b.sell),
   })).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
 
-  const result = { brokers, useDates: usedDates.sort().reverse(), stockId };
+  const result = { brokers, useDates: usedDates.sort().reverse(), stockId, dailyMap, sortedDates };
   _brokerCache[cacheKey] = { data: result, ts: now };
   _drawBrokerUI(result, days);
+  // 資料載入完成後：顯示差異對比按鈕（需要足夠的券商家數）
+  try { _updateDiffBtnVisibility(); } catch(e) {}
 }
 
 function _brokerShowEmpty(msg) {
@@ -39147,6 +39487,108 @@ function _brokerShowEmpty(msg) {
   const nt = document.getElementById('csBrokerNote');
   if (nt) nt.style.display = 'none';
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  BROKER_TYPE_DB  券商分類資料庫
+//  ──────────────────────────────────────────────────────────────
+//  類型定義：
+//    'daytrader'   當沖主力  → 高買賣、低淨值、淨值為尾巴非意圖
+//    'nextday'     隔日沖    → 買賣比接近1，但每日方向會翻轉
+//    'foreign'     外資      → 方向性強，多日持續性高，真實籌碼
+//    'trust'       投信      → 長線建倉，方向穩定，代表機構認同
+//    'dealer'      自營商    → 短線對沖，非真實方向
+//    'general'     一般券商  → 服務散戶為主，量不大
+//
+//  沖銷指數（washIdx）：
+//    0.0 ~ 1.0，愈高代表買賣量中的「沖銷成分」愈多
+//    真實籌碼淨量 ≈ net × (1 - washIdx)
+//    例：凱基 washIdx=0.85 → 淨買100張，真實籌碼僅 15張
+// ═══════════════════════════════════════════════════════════════
+const BROKER_TYPE_DB = (function() {
+  // [券商名稱關鍵字, 類型, 沖銷指數, 中文說明]
+  const rules = [
+    // ── 當沖主力（washIdx 高）──────────────────────────────
+    ['凱基',     'daytrader', 0.85, '當沖王，買賣量大、淨值為尾巴'],
+    ['群益',     'daytrader', 0.75, '當沖比例高，實際籌碼意圖需打折'],
+    ['元大',     'daytrader', 0.60, '兼具外資平台與當沖業務，沖銷比例中等'],
+    ['富邦',     'daytrader', 0.55, '兼具外資平台與當沖業務'],
+    ['統一',     'daytrader', 0.50, '當沖比例約50%'],
+    ['永豐金',   'daytrader', 0.45, '次要當沖券商，方向仍有參考性'],
+    ['玉山',     'daytrader', 0.40, '少量當沖業務'],
+    ['國泰',     'daytrader', 0.35, '沖銷比例偏低，偏向一般服務'],
+
+    // ── 隔日沖（washIdx 中）────────────────────────────────
+    ['兆豐',     'nextday',   0.40, '隔日沖比例高，方向常日翻'],
+    ['台新',     'nextday',   0.35, '部分隔日沖業務'],
+    ['中信',     'nextday',   0.35, '中國信託：兼具外資平台與隔日沖'],
+    ['中國信託', 'nextday',   0.35, '中國信託：兼具外資平台與隔日沖'],
+    ['日盛',     'nextday',   0.30, '隔日沖為主要業務之一'],
+    ['華南',     'nextday',   0.25, '輕度隔日沖'],
+    ['合庫',     'nextday',   0.20, '合庫金：以法人業務為主，少量隔日沖'],
+
+    // ── 外資平台（washIdx 低，方向最可靠）─────────────────
+    ['摩根大通', 'foreign',   0.05, '外資大行，方向代表外資整體意圖'],
+    ['台灣摩根', 'foreign',   0.05, '摩根旗下台灣平台'],
+    ['高盛',     'foreign',   0.05, '外資大行，方向可靠'],
+    ['美商高盛', 'foreign',   0.05, '高盛美商分支'],
+    ['美林',     'foreign',   0.07, '美林：外資方向，偶有自營對沖'],
+    ['港商野村', 'foreign',   0.06, '野村證券：外資法人'],
+    ['港麥格理', 'foreign',   0.06, '麥格理：外資，慣用程式交易'],
+    ['麥格理',   'foreign',   0.06, '麥格理外資平台'],
+    ['上海匯豐', 'foreign',   0.05, '匯豐外資平台，方向穩定'],
+    ['匯豐',     'foreign',   0.05, '匯豐外資'],
+    ['花旗',     'foreign',   0.08, '花旗外資平台'],
+    ['港商花旗', 'foreign',   0.08, '花旗港商分支'],
+    ['瑞銀',     'foreign',   0.07, '瑞銀外資'],
+    ['德意志',   'foreign',   0.07, '德意志外資'],
+    ['巴克萊',   'foreign',   0.07, '巴克萊外資'],
+    ['渣打',     'foreign',   0.08, '渣打外資平台'],
+    ['法國巴黎', 'foreign',   0.07, '法巴外資'],
+    ['摩根士丹利','foreign',  0.06, '大摩外資'],
+    ['里昂',     'foreign',   0.08, '里昂外資'],
+    ['瑞士信貸', 'foreign',   0.07, '瑞信外資'],
+    ['永豐金融', 'foreign',   0.10, '永豐金融外資部門'],
+
+    // ── 投信（washIdx 最低，長線最可信）────────────────────
+    ['國泰投信', 'trust',     0.02, '投信：長線建倉，最具籌碼意義'],
+    ['富邦投信', 'trust',     0.02, '投信：長線方向'],
+    ['元大投信', 'trust',     0.02, '投信'],
+    ['群益投信', 'trust',     0.02, '投信'],
+
+    // ── 自營商（washIdx 高，方向多為對沖）──────────────────
+    ['自營',     'dealer',    0.70, '自營：多為對沖部位，非真實方向'],
+  ];
+
+  // 建立查詢 Map（名稱關鍵字 → 資訊）
+  const map = {};
+  rules.forEach(([kw, type, washIdx, desc]) => {
+    map[kw] = { type, washIdx, desc };
+  });
+
+  // 根據名稱查詢券商資訊
+  function lookup(name) {
+    if (!name) return { type: 'general', washIdx: 0.3, desc: '一般券商' };
+    // 精確優先
+    if (map[name]) return map[name];
+    // 關鍵字模糊匹配
+    for (const kw of Object.keys(map)) {
+      if (name.includes(kw)) return map[kw];
+    }
+    return { type: 'general', washIdx: 0.3, desc: '一般券商（含部分當沖客）' };
+  }
+
+  // 類型標籤
+  const typeLabel = {
+    daytrader: { label: '⚡當沖', cls: 'bt-day', tip: '當沖主力券商：高買賣量為沖銷，淨值需打折' },
+    nextday:   { label: '🌙隔沖', cls: 'bt-nxt', tip: '隔日沖券商：方向常日翻，連續才有意義' },
+    foreign:   { label: '🌐外資', cls: 'bt-fgn', tip: '外資券商：方向代表外資真實意圖，可信度高' },
+    trust:     { label: '📋投信', cls: 'bt-tst', tip: '投信券商：長線建倉，最具籌碼持久性' },
+    dealer:    { label: '🔄自營', cls: 'bt-dlr', tip: '自營商：多為對沖，方向參考性低' },
+    general:   { label: '🏪一般', cls: 'bt-gen', tip: '一般券商：服務散戶為主' },
+  };
+
+  return { lookup, typeLabel };
+})();
 
 // ═══════════════════════════════════════════════════════════════
 //  _diagnoseBrokerBehavior(b, days)
@@ -39179,66 +39621,125 @@ function _brokerShowEmpty(msg) {
 //    量小、方向不明
 // ═══════════════════════════════════════════════════════════════
 function _diagnoseBrokerBehavior(b, allBrokersTotalVol) {
-  const buy  = b.buy  || 0;
-  const sell = b.sell || 0;
-  const net  = b.net  || 0;
+  const buy   = b.buy  || 0;
+  const sell  = b.sell || 0;
+  const net   = b.net  || 0;
   const total = buy + sell;
-  if (total < 1) return { label: '—', cls: 'bv-neutral', tip: '量太小，無法判斷' };
 
-  const ratio    = sell > 0 ? buy / sell : 99;   // 買/賣 比
-  const netRatio = total > 0 ? Math.abs(net) / total : 0; // 淨/總 比（0~1）
-  const volShare = allBrokersTotalVol > 0 ? total / allBrokersTotalVol : 0; // 佔全場份量
+  // ── Step 0：查詢券商分類 ──────────────────────────────────
+  const brokerInfo = BROKER_TYPE_DB.lookup(b.name || '');
+  const { type, washIdx, desc } = brokerInfo;
+  const typeTag    = BROKER_TYPE_DB.typeLabel[type] || BROKER_TYPE_DB.typeLabel.general;
 
-  // ── 出貨 ────────────────────────────────────────────────────
-  // 賣遠大於買，或買賣接近但 net 大負（對敲倒貨）
-  if (net < -100 && ratio < 0.5) {
+  if (total < 1) return {
+    label: '—', cls: 'bv-neutral', tip: '量太小，無法判斷',
+    typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx,
+    realNet: 0, brokerType: type
+  };
+
+  const ratio    = sell > 0 ? buy / sell : 99;
+  const netRatio = total > 0 ? Math.abs(net) / total : 0;
+  const volShare = allBrokersTotalVol > 0 ? total / allBrokersTotalVol : 0;
+
+  // ── Step 1：沖銷校正 ─────────────────────────────────────
+  // 真實籌碼淨量 = net × (1 - washIdx)
+  // 說明：凱基 washIdx=0.85 → 淨買 100張，真實僅 15張
+  const realNet     = net * (1 - washIdx);
+  const washPct     = Math.round(washIdx * 100);
+  const washNote    = washIdx >= 0.5
+    ? `\n⚠️ ${typeTag.label}：沖銷指數 ${washPct}%，真實籌碼淨量僅 ${Math.round(realNet)}張`
+    : washIdx >= 0.2
+    ? `\n⚡ 沖銷指數 ${washPct}%，真實淨量約 ${Math.round(realNet)}張`
+    : '';
+
+  // 沖銷主力：直接標示為「沖銷」，不再判斷吸籌/拉升
+  if (type === 'daytrader' && washIdx >= 0.6) {
+    // 但如果 |realNet| 仍然很大，仍有方向參考性
+    if (Math.abs(realNet) > 200) {
+      const dir = realNet > 0 ? '🔺' : '🔻';
+      return {
+        label: `⚡沖後${dir}${Math.round(Math.abs(realNet))}`, cls: 'bv-daytrade',
+        tip: `${desc}\n買${Math.round(buy)}張 賣${Math.round(sell)}張 買賣比${ratio.toFixed(2)}:1\n${washNote}\n校正後淨量仍${Math.round(realNet)>0?'買超':'賣超'} ${Math.abs(Math.round(realNet))}張，有方向參考性`,
+        typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type
+      };
+    }
+    return {
+      label: '⚡ 沖銷為主', cls: 'bv-daytrade',
+      tip: `${desc}\n買${Math.round(buy)}張 賣${Math.round(sell)}張 買賣比${ratio.toFixed(2)}:1${washNote}\n真實籌碼意圖不明，請忽略此券商淨值`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type
+    };
+  }
+
+  // 隔日沖：中度打折
+  if (type === 'nextday' && washIdx >= 0.3 && netRatio < 0.12 && total > 150) {
+    return {
+      label: '🌙 隔日沖', cls: 'bv-nextday',
+      tip: `${desc}\n買${Math.round(buy)}張 賣${Math.round(sell)}張｜洗出指數 ${washPct}%\n校正淨量 ${Math.round(realNet)>0?'+':''}${Math.round(realNet)}張，需連續同向才可信${washNote}`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type
+    };
+  }
+
+  // ── Step 2：以真實籌碼量（realNet）進行行為判斷 ──────────
+  const rRatio    = sell > 0 ? buy / sell : 99;
+  const rNetRatio = total > 0 ? Math.abs(realNet) / total : 0;
+
+  // 公用 tip 前綴
+  const base = `${typeTag.label} ${desc}\n買${Math.round(buy)}張 賣${Math.round(sell)}張 買賣比${ratio.toFixed(2)}:1${washNote}`;
+
+  // 出貨 / 倒貨
+  if (realNet < -100 && rRatio < 0.5) {
     return { label: '📤 倒貨', cls: 'bv-dist',
-      tip: `買${Math.round(buy)}張 賣${Math.round(sell)}張｜買賣比${ratio.toFixed(2)}:1\n淨賣${Math.abs(Math.round(net))}張，出貨力道強` };
+      tip: `${base}\n校正淨賣 ${Math.abs(Math.round(realNet))}張，出貨力道強`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
-  if (net < -30 && ratio < 0.8) {
+  if (realNet < -30 && rRatio < 0.8) {
     return { label: '📤 出貨', cls: 'bv-dist',
-      tip: `買賣比${ratio.toFixed(2)}:1，淨賣${Math.abs(Math.round(net))}張\n賣壓明顯` };
+      tip: `${base}\n校正淨賣 ${Math.abs(Math.round(realNet))}張，賣壓明顯`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
 
-  // ── 洗盤（假湍流）──────────────────────────────────────────
-  // 買賣均大（高換手），但 net 接近0（不出貨也不吸籌）
-  if (netRatio < 0.15 && total > 200 && ratio >= 0.7 && ratio <= 1.5) {
+  // 洗盤（真實籌碼淨量仍小）
+  if (rNetRatio < 0.15 && total > 200 && rRatio >= 0.7 && rRatio <= 1.5) {
     return { label: '🌀 洗盤', cls: 'bv-wash',
-      tip: `買${Math.round(buy)}張 賣${Math.round(sell)}張｜買賣比${ratio.toFixed(2)}:1\n淨值僅${Math.round(net)}張（${(netRatio*100).toFixed(0)}%），雙邊對敲，震倉洗盤` };
+      tip: `${base}\n校正淨量 ${Math.round(realNet)}張（${(rNetRatio*100).toFixed(0)}%），雙邊對敲震倉`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
 
-  // ── 吸籌（低調買入）────────────────────────────────────────
-  // 買 >> 賣，但 volume 不是最大（靜悄悄）
-  if (ratio >= 4 && net > 50 && volShare < 0.3) {
+  // 吸籌（外資低調建倉最典型）
+  if (rRatio >= 4 && realNet > 50 && volShare < 0.3) {
     return { label: '🧲 吸籌', cls: 'bv-accum',
-      tip: `買賣比${ratio.toFixed(2)}:1，淨買${Math.round(net)}張\n低調穩健買入，吸籌特徵明顯` };
+      tip: `${base}\n校正淨買 ${Math.round(realNet)}張，低調穩健建倉`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
 
-  // ── 拉升（攻擊性買入）──────────────────────────────────────
-  // 買遠大於賣，net 大正，且份量大
-  if (ratio >= 2.5 && net > 100 && volShare >= 0.15) {
+  // 拉升
+  if (rRatio >= 2.5 && realNet > 100 && volShare >= 0.15) {
     return { label: '🚀 拉升', cls: 'bv-markup',
-      tip: `買賣比${ratio.toFixed(2)}:1，淨買${Math.round(net)}張\n量大方向明確，攻擊性拉升` };
+      tip: `${base}\n校正淨買 ${Math.round(realNet)}張，攻擊性拉升`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
-  if (ratio >= 2.5 && net > 50) {
+  if (rRatio >= 2.5 && realNet > 50) {
     return { label: '📈 買超', cls: 'bv-markup',
-      tip: `買賣比${ratio.toFixed(2)}:1，淨買${Math.round(net)}張\n方向性買超` };
+      tip: `${base}\n校正淨買 ${Math.round(realNet)}張，方向性買超`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
 
-  // ── 囤貨/換手（持倉確認）────────────────────────────────────
-  // 淨值小但量大（持倉換手，不出也不進，維持）
-  if (netRatio < 0.1 && total > 100 && ratio >= 0.85 && ratio <= 1.2) {
+  // 換手（高量、淨值小）
+  if (rNetRatio < 0.1 && total > 100 && rRatio >= 0.85 && rRatio <= 1.2) {
     return { label: '🔄 換手', cls: 'bv-hold',
-      tip: `買賣幾乎相等（比${ratio.toFixed(2)}:1）\n高換手低淨變，持倉確認或主力互換` };
+      tip: `${base}\n高換手低淨變，持倉確認或機構換手`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
 
-  // ── 中性 ────────────────────────────────────────────────────
-  if (net > 0) {
+  // 中性
+  if (realNet > 0) {
     return { label: '⬆️ 輕買', cls: 'bv-mild-buy',
-      tip: `淨買${Math.round(net)}張（買賣比${ratio.toFixed(2)}:1）` };
+      tip: `${base}\n校正淨買 ${Math.round(realNet)}張`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
   return { label: '⬇️ 輕賣', cls: 'bv-mild-sell',
-    tip: `淨賣${Math.abs(Math.round(net))}張（買賣比${ratio.toFixed(2)}:1）` };
+    tip: `${base}\n校正淨賣 ${Math.abs(Math.round(realNet))}張`,
+    typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -39246,16 +39747,30 @@ function _diagnoseBrokerBehavior(b, allBrokersTotalVol) {
 //  根據全場前10大合計行為，推估當前籌碼週期階段
 // ═══════════════════════════════════════════════════════════════
 function _diagnoseCyclePhase(top10, days) {
+  // ── 原始統計（含當沖噪聲）──
   const totalBuy  = top10.reduce((s, b) => s + b.buy,  0);
   const totalSell = top10.reduce((s, b) => s + b.sell, 0);
   const totalNet  = top10.reduce((s, b) => s + b.net,  0);
   const totalVol  = totalBuy + totalSell;
-  const netRatio  = totalVol > 0 ? totalNet / totalVol : 0;
   const buyRatio  = totalSell > 0 ? totalBuy / totalSell : 99;
 
-  // 統計各行為分布
-  const allBrokersTotalVol = totalVol;
-  const behaviors = top10.map(b => _diagnoseBrokerBehavior(b, allBrokersTotalVol).label);
+  // ── 沖銷校正（washIdx-corrected）：排除凱基等當沖商的噪聲 ──
+  // 每位券商都先查類型取 washIdx，算 realNet，再加總
+  const allVol = totalVol;
+  const diagResults = top10.map(b => _diagnoseBrokerBehavior(b, allVol));
+
+  // 有效淨量 = 各券商 realNet 之和（已扣除沖銷比例）
+  const effNet     = diagResults.reduce((s, bv) => s + (bv.realNet ?? bv.realNet ?? 0), 0);
+  const effNetRatio = totalVol > 0 ? effNet / totalVol : 0;
+
+  // 當沖商佔比（方便 tip 顯示）
+  const nDaytrader = diagResults.filter(bv => bv.brokerType === 'daytrader').length;
+  const washNote   = nDaytrader > 0
+    ? `（含${nDaytrader}家當沖商，已沖銷校正）`
+    : '';
+
+  // ── 行為標籤統計（bv.label 已是 realNet 校正後的診斷）──
+  const behaviors = diagResults.map(bv => bv.label);
   const countOf = (kw) => behaviors.filter(l => l.includes(kw)).length;
 
   const nAccum  = countOf('吸籌');
@@ -39263,53 +39778,176 @@ function _diagnoseCyclePhase(top10, days) {
   const nDist   = countOf('出貨') + countOf('倒貨');
   const nWash   = countOf('洗盤');
   const nHold   = countOf('換手');
+  // 沖銷主力（不計入 Wyckoff 信號）
+  const nDaytrade = countOf('沖銷') + countOf('沖後');
 
-  // 推估週期階段
+  // 有效信號券商數（排除沖銷為主者）
+  const effCount = top10.length - nDaytrade;
+
+  // ── 推估週期階段（以 effNet 為主指標）──
   let phase = '', phaseClass = '', phaseTip = '';
 
-  if (nDist >= 3 || (netRatio < -0.2 && totalNet < -500)) {
+  if (nDist >= 2 || (effNetRatio < -0.20 && effNet < -300)) {
     phase = '📤 威科夫：出貨/分配期（Distribution）';
     phaseClass = 'cp-dist';
-    phaseTip = `前10大淨賣${Math.abs(Math.round(totalNet)).toLocaleString()}張，主力正在悄悄出脫籌碼。`;
-  } else if (nMarkup >= 3 || (buyRatio >= 2.5 && netRatio > 0.25)) {
+    phaseTip = `校正有效淨賣 ${Math.abs(Math.round(effNet)).toLocaleString()} 張${washNote}，主力正在悄悄出脫籌碼。`;
+  } else if (nMarkup >= 2 || (buyRatio >= 2.5 && effNetRatio > 0.20)) {
     phase = '🚀 威科夫：拉升期（Mark-Up）';
     phaseClass = 'cp-markup';
-    phaseTip = `主力合計淨買${Math.round(totalNet).toLocaleString()}張（買賣比${buyRatio.toFixed(2)}:1），攻擊性推升股價。`;
+    phaseTip = `校正有效淨買 ${Math.round(effNet).toLocaleString()} 張${washNote}（買賣比 ${buyRatio.toFixed(2)}:1），攻擊性推升股價。`;
   } else if (nAccum >= 2 && nDist === 0) {
     phase = '🧲 威科夫：吸籌期（Accumulation）';
     phaseClass = 'cp-accum';
-    phaseTip = `多家外資低調建倉，量不大但方向明確，吸籌特徵。`;
-  } else if (nWash >= 2 || (Math.abs(netRatio) < 0.08 && totalVol > 1000)) {
+    phaseTip = `${nAccum}家外資/法人低調建倉${washNote}，量不大但方向明確，吸籌特徵。`;
+  } else if (nWash >= 2 || (Math.abs(effNetRatio) < 0.08 && totalVol > 1000 && effCount >= 3)) {
     phase = '🌀 威科夫：洗盤期（Spring / Test）';
     phaseClass = 'cp-wash';
-    phaseTip = `雙邊交易量大但淨值小，主力製造假湍流清除浮額。`;
+    phaseTip = `有效信號券商雙邊量大但校正淨值小${washNote}，疑似製造假湍流清除浮額。`;
   } else if (nHold >= 3) {
     phase = '🔄 持倉確認期（Re-accumulation）';
     phaseClass = 'cp-hold';
-    phaseTip = `高換手但方向持平，主力持倉確認或換手（機構間轉讓）。`;
-  } else if (totalNet > 0) {
+    phaseTip = `高換手但方向持平${washNote}，主力持倉確認或機構間轉讓。`;
+  } else if (effNet > 0) {
     phase = '📊 偏多格局（輕度淨買）';
     phaseClass = 'cp-mild-bull';
-    phaseTip = `前10大合計淨買${Math.round(totalNet).toLocaleString()}張，方向偏多但力道溫和。`;
+    phaseTip = `校正有效淨買 ${Math.round(effNet).toLocaleString()} 張${washNote}，方向偏多但力道溫和。`;
   } else {
     phase = '📊 偏空格局（輕度淨賣）';
     phaseClass = 'cp-mild-bear';
-    phaseTip = `前10大合計淨賣${Math.abs(Math.round(totalNet)).toLocaleString()}張，賣壓略大。`;
+    phaseTip = `校正有效淨賣 ${Math.abs(Math.round(effNet)).toLocaleString()} 張${washNote}，賣壓略大。`;
   }
 
-  return { phase, phaseClass, phaseTip, totalNet, totalBuy, totalSell, buyRatio, netRatio };
+  return { phase, phaseClass, phaseTip, totalNet, effNet, totalBuy, totalSell, buyRatio,
+           netRatio: effNetRatio, nDaytrader };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  _buildBrokerTimeline(brokerId, dailyMap, sortedDates)
+//  回傳某券商在各交易日的逐日 { date, net, buy, sell }[]（升序）
+// ═══════════════════════════════════════════════════════════════
+function _buildBrokerTimeline(brokerId, dailyMap, sortedDates) {
+  return sortedDates.map(date => {
+    const d = dailyMap[date]?.[brokerId];
+    const buy  = d ? Math.round(d.buy)  : 0;
+    const sell = d ? Math.round(d.sell) : 0;
+    return { date, buy, sell, net: buy - sell };
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  _calcConsistency(timeline)
+//  計算行為一致性分數（0~100）與標籤
+//  ──────────────────────────────────────────────────────────────
+//  邏輯：
+//    - 計算每日 net 的方向（+1 / -1 / 0）
+//    - 計算最長連續同向天數
+//    - 計算同向天數佔比（連續性）
+//    - 結合方向強度（|net| 加權）
+//  分數說明：
+//    80~100 極度一致（主力系統性操作，信號可信度高）
+//    60~79  高度一致（方向明確，偶有對沖）
+//    40~59  中度一致（方向有，但有雜訊）
+//    0~39   方向不明（每日都在變，或均衡掛單）
+// ═══════════════════════════════════════════════════════════════
+function _calcConsistency(timeline) {
+  if (!timeline || timeline.length < 2) return { score: 0, label: '—', cls: 'cons-na', streak: 0, dir: 0 };
+
+  const nets     = timeline.map(d => d.net);
+  const dirs     = nets.map(n => n > 5 ? 1 : n < -5 ? -1 : 0);   // 5張以下視為中性
+  const absNets  = nets.map(n => Math.abs(n));
+  const maxAbs   = Math.max(...absNets, 1);
+
+  // ── 加權方向得分（淨量大的日子權重高）──
+  let weightedSum = 0, weightTotal = 0;
+  dirs.forEach((d, i) => {
+    const w = absNets[i] / maxAbs;
+    weightedSum  += d * w;
+    weightTotal  += w;
+  });
+  const weightedDir = weightTotal > 0 ? weightedSum / weightTotal : 0;
+
+  // ── 最長連續同向 streak ──
+  let maxStreak = 1, curStreak = 1;
+  for (let i = 1; i < dirs.length; i++) {
+    if (dirs[i] !== 0 && dirs[i] === dirs[i - 1]) { curStreak++; maxStreak = Math.max(maxStreak, curStreak); }
+    else curStreak = 1;
+  }
+
+  // ── 佔比一致性 ──
+  const nonZero   = dirs.filter(d => d !== 0);
+  const dominant  = nonZero.filter(d => d === (weightedDir >= 0 ? 1 : -1)).length;
+  const consRatio = nonZero.length > 0 ? dominant / nonZero.length : 0;
+
+  // ── 綜合分數 ──
+  const streakScore  = Math.min(maxStreak / timeline.length, 1) * 40;
+  const ratioScore   = consRatio * 40;
+  const weightScore  = Math.abs(weightedDir) * 20;
+  const score        = Math.round(streakScore + ratioScore + weightScore);
+  const dir          = weightedDir >= 0.1 ? 1 : weightedDir <= -0.1 ? -1 : 0;
+
+  let label, cls;
+  if (score >= 80) { label = `★ 極致一致 ${score}`; cls = 'cons-extreme'; }
+  else if (score >= 60) { label = `◆ 高度一致 ${score}`; cls = 'cons-high'; }
+  else if (score >= 40) { label = `◇ 中度一致 ${score}`; cls = 'cons-mid';  }
+  else                  { label = `○ 方向不明 ${score}`; cls = 'cons-low';  }
+
+  return { score, label, cls, streak: maxStreak, dir, weightedDir };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  _drawSparkline(timeline, width, height)
+//  回傳 SVG 字串，繪製 net 走勢 sparkline
+//  正值（淨買）→ 紅色柱；負值（淨賣）→ 藍色柱；今日標記
+// ═══════════════════════════════════════════════════════════════
+function _drawSparkline(timeline, width, height) {
+  if (!timeline || timeline.length === 0) return `<svg width="${width}" height="${height}"></svg>`;
+  const n   = timeline.length;
+  const bar = Math.max(2, Math.floor(width / n) - 1);
+  const gap = Math.max(1, Math.floor(width / n) - bar);
+  const totalW = n * (bar + gap) - gap;
+  const offsetX = Math.floor((width - totalW) / 2);
+
+  const nets   = timeline.map(d => d.net);
+  const maxAbs = Math.max(...nets.map(Math.abs), 1);
+  const halfH  = Math.floor(height / 2);
+  const today  = timeline[timeline.length - 1]?.date;
+
+  const bars = timeline.map((d, i) => {
+    const x   = offsetX + i * (bar + gap);
+    const h   = Math.max(1, Math.round(Math.abs(d.net) / maxAbs * (halfH - 2)));
+    const y   = d.net >= 0 ? halfH - h : halfH;
+    const col = d.net >= 0 ? '#ef4444' : '#3b82f6';
+    const op  = d.date === today ? '1' : '0.75';
+    return `<rect x="${x}" y="${y}" width="${bar}" height="${h}" fill="${col}" opacity="${op}" rx="1"/>`;
+  }).join('');
+
+  // 零線
+  const zeroline = `<line x1="0" y1="${halfH}" x2="${width}" y2="${halfH}" stroke="rgba(148,163,184,0.3)" stroke-width="0.5"/>`;
+
+  return `<svg width="${width}" height="${height}" style="overflow:visible">${zeroline}${bars}</svg>`;
 }
 
 function _drawBrokerUI(result, days) {
-  const { brokers, useDates } = result;
+  const { brokers, useDates, dailyMap, sortedDates } = result;
   if (!brokers || brokers.length === 0) { _brokerShowEmpty('⚠️ 查無分點資料'); return; }
 
-  const top10 = brokers.slice(0, 10);
-  const top5  = brokers.slice(0,  5);
-  const maxAbs = Math.max(...top5.map(b => Math.abs(b.net)), 1);
-  const allVol = top10.reduce((s, b) => s + b.buy + b.sell, 0);
+  // ── TopN 控制（全域 _brokerTopN：10 或 20）──
+  const N       = Math.min(_brokerTopN || 10, brokers.length);
+  const topN    = brokers.slice(0, N);
+  const topSum5 = brokers.slice(0, Math.min(5, N));
 
-  // ── 前5大主力摘要卡 ──
+  const multiDay = days > 1 && sortedDates && sortedDates.length > 1;
+  const top10 = topN;          // 沿用舊變數名，但現在是 topN
+  const top5  = topSum5;
+  const maxAbs = Math.max(...top5.map(b => Math.abs(b.net)), 1);
+  const allVol = topN.reduce((s, b) => s + b.buy + b.sell, 0);
+
+  // 更新差異對比按鈕可見性
+  _updateDiffBtnVisibility();
+  // 如差異面板開著，同步更新
+  if (_brokerDiffOpen) _renderBrokerDiff();
+
+  // ── ① 前5大主力摘要卡 ──────────────────────────────
   const sum = document.getElementById('csBrokerSummary');
   if (sum) {
     sum.innerHTML = top5.map(b => {
@@ -39317,58 +39955,149 @@ function _drawBrokerUI(result, days) {
       const barPct = Math.round(Math.abs(b.net) / maxAbs * 100);
       const netStr = (isBuy ? '+' : '') + Math.round(b.net).toLocaleString();
       const bv     = _diagnoseBrokerBehavior(b, allVol);
+
+      // 多日模式：加一致性徽章
+      let consBadge = '';
+      if (multiDay && dailyMap) {
+        const tl   = _buildBrokerTimeline(b.id, dailyMap, sortedDates);
+        const cons = _calcConsistency(tl);
+        consBadge  = `<span class="bk-cons ${cons.cls}" title="一致性分數 ${cons.score}｜最長連續${cons.streak}天">${cons.label}</span>`;
+      }
+      const realNetStr = bv.realNet !== undefined
+        ? `校正${Math.round(bv.realNet)>=0?'+':''}${Math.round(bv.realNet)}張`
+        : '';
       return `<div class="cs-broker-card ${isBuy ? 'buy' : 'sell'}">
         <span class="bk-name" title="${b.name}">${b.name}</span>
+        <span class="bk-type-tag ${bv.typeCls||''}" title="${BROKER_TYPE_DB.typeLabel[bv.brokerType||'general']?.tip||''}">${bv.typeLabel||''}</span>
         <span class="bk-bv ${bv.cls}" title="${bv.tip.replace(/\n/g,'&#10;')}">${bv.label}</span>
         <span class="bk-net">${netStr}張</span>
+        ${realNetStr ? `<span class="bk-realnet">${realNetStr}</span>` : ''}
+        ${consBadge}
         <div class="bk-bar-wrap"><div class="bk-bar" style="width:${barPct}%"></div></div>
       </div>`;
     }).join('');
   }
 
-  // ── 籌碼週期診斷（取代舊的主力方向信號）──
-  const cp = _diagnoseCyclePhase(top10, days);
+  // ── ② 籌碼週期診斷 ─────────────────────────────────
+  const cp  = _diagnoseCyclePhase(top10, days);
   const sig = document.getElementById('csBrokerSignal');
   if (sig) {
     sig.className = `cs-broker-signal ${cp.phaseClass}`;
+    // 多日：加一致性整體說明
+    let consNote = '';
+    if (multiDay) {
+      const allCons  = top10.map(b => {
+        const tl = _buildBrokerTimeline(b.id, dailyMap, sortedDates);
+        return _calcConsistency(tl);
+      });
+      const avgScore  = Math.round(allCons.reduce((s, c) => s + c.score, 0) / allCons.length);
+      const highCons  = allCons.filter(c => c.score >= 60).length;
+      const buyConsis = allCons.filter(c => c.dir > 0 && c.score >= 50).length;
+      const selConsis = allCons.filter(c => c.dir < 0 && c.score >= 50).length;
+      consNote = `<div class="bk-phase-cons">📐 ${days}日一致性 前10大平均 <strong>${avgScore}</strong>分 ／ ` +
+        `高一致券商 <strong>${highCons}</strong>家 ／ ` +
+        `持續買入 <strong class="cons-buy">${buyConsis}</strong>家 ／ ` +
+        `持續賣出 <strong class="cons-sell">${selConsis}</strong>家</div>`;
+    }
+    // 有效淨量 vs 原始淨量 的差異說明
+    const effNetDiff = cp.effNet !== undefined && cp.effNet !== cp.totalNet
+      ? ` ／ 校正有效淨 <strong style="color:${cp.effNet>=0?'#ef4444':'#3b82f6'}">${cp.effNet>=0?'+':''}${Math.round(cp.effNet).toLocaleString()}</strong>張`
+      : '';
+    const daytradeTip = cp.nDaytrader > 0
+      ? `<span style="font-size:0.56rem;opacity:0.75;margin-left:4px">（${cp.nDaytrader}家當沖商已沖銷校正）</span>`
+      : '';
     sig.innerHTML =
       `<div class="bk-phase-main">${cp.phase}</div>` +
       `<div class="bk-phase-sub">${cp.phaseTip}</div>` +
+      (consNote) +
       `<div class="bk-phase-stats">` +
-        `買合計 <strong>${Math.round(cp.totalBuy).toLocaleString()}</strong>張 ／ ` +
-        `賣合計 <strong>${Math.round(cp.totalSell).toLocaleString()}</strong>張 ／ ` +
-        `淨 <strong>${cp.totalNet>=0?'+':''}${Math.round(cp.totalNet).toLocaleString()}</strong>張 ／ ` +
-        `買賣比 <strong>${cp.buyRatio.toFixed(2)}:1</strong>` +
+        `買 <strong>${Math.round(cp.totalBuy).toLocaleString()}</strong>張 ／ ` +
+        `賣 <strong>${Math.round(cp.totalSell).toLocaleString()}</strong>張 ／ ` +
+        `原始淨 <strong>${cp.totalNet>=0?'+':''}${Math.round(cp.totalNet).toLocaleString()}</strong>張` +
+        `${effNetDiff}` +
+        ` ／ 買賣比 <strong>${cp.buyRatio.toFixed(2)}:1</strong>` +
+        `${daytradeTip}` +
       `</div>`;
     sig.style.display = '';
   }
 
-  // ── 明細表（前10）含行為診斷欄 ──
+  // ── ③ 明細表 ───────────────────────────────────────
   const tw = document.getElementById('csBrokerTableWrap');
   const tb = document.getElementById('csBrokerTable');
   if (tw && tb) {
-    tb.innerHTML = `<thead><tr>
-      <th>券商</th>
-      <th>買(張)</th><th>賣(張)</th><th>淨(張)</th>
-      <th>行為診斷</th>
-    </tr></thead><tbody>` +
-    top10.map(b => {
-      const net    = Math.round(b.net);
-      const netCls = net >= 0 ? 'td-net-pos' : 'td-net-neg';
-      const netStr = (net >= 0 ? '+' : '') + net.toLocaleString();
-      const bv     = _diagnoseBrokerBehavior(b, allVol);
-      return `<tr>
-        <td title="${b.name}">${b.name}</td>
-        <td class="td-buy">${Math.round(b.buy).toLocaleString()}</td>
-        <td class="td-sell">${Math.round(b.sell).toLocaleString()}</td>
-        <td class="${netCls}">${netStr}</td>
-        <td><span class="bk-bv-tag ${bv.cls}" title="${bv.tip.replace(/\n/g,'&#10;')}">${bv.label}</span></td>
-      </tr>`;
-    }).join('') + '</tbody>';
+    if (multiDay) {
+      // ══ 追蹤模式（多日）：sparkline + 一致性 + 券商類型 ══
+      const dLabels = sortedDates.map(d => d.slice(5)); // MM-DD
+      tb.innerHTML = `<thead><tr>
+        <th>券商</th>
+        <th>類型</th>
+        <th style="min-width:90px">走勢（${dLabels[0]}~${dLabels[dLabels.length-1]}）</th>
+        <th>淨(張)</th>
+        <th>校正淨</th>
+        <th>一致性</th>
+        <th>行為</th>
+      </tr></thead><tbody>` +
+      top10.map(b => {
+        const net    = Math.round(b.net);
+        const netCls = net >= 0 ? 'td-net-pos' : 'td-net-neg';
+        const netStr = (net >= 0 ? '+' : '') + net.toLocaleString();
+        const bv     = _diagnoseBrokerBehavior(b, allVol);
+        const tl     = _buildBrokerTimeline(b.id, dailyMap, sortedDates);
+        const cons   = _calcConsistency(tl);
+        const spark  = _drawSparkline(tl, 100, 28);
+        // 校正淨量
+        const rn     = bv.realNet !== undefined ? Math.round(bv.realNet) : null;
+        const rnStr  = rn !== null
+          ? `<span style="font-size:0.56rem;color:${rn>=0?'#ef4444':'#3b82f6'}">${rn>=0?'+':''}${rn.toLocaleString()}</span>`
+          : '<span style="color:var(--fg3)">—</span>';
+        // tooltip：逐日明細
+        const tlTip  = tl.map(d =>
+          `${d.date.slice(5)} 買${d.buy}賣${d.sell}淨${d.net>=0?'+':''}${d.net}`
+        ).join('\n');
+        return `<tr>
+          <td title="${b.name}">${b.name}</td>
+          <td class="td-broker-type"><span class="bk-type-tag ${bv.typeCls||'bt-gen'}" title="${bv.tip.split('\n')[0]||''}">${bv.typeLabel||'🏪一般'}</span></td>
+          <td class="td-spark" title="${tlTip}">${spark}</td>
+          <td class="${netCls}">${netStr}</td>
+          <td style="text-align:center">${rnStr}</td>
+          <td><span class="bk-cons-tag ${cons.cls}" title="一致性${cons.score}｜連續${cons.streak}天">${cons.label}</span></td>
+          <td><span class="bk-bv-tag ${bv.cls}" title="${bv.tip.replace(/\n/g,'&#10;')}">${bv.label}</span></td>
+        </tr>`;
+      }).join('') + '</tbody>';
+    } else {
+      // ══ 今日模式（單日）：類型/買/賣/淨/校正淨/行為 ══
+      tb.innerHTML = `<thead><tr>
+        <th>券商</th>
+        <th>類型</th>
+        <th>買(張)</th><th>賣(張)</th><th>淨(張)</th>
+        <th>校正淨</th>
+        <th>行為診斷</th>
+      </tr></thead><tbody>` +
+      top10.map(b => {
+        const net    = Math.round(b.net);
+        const netCls = net >= 0 ? 'td-net-pos' : 'td-net-neg';
+        const netStr = (net >= 0 ? '+' : '') + net.toLocaleString();
+        const bv     = _diagnoseBrokerBehavior(b, allVol);
+        // 校正淨量欄
+        const rn     = bv.realNet !== undefined ? Math.round(bv.realNet) : null;
+        const rnStr  = rn !== null
+          ? `<span style="font-size:0.56rem;color:${rn>=0?'#ef4444':'#3b82f6'}">${rn>=0?'+':''}${rn.toLocaleString()}</span>`
+          : '<span style="color:var(--fg3)">—</span>';
+        return `<tr>
+          <td title="${b.name}">${b.name}</td>
+          <td class="td-broker-type"><span class="bk-type-tag ${bv.typeCls||'bt-gen'}" title="${bv.tip.split('\n')[0]||''}">${bv.typeLabel||'🏪一般'}</span></td>
+          <td class="td-buy">${Math.round(b.buy).toLocaleString()}</td>
+          <td class="td-sell">${Math.round(b.sell).toLocaleString()}</td>
+          <td class="${netCls}">${netStr}</td>
+          <td style="text-align:center">${rnStr}</td>
+          <td><span class="bk-bv-tag ${bv.cls}" title="${bv.tip.replace(/\n/g,'&#10;')}">${bv.label}</span></td>
+        </tr>`;
+      }).join('') + '</tbody>';
+    }
     tw.style.display = '';
   }
 
-  // ── 來源說明 ──
+  // ── ④ 來源說明 ─────────────────────────────────────
   const nt = document.getElementById('csBrokerNote');
   if (nt) {
     const dStr = useDates.length > 0 ? `${useDates[useDates.length-1]} ~ ${useDates[0]}` : '';
@@ -39379,6 +40108,7 @@ function _drawBrokerUI(result, days) {
     nt.style.display = '';
   }
 }
+
 
 // ==============================================================
 //  v7.41 renderHoldingPyramid — 籌碼金字塔渲染（個股頁）
