@@ -58821,6 +58821,7 @@ function calcBottomScore(stockId, instRaw, priceRaw) {
   // 排序
   instRaw  = [...instRaw].sort((a,b)=>a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b)=>a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   // 建立法人資料Map
   const instMap = buildInstMap(instRaw);
@@ -58955,6 +58956,7 @@ function _avgVol(vols, n) {
 function calcCrushScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b)=>a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b)=>a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const instDays = Object.keys(instMap).sort().slice(-10);
@@ -59055,6 +59057,7 @@ function calcCrushScore(stockId, instRaw, priceRaw) {
 function calcAbsorbScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b)=>a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b)=>a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const instDays = Object.keys(instMap).sort().slice(-20);
@@ -59143,6 +59146,7 @@ function calcAbsorbScore(stockId, instRaw, priceRaw) {
 function calcWashoutScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b)=>a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b)=>a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const instDays = Object.keys(instMap).sort().slice(-20);
@@ -59257,6 +59261,7 @@ function calcWashoutScore(stockId, instRaw, priceRaw) {
 function calcSecretAccumScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const allDays  = Object.keys(instMap).sort();
@@ -59537,6 +59542,7 @@ async function runBacktest() {
 
       // 按日期升序排列
       priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
       instRaw  = [...instRaw].sort((a,b)  => a.date.localeCompare(b.date));
 
       // ── 滾動視窗回測 ──
@@ -60060,6 +60066,7 @@ async function calcWhaleIncreaseScore(stockId) {
 function calcMacdMatrixScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const instDays = Object.keys(instMap).sort().slice(-10);
@@ -60227,6 +60234,7 @@ function calcMacdMatrixScore(stockId, instRaw, priceRaw) {
 function calcBandWalkScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const instDays = Object.keys(instMap).sort().slice(-10);
@@ -60335,6 +60343,7 @@ function calcBandWalkScore(stockId, instRaw, priceRaw) {
 function calcLaunchScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const allDays  = Object.keys(instMap).sort();
@@ -60433,6 +60442,7 @@ function calcLaunchScore(stockId, instRaw, priceRaw) {
 function calcDistributionScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const allDays  = Object.keys(instMap).sort();
@@ -60608,6 +60618,7 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
   // ── 基本資料 ──
   instRaw  = [...instRaw].sort((a,b)  => a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const allDays  = Object.keys(instMap).sort();
@@ -60679,6 +60690,7 @@ function calcExDivScore(stockId, instRaw, priceRaw, divRaw) {
 function calcMarkupScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const allDays  = Object.keys(instMap).sort();
@@ -60765,6 +60777,7 @@ function calcMarkupScore(stockId, instRaw, priceRaw) {
 function calcChipPurifyScore(stockId, instRaw, priceRaw) {
   instRaw  = [...instRaw].sort((a,b) => a.date.localeCompare(b.date));
   priceRaw = [...priceRaw].sort((a,b) => a.date.localeCompare(b.date));
+  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
 
   const instMap  = buildInstMap(instRaw);
   const instDays = Object.keys(instMap).sort().slice(-20);
