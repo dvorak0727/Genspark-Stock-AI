@@ -5320,6 +5320,11 @@
       display: flex; align-items: flex-end;
       opacity: 0; pointer-events: none;
       transition: opacity 0.22s;
+      /* 2026-09-19：改成overlay自己可捲動，面板不再被85vh鎖死高度，
+         內容多的模式（如啟動期5個特徵+4個注意事項+操作建議卡）不用
+         內部再捲一次——截圖工具只要用「完整頁面截圖」就能一張截完，
+         不用內部滑動再拼接兩張。 */
+      overflow-y: auto;
     }
     .mgp-overlay.show { opacity: 1; pointer-events: all; }
     .mgp-panel {
@@ -5332,7 +5337,7 @@
       padding: 0 0 env(safe-area-inset-bottom,0);
       transform: translateY(100%);
       transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
-      max-height: 85vh;
+      /* max-height:85vh 拿掉，讓面板長度跟著內容長，不再內部裁切／捲動 */
       display: flex; flex-direction: column;
     }
     .mgp-overlay.show .mgp-panel { transform: translateY(0); }
@@ -5376,7 +5381,7 @@
       border-left: 4px solid #F59E0B;
     }
     /* 內容區塊 */
-    .mgp-body { padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; }
+    .mgp-body { padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 14px; }
     .mgp-section { }
     .mgp-section-title {
       font-size: 0.72rem; font-weight: 800; letter-spacing: 0.05em;
