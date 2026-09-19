@@ -57854,7 +57854,12 @@ async function calcBrokerHoardScore(stockId) {
       if (!dayMap[d]) dayMap[d] = { total: 0, brokers: {} };
       const net = (+r.buy || 0) - (+r.sell || 0);
       dayMap[d].total += net;
-      const bn = r.broker_name || r.securities_trader_id || '?';
+      // v7.72 修正：_fetchBrokerData()（含真實FinMind資料跟模擬備援資料）回傳的
+      // 欄位其實叫 broker_id，這裡原本讀 broker_name/securities_trader_id 兩個都
+      // 對不上，導致每一筆資料全部被歸成同一個'?'桶——這才是「集中度算出100%」
+      // （前3大=全部，因為根本只有1桶）的真正根因，昨天的修復只是把失真的100%
+      // 攔截掉，沒解決欄位對不上的問題，導致變成全部顯示「集中0%」。
+      const bn = r.broker_id || r.broker_name || r.securities_trader_id || '?';
       dayMap[d].brokers[bn] = (dayMap[d].brokers[bn] || 0) + net;
     }
 
@@ -63004,7 +63009,8 @@ function _scQuickBroker(stockId, triggerEl) {
   const dayMap = {};
   for (const row of sorted) {
     const d  = row.date.slice(5); // MM-DD
-    const bn = row.broker_name || row.securities_trader_id || '?';
+    // v7.72 修正：跟calcBrokerHoardScore同一個欄位對不上的問題，真正的欄位是broker_id
+    const bn = row.broker_id || row.broker_name || row.securities_trader_id || '?';
     const net = (+row.buy || 0) - (+row.sell || 0);
     if (!dayMap[d]) dayMap[d] = {};
     dayMap[d][bn] = (dayMap[d][bn] || 0) + net;
