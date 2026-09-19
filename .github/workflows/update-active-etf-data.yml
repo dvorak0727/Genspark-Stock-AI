@@ -1,0 +1,31 @@
+name: 更新主動式ETF買賣超資料（FinMind）
+
+on:
+  schedule:
+    # 台灣時間下午5點收盤+資料結算後（UTC+8 → UTC 09:00）
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便第一次測試
+
+jobs:
+  update-active-etf-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 requests
+        run: pip install requests
+
+      - name: 執行抓取腳本
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python fetch_active_etf_data.py
+
+      - name: 自動 commit 更新後的 active_etf_flow.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新主動式ETF買賣超資料 (FinMind)"
+          file_pattern: active_etf_flow.json

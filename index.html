@@ -16431,6 +16431,7 @@ a.module-nav-item.acc-active {
           <option value="exdiv">🎯 除息填息候選雷達</option>
           <option value="obi">📡 外盤強勢掃描</option>
           <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
+          <option value="etfFlow">📡 主動式ETF買賣超掃描（需付費Token）</option>
         </select>
         <button class="screener-btn" id="screenerBtn" onclick="startScreener()">
           🔭 開始海選
@@ -16693,6 +16694,7 @@ a.module-nav-item.acc-active {
           <option value="exdiv">🎯 除息填息候選雷達</option>
           <option value="obi">📡 外盤強勢掃描</option>
           <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
+          <option value="etfFlow">📡 主動式ETF買賣超掃描（需付費Token）</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -42068,6 +42070,24 @@ function _renderPCAPanel(pca, containerId) {
 // repo 裡（見 fetch_broker_data.py + .github/workflows/update-broker-data.yml）。
 // 檔案不存在或抓不到該檔股票的資料時，靜靜地 return null，讓外層繼續往下
 // 試 FinMind proxy，不影響原本的 fallback 鏈。
+// v7.71 主動式ETF買賣超排行：GitHub Actions 每日排程跑 fetch_active_etf_data.py，
+// 用 FinMind 的 TaiwanStockActiveETFHoldingChange 資料集彙總全市場主動式ETF
+// 買賣超，輸出 ./active_etf_flow.json（見 fetch_active_etf_data.py +
+// .github/workflows/update-active-etf-data.yml）。純讀靜態JSON，海選掃描時
+// 不對FinMind即時打API，避免20幾檔ETF逐一查太慢。
+let _etfFlowJsonCache = null;
+async function _tryLoadActiveETFData() {
+  if (_etfFlowJsonCache !== null) return _etfFlowJsonCache;
+  try {
+    const r = await fetch('./active_etf_flow.json', { cache: 'no-store' });
+    _etfFlowJsonCache = r.ok ? await r.json() : false;
+  } catch (e) {
+    console.warn('[主動式ETF買賣超] JSON 讀取失敗', e.message);
+    _etfFlowJsonCache = false;
+  }
+  return _etfFlowJsonCache;
+}
+
 let _finlabJsonCache = null; // 一次載入、整頁共用，避免每檔股票都重新 fetch 同一個檔案
 async function _tryLoadFinLabBrokerData(stockId, days) {
   try {
@@ -58307,6 +58327,25 @@ async function startScreener() {
         result._priceRaw = priceRaw;
         result._instRaw  = instRaw;
 
+      } else if (modeKey === 'etfFlow') {
+        // 主動式ETF買賣超掃描：純讀靜態JSON（fetch_active_etf_data.py 排程輸出），
+        // 不即時打FinMind API，掃描速度跟其他「已快取」模式一樣快
+        result = await calcActiveETFFlowScore(sid);
+        if (result._skip) { processed++; continue; }
+        try {
+          const priceRaw = await _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd));
+          const closes = (priceRaw || []).map(d => +d.close);
+          if (closes.length >= 2) {
+            result.lc = closes.at(-1);
+            const pc = closes.at(-2) || result.lc;
+            result.chgPct = pc ? (result.lc - pc) / pc * 100 : 0;
+          }
+          if ((priceRaw || []).length) {
+            const _n = Math.min(15, priceRaw.length), _p = priceRaw.slice(-_n);
+            result.candles = { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) };
+          }
+        } catch(e) { /* 抓不到現價不影響ETF買賣超判斷，維持lc=0 */ }
+
       } else if (modeKey === 'whale') {
         // 千張大戶增掃描：直接呼叫 calcWhaleIncreaseScore，不走技術指標/價格 API
         // （fetchHoldingShares 內部有自己的週級快取，這裡不用額外處理逾時）
@@ -59534,6 +59573,7 @@ const SCREENER_MODE_META = {
   exdiv:      { title:'除息填息候選雷達',        subtitle:'投信除息前佈局 · 外資製造恐懼換手 · 殖利率誘人 · 跌不下去確認 · 入場甜蜜點偵測', badge:'🎯 填息候選' },
   obi:        { title:'外盤強勢掃描',            subtitle:'收盤外盤比率排行 · 主動買盤強度確認 · 外盤>內盤篩選 · 資金動能方向', badge:'📡 外盤強' },
   whale:      { title:'千張大戶籌碼集中掃描',    subtitle:'量的是「持股比例」增加，不是人數增加（常常人數變少但籌碼更集中）— C1 佔比週增為正 · C2 增幅≥0.5% · C3 連續兩週增 · C4 散戶同步減碼 · C5 大戶佔比過半（⚠️需FinMind Sponsor付費Token）', badge:'🐋 籌碼集中' },
+  etfFlow:    { title:'主動式ETF買賣超掃描',      subtitle:'C1 淨買超為正 · C2 ≥2檔ETF同步買進 · C3 ≥3檔ETF同步買進 · C4 淨買超≥10萬股 · C5 無同步賣壓（⚠️需FinMind Sponsor付費Token，資料每日排程更新，非即時）', badge:'📡 ETF買超' },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -59653,6 +59693,44 @@ async function calcBrokerHoardScore(stockId) {
 //  ⚠️ 這支資料集需要 FinMind Sponsor 付費方案 Token，免費帳號打會被拒絕
 //  （401/level錯誤），沒token時每檔都會落空，不是程式壞掉。
 // ═══════════════════════════════════════════════════════════════
+async function calcActiveETFFlowScore(stockId) {
+  const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _skip:true };
+  try {
+    const json = await _tryLoadActiveETFData();
+    if (!json) return EMPTY;
+    const row = json.by_stock ? json.by_stock[String(stockId)] : null;
+    if (!row) return EMPTY;
+
+    const net = row.net || 0;
+    if (net <= 0) return EMPTY; // 只列淨買超為正的，賣超的不算掃描命中
+
+    const etfCount = row.etf_count || 0;
+    const c1 = true; // 已篩過 net>0，能走到這裡一定成立
+    const c2 = etfCount >= 2;
+    const c3 = etfCount >= 3;
+    const c4 = net >= 100000; // 淨買超≥10萬股
+    const c5 = row.sell === 0; // 完全沒有被其他ETF同步倒貨
+
+    const checks = [
+      { label:'C1 主動式ETF淨買超',   hit:c1, val:`淨買${net.toLocaleString()}股` },
+      { label:'C2 ≥2檔ETF同步買進',   hit:c2, val:`${etfCount}檔ETF同步買進` },
+      { label:'C3 ≥3檔ETF同步買進',   hit:c3, val:`${etfCount}檔ETF同步買進` },
+      { label:'C4 淨買超≥10萬股',     hit:c4, val:`淨買${net.toLocaleString()}股` },
+      { label:'C5 無同步賣壓',        hit:c5, val: c5 ? '無ETF賣出' : `賣出${row.sell.toLocaleString()}股` },
+    ];
+    const score = checks.filter(c => c.hit).length;
+
+    return {
+      stockId, score, checks,
+      lc: 0, chgPct: 0, fCons: 0, tCons: 0,
+      _etfFlowRaw: row, _etfFlowCount: etfCount, _etfFlowNet: net,
+    };
+  } catch (e) {
+    console.warn('[主動式ETF買賣超 screener]', stockId, e.message);
+    return EMPTY;
+  }
+}
+
 async function calcWhaleIncreaseScore(stockId) {
   const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _whaleRaw:null, _skip:true };
   try {
@@ -63324,6 +63402,7 @@ function openModeGuide(forceMode) {
     { k:'broker',       icon:'🏦', name:'券商囤貨' },
     { k:'exdiv',        icon:'🎯', name:'除息填息雷達' },
     { k:'whale',        icon:'🐋', name:'千張大戶' },
+    { k:'etfFlow',      icon:'📡', name:'ETF買超' },
   ];
   tabsEl.innerHTML = allModes.map(m => `
     <div class="mgp-mode-tab ${m.k === mode ? 'active' : ''}" onclick="openModeGuide('${m.k}')">
