@@ -37675,7 +37675,17 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   const macd = calcMACD(closes);
   const boll = calcBoll(closes, 20, 2);
 
-  const lc    = closes.at(-1),  pc = closes.at(-2) || closes.at(-1);
+  // v7.72 修正：冷門上櫃股常有「當天無成交」的日子，FinMind會回傳
+  // close=0（不是缺這筆資料，是真的沒人成交），原本直接抓 closes.at(-1)
+  // 沒過濾，抓到0就會跟前一個有效收盤價比較，算出「跌100%」這種假訊號
+  // （例如1240茂生農經）。改成從最後往前找「最近一筆真的有成交」的收盤價，
+  // pc同理找它前面那一筆有效收盤價，兩者才是同一組能拿來算漲跌%的基準。
+  const _validCloseIdxs = [];
+  for (let i = closes.length - 1; i >= 0 && _validCloseIdxs.length < 2; i--) {
+    if (closes[i] > 0) _validCloseIdxs.push(i);
+  }
+  const lc = _validCloseIdxs[0] != null ? closes[_validCloseIdxs[0]] : (closes.at(-1) || 0);
+  const pc = _validCloseIdxs[1] != null ? closes[_validCloseIdxs[1]] : lc;
   const lRSI  = rsi.at(-1),     lK = kd.K.at(-1),  lD = kd.D.at(-1);
   const lMACD = macd.MACD.at(-1), lHist = macd.Hist.at(-1), lSig = macd.Signal.at(-1);
   const lU    = boll.upper.at(-1), lL = boll.lower.at(-1), lM = boll.mid.at(-1);
