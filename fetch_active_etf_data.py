@@ -22,13 +22,16 @@ Token 存在 GitHub repo 的 Secrets 裡（Settings → Secrets and variables �
   "generated_at": "2026-09-19T09:00:00Z",
   "window_days": 5,
   "by_stock": {
-    "3264": { "name": "欣銓", "net": 1600000, "buy": 1600000, "sell": 0, "etf_count": 1 },
-    "6669": { "name": "緯穎", "net": -518000, "buy": 0, "sell": 518000, "etf_count": 1 },
+    "3264": {
+      "name": "欣銓", "net": 1600000, "buy": 1600000, "sell": 0, "etf_count": 1,
+      "etfs": [ { "id": "00981A", "name": "主動統一台股增長", "buy": 1600000, "sell": 0 } ]
+    },
     ...
   }
 }
 net/buy/sell 單位是「股數」（FinMind原始單位，不換算），index.html端自行決定顯示方式。
 etf_count 是有幾檔不同的主動式ETF對這檔股票有買賣動作，數字越大代表越多主動式ETF同步進出。
+etfs 是逐檔ETF的買賣明細（含代號+名稱），前端用這個列出「哪些ETF在買」，不用另外查代號對應表。
 """
 
 import json
@@ -64,6 +67,7 @@ def main():
     print("[主動式ETF] 抓取ETF清單 ...")
     etf_list = api_get("TaiwanStockActiveETFInfo")
     etf_ids = sorted({row["stock_id"] for row in etf_list if row.get("stock_id")})
+    etf_name_map = {row["stock_id"]: row.get("stock_name", row["stock_id"]) for row in etf_list if row.get("stock_id")}
     print(f"[主動式ETF] 共 {len(etf_ids)} 檔：{etf_ids}")
 
     end_date = datetime.today()
@@ -97,23 +101,33 @@ def main():
             sid = r["component_stock_id"]
             entry = by_stock.setdefault(sid, {
                 "name": r.get("component_stock_name", ""),
-                "buy": 0, "sell": 0, "_etfs": set(),
+                "buy": 0, "sell": 0, "_etf_detail": {},
             })
-            entry["buy"] += int(r.get("buy", 0) or 0)
-            entry["sell"] += int(r.get("sell", 0) or 0)
-            entry["_etfs"].add(etf_id)
+            buy_n = int(r.get("buy", 0) or 0)
+            sell_n = int(r.get("sell", 0) or 0)
+            entry["buy"] += buy_n
+            entry["sell"] += sell_n
+            d = entry["_etf_detail"].setdefault(etf_id, {"buy": 0, "sell": 0})
+            d["buy"] += buy_n
+            d["sell"] += sell_n
 
         print(f"[完成] ({i+1}/{len(etf_ids)}) {etf_id}：{len(rows)} 筆")
         time.sleep(REQUEST_INTERVAL_SEC)
 
     result_by_stock = {}
     for sid, e in by_stock.items():
+        etfs = [
+            {"id": etf_id, "name": etf_name_map.get(etf_id, etf_id), "buy": d["buy"], "sell": d["sell"]}
+            for etf_id, d in e["_etf_detail"].items()
+        ]
+        etfs.sort(key=lambda x: x["buy"] - x["sell"], reverse=True)
         result_by_stock[sid] = {
             "name": e["name"],
             "buy": e["buy"],
             "sell": e["sell"],
             "net": e["buy"] - e["sell"],
-            "etf_count": len(e["_etfs"]),
+            "etf_count": len(etfs),
+            "etfs": etfs,
         }
 
     output = {

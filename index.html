@@ -59705,6 +59705,10 @@ async function calcActiveETFFlowScore(stockId) {
     if (net <= 0) return EMPTY; // 只列淨買超為正的，賣超的不算掃描命中
 
     const etfCount = row.etf_count || 0;
+    // 買超（buy>sell）的ETF名單，這是使用者實際想看到「誰在買」的清單
+    const buyingETFs = (row.etfs || []).filter(e => e.buy > e.sell);
+    const buyingNames = buyingETFs.map(e => e.name).join('、') || '無';
+
     const c1 = true; // 已篩過 net>0，能走到這裡一定成立
     const c2 = etfCount >= 2;
     const c3 = etfCount >= 3;
@@ -59713,8 +59717,8 @@ async function calcActiveETFFlowScore(stockId) {
 
     const checks = [
       { label:'C1 主動式ETF淨買超',   hit:c1, val:`淨買${net.toLocaleString()}股` },
-      { label:'C2 ≥2檔ETF同步買進',   hit:c2, val:`${etfCount}檔ETF同步買進` },
-      { label:'C3 ≥3檔ETF同步買進',   hit:c3, val:`${etfCount}檔ETF同步買進` },
+      { label:'C2 ≥2檔ETF同步買進',   hit:c2, val:`${etfCount}檔：${buyingNames}` },
+      { label:'C3 ≥3檔ETF同步買進',   hit:c3, val:`${etfCount}檔：${buyingNames}` },
       { label:'C4 淨買超≥10萬股',     hit:c4, val:`淨買${net.toLocaleString()}股` },
       { label:'C5 無同步賣壓',        hit:c5, val: c5 ? '無ETF賣出' : `賣出${row.sell.toLocaleString()}股` },
     ];
@@ -59723,7 +59727,7 @@ async function calcActiveETFFlowScore(stockId) {
     return {
       stockId, score, checks,
       lc: 0, chgPct: 0, fCons: 0, tCons: 0,
-      _etfFlowRaw: row, _etfFlowCount: etfCount, _etfFlowNet: net,
+      _etfFlowRaw: row, _etfFlowCount: etfCount, _etfFlowNet: net, _etfFlowBuyers: buyingETFs,
     };
   } catch (e) {
     console.warn('[主動式ETF買賣超 screener]', stockId, e.message);
