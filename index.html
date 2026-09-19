@@ -62498,7 +62498,7 @@ function renderScreenerCards(showStats=false) {
       const _streak  = r.fCons || 0;
       const _concPct = r.tCons || 0;
       if (_streak >= 4 || _concPct >= 55) {
-        instBadge = `<span class="sc-inst-badge strong sc-quick-btn" onclick="_scQuickBroker('${r.stockId}', this)" title="點擊展開主力分點熱力圖">🏦 連買${_streak}日 · 集中${_concPct}% ▾</span>`;
+        instBadge = `<span class="sc-inst-badge strong sc-quick-btn" onclick="_scQuickBroker('${r.stockId}', this)" title="集中度＝近10日「前3大券商淨買總和」÷「全部券商淨買總和」的平均值。數字越高代表買盤越集中在少數幾家券商手上，越像是特定主力/大戶在買，不是散戶行情；數字低則代表買盤來源分散，較接近一般市場自然成交。點擊展開主力分點熱力圖">🏦 連買${_streak}日 · 集中${_concPct}% ▾</span>`;
       } else if (_streak >= 1) {
         instBadge = `<span class="sc-inst-badge mild sc-quick-btn" onclick="_scQuickBroker('${r.stockId}', this)" title="點擊展開主力分點熱力圖">📦 連買${_streak}日 ▾</span>`;
       }
