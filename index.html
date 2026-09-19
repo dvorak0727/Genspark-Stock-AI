@@ -16418,7 +16418,6 @@ a.module-nav-item.acc-active {
         <div class="screener-mode-divider">▸</div>
         <select class="screener-mode-select" id="screenerMode" onchange="onScreenerModeChange()">
           <option value="bottom">🔻 底部探測</option>
-          <option value="crush">💀 碎骨區探測</option>
           <option value="chippure">📉 資減人走·籌碼淨化探測</option>
           <option value="macdmatrix">📊 MACD 多方結構探測</option>
           <option value="bandwalk">🏇 騎帶上行掃描</option>
@@ -16681,7 +16680,6 @@ a.module-nav-item.acc-active {
         <select class="bt-select" id="btMode">
           <option value="all">🔄 全模式比較</option>
           <option value="bottom">🔻 底部探測</option>
-          <option value="crush">💀 碎骨區探測</option>
           <option value="chippure">📉 資減人走·籌碼淨化探測</option>
           <option value="macdmatrix">📊 MACD 多方結構探測</option>
           <option value="bandwalk">🏇 騎帶上行掃描</option>
@@ -58568,19 +58566,22 @@ async function startScreener() {
           fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd)
         ]);
         result = brokerResult.status === 'fulfilled' ? brokerResult.value : { stockId:sid, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _brokerRaw:null };
-        // 補充股價資訊：API 成功則用真實收盤；否則用 _getSimBase fallback
-        if (result.lc === 0) {
-          const priceRaw = (priceResult.status === 'fulfilled' ? priceResult.value : []).slice(-20);
-          if (priceRaw.length >= 2) {
-            const closes = priceRaw.map(d => +d.close);
-            result.lc = closes.at(-1) || 0;
-            const pc = closes.at(-2) || result.lc;
-            result.chgPct = pc ? (result.lc - pc) / pc * 100 : 0;
-          } else {
-            // 最終 fallback：_getSimBase 07-06 定錨收盤
-            const simBase = window._getSimBase ? window._getSimBase(sid) : 0;
-            if (simBase) { result.lc = simBase; result.chgPct = 0; }
-          }
+        // v7.72 修正：原本用「result.lc === 0」判斷要不要補股價，但broker資料
+        // 自己就會帶收盤價（lc從來不會是0），導致這段永遠不執行，chgPct
+        // 一直卡在calcBrokerHoardScore寫死的0（漲跌永遠顯示0.0%）。改成
+        // 不論broker端有沒有lc，都優先採用TaiwanStockPrice這組官方股價
+        // 算出的漲跌%（比broker資料本身的收盤欄位更可靠），只有價格API
+        // 也抓不到時才退回broker端或模擬值。
+        const priceRaw = (priceResult.status === 'fulfilled' ? priceResult.value : []).slice(-20);
+        if (priceRaw.length >= 2) {
+          const closes = priceRaw.map(d => +d.close);
+          result.lc = closes.at(-1) || result.lc || 0;
+          const pc = closes.at(-2) || result.lc;
+          result.chgPct = pc ? (result.lc - pc) / pc * 100 : 0;
+        } else if (result.lc === 0) {
+          // 最終 fallback：_getSimBase 07-06 定錨收盤
+          const simBase = window._getSimBase ? window._getSimBase(sid) : 0;
+          if (simBase) { result.lc = simBase; result.chgPct = 0; }
         }
       } else if (modeKey === 'exdiv') {
         // 除息填息雷達：額外抓除息資料（三支並行）
@@ -58713,7 +58714,6 @@ async function startScreener() {
 
         // 依偵測模式計算分數
         switch(modeKey) {
-          case 'crush':        result = calcCrushScore(sid, instRaw, priceRaw);        break;
           case 'absorb':       result = calcAbsorbScore(sid, instRaw, priceRaw);       break;
           case 'washout':      result = calcWashoutScore(sid, instRaw, priceRaw);      break;
           case 'prelaunch':    result = calcSecretAccumScore(sid, instRaw, priceRaw);  break;
@@ -59003,108 +59003,6 @@ function _avgVol(vols, n) {
   return arr.reduce((a,b)=>a+b,0) / arr.length || 1;
 }
 
-// ── 模式2：碎骨區探測 ──
-// 邏輯：股價創近期低點 + RSI極低 + 放量下殺後縮量 + 法人賣超減速
-function calcCrushScore(stockId, instRaw, priceRaw) {
-  instRaw  = [...instRaw].sort((a,b)=>a.date.localeCompare(b.date));
-  priceRaw = [...priceRaw].sort((a,b)=>a.date.localeCompare(b.date));
-  const _prBeforeFilter72 = priceRaw;
-  priceRaw = priceRaw.filter(d => +d.close > 0); // v7.72：濾掉無成交日(close=0)，避免海選指標被假暴跌污染
-  if (!priceRaw.length && _prBeforeFilter72.length) priceRaw = _prBeforeFilter72; // 全部無成交就退回原始資料，避免後面NaN
-
-  const instMap  = buildInstMap(instRaw);
-  const instDays = Object.keys(instMap).sort().slice(-10);
-  const fSeries  = instDays.map(d => (instMap[d]?.Foreign_Investor?.net||0)/1000);
-  const tSeries  = instDays.map(d => (instMap[d]?.Investment_Trust?.net||0)/1000);
-
-  const closes = priceRaw.map(d=>+d.close);
-  const lows   = priceRaw.map(d=>+d.min);
-  const vols   = priceRaw.map(d=>+d.Trading_Volume);
-  const highs  = priceRaw.map(d=>+d.max);
-
-  if (closes.length < 10) { const _lc=closes.at(-1)||0,_pc=closes.at(-2)||_lc; return { stockId, score:0, checks:[], lc:_lc, chgPct:_pc?(_lc-_pc)/_pc*100:0, fCons:0, tCons:0 }; }
-
-  const lc  = closes.at(-1);
-  const pc  = closes.at(-2) || lc;
-  const chgPct = pc ? (lc-pc)/pc*100 : 0;
-
-  const kd   = calcKD(highs, lows, closes, 9);
-  const lK   = kd.K.at(-1);
-  const lD   = kd.D.at(-1);
-  const lRSI = calcRSI(closes, 14).at(-1);
-
-  // ① RSI 超賣（<25）—— 碎骨指標
-  const rsiCrush  = lRSI != null && lRSI < 25;
-  const rsiWarn   = !rsiCrush && lRSI != null && lRSI < 35;
-  const c1hit = rsiCrush, c1warn = rsiWarn;
-
-  // ② 近20日新低（價格接近歷史支撐）
-  const lo20   = Math.min(...lows.slice(-20));
-  const near20Low = lc <= lo20 * 1.03;
-  const c2hit  = lc <= lo20 * 1.01;
-  const c2warn = !c2hit && near20Low;
-
-  // ③ 放量下殺後縮量（先放量後縮量 = 賣壓宣洩）
-  const avgVol10   = _avgVol(vols, 10);
-  const peak5Vols  = vols.slice(-7,-2);
-  const peakMax    = Math.max(...peak5Vols, 0);
-  const latestVol  = vols.at(-1)||0;
-  const prevVol    = vols.at(-2)||1;
-  const hadBlast   = peakMax >= avgVol10 * 1.8;
-  const nowShrink  = latestVol <= prevVol * 0.85 && latestVol <= avgVol10 * 0.9;
-  const c3hit  = hadBlast && nowShrink;
-  const c3warn = !c3hit && (hadBlast || nowShrink);
-
-  // ④ 法人賣超減速（賣超連縮，最後一日賣超 < 前日賣超）
-  const revF = [...fSeries].reverse();
-  const revT = [...tSeries].reverse();
-  const fSellDecel = revF.length>=2 && revF[0] < 0 && revF[0] > revF[1];  // 賣超金額變小
-  const tSellDecel = revT.length>=2 && revT[0] < 0 && revT[0] > revT[1];
-  const fTurning   = revF[0] >= 0 && revF[1] < 0; // 已轉買
-  const tTurning   = revT[0] >= 0 && revT[1] < 0;
-  const c4hit  = fTurning || tTurning || (fSellDecel && tSellDecel);
-  const c4warn = !c4hit && (fSellDecel || tSellDecel);
-
-  // ⑤ KD低檔（K<20）
-  const kdFloor = lK != null && lK < 20;
-  const c5hit   = kdFloor;
-  const c5warn  = !c5hit && lK != null && lK < 30;
-
-  let score = 0;
-  if(c1hit) score += 1.2; else if(c1warn) score += 0.5;
-  if(c2hit) score += 1.2; else if(c2warn) score += 0.5;
-  if(c3hit) score += 1;   else if(c3warn) score += 0.4;
-  if(c4hit) score += 1;   else if(c4warn) score += 0.4;
-  if(c5hit) score += 0.6; else if(c5warn) score += 0.2;
-  score = Math.min(Math.round(score*10)/10, 5);
-
-  const fCons = revF.filter(v=>v>0).length;
-  const tCons = revT.filter(v=>v>0).length;
-
-  // 迷你K線資料（近15根）
-  const _n15c = Math.min(15, priceRaw.length);
-  const _pr15c = priceRaw.slice(-_n15c);
-  const candles = {
-    closes: _pr15c.map(d=>+d.close),
-    opens:  _pr15c.map(d=>+(d.open||d.close)),
-    highs:  _pr15c.map(d=>+d.max),
-    lows:   _pr15c.map(d=>+d.min),
-    dates:  _pr15c.map(d=>d.date||''),
-    vols:   _pr15c.map(d=>+d.Trading_Volume||0),
-  };
-
-  return {
-    stockId, score, lc, chgPct, fCons, tCons, instDays,
-    lK, lD, lRSI, candles,
-    checks: [
-      { label:'RSI超賣(<25)',      hit:c1hit, warn:c1warn, val: lRSI!=null?`RSI${lRSI.toFixed(0)}`:'—' },
-      { label:'近20日新低',        hit:c2hit, warn:c2warn, val: `低${lo20.toFixed(1)}` },
-      { label:'放量後縮量',        hit:c3hit, warn:c3warn, val: hadBlast?`峰${(peakMax/avgVol10).toFixed(1)}x`:'未放量' },
-      { label:'法人賣超減速',      hit:c4hit, warn:c4warn, val: (fTurning||tTurning)?'已轉買':c4hit?'雙減速':'單減速' },
-      { label:'KD極低(<20)',       hit:c5hit, warn:c5warn, val: lK!=null?`K${lK.toFixed(0)}`:'—' },
-    ]
-  };
-}
 
 // ── 模式3：吸籌期探測 ──
 // 邏輯：法人靜悄悄淨買 + 價格窄幅盤整（低波動）+ 量能溫和 + 均線走平
@@ -59514,7 +59412,6 @@ function btPreset(type) {
 // ── 計分函數路由表（單一模式） ──
 const BT_CALC_MAP = {
   bottom:    calcBottomScore,
-  crush:     calcCrushScore,
   absorb:    calcAbsorbScore,
   washout:   calcWashoutScore,
   prelaunch: calcSecretAccumScore,
@@ -59686,7 +59583,7 @@ function renderBacktestResult(btResults, selectedMode, holdDays, threshold) {
   const detailEl  = document.getElementById('btDetailSection');
 
   const modeNames = {
-    bottom:    '🔻 底部探測', crush:     '💀 碎骨區',
+    bottom:    '🔻 底部探測',
     absorb:    '🧲 吸籌期',   washout:   '🌀 洗盤期',
     prelaunch: '🔍 秘密佈局',
     chippure:  '📉 資減人走',
@@ -59884,7 +59781,6 @@ function calcOBIScanScore(stockId, mfRows, priceRows, instRaw) {
 
 const SCREENER_MODE_META = {
   bottom:  { title:'底部探測',             subtitle:'AI核心指標 · 自動批次掃描 · 評分4大底部條件',          badge:'🔻 底部' },
-  crush:   { title:'碎骨區探測',           subtitle:'RSI超賣 · 近20日新低 · 放量後縮量 · 法人賣超減速',    badge:'💀 碎骨' },
   absorb:  { title:'籌碼週期階段 — 吸籌期', subtitle:'法人靜悄悄買進 · 低波動盤整 · 量能溫和 · 均線走平', badge:'🧲 吸籌期' },
   washout: { title:'籌碼週期階段 — 洗盤期', subtitle:'量縮回測 · 回測MA20未破 · KD洗盤區 · 法人交錯撐盤', badge:'🌀 洗盤期' },
   prelaunch:  { title:'籌碼週期階段 — 秘密佈局', subtitle:'窒息量≤50% · 外資靜悄悄小量買 · 買賣家數差斜率持續轉負 · 股價橫盤不動 · 外資尚未大舉進場', badge:'🔍 秘密佈局' },
@@ -59946,16 +59842,25 @@ async function calcBrokerHoardScore(stockId) {
     }
     const c2 = streak >= 4;
 
-    // ── C3：籌碼集中度（前3大券商淨買佔全日淨買比例平均 ≥ 60%）──
+    // ── C3：籌碼集中度（前3大券商淨買佔全日淨買比例平均 ≥ 55%）──
+    // v7.72 修正兩個問題：
+    // ①「集中100%」——如果當天回報的券商筆數本來就只有1~3家，前3大
+    //   幾乎必然等於全部淨買，公式必然算出100%，這不是真的高度集中，
+    //   是樣本太少導致公式失真，改成券商筆數<4的當天直接排除、不列入平均。
+    // ② 極端情況下（某券商大量賣超把total拉得很小），top3/total可能算出
+    //   超過1的離譜比例，改成封頂在1（100%），避免顯示「集中230%」這種
+    //   更誇張的數字。
     const concRatios = last10.map(d => {
       const total = dayMap[d].total;
-      if (total <= 0) return 0;
+      if (total <= 0) return null; // 當天淨賣超或平盤，不適用「淨買集中度」的概念
       const vals = Object.values(dayMap[d].brokers).sort((a, b) => b - a);
-      const top3  = vals.slice(0, 3).reduce((s, v) => s + Math.max(v, 0), 0);
-      return total > 0 ? top3 / total : 0;
-    });
-    const avgConc = concRatios.reduce((s, v) => s + v, 0) / concRatios.length;
-    const c3 = avgConc >= 0.55;
+      if (vals.length < 4) return null; // 券商筆數太少，前3大必然=全部，數字沒有意義
+      const top3 = vals.slice(0, 3).reduce((s, v) => s + Math.max(v, 0), 0);
+      return Math.min(1, top3 / total);
+    }).filter(v => v !== null);
+    const avgConc = concRatios.length ? concRatios.reduce((s, v) => s + v, 0) / concRatios.length : 0;
+    // 至少要有3天「券商筆數足夠、可信」的樣本才判定成立，避免用1、2天的資料下結論
+    const c3 = concRatios.length >= 3 && avgConc >= 0.55;
 
     // ── C4：近5日加速（近5日平均淨買 > 近20日平均淨買 × 1.5）──
     const avg5  = last5.reduce((s, d) => s + dayMap[d].total, 0)  / last5.length;
@@ -59986,7 +59891,7 @@ async function calcBrokerHoardScore(stockId) {
     const checks = [
       { label: `C1 累積淨買超`, hit: c1, val: `近10日${netSum10 > 0 ? '+' : ''}${netSum10}張` },
       { label: `C2 連買${streak}日`, hit: c2, val: streak >= 4 ? '主力持續進場' : '連買不足4日' },
-      { label: `C3 集中度${(avgConc*100).toFixed(0)}%`, hit: c3, val: avgConc >= 0.55 ? '籌碼高度集中' : '籌碼分散' },
+      { label: `C3 集中度${(avgConc*100).toFixed(0)}%`, hit: c3, val: concRatios.length < 3 ? '券商筆數不足，無法判斷' : (avgConc >= 0.55 ? '籌碼高度集中' : '籌碼分散') },
       { label: `C4 近5日加速`, hit: c4, val: `近5日均${avg5.toFixed(0)}張 vs 近20日均${avg20.toFixed(0)}張` },
       { label: `C5 主力成本${avgCost > 0 ? avgCost.toFixed(1) : 'N/A'}`, hit: c5, val: lc > 0 ? `現價${lc}` : '無收盤價' },
     ];
@@ -63425,26 +63330,6 @@ const MODE_GUIDE = {
     action: '📌 操作思路：看到評分 ≥ 4 的個股，先觀察 1~2 天確認不再創新低，再分批進場。建議設停損在近低點下方 3~5%。',
   },
 
-  crush: {
-    icon: '💀',
-    name: '碎骨區探測',
-    tag:  '恐慌低谷',
-    summary: '找出那些「被市場砸爛、幾乎每個人都在逃跑」的股票。這種恐慌性賣盤往往是最後一波，之後反彈幅度反而最大。但也最危險，需要膽量和紀律。',
-    features: [
-      { icon: '💥', text: '<b>RSI 極度超賣（低於25）</b>：技術面嚴重超賣，比普通底部更極端，代表賣壓已經快釋放完畢。' },
-      { icon: '📉', text: '<b>近20日新低</b>：股價創下最近一個月新低，說明跌勢仍在。等待止跌訊號。' },
-      { icon: '📊', text: '<b>放量下殺後縮量</b>：先有大量恐慌賣盤（放量），之後量能縮小，代表「賣壓快排盡了」。' },
-      { icon: '🔄', text: '<b>法人賣超速度減緩</b>：之前一直在賣的法人，最近幾天賣得比較少了，或已轉買。' },
-    ],
-    warns: [
-      '碎骨區是最危險的操作，永遠有可能繼續破底（刀口舔血）。',
-      '必須設好嚴格停損，建議不超過本金的 5%。',
-      '適合短線反彈操作，不建議當長線持有。',
-      '基本面很差的股票，即使技術面超賣，也可能長期低迷。先查一下公司有沒有虧損或財務問題。',
-    ],
-    action: '📌 操作思路：等到「縮量+小陽線」確認止跌後才進場。目標是反彈 5~10%，快進快出，不貪心。',
-  },
-
   absorb: {
     icon: '🧲',
     name: '吸籌期',
@@ -63761,7 +63646,6 @@ function openModeGuide(forceMode) {
   const tabsEl = document.getElementById('mgpModeTabs');
   const allModes = [
     { k:'bottom',       icon:'🔻', name:'底部探測' },
-    { k:'crush',        icon:'💀', name:'碎骨區' },
     { k:'chippure',     icon:'📉', name:'資減人走' },
     { k:'absorb',       icon:'🧲', name:'吸籌期' },
     { k:'washout',      icon:'🌀', name:'洗盤期' },
