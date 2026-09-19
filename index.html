@@ -37623,6 +37623,19 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   instRaw.sort((a,b)=>a.date.localeCompare(b.date));
   priceRaw.sort((a,b)=>a.date.localeCompare(b.date));
 
+  // v7.72 修正：冷門股（尤其上櫃小型股）常有「當天真的沒人成交」的日子，
+  // FinMind會回傳close=0這種資料（不是缺資料，是真的沒成交）。這種0如果
+  // 混進closes陣列，不只讓最新價格顯示「跌100%」這種假訊號，連MA/RSI/
+  // KD/MACD/布林通道這些技術指標的計算也會被污染（因為指標都是拿整條
+  // closes序列去算，中間插一天0會讓「跌到0再彈回」被誤判成真實暴漲暴跌）。
+  // 從源頭把這種無成交日過濾掉，後面所有指標都建立在乾淨的序列上。
+  // 對正常股票（每天都有成交）這行完全不會篩掉任何資料，是無副作用的防呆。
+  const _priceRawLenBefore = priceRaw.length;
+  priceRaw = priceRaw.filter(d => +d.close > 0);
+  if (priceRaw.length < _priceRawLenBefore) {
+    console.log(`[v7.72] ${stockId} 過濾掉 ${_priceRawLenBefore - priceRaw.length} 筆無成交日資料（close=0）`);
+  }
+
   const instMap  = buildInstMap(instRaw);
 
   // Price（先算，供後面 instDays 錨點使用）
@@ -37675,17 +37688,9 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   const macd = calcMACD(closes);
   const boll = calcBoll(closes, 20, 2);
 
-  // v7.72 修正：冷門上櫃股常有「當天無成交」的日子，FinMind會回傳
-  // close=0（不是缺這筆資料，是真的沒人成交），原本直接抓 closes.at(-1)
-  // 沒過濾，抓到0就會跟前一個有效收盤價比較，算出「跌100%」這種假訊號
-  // （例如1240茂生農經）。改成從最後往前找「最近一筆真的有成交」的收盤價，
-  // pc同理找它前面那一筆有效收盤價，兩者才是同一組能拿來算漲跌%的基準。
-  const _validCloseIdxs = [];
-  for (let i = closes.length - 1; i >= 0 && _validCloseIdxs.length < 2; i--) {
-    if (closes[i] > 0) _validCloseIdxs.push(i);
-  }
-  const lc = _validCloseIdxs[0] != null ? closes[_validCloseIdxs[0]] : (closes.at(-1) || 0);
-  const pc = _validCloseIdxs[1] != null ? closes[_validCloseIdxs[1]] : lc;
+  // v7.72：無成交日（close=0）已在上面 priceRaw 過濾階段清掉，這裡不會
+  // 再抓到0，恢復成原本簡單的寫法即可。
+  const lc = closes.at(-1), pc = closes.at(-2) || closes.at(-1);
   const lRSI  = rsi.at(-1),     lK = kd.K.at(-1),  lD = kd.D.at(-1);
   const lMACD = macd.MACD.at(-1), lHist = macd.Hist.at(-1), lSig = macd.Signal.at(-1);
   const lU    = boll.upper.at(-1), lL = boll.lower.at(-1), lM = boll.mid.at(-1);
