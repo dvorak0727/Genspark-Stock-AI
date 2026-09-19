@@ -4,7 +4,101 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+// ══════════════════════════════════════════════════
+//  每日07:00(台北時間) 重大訊息追蹤通知（2026-09-13新增）
+//  Cron Trigger 設在 UTC 23:00（見 wrangler.jsonc），換算成台北時間UTC+8
+//  剛好是隔天07:00。流程：
+//    1. 打一次TWSE OpenAPI t187ap04_L（上市公司每日重大訊息），全市場只抓一次，
+//       不要每個使用者各打一次——省流量也避免被限流。
+//    2. 掃過LICENSE_KV裡每一筆授權碼記錄，篩出「有設定通知信箱+追蹤股票」
+//       且「授權狀態active」的使用者。
+//    3. 每個使用者各自比對自己的追蹤代碼，有命中的重大訊息才寄信，
+//       沒有新訊息的人不用發空白信打擾他們。
+// ══════════════════════════════════════════════════
+const MOPS_URL = "https://openapi.twse.com.tw/v1/opendata/t187ap04_L";
+
+async function fetchMaterialInfo() {
+  const res = await fetch(MOPS_URL, { cf: { cacheTtl: 0, cacheEverything: false } });
+  if (!res.ok) throw new Error(`MOPS fetch failed: ${res.status}`);
+  return res.json(); // [{公司代號, 公司名稱, 主旨, 發言日期, 發言時間, 說明, ...}, ...]
+}
+
+function buildDigestHtml(userName, matches) {
+  const rows = matches.map(m => `
+    <tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${m["公司代號"]} ${m["公司名稱"]}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${(m["主旨"] || "").trim()}</td>
+    </tr>`).join("");
+  return `
+    <div style="font-family:'Microsoft JhengHei',sans-serif;max-width:640px;margin:0 auto;">
+      <h2 style="color:#1e3a8a;">📌 追蹤清單重大訊息日報</h2>
+      <p style="color:#64748b;font-size:13px;">${userName ? userName + "，您好，" : ""}以下是您追蹤股票今天在公開資訊觀測站發布的重大訊息公告：</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#f1f5f9;text-align:left;">
+          <th style="padding:8px 10px;">股票</th><th style="padding:8px 10px;">主旨</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="color:#94a3b8;font-size:11px;margin-top:20px;">資料來源：公開資訊觀測站（僅涵蓋上市公司）。本信為自動發送，不構成買賣建議。</p>
+    </div>`;
+}
+
+async function sendDigestEmail(env, toEmail, userName, matches) {
+  if (!env.RESEND_API_KEY) {
+    console.warn("RESEND_API_KEY 未設定，略過寄信（請用 wrangler secret put RESEND_API_KEY 設定）");
+    return;
+  }
+  const fromAddr = env.RESEND_FROM || "notify@resend.dev";
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: fromAddr,
+      to: [toEmail],
+      subject: `📌 追蹤清單重大訊息日報（${matches.length}則）`,
+      html: buildDigestHtml(userName, matches),
+    }),
+  });
+}
+
+async function runDailyWatchlistDigest(env) {
+  let allInfo;
+  try {
+    allInfo = await fetchMaterialInfo();
+  } catch (e) {
+    console.error("抓取重大訊息失敗，本次排程略過", e);
+    return;
+  }
+
+  const listed = await env.LICENSE_KV.list({ limit: 1000 });
+  for (const k of listed.keys) {
+    const record = await env.LICENSE_KV.get(k.name, { type: "json" });
+    if (!record || record.status !== "active") continue;
+    const email = record.notifyEmail;
+    const codes = record.watchCodes || [];
+    if (!email || codes.length === 0) continue;
+
+    const codeSet = new Set(codes.map(c => String(c).trim()));
+    const matches = allInfo.filter(row => codeSet.has(String(row["公司代號"]).trim()));
+    if (matches.length === 0) continue; // 沒有命中的訊息就不寄信，避免打擾使用者
+
+    try {
+      await sendDigestEmail(env, email, record.user, matches);
+    } catch (e) {
+      console.error(`寄信給 ${email} 失敗`, e);
+    }
+  }
+}
+
 export default {
+  // Cron Trigger 進入點——見 wrangler.jsonc 的 triggers.crons
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runDailyWatchlistDigest(env));
+  },
+
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS_HEADERS });
@@ -44,6 +138,39 @@ export default {
       await env.LICENSE_KV.put(key, JSON.stringify(record));
 
       return json({ valid: true, plan: record.plan || "standard", name: record.name || "", expires: record.expires || "" });
+    }
+
+    // POST /watchlist/save  → 把追蹤清單代碼+通知信箱同步進使用者的授權記錄
+    //（2026-09-13新增，給「每日07:00重大訊息通知」用；沿用/verify同一把
+    //  license key當帳號識別，不用另外做一套登入系統）
+    if (request.method === "POST" && url.pathname === "/watchlist/save") {
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ ok: false, reason: "invalid_request" }, 400);
+      }
+
+      const key = (body.key || "").trim().toUpperCase();
+      if (!key) return json({ ok: false, reason: "missing_key" }, 400);
+
+      const record = await env.LICENSE_KV.get(key, { type: "json" });
+      if (!record) return json({ ok: false, reason: "not_found" }, 404);
+      if (record.status !== "active") return json({ ok: false, reason: record.status }, 403);
+
+      const email = (body.email || "").trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return json({ ok: false, reason: "invalid_email" }, 400);
+      }
+      const codes = Array.isArray(body.codes)
+        ? body.codes.map(c => String(c).trim()).filter(Boolean).slice(0, 100) // 上限100檔，避免單一使用者濫用排程資源
+        : [];
+
+      record.notifyEmail = email;
+      record.watchCodes = codes;
+      await env.LICENSE_KV.put(key, JSON.stringify(record));
+
+      return json({ ok: true, email, count: codes.length });
     }
 
     // ══════════════════════════════════════════════════
@@ -276,6 +403,13 @@ export default {
         return json({ error: "twse_openapi_fetch_failed", message: e.message }, 502);
       }
     }
+
+    // v7.72 試過 /tpex-openapi 代理 www.tpex.org.tw（上櫃公司基本資料），
+    // 實測發現 TPEx 會把 Cloudflare Worker 的請求導向重導向迴圈（疑似WAF
+    // 直接拉黑雲端服務IP範圍，換瀏覽器樣式Header也一樣被擋），這條路線
+    // 走不通，已移除。改用GitHub Actions排程腳本抓取靜態JSON的方式
+    // （跟fetch_active_etf_data.py/fetch_broker_data.py同一套模式），
+    // 見 repo 根目錄的 fetch_tpex_names.py。
 
     // GET /yahoo?ticker=SPY
     //   → 代理 Yahoo Finance chart API（解決瀏覽器 CORS 限制）。

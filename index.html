@@ -34770,16 +34770,16 @@ const STOCK_DB = {
 };
 
 // ══════════════════════════════════════════════════════════════
-//  v7.72 STOCK_DB 自動補完（僅上市股票）——訂閱戶查小型股常常沒有股名
+//  v7.72 STOCK_DB 自動補完（上市＋上櫃）——訂閱戶查小型股常常沒有股名
 //  （只有股票代號），因為 STOCK_DB 是手動維護、只收錄常出現在海選/
-//  熱門清單的股票。這裡改用證交所公開的 t187ap03_L（上市公司基本
-//  資料，跟「市值前50大」「入指出指候選」同一支API，全部上市公司都
-//  查得到簡稱），查無資料時自動補進 STOCK_DB，不用再手動一檔一檔加。
-//  ⚠️ 只涵蓋「上市」(TWSE)，上櫃(TPEx)股票不在這支API裡，之後如果
-//  要補上櫃，需另外打 openapi.tpex.org.tw 那組API，先不做。
+//  熱門清單的股票。改用兩支公開資料源全部補齊：
+//    上市(TWSE)：t187ap03_L（跟「市值前50大」「入指出指候選」同一支）
+//    上櫃(TPEx)：mopsfin_t187ap03_O（欄位是英文，跟TWSE那支中文欄位不同）
+//  查無資料時自動補進 STOCK_DB，不用再手動一檔一檔加。
 //  快取一天（公司簡稱幾乎不會變），避免每次開頁都打一次API。
 // ══════════════════════════════════════════════════════════════
-const STOCK_NAME_FILL_CACHE_KEY = 'tsai_stock_name_fill_v1';
+const STOCK_NAME_FILL_CACHE_KEY = 'tsai_stock_name_fill_v2'; // v2：加了上櫃，換key避免吃到舊版只有上市的快取
+
 async function _fillMissingStockNames() {
   try {
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -34790,22 +34790,42 @@ async function _fillMissingStockNames() {
     } catch (e) {}
 
     if (!nameMap) {
-      if (typeof _twseCorsFetch !== 'function') return; // 熱力圖/市值排名那組函式還沒載入，之後有機會再補
-      const basicRaw = await _twseCorsFetch('/v1/opendata/t187ap03_L');
       nameMap = {};
-      basicRaw.forEach(r => {
-        const code = r['公司代號'];
-        const name = r['公司簡稱'];
-        if (code && name) nameMap[code] = name;
-      });
-      localStorage.setItem(STOCK_NAME_FILL_CACHE_KEY, JSON.stringify({ date: todayStr, map: nameMap }));
+
+      // 上市：跟熱力圖/市值排名共用同一組 _twseCorsFetch
+      if (typeof _twseCorsFetch === 'function') {
+        try {
+          const basicRaw = await _twseCorsFetch('/v1/opendata/t187ap03_L');
+          basicRaw.forEach(r => {
+            const code = r['公司代號'], name = r['公司簡稱'];
+            if (code && name) nameMap[code] = name;
+          });
+        } catch (e) { console.warn('[STOCK_DB自動補完] 上市清單抓取失敗', e.message); }
+      }
+
+      // 上櫃：TPEx 會擋 Cloudflare Worker 的即時代理請求（實測過，重導向
+      // 迴圈，疑似WAF拉黑雲端IP），改讀 GitHub Actions 排程產生的靜態JSON
+      // （fetch_tpex_names.py + .github/workflows/update-tpex-names.yml）。
+      try {
+        const r = await fetch('./tpex_names.json', { cache: 'no-store' });
+        if (r.ok) {
+          const otcData = await r.json();
+          Object.entries(otcData.names || {}).forEach(([code, name]) => {
+            if (code && name) nameMap[code] = name;
+          });
+        }
+      } catch (e) { console.warn('[STOCK_DB自動補完] 上櫃清單讀取失敗', e.message); }
+
+      if (Object.keys(nameMap).length > 0) {
+        localStorage.setItem(STOCK_NAME_FILL_CACHE_KEY, JSON.stringify({ date: todayStr, map: nameMap }));
+      }
     }
 
     let filled = 0;
     Object.entries(nameMap).forEach(([code, name]) => {
       if (!STOCK_DB[code]) { STOCK_DB[code] = { name, industry: '' }; filled++; }
     });
-    if (filled > 0) console.log(`[STOCK_DB自動補完] 補進 ${filled} 檔上市股票的股名`);
+    if (filled > 0) console.log(`[STOCK_DB自動補完] 補進 ${filled} 檔上市/上櫃股票的股名`);
   } catch (e) {
     console.warn('[STOCK_DB自動補完] 失敗，維持原本手動維護的清單', e.message);
   }

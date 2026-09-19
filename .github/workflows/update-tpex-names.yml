@@ -1,0 +1,29 @@
+name: 更新上櫃公司名稱清單（TPEx）
+
+on:
+  schedule:
+    # 台灣時間下午5點（UTC+8 → UTC 09:00），公司清單變動很少，跟其他排程錯開避免搶流量
+    - cron: '30 9 * * 1-5'
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便第一次測試
+
+jobs:
+  update-tpex-names:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 requests
+        run: pip install requests
+
+      - name: 執行抓取腳本
+        run: python fetch_tpex_names.py
+
+      - name: 自動 commit 更新後的 tpex_names.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新上櫃公司名稱清單 (TPEx)"
+          file_pattern: tpex_names.json
