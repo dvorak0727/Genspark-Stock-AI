@@ -18671,6 +18671,19 @@ a.module-nav-item.acc-active {
         </div>
       </div>
       <div style="padding:10px 14px;">
+        <div style="margin-bottom:8px;">
+          <div onclick="const b=document.getElementById('idxBorderTip');b.style.display=b.style.display==='none'?'block':'none';" style="cursor:pointer;display:flex;align-items:center;gap:6px;padding:6px 10px;background:rgba(217,119,6,.10);border:1px solid rgba(217,119,6,.28);border-radius:8px;font-size:0.7rem;font-weight:700;color:#b45309;">
+            💡 教你如何「撿漏」出指候選股 <span style="margin-left:auto;font-weight:400;">▾ 點開看操作步驟</span>
+          </div>
+          <div id="idxBorderTip" style="display:none;margin-top:6px;padding:10px 12px;background:var(--bg2);border-radius:8px;font-size:0.68rem;line-height:1.8;color:var(--fg2);">
+            <b style="color:var(--fg);">🔴 出指候選（左欄）撿漏4步驟——利用「錯殺」而非「利空」的技術性賣壓：</b><br>
+            ① <b>先分辨剔除原因</b>：股價跌是因為「排名被擠出去」還是「基本面真的變差」？點股名進去看該股籌碼/財報，如果外資/投信是「小幅、被動式賣出」（非急砍），比較可能是ETF調節，不是主力棄守。<br>
+            ② <b>看與第50名的差距%</b>：橘色（±3%以內）代表「翻盤機率高」——排名可能在下次結算前又擠回50名內，賣壓反而可能提早結束，不見得會真的被剔除。<br>
+            ③ <b>觀察剔除生效日前後</b>：台灣50通常在3/6/9/12月的第三個週五附近生效換股，被動賣壓最集中在生效日「當天或前幾天」，之後技術性賣壓結束，若基本面沒問題，股價常有填權式回補。<br>
+            ④ <b>分批進場、不重壓</b>：這只是「事件驅動」的短中期機會，不是價值投資的長期買進理由，設好停損，若跌破生效日低點就代表不是單純錯殺，要出場。<br><br>
+            <b style="color:var(--fg);">🟢 入指候選（右欄）邏輯相反</b>：股價可能已經因「市場提前搶跑卡位」而上漲，追高風險較高，通常「差距%在橘色範圍」且「尚未大漲」的才是較好的卡位點，已經噴出一大段的追高風險自負。
+          </div>
+        </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
           <button class="etfcal-add-btn" onclick="loadIndexBorderCandidates()" id="idxBorderLoadBtn">📡 載入候選名單</button>
           <span style="font-size:0.6rem;color:var(--text-muted);" id="idxBorderUpdated"></span>
