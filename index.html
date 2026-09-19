@@ -17595,6 +17595,9 @@ a.module-nav-item.acc-active {
         <div id="pegNote" style="font-size:.6rem;color:var(--fg2);line-height:1.5;margin-top:4px;"></div>
       </div>
 
+      <!-- v7.72 AI概念股泡沫體檢——只對AI供應鏈觀察名單顯示，一般股票不出現 -->
+      <div id="aiBubbleWarn" style="display:none;margin-bottom:10px;padding:10px 12px;border-radius:10px;font-size:.65rem;line-height:1.7;"></div>
+
       <div id="peVerdict" style="font-size:.68rem;color:var(--fg2);line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:8px;border-left:3px solid #2563EB;margin-bottom:8px;">
         載入中…
       </div>
@@ -18704,6 +18707,30 @@ a.module-nav-item.acc-active {
         </div>
       </div>
     </div><!-- /#idxBorderCard -->
+
+    <!-- 🫧 v7.72 AI概念股泡沫體檢排行：AI供應鏈觀察名單逐檔算PER百分位+PEG -->
+    <div class="sr-card show" id="aiBubbleScanCard">
+      <div class="sr-card-bar"></div>
+      <div class="sr-header">
+        <div class="sr-header-icon">🫧</div>
+        <div class="sr-header-text">
+          <div class="sr-header-title" data-tip="AI概念股泡沫體檢排行">AI概念股泡沫體檢排行</div>
+          <div class="sr-header-sub">AI供應鏈觀察名單，逐檔比對PER百分位（貴不貴）+ PEG（成長跟不跟得上），排出估值過熱風險</div>
+        </div>
+      </div>
+      <div style="padding:10px 14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <button class="etfcal-add-btn" onclick="runAIBubbleScan()" id="aiBubbleScanBtn">🫧 開始體檢</button>
+          <span style="font-size:0.6rem;color:var(--text-muted);" id="aiBubbleScanUpdated"></span>
+        </div>
+        <div id="aiBubbleScanBody">
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">按「開始體檢」開始（逐檔查FinMind PER+財報資料，約需十幾秒）</div>
+        </div>
+        <div style="margin-top:8px;font-size:0.62rem;color:var(--text-muted);line-height:1.6;">
+          ⚠️ 觀察名單是整理自公開市場對「AI概念股」的一般認知，非嚴謹產業分類；估值過熱不代表基本面有問題，也不是賣出訊號，只是提醒對外部利率/題材降溫的敏感度較高，非投資建議。
+        </div>
+      </div>
+    </div><!-- /#aiBubbleScanCard -->
 
     <!-- 🌍 板塊公司 Popup（JS動態插入，掛在 body 層級）-->
 
@@ -70689,7 +70716,7 @@ async function renderPeRatio(stockId) {
     // 「貴不貴」加上「有沒有成長撐得起這個貴」——同樣PER=20，成長30%的公司比成長0%的公司划算得多。
     // ⚠️ 這裡刻意防呆：若去年同期TTM EPS是虧損（負值/接近0），年增率公式會被除以一個
     // 負/趨近0的基期，算出「+1000%」這種失真數字，PEG會變得毫無意義（不能用猜的硬套一個公式）。
-    _renderPeg(stockId, today.PER).catch(e => console.warn('[PEG]', e.message));
+    _renderPeg(stockId, today.PER, pct).catch(e => console.warn('[PEG]', e.message));
   } catch (e) {
     badge.textContent = '抓取失敗'; badge.style.color = '#dc2626';
     const vEl = document.getElementById('peVerdict');
@@ -70698,11 +70725,12 @@ async function renderPeRatio(stockId) {
   }
 }
 
-async function _renderPeg(stockId, per) {
+async function _renderPeg(stockId, per, perPct) {
   const pegBadge = document.getElementById('pegBadge');
   const pegVal   = document.getElementById('pegVal');
   const pegNote  = document.getElementById('pegNote');
   if (!pegBadge) return;
+  _hideAIBubbleWarn(); // 換股票時先收起舊資料，避免殘留上一檔的AI泡沫警示
 
   const fmt = d => d.toISOString().split('T')[0];
   const end = new Date();
@@ -70766,6 +70794,155 @@ async function _renderPeg(stockId, per) {
 
   pegBadge.textContent = label; pegBadge.style.color = color; pegBadge.style.background = 'transparent'; pegBadge.style.border = `1px solid ${color}`;
   pegNote.textContent = note;
+
+  _checkAIBubble(stockId, per, perPct, peg, growthPct);
+}
+
+// ══════════════════════════════════════════════════════════════
+//  v7.72 AI概念股泡沫體檢——只是把「本益比檢查」現有算好的兩個數字
+//  （PER近1年百分位 + PEG）疊加起來看，針對AI供應鏈觀察名單額外加嚴
+//  判讀標準，不是另外接新的資料源。
+//  ⚠️ 這份名單是整理自公開市場對「AI概念股」的一般認知（半導體先進
+//  製程/封裝、AI伺服器/散熱/電源供應鏈），非嚴謹產業分類，也不是
+//  投資建議，只是決定「要不要多顯示這段提醒」的篩選條件。
+// ══════════════════════════════════════════════════════════════
+const AI_BUBBLE_WATCHLIST = new Set([
+  '2330','2454','3711','2317','2382','3661','6669','2376','2377',
+  '3037','8046','2449','3443','6531','2313','6789','3596',
+]);
+
+function _hideAIBubbleWarn() {
+  const el = document.getElementById('aiBubbleWarn');
+  if (el) el.style.display = 'none';
+}
+
+function _checkAIBubble(stockId, per, perPct, peg, growthPct) {
+  const el = document.getElementById('aiBubbleWarn');
+  if (!el || !AI_BUBBLE_WATCHLIST.has(stockId)) return;
+  if (perPct == null || peg == null) return; // 上游資料不足，不勉強判斷
+
+  const isExpensive = perPct >= 70;      // PER落在近1年最高的30%區間
+  const isPegRich   = peg > 1.3;         // 股價漲幅已經超前獲利成長速度
+
+  if (isExpensive && isPegRich) {
+    el.style.display = 'block';
+    el.style.background = 'rgba(220,38,38,.08)';
+    el.style.border = '1px solid rgba(220,38,38,.3)';
+    el.innerHTML = `🫧 <b style="color:#dc2626;">AI泡沫體檢：估值偏熱</b>
+      PER落在近1年最高${100-perPct}%區間、PEG=${peg.toFixed(2)}（股價漲幅超前獲利成長），
+      這是「估值超前於獲利兌現速度」的典型組合——不代表基本面有問題（AI供應鏈的實際訂單可能仍在成長），
+      但代表這檔股票對「利率上升」「AI題材降溫」這類外部衝擊的敏感度較高，回檔幅度可能比一般股票劇烈。
+      這不是賣出訊號，是提醒你注意部位大小跟停損紀律。`;
+  } else if (isExpensive && !isPegRich) {
+    el.style.display = 'block';
+    el.style.background = 'rgba(217,119,6,.08)';
+    el.style.border = '1px solid rgba(217,119,6,.3)';
+    el.innerHTML = `🫧 <b style="color:#d97706;">AI泡沫體檢：貴但獲利跟得上</b>
+      PER雖然落在近1年偏高區間，但PEG=${peg.toFixed(2)}顯示獲利成長速度仍撐得住目前的股價，
+      比較像「用合理價格買進真實成長」，不是純估值泡沫，但仍要持續追蹤獲利成長有沒有繼續兌現。`;
+  } else {
+    el.style.display = 'block';
+    el.style.background = 'rgba(5,150,105,.08)';
+    el.style.border = '1px solid rgba(5,150,105,.3)';
+    el.innerHTML = `🫧 <b style="color:#059669;">AI泡沫體檢：估值目前不算過熱</b>
+      PER落在近1年${perPct}百分位，不算特別貴，目前看不出「估值超前獲利」的泡沫特徵，但AI概念股族群的估值變動速度快，建議定期回來複查。`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  v7.72 AI概念股泡沫體檢排行——把單股本益比檢查頁的PER百分位+PEG邏輯，
+//  批次跑一遍 AI_BUBBLE_WATCHLIST，排出估值過熱風險排行榜。
+//  跟單股頁共用同一套判讀標準（PER近1年百分位≥70 + PEG>1.3 = 估值偏熱），
+//  只是這裡是獨立抓資料算完直接回傳結果，不寫DOM，方便批次跑。
+// ══════════════════════════════════════════════════════════════
+async function _fetchAIBubbleMetrics(stockId) {
+  const fmt = d => d.toISOString().split('T')[0];
+  const end = new Date();
+  const perStart = new Date(); perStart.setFullYear(perStart.getFullYear() - 1);
+  const finStart = new Date(); finStart.setFullYear(finStart.getFullYear() - 2);
+  const token = getToken();
+
+  try {
+    const [perRes, finRes] = await Promise.all([
+      fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPER&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(perStart)}&end_date=${fmt(end)}&token=`).then(r=>r.json()),
+      fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockFinancialStatements&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(finStart)}&end_date=${fmt(end)}&token=${encodeURIComponent(token)}`).then(r=>r.json()),
+    ]);
+
+    const perRows = (perRes.data || []).filter(x => x.PER != null && x.PER > 0).sort((a,b)=>a.date.localeCompare(b.date));
+    if (!perRows.length) return { stockId, ok: false, reason: '無PER資料' };
+
+    const today = perRows.at(-1);
+    const pers = perRows.map(x => x.PER).sort((a,b)=>a-b);
+    const rank = pers.filter(v => v <= today.PER).length;
+    const perPct = Math.round((rank / pers.length) * 100);
+
+    const epsRows = (finRes.data || []).filter(x => x.type === 'EPS').sort((a,b)=>a.date.localeCompare(b.date));
+    if (epsRows.length < 8) return { stockId, ok: true, per: today.PER, perPct, peg: null, growthPct: null, note: 'EPS資料不足無法算PEG' };
+
+    const last8 = epsRows.slice(-8);
+    const ttmNow  = last8.slice(-4).reduce((s,r)=>s+r.value, 0);
+    const ttmPrev = last8.slice(0,4).reduce((s,r)=>s+r.value, 0);
+    if (ttmPrev <= 0) return { stockId, ok: true, per: today.PER, perPct, peg: null, growthPct: null, note: '去年同期虧損，PEG不適用' };
+
+    const growthPct = (ttmNow - ttmPrev) / Math.abs(ttmPrev) * 100;
+    if (growthPct <= 0) return { stockId, ok: true, per: today.PER, perPct, peg: null, growthPct, note: '獲利衰退中，PEG不適用' };
+
+    const peg = today.PER / growthPct;
+    return { stockId, ok: true, per: today.PER, perPct, peg, growthPct, note: null };
+  } catch (e) {
+    return { stockId, ok: false, reason: e.message };
+  }
+}
+
+async function runAIBubbleScan() {
+  const btn = document.getElementById('aiBubbleScanBtn');
+  const body = document.getElementById('aiBubbleScanBody');
+  btn.disabled = true; btn.textContent = '⏳ 體檢中…';
+  body.innerHTML = '<div id="aiBubbleScanProgress" style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;"></div>';
+
+  const ids = [...AI_BUBBLE_WATCHLIST];
+  const results = [];
+  for (const id of ids) {
+    const progEl = document.getElementById('aiBubbleScanProgress');
+    if (progEl) progEl.textContent = `體檢中 ${results.length+1}/${ids.length}：${STOCK_DB[id]?.name || id} (${id})`;
+    const r = await _fetchAIBubbleMetrics(id);
+    results.push(r);
+  }
+
+  const scored = results.filter(r => r.ok && r.peg != null).map(r => ({
+    ...r,
+    hot: r.perPct >= 70 && r.peg > 1.3,
+    warm: r.perPct >= 70 && r.peg <= 1.3,
+  }));
+  scored.sort((a,b) => (b.hot - a.hot) || (b.perPct - a.perPct));
+  const noData = results.filter(r => !r.ok || r.peg == null);
+
+  const rowHtml = r => {
+    const name = STOCK_DB[r.stockId]?.name || r.stockId;
+    const tagHtml = r.hot
+      ? `<span style="font-weight:800;color:#dc2626;">🔴 估值偏熱</span>`
+      : r.warm
+        ? `<span style="font-weight:800;color:#d97706;">🟡 貴但獲利跟得上</span>`
+        : `<span style="font-weight:800;color:#059669;">🟢 不算過熱</span>`;
+    return `
+      <div onclick="quickSearch && quickSearch('${r.stockId}')" title="點擊查看 ${name}(${r.stockId}) 完整分析" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+        <span style="font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${r.stockId}</span></span>
+        <span style="color:var(--fg3);width:90px;text-align:right;">PER ${r.per.toFixed(1)}倍（${r.perPct}百分位）</span>
+        <span style="color:var(--fg3);width:70px;text-align:right;">PEG ${r.peg.toFixed(2)}</span>
+        ${tagHtml}
+      </div>`;
+  };
+
+  const noDataHtml = noData.length
+    ? `<div style="margin-top:10px;font-size:0.62rem;color:var(--text-muted);">查無足夠資料：${noData.map(r => `${STOCK_DB[r.stockId]?.name || r.stockId}（${r.reason || r.note || '資料不足'}）`).join('、')}</div>`
+    : '';
+
+  body.innerHTML = scored.length
+    ? scored.map(rowHtml).join('') + noDataHtml
+    : `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">目前沒有可判讀的股票。</div>` + noDataHtml;
+
+  document.getElementById('aiBubbleScanUpdated').textContent = `資料日期：${new Date().toISOString().slice(0,10)}`;
+  btn.disabled = false; btn.textContent = '🫧 開始體檢';
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -82046,6 +82223,7 @@ if (typeof _origRenderSM === 'function') {
     { id:'srCard',        label:'板塊',      emoji:'🌍', why:'個股再強，板塊向下就是逆風。先確認這支股票所屬板塊是否在輪動中。',                 ksTab:'sectors' },
     { id:'heatmapCard',   label:'熱力圖',    emoji:'🔥', why:'區塊大小＝市值、顏色＝漲跌幅，幾秒鐘看懂資金今天往哪個板塊跑。' },
     { id:'idxBorderCard', label:'入指出指候選', emoji:'📡', why:'市值排名卡在台灣50門檻邊緣的股票，季度調整前容易出現技術性籌碼衝擊，跟基本面無關。' },
+    { id:'aiBubbleScanCard', label:'AI泡沫體檢', emoji:'🫧', why:'AI供應鏈觀察名單逐檔比對PER百分位+PEG，估值超前獲利的股票對利率/題材降溫的敏感度較高。' },
 
     // ── 個股：基本面 → 籌碼 → 技術 → 週期 ──
     { id:'profitQualityCard', label:'獲利品質', emoji:'💊', why:'籌碼再強，體質有問題也是空話。先看EPS跟營業現金流是否同步，帳上賺錢但收不到現金是財報地雷的早期徵兆。' },
