@@ -34825,9 +34825,17 @@ async function _fillMissingStockNames() {
 
     let filled = 0;
     Object.entries(nameMap).forEach(([code, name]) => {
-      if (!STOCK_DB[code]) { STOCK_DB[code] = { name, industry: '' }; filled++; }
+      if (!STOCK_DB[code]) {
+        STOCK_DB[code] = { name, industry: '' };
+        // NAME_TO_ID 是搜尋框「打股名查代號」用的反查表，在這支函式跑之前
+        // 就已經建好了（同步、頁面一載入就跑），這裡補進STOCK_DB的新股票
+        // 不會自動出現在NAME_TO_ID裡——沒補這行的話，代號查得到但股名搜尋
+        // 查不到，使用者會覺得「這檔股票不存在」。
+        if (typeof NAME_TO_ID !== 'undefined' && !NAME_TO_ID[name]) NAME_TO_ID[name] = code;
+        filled++;
+      }
     });
-    if (filled > 0) console.log(`[STOCK_DB自動補完] 補進 ${filled} 檔上市/上櫃股票的股名`);
+    if (filled > 0) console.log(`[STOCK_DB自動補完] 補進 ${filled} 檔上市/上櫃股票的股名（含搜尋反查表）`);
   } catch (e) {
     console.warn('[STOCK_DB自動補完] 失敗，維持原本手動維護的清單', e.message);
   }
