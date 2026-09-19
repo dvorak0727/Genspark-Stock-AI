@@ -17362,10 +17362,10 @@ a.module-nav-item.acc-active {
 
         <!-- ─── 面板B：籌碼博弈矩陣 ─── -->
         <div id="csSubPanelGame" style="display:none;">
-          <!-- v7.51 模擬資料強警示橫幅 -->
+          <!-- v7.72：原本這裡是「模擬資料」警示，已移除模擬資料機制，改成「查無真實資料」提示 -->
           <div class="gm-sim-banner" id="gmSimBanner" style="display:none;">
             <span class="gm-sim-icon">⚠️</span>
-            <span><b>模擬資料，非真實券商分點數字。</b>FinMind 免費方案不提供分點明細（需付費方案），本表由系統演算法推算生成，僅供功能展示，<b>請勿作為買賣依據</b>。</span>
+            <span><b>目前查無真實券商分點資料。</b>可能是FinMind API流量限制中，或這檔股票近期無分點成交紀錄，請稍後再試，或確認FinMind Token是否為付費方案（分點資料需付費方案才能查詢）。</span>
           </div>
           <!-- 頂部摘要卡 -->
           <div class="gm-summary-row" id="gmSummaryRow">
@@ -40959,211 +40959,63 @@ async function _fetchBrokerData(stockId, days = 20) {
   const finlabRows = await _tryLoadFinLabBrokerData(stockId, days);
   if (finlabRows) return { rows: finlabRows, live: true, source: 'finlab' };
 
-  const token     = getToken();
-  const endDate   = new Date();
-  const startDate = new Date(); startDate.setDate(endDate.getDate() - days * 2);
-  const fmt = d => d.toISOString().slice(0,10);
+  // v7.72：原本走 finmind-broker-proxy.dvorak0727.workers.dev，一次帶寬日期區間
+  // （start_date~end_date）給 taiwan_stock_trading_daily_report——但這支資料集
+  // 官方文件本來就要求「單日查詢」（start_date=end_date），一次帶寬區間常常
+  // 撈不到完整資料，導致這裡三不五時觸發「重試兩次仍失敗→退回模擬資料」，
+  // 使用者看不出來是真的沒資料還是查詢方式有問題。
+  // 改用跟「分點券商買賣明細」面板(_renderBrokerPanel)同一套已驗證可靠的
+  // 作法：逐日單獨查詢（並行3天一批），走 license-worker /finmind 代理，
+  // 失敗再退而求其次直連FinMind——不再有模擬資料這個選項，抓不到真實資料
+  // 就如實回傳空結果，讓使用者知道「現在真的沒有資料」而不是被假數字誤導。
+  const token = (typeof getToken === 'function' ? getToken() : '') ||
+                localStorage.getItem('tsai_finmind_token') || '';
+  if (!token) return { rows: [], live: false, source: 'none', reason: '未設定 FinMind Token（分點資料需付費方案）' };
 
-  // v7.67：海選券商囤貨模式一次序列掃描幾十檔，容易撞到FinMind Sponsor方案的
-  // 短時間流量限制，某幾檔request失敗就整檔悄悄退回模擬資料——使用者看畫面
-  // 完全看不出來是「真的沒資料」還是「剛好被限流」。這裡改成失敗先重試一次
-  // （間隔800ms，讓限流冷卻），還是失敗才真的退回模擬，並把失敗原因記在
-  // 回傳值裡（reason），讓「⚡模擬資料」標籤能顯示滑鼠移上去的真正原因。
-  async function _attempt() {
-    if (!token) throw new Error('未設定 FinMind Token（分點資料需付費方案）');
-    const url = `https://finmind-broker-proxy.dvorak0727.workers.dev/?data_id=${stockId}&start_date=${fmt(startDate)}&end_date=${fmt(endDate)}&token=${encodeURIComponent(token)}`;
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`API error ${r.status}`);
-    const j = await r.json();
-    if (j.status && j.status !== 200) throw new Error(j.msg || `API(${j.status})`);
-    // taiwan_stock_trading_daily_report 回傳欄位：securities_trader, buy, sell, price, date …
-    // v7.55 確認：用戶實測回報數字大到不合理（單一券商10日淨買超過千萬張，
-    // 換算股數是百億股，物理上不可能），驗證了這裡當初留的疑慮——
-    // FinMind 這支資料集的 buy/sell 單位是「股」，不是「張」，要除1000。
-    const rows = (j.data || []).map(d => ({
-      date: d.date,
-      broker_id: d.securities_trader || d.securities_trader_id || '未知',
-      buy: Math.round((+d.buy || 0) / 1000),
-      sell: Math.round((+d.sell || 0) / 1000),
-    }));
-    if (rows.length > 5) return rows;
-    throw new Error('insufficient data');
+  const FM_DIRECT = 'https://api.finmindtrade.com/api/v4/data';
+  const validDates = [];
+  for (let i = 0; i < days * 3 && validDates.length < days; i++) {
+    const d = new Date(Date.now() - i * 86400000);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue;
+    validDates.push(d.toISOString().slice(0, 10));
   }
 
-  let lastErr = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const rows = await _attempt();
-      return { rows, live: true, source: 'finmind' };
-    } catch (e) {
-      lastErr = e;
-      if (attempt === 0) await new Promise(res => setTimeout(res, 800)); // 給限流冷卻時間再試一次
+  const fetchDay = async (date) => {
+    const urls = [
+      `${FINMIND}?dataset=TaiwanStockTradingDailyReport&data_id=${stockId}&start_date=${date}&end_date=${date}&token=${encodeURIComponent(token)}`,
+      `${FM_DIRECT}?dataset=TaiwanStockTradingDailyReport&data_id=${stockId}&start_date=${date}&end_date=${date}&token=${encodeURIComponent(token)}`,
+    ];
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        if (!res.ok) continue;
+        const j = await res.json();
+        if (Array.isArray(j.data) && j.data.length > 0) return j.data;
+      } catch (e) { /* 換下一個URL試 */ }
     }
-  }
-  // 兩次都失敗才真的退回模擬資料
-  console.warn('[博弈矩陣] 使用模擬資料', lastErr?.message);
-  return { rows: _genSimBrokerData(stockId, days), live: false, source: 'sim', reason: lastErr?.message || '未知原因' };
-}
+    return [];
+  };
 
-// ── 模擬券商資料產生器（v6.21e：修復 window.LARGE_IDS 未掛載問題，改用內嵌 Set）─
-function _genSimBrokerData(stockId, days) {
-  // ── 大券商池（依板塊分組）─────────────────────────────────
-  const BROKER_POOL = [
-    // 外資系（大型股偏多）
-    { name:'台灣摩根士丹利',  seed:11, pool:'foreign' },
-    { name:'美商高盛',        seed:17, pool:'foreign' },
-    { name:'瑞士信貸',        seed:43, pool:'foreign' },
-    { name:'美商美林',        seed:71, pool:'foreign' },
-    { name:'德意志證券',      seed:79, pool:'foreign' },
-    { name:'台灣匯豐',        seed:83, pool:'foreign' },
-    { name:'法國興業',        seed:89, pool:'foreign' },
-    { name:'麥格理證券',      seed:97, pool:'foreign' },
-    // 本土大型（中型股偏多）
-    { name:'富邦-台北',       seed:23, pool:'local'   },
-    { name:'凱基-台北',       seed:31, pool:'local'   },
-    { name:'元大-南京',       seed:41, pool:'local'   },
-    { name:'國泰-敦南',       seed:37, pool:'local'   },
-    { name:'群益-敦南',       seed:53, pool:'local'   },
-    { name:'永豐金-敦南',     seed:59, pool:'local'   },
-    { name:'玉山-南京',       seed:61, pool:'local'   },
-    { name:'兆豐-南京',       seed:67, pool:'local'   },
-    // 本土中小型（小型股偏多）
-    { name:'元大-信義',       seed:101, pool:'small'  },
-    { name:'凱基-信義',       seed:107, pool:'small'  },
-    { name:'永豐金-三重',     seed:113, pool:'small'  },
-    { name:'富邦-新竹',       seed:127, pool:'small'  },
-    { name:'群益-內湖',       seed:131, pool:'small'  },
-    { name:'日盛-台中',       seed:137, pool:'small'  },
-    // 隔日沖慣用分點
-    { name:'統一-忠孝',       seed:47,  pool:'day'    },
-    { name:'兆豐-松江',       seed:73,  pool:'day'    },
-    { name:'永豐金-忠孝',     seed:103, pool:'day'    },
-    { name:'群益-松山',       seed:109, pool:'day'    },
-  ];
-
-  // ── 依 stockId 決定券商子集合 ────────────────────────────
-  // 1. 用 stockId ASCII 總和做穩定種子
-  const idSeed = String(stockId).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-
-  // 2. 判斷股票板塊類型（v6.21e：改用內嵌 Set，不依賴 window.LARGE_IDS 等全域變數）
-  //    ★ 根因：classifyStockType 中的 LARGE_IDS/MID_IDS 是區域變數（const），
-  //      從未掛到 window，導致 window.LARGE_IDS = undefined → 全部走 small 分支 →
-  //      所有股票都用相同 pool 組合，廣達/旺宏/台積電看起來一樣
-  const _SIM_LARGE = new Set([
-    '2330','2317','2454','2303','3711','2308','2382','2412',
-    '2881','2882','2891','2886','2884','2885','2890','2892',
-    '6505','1301','1303','1326','2002','2357','2395'
-  ]);
-  const _SIM_ETF = new Set([
-    '0050','0056','00878','00881','00919','00929'
-  ]);
-  const _SIM_MID = new Set([
-    '3231','6669','2376','2377','2356','2379','4938',
-    '6770','2337','3443','5347','3081','2449','6510',
-    '3035','3490','6438','2345','4966','3607','4990','6533','8271',
-    '3088','5285','4968','3515','3293','3006',
-    '2344','2408','3034','4711'  // v6.21m: 移除 2395（研華），已在 _SIM_LARGE 中
-  ]);
-  const sid = String(stockId);
-  const _isLargeId = _SIM_LARGE.has(sid);
-  const _isMidId   = _SIM_MID.has(sid);
-  const _isEtfId   = _SIM_ETF.has(sid);
-
-  // 3. 依板塊決定各 pool 抽選數量
-  let nForeign, nLocal, nSmall, nDay;
-  if (_isLargeId || _isEtfId) {
-    nForeign = 3 + (idSeed % 2);      // 3~4 家外資
-    nLocal   = 3 + ((idSeed >> 2) % 2); // 3~4 家本土大
-    nSmall   = 1;
-    nDay     = 2;
-  } else if (_isMidId) {
-    nForeign = 1 + (idSeed % 2);      // 1~2 家外資
-    nLocal   = 4 + ((idSeed >> 1) % 2); // 4~5 家本土大
-    nSmall   = 2;
-    nDay     = 2;
-  } else {
-    // small
-    nForeign = 1;
-    nLocal   = 2 + (idSeed % 2);
-    nSmall   = 3 + ((idSeed >> 2) % 2);
-    nDay     = 2;
+  const allRaw = [];
+  for (let i = 0; i < validDates.length; i += 3) {
+    const chunk = validDates.slice(i, i + 3);
+    const results = await Promise.all(chunk.map(fetchDay));
+    results.forEach(rows => allRaw.push(...rows));
   }
 
-  // 4. 穩定抽選（偽隨機，同 stockId 每次結果相同）
-  function stablePickN(arr, n, offset) {
-    const shuffled = arr.slice().sort((a, b) => {
-      const ha = (a.seed * idSeed + offset) % 997;
-      const hb = (b.seed * idSeed + offset) % 997;
-      return ha - hb;
-    });
-    return shuffled.slice(0, Math.min(n, shuffled.length));
+  if (allRaw.length <= 5) {
+    return { rows: [], live: false, source: 'none', reason: 'FinMind無回傳資料或流量限制中' };
   }
-  const foreignPool = BROKER_POOL.filter(b => b.pool === 'foreign');
-  const localPool   = BROKER_POOL.filter(b => b.pool === 'local');
-  const smallPool   = BROKER_POOL.filter(b => b.pool === 'small');
-  const dayPool     = BROKER_POOL.filter(b => b.pool === 'day');
 
-  const picked = [
-    ...stablePickN(foreignPool, nForeign, 1001),
-    ...stablePickN(localPool,   nLocal,   2003),
-    ...stablePickN(smallPool,   nSmall,   3007),
-    ...stablePickN(dayPool,     nDay,     4001),
-  ];
-
-  // 5. 依 stockId 動態分配 accum/dist/wash/day 模式
-  //    行為分配比例：依板塊調整多空傾向
-  const accumTarget = _isLargeId ? 0.50 : (_isMidId ? 0.45 : 0.40);
-  const distTarget  = _isLargeId ? 0.20 : (_isMidId ? 0.25 : 0.30);
-  // 剩餘為 wash；day 固定用 day pool
-
-  const brokers20 = picked.map((b, i) => {
-    if (b.pool === 'day') return { ...b, pattern: 'day' };
-    const r = ((b.seed * idSeed + i * 137) % 1000) / 1000; // 0~1
-    let pattern;
-    if (r < accumTarget)            pattern = 'accum';
-    else if (r < accumTarget + distTarget) pattern = 'dist';
-    else                            pattern = 'wash';
-    return { ...b, pattern };
-  });
-  const rows = [];
-  const now = new Date();
-  // 依板塊調整量能基數（大型股量大，小型股量小）
-  const volScale = _isLargeId ? 4.0 : (_isMidId ? 1.5 : 0.6);
-  // 產生近 days 個交易日
-  let tradingDays = [];
-  for (let i = 0; tradingDays.length < days; i++) {
-    const d = new Date(now); d.setDate(d.getDate() - i);
-    if (d.getDay() !== 0 && d.getDay() !== 6) tradingDays.unshift(d.toISOString().slice(0,10));
-  }
-  brokers20.forEach(b => {
-    tradingDays.forEach((date, di) => {
-      const dateSeed = parseInt(date.replace(/-/g,'')) % 9973;
-      const seed = (b.seed * dateSeed * (idSeed % 97 + 1) + 49297) % 23328;
-      const p = seed / 23328; // 0~1
-      let buy = 0, sell = 0;
-      if (b.pattern === 'accum') {
-        // 以吸籌為主，偶爾小賣
-        const base = Math.floor((200 + Math.floor(p * 1800)) * volScale);
-        buy  = base + (di % 3 === 0 ? Math.floor(800 * volScale) : 0);
-        sell = Math.floor(buy * (0.05 + p * 0.12));
-        if (di >= 9 && di <= 14) { buy *= 4; sell *= 2; } // 集中吸籌段
-      } else if (b.pattern === 'dist') {
-        sell = Math.floor((300 + Math.floor(p * 1500)) * volScale);
-        buy  = Math.floor(sell * (0.08 + p * 0.15));
-        if (di >= 3 && di <= 7) { sell *= 3; buy *= 1.5; } // 集中出貨段
-      } else if (b.pattern === 'wash') {
-        const base = Math.floor((400 + Math.floor(p * 1200)) * volScale);
-        buy  = di % 2 === 0 ? base * 2 : Math.floor(base * 0.3);
-        sell = di % 2 === 0 ? Math.floor(base * 0.3) : base * 1.5;
-      } else { // day trade
-        const base = Math.floor((600 + Math.floor(p * 800)) * volScale);
-        buy  = base;
-        sell = base - Math.floor(20 * volScale) + Math.floor(p * 40 * volScale);
-      }
-      rows.push({ date, broker_id: b.name, buy: Math.floor(buy), sell: Math.floor(sell) });
-    });
-  });
-  return rows;
+  // v7.55 確認：FinMind 這支資料集的 buy/sell 單位是「股」，不是「張」，要除1000。
+  const rows = allRaw.map(d => ({
+    date: d.date,
+    broker_id: d.securities_trader || d.securities_trader_id || '未知',
+    buy: Math.round((+d.buy || 0) / 1000),
+    sell: Math.round((+d.sell || 0) / 1000),
+  }));
+  return { rows, live: true, source: 'finmind' };
 }
 
 // ── 主渲染函式 ───────────────────────────────────────────────
@@ -41202,13 +41054,14 @@ async function _renderGameMatrix(stockId) {
       sourceBadge.style.color = '#166534';
     } else if (source === 'finmind') {
       sourceBadge.textContent = '🟢 FinMind 真實資料';
-      sourceBadge.title = '資料來源：FinMind taiwan_stock_trading_daily_report（經 finmind-broker-proxy 彙整），為真實數字。';
+      sourceBadge.title = '資料來源：FinMind taiwan_stock_trading_daily_report（逐日查詢，經 license-worker /finmind 代理），為真實數字。';
       sourceBadge.style.background = '#DCFCE7';
       sourceBadge.style.borderColor = '#86EFAC';
       sourceBadge.style.color = '#166534';
     } else {
-      sourceBadge.textContent = '⚙️ 模擬資料';
-      sourceBadge.title = 'FinLab JSON 與 FinMind proxy 皆未取得資料，本表由系統演算法推算生成，僅供功能展示，請勿作為買賣依據。';
+      // v7.72：不再有模擬資料這個選項，抓不到真實資料就如實告知查無資料
+      sourceBadge.textContent = '⚠️ 查無資料';
+      sourceBadge.title = 'FinLab JSON 與 FinMind 皆未取得真實分點資料，可能是流量限制或近期無成交紀錄，不提供模擬/推算數字。';
       sourceBadge.style.background = '#FEF3C7';
       sourceBadge.style.borderColor = '#FCD34D';
       sourceBadge.style.color = '#92400E';
@@ -61181,7 +61034,7 @@ const MODE_GUIDE = {
       { icon: '💰', text: '<b>C5 主力加權成本低於現價</b>：依照近30日所有買入記錄加權計算的平均買入價，仍低於當前收盤價（含2%緩衝），代表主力目前仍在獲利保護帶內、不會急著出貨。' },
     ],
     warns: [
-      '本模式需要 FinMind Token（券商分點 API 為付費資料）。無 Token 時將使用模擬資料，僅供功能展示，不代表真實市場。',
+      '本模式需要 FinMind Token（券商分點 API 為付費資料）。無 Token 或抓不到真實資料時，該檔股票會被跳過不列入結果，不會顯示模擬/推算數字。',
       '券商分點資料通常 T+1 更新，最新一日資料可能尚未到位，評分偏保守是正常的。',
       '籌碼集中不等於一定會漲——主力也可能是在接轉手出貨的對手。需配合趨勢（MA方向、成交量）交叉驗證。',
       '全市場掃描時，每檔呼叫一次 API，速度比法人/價格模式慢（API 速率限制）。建議使用「核心20檔」或較小的股票池。',
