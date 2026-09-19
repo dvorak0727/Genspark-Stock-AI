@@ -18660,6 +18660,30 @@ a.module-nav-item.acc-active {
       </div>
     </div><!-- /#heatmapCard -->
 
+    <!-- 📡 v7.72 潛在入指/出指候選：市值排名卡在台灣50門檻邊緣的股票 -->
+    <div class="sr-card show" id="idxBorderCard">
+      <div class="sr-card-bar"></div>
+      <div class="sr-header">
+        <div class="sr-header-icon">📡</div>
+        <div class="sr-header-text">
+          <div class="sr-header-title" data-tip="潛在入指/出指候選">潛在入指/出指候選</div>
+          <div class="sr-header-sub">市值排名卡在台灣50門檻（第50名）邊緣的股票，季度調整前的觀察名單</div>
+        </div>
+      </div>
+      <div style="padding:10px 14px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+          <button class="etfcal-add-btn" onclick="loadIndexBorderCandidates()" id="idxBorderLoadBtn">📡 載入候選名單</button>
+          <span style="font-size:0.6rem;color:var(--text-muted);" id="idxBorderUpdated"></span>
+        </div>
+        <div id="idxBorderBody">
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">按「載入候選名單」開始（資料源同「市值前50大（即時計算）」那組API，抓排名35~65名）</div>
+        </div>
+        <div style="margin-top:8px;font-size:0.62rem;color:var(--text-muted);line-height:1.6;">
+          ⚠️ 這是「排名」邏輯，不代表基本面好壞——出指候選常是被技術性賣壓錯殺，入指候選常有技術性買盤加持，兩者都跟公司體質無關，僅供事件驅動操作參考。台灣50實際調整規則另有流通量、上市天數等條件，此處僅用市值排名概估，正式結果以指數公司公告為準。
+        </div>
+      </div>
+    </div><!-- /#idxBorderCard -->
+
     <!-- 🌍 板塊公司 Popup（JS動態插入，掛在 body 層級）-->
 
     <!-- 🌐 美股先行指標（v5.44）-->
@@ -57675,6 +57699,113 @@ async function fetchDynamicTop50Ids() {
   }));
   console.log('[動態市值前50] 計算完成，前5大：', top50.slice(0, 5));
   return ids;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  v7.72 潛在入指/出指候選——市值排名卡在台灣50門檻（第50名）邊緣的股票
+//  資料源跟「市值前50大（即時計算）」同一套（t187ap03_L + STOCK_DAY_ALL），
+//  差別只在這裡不砍到前50名，而是取排名35~65名這個「門檻觀察區」。
+// ══════════════════════════════════════════════════════════════
+const IDX_BORDER_CACHE_KEY = 'tsai_idx_border_v1';
+const IDX_BORDER_LO = 35, IDX_BORDER_HI = 65; // 觀察區排名範圍
+
+async function fetchIndexBorderCandidates() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  try {
+    const cached = JSON.parse(localStorage.getItem(IDX_BORDER_CACHE_KEY) || 'null');
+    if (cached && cached.date === todayStr && Array.isArray(cached.list) && cached.list.length >= 10) {
+      return cached.list;
+    }
+  } catch (e) {}
+
+  const [basicRaw, priceRaw] = await Promise.all([
+    _twseCorsFetch('/v1/opendata/t187ap03_L'),
+    _twseCorsFetch('/v1/exchangeReport/STOCK_DAY_ALL'),
+  ]);
+
+  const priceMap = {};
+  priceRaw.forEach(r => {
+    const p = parseFloat(r.ClosingPrice);
+    if (r.Code && p > 0) priceMap[r.Code] = r;
+  });
+
+  const capList = [];
+  basicRaw.forEach(r => {
+    const code   = r['公司代號'];
+    const shares = parseFloat(r['已發行普通股數或TDR原股發行股數']);
+    const pRow   = priceMap[code];
+    if (!code || !shares || !pRow) return;
+    const close  = parseFloat(pRow.ClosingPrice);
+    const change = parseFloat(pRow.Change || 0);
+    const prevClose = close - change;
+    const changePct = prevClose > 0 ? (change / prevClose * 100) : 0;
+    capList.push({
+      id: code, name: r['公司簡稱'] || code,
+      marketCap: shares * close, changePct,
+      industry: (typeof STOCK_DB !== 'undefined' && STOCK_DB[code]?.industry) || '其他',
+    });
+  });
+
+  if (capList.length < 100) throw new Error(`證交所資料異常，只算出${capList.length}檔`);
+
+  capList.sort((a, b) => b.marketCap - a.marketCap);
+  const rank50Cap = capList[49]?.marketCap || 0; // 第50名的市值，當作門檻基準
+
+  const list = capList.slice(IDX_BORDER_LO - 1, IDX_BORDER_HI).map((x, i) => {
+    const rank = IDX_BORDER_LO + i;
+    const gapPct = rank50Cap ? ((x.marketCap - rank50Cap) / rank50Cap * 100) : 0;
+    return {
+      ...x, rank,
+      direction: rank <= 50 ? 'out' : 'in', // out=排名尚在前50但接近墊底，有出指風險；in=排名在50名外但接近，有入指機會
+      gapPct,
+    };
+  });
+
+  localStorage.setItem(IDX_BORDER_CACHE_KEY, JSON.stringify({ date: todayStr, list, computedAt: new Date().toISOString() }));
+  return list;
+}
+
+function renderIndexBorderList(list) {
+  const outGroup = list.filter(x => x.direction === 'out').sort((a,b) => a.rank - b.rank); // 排名42~50，越接近50風險越高
+  const inGroup  = list.filter(x => x.direction === 'in').sort((a,b) => a.rank - b.rank);  // 排名51~59，越接近51機會越大
+
+  const rowHtml = x => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;">
+      <span style="font-weight:800;color:var(--fg3);width:28px;">#${x.rank}</span>
+      <span style="font-weight:700;flex:1;">${x.name}<span style="color:var(--fg3);font-weight:400;"> ${x.id}</span></span>
+      <span style="color:var(--fg3);font-size:0.65rem;">${x.industry}</span>
+      <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:52px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
+      <span style="font-weight:700;color:${Math.abs(x.gapPct)<=3?'#d97706':'var(--fg3)'};width:64px;text-align:right;" title="與第50名市值差距">${x.gapPct>=0?'+':''}${x.gapPct.toFixed(1)}%</span>
+    </div>`;
+
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <div style="font-weight:800;font-size:0.75rem;color:#dc2626;margin-bottom:4px;">🔴 潛在出指候選（排名${IDX_BORDER_LO}~50，接近墊底）</div>
+        ${outGroup.length ? outGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:0.75rem;color:#16a34a;margin-bottom:4px;">🟢 潛在入指候選（排名51~${IDX_BORDER_HI}，接近門檻）</div>
+        ${inGroup.length ? inGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);">與第50名市值差距欄：橘色代表差距在±3%以內，代表這次調整「翻盤機率」較高，值得優先觀察。</div>`;
+}
+
+async function loadIndexBorderCandidates() {
+  const btn = document.getElementById('idxBorderLoadBtn');
+  const body = document.getElementById('idxBorderBody');
+  btn.disabled = true; btn.textContent = '⏳ 計算中…';
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">⏳ 抓取市值排名資料中…</div>';
+  try {
+    const list = await fetchIndexBorderCandidates();
+    body.innerHTML = renderIndexBorderList(list);
+    document.getElementById('idxBorderUpdated').textContent = `資料日期：${new Date().toISOString().slice(0,10)}（排名${IDX_BORDER_LO}~${IDX_BORDER_HI}）`;
+  } catch (e) {
+    body.innerHTML = `<div style="text-align:center;padding:20px;color:#dc2626;font-size:0.8rem;">❌ ${e.message}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '📡 載入候選名單';
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
