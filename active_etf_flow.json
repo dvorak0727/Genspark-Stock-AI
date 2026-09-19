@@ -1,0 +1,2253 @@
+{
+"generated_at": "2026-09-19T08:27:52Z",
+"window_days": 5,
+"by_stock": {
+"6488": {
+"name": "環球晶",
+"buy": 144000,
+"sell": 316000,
+"net": -172000,
+"etf_count": 2
+},
+"2382": {
+"name": "廣達",
+"buy": 18000,
+"sell": 664000,
+"net": -646000,
+"etf_count": 3
+},
+"2637": {
+"name": "慧洋-KY",
+"buy": 887000,
+"sell": 25000,
+"net": 862000,
+"etf_count": 2
+},
+"2383": {
+"name": "台光電",
+"buy": 164220,
+"sell": 167000,
+"net": -2780,
+"etf_count": 9
+},
+"1215": {
+"name": "卜蜂",
+"buy": 100000,
+"sell": 0,
+"net": 100000,
+"etf_count": 1
+},
+"6505": {
+"name": "台塑化",
+"buy": 3238000,
+"sell": 0,
+"net": 3238000,
+"etf_count": 1
+},
+"6274": {
+"name": "台  燿",
+"buy": 0,
+"sell": 1927000,
+"net": -1927000,
+"etf_count": 5
+},
+"2603": {
+"name": "長榮",
+"buy": 1175000,
+"sell": 0,
+"net": 1175000,
+"etf_count": 2
+},
+"3008": {
+"name": "大立光",
+"buy": 16520,
+"sell": 341000,
+"net": -324480,
+"etf_count": 5
+},
+"4979": {
+"name": "華星光",
+"buy": 0,
+"sell": 293000,
+"net": -293000,
+"etf_count": 1
+},
+"2308": {
+"name": "台達電",
+"buy": 175990,
+"sell": 68000,
+"net": 107990,
+"etf_count": 7
+},
+"2885": {
+"name": "元大金",
+"buy": 2242000,
+"sell": 4026000,
+"net": -1784000,
+"etf_count": 3
+},
+"1303": {
+"name": "南亞",
+"buy": 7901000,
+"sell": 278000,
+"net": 7623000,
+"etf_count": 5
+},
+"3036": {
+"name": "文曄",
+"buy": 676000,
+"sell": 0,
+"net": 676000,
+"etf_count": 1
+},
+"5347": {
+"name": "世界先進",
+"buy": 11000,
+"sell": 1351000,
+"net": -1340000,
+"etf_count": 2
+},
+"6515": {
+"name": "穎崴",
+"buy": 5430,
+"sell": 21000,
+"net": -15570,
+"etf_count": 2
+},
+"3711": {
+"name": "日月光",
+"buy": 231000,
+"sell": 1145000,
+"net": -914000,
+"etf_count": 5
+},
+"3231": {
+"name": "緯創",
+"buy": 1190000,
+"sell": 0,
+"net": 1190000,
+"etf_count": 2
+},
+"6531": {
+"name": "愛普",
+"buy": 13000,
+"sell": 4000,
+"net": 9000,
+"etf_count": 3
+},
+"6285": {
+"name": "啟碁科技",
+"buy": 8000,
+"sell": 0,
+"net": 8000,
+"etf_count": 1
+},
+"2890": {
+"name": "永豐金融控股",
+"buy": 1744000,
+"sell": 0,
+"net": 1744000,
+"etf_count": 3
+},
+"1216": {
+"name": "統一企業",
+"buy": 5000,
+"sell": 0,
+"net": 5000,
+"etf_count": 1
+},
+"4958": {
+"name": "臻鼎-KY",
+"buy": 7000,
+"sell": 78000,
+"net": -71000,
+"etf_count": 4
+},
+"4938": {
+"name": "和碩聯合科技",
+"buy": 5000,
+"sell": 0,
+"net": 5000,
+"etf_count": 1
+},
+"2327": {
+"name": "國巨",
+"buy": 660000,
+"sell": 128000,
+"net": 532000,
+"etf_count": 6
+},
+"2891": {
+"name": "中國信託金融控股",
+"buy": 1005000,
+"sell": 2355000,
+"net": -1350000,
+"etf_count": 3
+},
+"2883": {
+"name": "凱基金",
+"buy": 2145000,
+"sell": 0,
+"net": 2145000,
+"etf_count": 3
+},
+"5871": {
+"name": "中租-KY",
+"buy": 2000,
+"sell": 0,
+"net": 2000,
+"etf_count": 1
+},
+"2313": {
+"name": "華通電腦",
+"buy": 10000,
+"sell": 66000,
+"net": -56000,
+"etf_count": 2
+},
+"1477": {
+"name": "聚陽實業",
+"buy": 6000,
+"sell": 0,
+"net": 6000,
+"etf_count": 1
+},
+"2345": {
+"name": "智邦科技",
+"buy": 420370,
+"sell": 254000,
+"net": 166370,
+"etf_count": 5
+},
+"8464": {
+"name": "億豐綜合工業",
+"buy": 4000,
+"sell": 0,
+"net": 4000,
+"etf_count": 1
+},
+"2881": {
+"name": "富邦金融控股",
+"buy": 493000,
+"sell": 865000,
+"net": -372000,
+"etf_count": 3
+},
+"2886": {
+"name": "兆豐金融控股",
+"buy": 38000,
+"sell": 0,
+"net": 38000,
+"etf_count": 1
+},
+"2412": {
+"name": "中華電信",
+"buy": 8000,
+"sell": 0,
+"net": 8000,
+"etf_count": 1
+},
+"2368": {
+"name": "金像電子",
+"buy": 1015360,
+"sell": 411060,
+"net": 604300,
+"etf_count": 5
+},
+"6187": {
+"name": "萬潤科技",
+"buy": 760,
+"sell": 0,
+"net": 760,
+"etf_count": 1
+},
+"7769": {
+"name": "鴻勁",
+"buy": 1380,
+"sell": 1000,
+"net": 380,
+"etf_count": 2
+},
+"2303": {
+"name": "聯華電子",
+"buy": 17579000,
+"sell": 159000,
+"net": 17420000,
+"etf_count": 9
+},
+"5274": {
+"name": "信驊科技",
+"buy": 4758,
+"sell": 0,
+"net": 4758,
+"etf_count": 3
+},
+"3037": {
+"name": "欣興電子",
+"buy": 1071000,
+"sell": 211000,
+"net": 860000,
+"etf_count": 6
+},
+"2330": {
+"name": "台灣積體電路製造",
+"buy": 576960,
+"sell": 127000,
+"net": 449960,
+"etf_count": 6
+},
+"6510": {
+"name": "中華精測科技",
+"buy": 19310,
+"sell": 198777,
+"net": -179467,
+"etf_count": 4
+},
+"6669": {
+"name": "緯穎",
+"buy": 199280,
+"sell": 988000,
+"net": -788720,
+"etf_count": 8
+},
+"3491": {
+"name": "昇達科技",
+"buy": 235660,
+"sell": 0,
+"net": 235660,
+"etf_count": 4
+},
+"3131": {
+"name": "弘塑科技",
+"buy": 2430,
+"sell": 30000,
+"net": -27570,
+"etf_count": 3
+},
+"7828": {
+"name": "創新服務",
+"buy": 1370,
+"sell": 0,
+"net": 1370,
+"etf_count": 1
+},
+"2887": {
+"name": "台新新光金",
+"buy": 1889000,
+"sell": 0,
+"net": 1889000,
+"etf_count": 3
+},
+"2912": {
+"name": "統一超商",
+"buy": 2000,
+"sell": 1000,
+"net": 1000,
+"etf_count": 2
+},
+"5904": {
+"name": "寶雅國際",
+"buy": 57000,
+"sell": 0,
+"net": 57000,
+"etf_count": 2
+},
+"2454": {
+"name": "聯發科技",
+"buy": 189010,
+"sell": 6000,
+"net": 183010,
+"etf_count": 7
+},
+"2884": {
+"name": "玉山金融控股",
+"buy": 61000,
+"sell": 0,
+"net": 61000,
+"etf_count": 1
+},
+"2357": {
+"name": "華碩電腦",
+"buy": 6000,
+"sell": 2000,
+"net": 4000,
+"etf_count": 2
+},
+"2882": {
+"name": "國泰金融控股",
+"buy": 886000,
+"sell": 0,
+"net": 886000,
+"etf_count": 2
+},
+"2317": {
+"name": "鴻海精密工業",
+"buy": 3000,
+"sell": 0,
+"net": 3000,
+"etf_count": 1
+},
+"6223": {
+"name": "旺矽科技",
+"buy": 63440,
+"sell": 8000,
+"net": 55440,
+"etf_count": 5
+},
+"2379": {
+"name": "瑞昱半導體",
+"buy": 2000,
+"sell": 0,
+"net": 2000,
+"etf_count": 1
+},
+"2059": {
+"name": "川湖科技",
+"buy": 21617,
+"sell": 12000,
+"net": 9617,
+"etf_count": 5
+},
+"2360": {
+"name": "致茂電子",
+"buy": 2120,
+"sell": 5000,
+"net": -2880,
+"etf_count": 2
+},
+"4904": {
+"name": "遠傳電信",
+"buy": 10000,
+"sell": 0,
+"net": 10000,
+"etf_count": 1
+},
+"3034": {
+"name": "聯詠科技",
+"buy": 10000,
+"sell": 4000,
+"net": 6000,
+"etf_count": 2
+},
+"4991": {
+"name": "環宇通訊半導體控股",
+"buy": 3000,
+"sell": 0,
+"net": 3000,
+"etf_count": 1
+},
+"6147": {
+"name": "頎邦科技",
+"buy": 242000,
+"sell": 0,
+"net": 242000,
+"etf_count": 2
+},
+"6944": {
+"name": "兆聯實業",
+"buy": 0,
+"sell": 4800,
+"net": -4800,
+"etf_count": 1
+},
+"2455": {
+"name": "全新光電科技",
+"buy": 21000,
+"sell": 600000,
+"net": -579000,
+"etf_count": 4
+},
+"COHR US": {
+"name": "Coherent Corp",
+"buy": 0,
+"sell": 2700,
+"net": -2700,
+"etf_count": 1
+},
+"ASML US": {
+"name": "ASML Holding NV",
+"buy": 0,
+"sell": 500,
+"net": -500,
+"etf_count": 1
+},
+"MU US": {
+"name": "Micron Technology Inc",
+"buy": 0,
+"sell": 9794,
+"net": -9794,
+"etf_count": 3
+},
+"LITE US": {
+"name": "Lumentum Holdings Inc",
+"buy": 0,
+"sell": 500,
+"net": -500,
+"etf_count": 1
+},
+"SKHY US": {
+"name": "SK hynix Inc",
+"buy": 0,
+"sell": 1100,
+"net": -1100,
+"etf_count": 1
+},
+"ARM US": {
+"name": "ARM Holdings PLC",
+"buy": 19562,
+"sell": 0,
+"net": 19562,
+"etf_count": 2
+},
+"INTC US": {
+"name": "Intel Corp",
+"buy": 102799,
+"sell": 13000,
+"net": 89799,
+"etf_count": 4
+},
+"2344": {
+"name": "華邦電",
+"buy": 0,
+"sell": 999000,
+"net": -999000,
+"etf_count": 1
+},
+"3189": {
+"name": "景碩",
+"buy": 935000,
+"sell": 17000,
+"net": 918000,
+"etf_count": 6
+},
+"3443": {
+"name": "創意",
+"buy": 85000,
+"sell": 1000,
+"net": 84000,
+"etf_count": 4
+},
+"8046": {
+"name": "南電",
+"buy": 388000,
+"sell": 49000,
+"net": 339000,
+"etf_count": 5
+},
+"2408": {
+"name": "南亞科",
+"buy": 2080000,
+"sell": 45000,
+"net": 2035000,
+"etf_count": 2
+},
+"3533": {
+"name": "嘉澤",
+"buy": 0,
+"sell": 120000,
+"net": -120000,
+"etf_count": 1
+},
+"3450": {
+"name": "聯鈞",
+"buy": 274000,
+"sell": 0,
+"net": 274000,
+"etf_count": 2
+},
+"6805": {
+"name": "富世達",
+"buy": 55000,
+"sell": 103000,
+"net": -48000,
+"etf_count": 5
+},
+"3264": {
+"name": "欣銓",
+"buy": 1679000,
+"sell": 1080000,
+"net": 599000,
+"etf_count": 6
+},
+"6239": {
+"name": "力成",
+"buy": 0,
+"sell": 2560000,
+"net": -2560000,
+"etf_count": 1
+},
+"6206": {
+"name": "飛捷科技股份有限公司",
+"buy": 28000,
+"sell": 0,
+"net": 28000,
+"etf_count": 1
+},
+"3293": {
+"name": "鈊象電子",
+"buy": 5000,
+"sell": 0,
+"net": 5000,
+"etf_count": 1
+},
+"4763": {
+"name": "濟南大自然新材料股份有限公司",
+"buy": 137000,
+"sell": 410000,
+"net": -273000,
+"etf_count": 2
+},
+"2542": {
+"name": "興富發建設",
+"buy": 121000,
+"sell": 43000,
+"net": 78000,
+"etf_count": 1
+},
+"6257": {
+"name": "矽格股份有限公司",
+"buy": 18000,
+"sell": 17000,
+"net": 1000,
+"etf_count": 1
+},
+"3260": {
+"name": "威剛科技",
+"buy": 11000,
+"sell": 4000,
+"net": 7000,
+"etf_count": 1
+},
+"2027": {
+"name": "大成不?鋼工業",
+"buy": 112000,
+"sell": 59000,
+"net": 53000,
+"etf_count": 1
+},
+"2301": {
+"name": "光寶科技",
+"buy": 8000,
+"sell": 0,
+"net": 8000,
+"etf_count": 1
+},
+"台股期貨10/26": {
+"name": "台股期貨10/26",
+"buy": 38,
+"sell": 0,
+"net": 38,
+"etf_count": 1
+},
+"6196": {
+"name": "帆宣系統科技股份有限公司",
+"buy": 5000,
+"sell": 0,
+"net": 5000,
+"etf_count": 1
+},
+"8299": {
+"name": "群聯電子",
+"buy": 1000,
+"sell": 0,
+"net": 1000,
+"etf_count": 1
+},
+"台股期貨09/26": {
+"name": "台股期貨09/26",
+"buy": 0,
+"sell": 34,
+"net": -34,
+"etf_count": 1
+},
+"2347": {
+"name": "聯強國際",
+"buy": 46000,
+"sell": 14000,
+"net": 32000,
+"etf_count": 1
+},
+"8016": {
+"name": "矽創電子",
+"buy": 10000,
+"sell": 0,
+"net": 10000,
+"etf_count": 1
+},
+"2351": {
+"name": "順德工業",
+"buy": 8000,
+"sell": 0,
+"net": 8000,
+"etf_count": 1
+},
+"2436": {
+"name": "偉詮電子",
+"buy": 37000,
+"sell": 18000,
+"net": 19000,
+"etf_count": 1
+},
+"8081": {
+"name": "致新科技",
+"buy": 8000,
+"sell": 4000,
+"net": 4000,
+"etf_count": 1
+},
+"3017": {
+"name": "奇鋐科技",
+"buy": 183000,
+"sell": 105000,
+"net": 78000,
+"etf_count": 5
+},
+"TXO": {
+"name": "臺指選擇權",
+"buy": 4290,
+"sell": 1280,
+"net": 3010,
+"etf_count": 1
+},
+"TX": {
+"name": "臺股期貨",
+"buy": 880,
+"sell": 24,
+"net": 856,
+"etf_count": 2
+},
+"1560": {
+"name": "中國砂輪企業",
+"buy": 171000,
+"sell": 18000,
+"net": 153000,
+"etf_count": 3
+},
+"3653": {
+"name": "健策精密工業",
+"buy": 92000,
+"sell": 50000,
+"net": 42000,
+"etf_count": 3
+},
+"3081": {
+"name": "聯亞光電工業",
+"buy": 222000,
+"sell": 28000,
+"net": 194000,
+"etf_count": 6
+},
+"2481": {
+"name": "強茂",
+"buy": 1060000,
+"sell": 0,
+"net": 1060000,
+"etf_count": 1
+},
+"6213": {
+"name": "聯茂電子",
+"buy": 771000,
+"sell": 0,
+"net": 771000,
+"etf_count": 2
+},
+"TX4": {
+"name": "臺指選擇權第四週週三到期契約",
+"buy": 0,
+"sell": 3850,
+"net": -3850,
+"etf_count": 1
+},
+"TXX": {
+"name": "臺指選擇權第三週週五到期契約",
+"buy": 3800,
+"sell": 2510,
+"net": 1290,
+"etf_count": 1
+},
+"3363": {
+"name": "上詮光纖通信",
+"buy": 89000,
+"sell": 0,
+"net": 89000,
+"etf_count": 1
+},
+"3167": {
+"name": "大量科技",
+"buy": 150000,
+"sell": 0,
+"net": 150000,
+"etf_count": 1
+},
+"TXY": {
+"name": "臺指選擇權第四週週五到期契約",
+"buy": 0,
+"sell": 1650,
+"net": -1650,
+"etf_count": 1
+},
+"8210": {
+"name": "勤誠",
+"buy": 0,
+"sell": 398000,
+"net": -398000,
+"etf_count": 2
+},
+"3026": {
+"name": "禾伸堂企業",
+"buy": 53000,
+"sell": 0,
+"net": 53000,
+"etf_count": 1
+},
+"USH3698DDW14": {
+"name": "UBS GROUP AG SER REGS (REG S) VAR 15NOV2033",
+"buy": 0,
+"sell": 250000,
+"net": -250000,
+"etf_count": 1
+},
+"US5YRNOTE(CBT)DEC2631-DEC-2026": {
+"name": "US 5YR NOTE (CBT) DEC26 31-DEC-2026",
+"buy": 4,
+"sell": 0,
+"net": 4,
+"etf_count": 1
+},
+"USULTRABONDCBTDEC2621-DEC-2026": {
+"name": "US ULTRA BOND CBT DEC26 21-DEC-2026",
+"buy": 0,
+"sell": 2,
+"net": -2,
+"etf_count": 1
+},
+"8996": {
+"name": "高力",
+"buy": 0,
+"sell": 232000,
+"net": -232000,
+"etf_count": 2
+},
+"2449": {
+"name": "京元電子",
+"buy": 320000,
+"sell": 0,
+"net": 320000,
+"etf_count": 1
+},
+"US69331CAM01": {
+"name": "PCG V7.375 03/15/55",
+"buy": 0,
+"sell": 2100000,
+"net": -2100000,
+"etf_count": 1
+},
+"USU86042AA34": {
+"name": "SABHLD 11.125 06/15/29 REGS",
+"buy": 200000,
+"sell": 0,
+"net": 200000,
+"etf_count": 1
+},
+"US25156PAC77": {
+"name": "DT 8.25 06/15/30",
+"buy": 0,
+"sell": 500000,
+"net": -500000,
+"etf_count": 1
+},
+"USC39555AE44": {
+"name": "GSYCN 9.25 12/01/28 REGS",
+"buy": 1000000,
+"sell": 0,
+"net": 1000000,
+"etf_count": 1
+},
+"USU1056LAC55": {
+"name": "BURLN 9.25 07/01/31 REGS",
+"buy": 400000,
+"sell": 0,
+"net": 400000,
+"etf_count": 1
+},
+"US49579RAB42": {
+"name": "LUCK 7.25 10/15/32 144A",
+"buy": 0,
+"sell": 300000,
+"net": -300000,
+"etf_count": 1
+},
+"US02406PBD15": {
+"name": "AXL 7.75 10/15/33 144A",
+"buy": 250000,
+"sell": 0,
+"net": 250000,
+"etf_count": 1
+},
+"USG2957NAA93": {
+"name": "AVIAGP 9.625 02/14/30 REGS",
+"buy": 673000,
+"sell": 0,
+"net": 673000,
+"etf_count": 2
+},
+"USC6900QAA51": {
+"name": "BHCCN 10 04/15/32 REGS",
+"buy": 400000,
+"sell": 0,
+"net": 400000,
+"etf_count": 1
+},
+"USU62000AC58": {
+"name": "MSSCRK 8.25 09/01/31 REGS",
+"buy": 300000,
+"sell": 0,
+"net": 300000,
+"etf_count": 1
+},
+"USU04553AA87": {
+"name": "JBLU 9.875 09/20/31 REGS",
+"buy": 500000,
+"sell": 0,
+"net": 500000,
+"etf_count": 1
+},
+"US88731EAJ91": {
+"name": "CHTR 8.375 07/15/33",
+"buy": 0,
+"sell": 1200000,
+"net": -1200000,
+"etf_count": 1
+},
+"US18912UAA07": {
+"name": "TIBX 9 09/30/29 144A",
+"buy": 900000,
+"sell": 0,
+"net": 900000,
+"etf_count": 1
+},
+"USU05375AX59": {
+"name": "CAR 8.375 06/15/32 REGS",
+"buy": 1497000,
+"sell": 0,
+"net": 1497000,
+"etf_count": 2
+},
+"US023771T329": {
+"name": "AAL 7.25 02/15/28 144A",
+"buy": 0,
+"sell": 300000,
+"net": -300000,
+"etf_count": 1
+},
+"US84615QAG82": {
+"name": "SPCX 6.6 07/15/46 144A",
+"buy": 0,
+"sell": 800000,
+"net": -800000,
+"etf_count": 1
+},
+"USU1638HAD99": {
+"name": "SM 9.625 06/15/33 REGS",
+"buy": 1000000,
+"sell": 0,
+"net": 1000000,
+"etf_count": 1
+},
+"US852060AT99": {
+"name": "S 8.75 03/15/32",
+"buy": 0,
+"sell": 400000,
+"net": -400000,
+"etf_count": 1
+},
+"US35177PAL13": {
+"name": "ORAFP 8.5 03/01/31",
+"buy": 0,
+"sell": 800000,
+"net": -800000,
+"etf_count": 1
+},
+"US03837AAD28": {
+"name": "APTV V6.875 12/15/54",
+"buy": 0,
+"sell": 200000,
+"net": -200000,
+"etf_count": 1
+},
+"USU0926MAB55": {
+"name": "BXMT 7.75 12/01/29 REGS",
+"buy": 0,
+"sell": 800000,
+"net": -800000,
+"etf_count": 1
+},
+"US527298CQ43": {
+"name": "LVLT 8.5 01/15/36 144A",
+"buy": 500000,
+"sell": 0,
+"net": 500000,
+"etf_count": 1
+},
+"US111021AE12": {
+"name": "BRITEL 9.625 12/15/30",
+"buy": 0,
+"sell": 400000,
+"net": -400000,
+"etf_count": 1
+},
+"US92841HAA05": {
+"name": "VSTJET 9.5 06/01/28 144A",
+"buy": 1000000,
+"sell": 0,
+"net": 1000000,
+"etf_count": 1
+},
+"US63938CAP32": {
+"name": "NAVI 11.5 03/15/31",
+"buy": 400000,
+"sell": 0,
+"net": 400000,
+"etf_count": 1
+},
+"US893830BZ10": {
+"name": "RIG 8.5 05/15/31 144A",
+"buy": 600000,
+"sell": 0,
+"net": 600000,
+"etf_count": 1
+},
+"US64438WAA53": {
+"name": "NFICN 9.25 07/01/30 144A",
+"buy": 400000,
+"sell": 0,
+"net": 400000,
+"etf_count": 1
+},
+"US55342UAQ76": {
+"name": "MPW 8.5 02/15/32 144a",
+"buy": 500000,
+"sell": 0,
+"net": 500000,
+"etf_count": 1
+},
+"3583": {
+"name": "辛耘",
+"buy": 0,
+"sell": 170000,
+"net": -170000,
+"etf_count": 1
+},
+"6640": {
+"name": "均華",
+"buy": 27000,
+"sell": 0,
+"net": 27000,
+"etf_count": 1
+},
+"3617": {
+"name": "碩天",
+"buy": 50000,
+"sell": 0,
+"net": 50000,
+"etf_count": 1
+},
+"8070": {
+"name": "長華",
+"buy": 420000,
+"sell": 0,
+"net": 420000,
+"etf_count": 1
+},
+"NVDA US": {
+"name": "輝達",
+"buy": 560,
+"sell": 0,
+"net": 560,
+"etf_count": 1
+},
+"SPCX US": {
+"name": "太空探索科技公司",
+"buy": 50954,
+"sell": 0,
+"net": 50954,
+"etf_count": 2
+},
+"FIG US": {
+"name": "Figma Inc",
+"buy": 0,
+"sell": 2922,
+"net": -2922,
+"etf_count": 1
+},
+"RBLX US": {
+"name": "Roblox公司",
+"buy": 0,
+"sell": 90,
+"net": -90,
+"etf_count": 1
+},
+"NET US": {
+"name": "Cloudflare公司",
+"buy": 10205,
+"sell": 0,
+"net": 10205,
+"etf_count": 2
+},
+"TSLA US": {
+"name": "特斯拉公司",
+"buy": 0,
+"sell": 155,
+"net": -155,
+"etf_count": 1
+},
+"TEM US": {
+"name": "Tempus AI Inc",
+"buy": 0,
+"sell": 2039,
+"net": -2039,
+"etf_count": 1
+},
+"AVGO US": {
+"name": "博通公司",
+"buy": 292,
+"sell": 2909,
+"net": -2617,
+"etf_count": 2
+},
+"SHOP US": {
+"name": "Shopify公司",
+"buy": 0,
+"sell": 3270,
+"net": -3270,
+"etf_count": 1
+},
+"PLTR US": {
+"name": "帕蘭提爾科技公司",
+"buy": 0,
+"sell": 4993,
+"net": -4993,
+"etf_count": 2
+},
+"HOOD US": {
+"name": "羅賓漢市場公司",
+"buy": 0,
+"sell": 20445,
+"net": -20445,
+"etf_count": 2
+},
+"AMD US": {
+"name": "超微半導體公司",
+"buy": 0,
+"sell": 227,
+"net": -227,
+"etf_count": 1
+},
+"ILMN US": {
+"name": "伊魯米納公司",
+"buy": 0,
+"sell": 151,
+"net": -151,
+"etf_count": 1
+},
+"CRSP US": {
+"name": "CRISPR治療公司",
+"buy": 0,
+"sell": 650,
+"net": -650,
+"etf_count": 1
+},
+"BEAM US": {
+"name": "光束治療公司",
+"buy": 0,
+"sell": 1578,
+"net": -1578,
+"etf_count": 1
+},
+"NTLA US": {
+"name": "英特利亞治療公司",
+"buy": 0,
+"sell": 1346,
+"net": -1346,
+"etf_count": 1
+},
+"TXG US": {
+"name": "10X Genomics Inc",
+"buy": 0,
+"sell": 2095,
+"net": -2095,
+"etf_count": 1
+},
+"TWST US": {
+"name": "Twist Bioscience Corp",
+"buy": 15500,
+"sell": 288,
+"net": 15212,
+"etf_count": 2
+},
+"VCYT US": {
+"name": "Veracyte公司",
+"buy": 0,
+"sell": 381,
+"net": -381,
+"etf_count": 1
+},
+"NTRA US": {
+"name": "那提拉公司",
+"buy": 0,
+"sell": 105,
+"net": -105,
+"etf_count": 1
+},
+"2404": {
+"name": "漢唐",
+"buy": 0,
+"sell": 36000,
+"net": -36000,
+"etf_count": 1
+},
+"3661": {
+"name": "世芯-KY",
+"buy": 0,
+"sell": 234000,
+"net": -234000,
+"etf_count": 4
+},
+"2897": {
+"name": "王道銀行",
+"buy": 0,
+"sell": 243000,
+"net": -243000,
+"etf_count": 1
+},
+"6426": {
+"name": "統新",
+"buy": 0,
+"sell": 33000,
+"net": -33000,
+"etf_count": 1
+},
+"1229": {
+"name": "聯華實業",
+"buy": 0,
+"sell": 135000,
+"net": -135000,
+"etf_count": 1
+},
+"5876": {
+"name": "上海商銀",
+"buy": 0,
+"sell": 519000,
+"net": -519000,
+"etf_count": 1
+},
+"1907": {
+"name": "永豐餘",
+"buy": 0,
+"sell": 105000,
+"net": -105000,
+"etf_count": 1
+},
+"6173": {
+"name": "信昌電陶",
+"buy": 199000,
+"sell": 0,
+"net": 199000,
+"etf_count": 1
+},
+"2903": {
+"name": "遠百",
+"buy": 0,
+"sell": 175000,
+"net": -175000,
+"etf_count": 1
+},
+"1402": {
+"name": "遠東新",
+"buy": 0,
+"sell": 382000,
+"net": -382000,
+"etf_count": 1
+},
+"8415": {
+"name": "大國鋼",
+"buy": 0,
+"sell": 510000,
+"net": -510000,
+"etf_count": 1
+},
+"2850": {
+"name": "新光產險",
+"buy": 0,
+"sell": 18000,
+"net": -18000,
+"etf_count": 1
+},
+"5880": {
+"name": "合作金庫",
+"buy": 0,
+"sell": 154150,
+"net": -154150,
+"etf_count": 1
+},
+"9933": {
+"name": "中鼎",
+"buy": 0,
+"sell": 141000,
+"net": -141000,
+"etf_count": 1
+},
+"3532": {
+"name": "台勝科",
+"buy": 0,
+"sell": 22000,
+"net": -22000,
+"etf_count": 1
+},
+"2464": {
+"name": "盟立",
+"buy": 0,
+"sell": 34000,
+"net": -34000,
+"etf_count": 1
+},
+"3665": {
+"name": "貿聯-KY",
+"buy": 0,
+"sell": 12000,
+"net": -12000,
+"etf_count": 2
+},
+"2851": {
+"name": "中央再保",
+"buy": 1379000,
+"sell": 0,
+"net": 1379000,
+"etf_count": 1
+},
+"3374": {
+"name": "精材",
+"buy": 0,
+"sell": 67000,
+"net": -67000,
+"etf_count": 1
+},
+"2855": {
+"name": "統一證券",
+"buy": 1378000,
+"sell": 0,
+"net": 1378000,
+"etf_count": 1
+},
+"3045": {
+"name": "台灣大",
+"buy": 0,
+"sell": 179000,
+"net": -179000,
+"etf_count": 1
+},
+"3234": {
+"name": "光環",
+"buy": 0,
+"sell": 372000,
+"net": -372000,
+"etf_count": 1
+},
+"1102": {
+"name": "亞泥",
+"buy": 0,
+"sell": 339000,
+"net": -339000,
+"etf_count": 1
+},
+"6548": {
+"name": "長科",
+"buy": 0,
+"sell": 155000,
+"net": -155000,
+"etf_count": 1
+},
+"9941": {
+"name": "裕融",
+"buy": 1105000,
+"sell": 0,
+"net": 1105000,
+"etf_count": 1
+},
+"6584": {
+"name": "南俊國際",
+"buy": 0,
+"sell": 87000,
+"net": -87000,
+"etf_count": 1
+},
+"2845": {
+"name": "遠東銀行",
+"buy": 4503000,
+"sell": 0,
+"net": 4503000,
+"etf_count": 1
+},
+"9802": {
+"name": "鈺齊-KY",
+"buy": 0,
+"sell": 35000,
+"net": -35000,
+"etf_count": 1
+},
+"6670": {
+"name": "復盛應用",
+"buy": 0,
+"sell": 7000,
+"net": -7000,
+"etf_count": 1
+},
+"6214": {
+"name": "精誠資訊",
+"buy": 0,
+"sell": 18000,
+"net": -18000,
+"etf_count": 1
+},
+"6177": {
+"name": "達麗",
+"buy": 0,
+"sell": 91000,
+"net": -91000,
+"etf_count": 1
+},
+"2006": {
+"name": "東和鋼鐵",
+"buy": 0,
+"sell": 113000,
+"net": -113000,
+"etf_count": 1
+},
+"7780": {
+"name": "大研生醫",
+"buy": 0,
+"sell": 60000,
+"net": -60000,
+"etf_count": 1
+},
+"7750": {
+"name": "新代",
+"buy": 2000,
+"sell": 0,
+"net": 2000,
+"etf_count": 1
+},
+"5306": {
+"name": "桂盟",
+"buy": 0,
+"sell": 9000,
+"net": -9000,
+"etf_count": 1
+},
+"6592": {
+"name": "和潤企業",
+"buy": 0,
+"sell": 30000,
+"net": -30000,
+"etf_count": 1
+},
+"2520": {
+"name": "冠德",
+"buy": 0,
+"sell": 108000,
+"net": -108000,
+"etf_count": 1
+},
+"1326": {
+"name": "台化",
+"buy": 0,
+"sell": 1045000,
+"net": -1045000,
+"etf_count": 1
+},
+"2618": {
+"name": "長榮航",
+"buy": 0,
+"sell": 533000,
+"net": -533000,
+"etf_count": 1
+},
+"1808": {
+"name": "潤隆",
+"buy": 0,
+"sell": 126000,
+"net": -126000,
+"etf_count": 1
+},
+"6005": {
+"name": "群益證券",
+"buy": 0,
+"sell": 444876,
+"net": -444876,
+"etf_count": 1
+},
+"4123": {
+"name": "晟德",
+"buy": 0,
+"sell": 1,
+"net": -1,
+"etf_count": 1
+},
+"US726503AG04": {
+"name": "PLAINS ALL AMERICAN PIPE SER B (REG) VAR 15DEC2056",
+"buy": 249000,
+"sell": 0,
+"net": 249000,
+"etf_count": 1
+},
+"USU0461RAA78": {
+"name": "ARMOR HOLDCO INC SER REGS (REG) (REG S) 8.5% 15NOV2029",
+"buy": 1207000,
+"sell": 0,
+"net": 1207000,
+"etf_count": 1
+},
+"USF0270BAA01": {
+"name": "ALTICE FRAN LUX 3/HOLD 1 SER REGS 9.500000 % 01-NOV-2029",
+"buy": 843000,
+"sell": 0,
+"net": 843000,
+"etf_count": 1
+},
+"US02090DAA63": {
+"name": "ALTICE FRAN LUX 3/HOLD 1 SER 144A 9.500000 % 01-NOV-2029",
+"buy": 0,
+"sell": 843000,
+"net": -843000,
+"etf_count": 1
+},
+"USU04080AA22": {
+"name": "ARETEC ESCROW ISSUER 2 SER REGS (REG) (REG S) 10% 15AUG2030",
+"buy": 1247000,
+"sell": 0,
+"net": 1247000,
+"etf_count": 1
+},
+"US315292AU60": {
+"name": "FERRELLGAS LP/FERRELLGAS SER 144A 9.250000 % 15-JAN-2031",
+"buy": 0,
+"sell": 1178000,
+"net": -1178000,
+"etf_count": 1
+},
+"US04020JAA43": {
+"name": "ARETEC ESCROW ISSUER 2 SER 144A (REG) 10% 15AUG2030",
+"buy": 0,
+"sell": 1247000,
+"net": -1247000,
+"etf_count": 1
+},
+"US68389XCK90": {
+"name": "ORACLE CORP 6.9% 09NOV2052",
+"buy": 317000,
+"sell": 0,
+"net": 317000,
+"etf_count": 1
+},
+"US04625PAA93": {
+"name": "ASTEROID PRIVATE MERGER SER 144A (REG) 8.5% 15NOV2029",
+"buy": 0,
+"sell": 1207000,
+"net": -1207000,
+"etf_count": 1
+},
+"US86614JAA34": {
+"name": "SUMMIT MIDSTREAM HOLDING SER 144A 8.625% 31OCT2029",
+"buy": 0,
+"sell": 1399000,
+"net": -1399000,
+"etf_count": 1
+},
+"USU31538AH18": {
+"name": "FERRELLGAS LP/FERRELLGAS SER REGS (REG S) 9.25% 15JAN2031",
+"buy": 1178000,
+"sell": 0,
+"net": 1178000,
+"etf_count": 1
+},
+"USU86057AA10": {
+"name": "SUMMIT MIDSTREAM HOLDING SER REGS (REG S) 8.625% 31OCT2029",
+"buy": 1399000,
+"sell": 0,
+"net": 1399000,
+"etf_count": 1
+},
+"USU18898AB98": {
+"name": "CLOUD SOFTWARE GRP INC SER REGS (REG) (REG S) 8.25% 30JUN2032",
+"buy": 2080000,
+"sell": 0,
+"net": 2080000,
+"etf_count": 1
+},
+"US053773BK25": {
+"name": "AVIS BUDGET CAR/FINANCE SER 144A 8.375000 % 15JUN2032",
+"buy": 0,
+"sell": 997000,
+"net": -997000,
+"etf_count": 1
+},
+"US18912UAC62": {
+"name": "CLOUD SOFTWARE GRP INC SER 144A (REG) 8.25% 30JUN2032",
+"buy": 0,
+"sell": 2080000,
+"net": -2080000,
+"etf_count": 1
+},
+"USU8528KAA61": {
+"name": "WULF COMPUTE LLC SER REGS 7.750000 % 15-OCT-2030",
+"buy": 0,
+"sell": 50000,
+"net": -50000,
+"etf_count": 1
+},
+"US855030AQ50": {
+"name": "STAPLES INC SER 144A 10.75% 01SEP2029",
+"buy": 184000,
+"sell": 0,
+"net": 184000,
+"etf_count": 1
+},
+"US12597YAC30": {
+"name": "CP ATLAS BUYER INC SER 144A 9.750000 % 15JUL2030",
+"buy": 120000,
+"sell": 0,
+"net": 120000,
+"etf_count": 1
+},
+"USU86042AB17": {
+"name": "SABRE FINANCIAL BORROWER SER REGS (REG S) 9.875% 15OCT2032",
+"buy": 396000,
+"sell": 0,
+"net": 396000,
+"etf_count": 1
+},
+"US902613BF40": {
+"name": "UBS GROUP AG SER 144a (REG) VAR PERP 31DEC2049",
+"buy": 0,
+"sell": 1260000,
+"net": -1260000,
+"etf_count": 1
+},
+"US606950AA10": {
+"name": "MOBIUS MERGER SUB SER 144A 9% 01JUN2030",
+"buy": 195000,
+"sell": 0,
+"net": 195000,
+"etf_count": 1
+},
+"US093645AK51": {
+"name": "BLOCK COMMUNICATIONS INC SER 144A 10.25% 01MAR2031",
+"buy": 106000,
+"sell": 0,
+"net": 106000,
+"etf_count": 1
+},
+"USH42097ES26": {
+"name": "UBS GROUP AG SER REGs (REG) (REG S) VAR PERP 31DEC2049",
+"buy": 1260000,
+"sell": 0,
+"net": 1260000,
+"etf_count": 1
+},
+"US12543DBN93": {
+"name": "CHS/COMMUNITY HEALTH SYS SER 144A 10.875% 15JAN2032",
+"buy": 0,
+"sell": 267000,
+"net": -267000,
+"etf_count": 1
+},
+"USU17127AX63": {
+"name": "CHS/COMMUNITY HEALTH SYS SER REGS 10.875000 % 15JAN2032",
+"buy": 267000,
+"sell": 0,
+"net": 267000,
+"etf_count": 1
+},
+"3105": {
+"name": "穩懋半導體",
+"buy": 215000,
+"sell": 0,
+"net": 215000,
+"etf_count": 1
+},
+"NBIS UW": {
+"name": "尼比厄斯集團公眾有限公司",
+"buy": 200,
+"sell": 0,
+"net": 200,
+"etf_count": 1
+},
+"LRCX US": {
+"name": "科林研發股份有限公司",
+"buy": 0,
+"sell": 1500,
+"net": -1500,
+"etf_count": 1
+},
+"DDOG US": {
+"name": "數據狗公司",
+"buy": 12084,
+"sell": 0,
+"net": 12084,
+"etf_count": 2
+},
+"JPM US": {
+"name": "摩根大通銀行",
+"buy": 2100,
+"sell": 0,
+"net": 2100,
+"etf_count": 2
+},
+"AAPL US": {
+"name": "蘋果公司",
+"buy": 400,
+"sell": 10964,
+"net": -10564,
+"etf_count": 2
+},
+"US202612": {
+"name": "202612 美國三十年期政府公債",
+"buy": 0,
+"sell": 20,
+"net": -20,
+"etf_count": 1
+},
+"BE US": {
+"name": "BLOOM ENERGY CORP- A",
+"buy": 98800,
+"sell": 0,
+"net": 98800,
+"etf_count": 2
+},
+"AIXA GY": {
+"name": "AIXTRON SE",
+"buy": 0,
+"sell": 126365,
+"net": -126365,
+"etf_count": 1
+},
+"CRCL US": {
+"name": "CIRCLE INTERNET GROUP INC",
+"buy": 0,
+"sell": 337000,
+"net": -337000,
+"etf_count": 2
+},
+"TSEM US": {
+"name": "TOWER SEMICONDUCTOR LTD",
+"buy": 0,
+"sell": 100000,
+"net": -100000,
+"etf_count": 1
+},
+"CRWD US": {
+"name": "CROWDSTRIKE HOLDINGS INC - A",
+"buy": 205017,
+"sell": 0,
+"net": 205017,
+"etf_count": 2
+},
+"SNDK US": {
+"name": "SANDISK CORP",
+"buy": 0,
+"sell": 10280,
+"net": -10280,
+"etf_count": 2
+},
+"285A JP": {
+"name": "KIOXIA HOLDINGS CORP",
+"buy": 0,
+"sell": 105400,
+"net": -105400,
+"etf_count": 2
+},
+"MSFT US": {
+"name": "MICROSOFT CORP(微軟公司)",
+"buy": 10668,
+"sell": 11320,
+"net": -652,
+"etf_count": 3
+},
+"STX US": {
+"name": "SEAGATE TECHNOLOGY",
+"buy": 0,
+"sell": 40000,
+"net": -40000,
+"etf_count": 1
+},
+"TWLO US": {
+"name": "TWILIO INC - A",
+"buy": 45000,
+"sell": 15000,
+"net": 30000,
+"etf_count": 2
+},
+"OKTA US": {
+"name": "OKTA INC",
+"buy": 177400,
+"sell": 0,
+"net": 177400,
+"etf_count": 2
+},
+"AEM US": {
+"name": "AGNICO EAGLE MINES LTD",
+"buy": 0,
+"sell": 60000,
+"net": -60000,
+"etf_count": 1
+},
+"GENB": {
+"name": "GENERATE BIOMEDICINES INC",
+"buy": 2245,
+"sell": 0,
+"net": 2245,
+"etf_count": 1
+},
+"TTWO": {
+"name": "TAKE-TWO INTERACTIVE SOFTWRE",
+"buy": 0,
+"sell": 105,
+"net": -105,
+"etf_count": 1
+},
+"SNOW": {
+"name": "SNOWFLAKE INC-CLASS A",
+"buy": 0,
+"sell": 71,
+"net": -71,
+"etf_count": 1
+},
+"META": {
+"name": "META PLATFORMS INC-CLASS A",
+"buy": 0,
+"sell": 37,
+"net": -37,
+"etf_count": 1
+},
+"INTC": {
+"name": "INTEL CORP",
+"buy": 0,
+"sell": 207,
+"net": -207,
+"etf_count": 1
+},
+"CRM": {
+"name": "SALESFORCE INC",
+"buy": 0,
+"sell": 41,
+"net": -41,
+"etf_count": 1
+},
+"TSLA": {
+"name": "TESLA INC",
+"buy": 0,
+"sell": 29,
+"net": -29,
+"etf_count": 1
+},
+"AMD": {
+"name": "ADVANCED MICRO DEVICES",
+"buy": 0,
+"sell": 39,
+"net": -39,
+"etf_count": 1
+},
+"MSFT": {
+"name": "MICROSOFT CORP",
+"buy": 0,
+"sell": 47,
+"net": -47,
+"etf_count": 1
+},
+"LITE": {
+"name": "LUMENTUM HOLDINGS INC",
+"buy": 0,
+"sell": 14,
+"net": -14,
+"etf_count": 1
+},
+"ADBE": {
+"name": "ADOBE INC",
+"buy": 198,
+"sell": 0,
+"net": 198,
+"etf_count": 1
+},
+"GOOG": {
+"name": "ALPHABET INC-CL C",
+"buy": 0,
+"sell": 51,
+"net": -51,
+"etf_count": 1
+},
+"LRCX": {
+"name": "LAM RESEARCH CORP",
+"buy": 0,
+"sell": 59,
+"net": -59,
+"etf_count": 1
+},
+"NVDA": {
+"name": "NVIDIA CORP",
+"buy": 0,
+"sell": 153,
+"net": -153,
+"etf_count": 1
+},
+"AVGO": {
+"name": "BROADCOM INC",
+"buy": 0,
+"sell": 76,
+"net": -76,
+"etf_count": 1
+},
+"PANW": {
+"name": "PALO ALTO NETWORKS INC",
+"buy": 0,
+"sell": 75,
+"net": -75,
+"etf_count": 1
+},
+"CRWD": {
+"name": "CROWDSTRIKE HOLDINGS INC - A",
+"buy": 0,
+"sell": 104,
+"net": -104,
+"etf_count": 1
+},
+"SHOP": {
+"name": "SHOPIFY INC - CLASS A",
+"buy": 1076,
+"sell": 103,
+"net": 973,
+"etf_count": 1
+},
+"HOOD": {
+"name": "ROBINHOOD MARKETS INC - A",
+"buy": 0,
+"sell": 129,
+"net": -129,
+"etf_count": 1
+},
+"ASML": {
+"name": "ASML HOLDING NV-NY REG SHS",
+"buy": 0,
+"sell": 7,
+"net": -7,
+"etf_count": 1
+},
+"ORCL": {
+"name": "ORACLE CORP",
+"buy": 0,
+"sell": 2063,
+"net": -2063,
+"etf_count": 1
+},
+"ADSK": {
+"name": "AUTODESK INC",
+"buy": 768,
+"sell": 0,
+"net": 768,
+"etf_count": 1
+},
+"HUBS": {
+"name": "HUBSPOT INC",
+"buy": 0,
+"sell": 59,
+"net": -59,
+"etf_count": 1
+},
+"NOW": {
+"name": "SERVICENOW INC",
+"buy": 0,
+"sell": 115,
+"net": -115,
+"etf_count": 1
+},
+"FIGR": {
+"name": "FIGURE TECHNOLOGY SOLUT-CL A",
+"buy": 0,
+"sell": 493,
+"net": -493,
+"etf_count": 1
+},
+"BE": {
+"name": "BLOOM ENERGY CORP- A",
+"buy": 0,
+"sell": 68,
+"net": -68,
+"etf_count": 1
+},
+"TWLO": {
+"name": "TWILIO INC - A",
+"buy": 0,
+"sell": 74,
+"net": -74,
+"etf_count": 1
+},
+"000660 KP": {
+"name": "SK HYNIX INC",
+"buy": 0,
+"sell": 8859,
+"net": -8859,
+"etf_count": 1
+},
+"6981 JP": {
+"name": "MURATA MANUFACTURING CO LTD",
+"buy": 0,
+"sell": 125200,
+"net": -125200,
+"etf_count": 1
+},
+"4062 JP": {
+"name": "IBIDEN CO LTD",
+"buy": 0,
+"sell": 47900,
+"net": -47900,
+"etf_count": 1
+},
+"009150 KP": {
+"name": "SAMSUNG ELECTRO-MECHANICS CO",
+"buy": 0,
+"sell": 11454,
+"net": -11454,
+"etf_count": 1
+},
+"FSLY US": {
+"name": "FASTLY INC - CLASS A",
+"buy": 122600,
+"sell": 0,
+"net": 122600,
+"etf_count": 1
+},
+"META US": {
+"name": "META PLATFORMS INC-CLASS A",
+"buy": 3280,
+"sell": 0,
+"net": 3280,
+"etf_count": 1
+},
+"DELL US": {
+"name": "DELL TECHNOLOGIES -C",
+"buy": 46500,
+"sell": 0,
+"net": 46500,
+"etf_count": 2
+},
+"8358": {
+"name": "金居開發",
+"buy": 13000,
+"sell": 0,
+"net": 13000,
+"etf_count": 1
+},
+"2801": {
+"name": "彰銀",
+"buy": 11000,
+"sell": 0,
+"net": 11000,
+"etf_count": 1
+},
+"3042": {
+"name": "晶技",
+"buy": 0,
+"sell": 292000,
+"net": -292000,
+"etf_count": 1
+},
+"6683": {
+"name": "雍智科技",
+"buy": 24000,
+"sell": 0,
+"net": 24000,
+"etf_count": 1
+},
+"7751": {
+"name": "竑騰",
+"buy": 5000,
+"sell": 0,
+"net": 5000,
+"etf_count": 1
+},
+"CRDO US": {
+"name": "Credo科技集團控股有限公司",
+"buy": 0,
+"sell": 15351,
+"net": -15351,
+"etf_count": 1
+},
+"HWM US": {
+"name": "Howmet航太公司",
+"buy": 5077,
+"sell": 0,
+"net": 5077,
+"etf_count": 1
+},
+"FTNT US": {
+"name": "防特網公司",
+"buy": 20000,
+"sell": 0,
+"net": 20000,
+"etf_count": 1
+},
+"TXN US": {
+"name": "德州儀器公司",
+"buy": 5000,
+"sell": 0,
+"net": 5000,
+"etf_count": 1
+},
+"APH US": {
+"name": "安費諾",
+"buy": 0,
+"sell": 19518,
+"net": -19518,
+"etf_count": 1
+},
+"KEYS US": {
+"name": "是德科技公司",
+"buy": 0,
+"sell": 8196,
+"net": -8196,
+"etf_count": 1
+},
+"ADI US": {
+"name": "亞德諾公司",
+"buy": 8777,
+"sell": 0,
+"net": 8777,
+"etf_count": 1
+},
+"GOOGL US": {
+"name": "ALPHABET INC-CL A",
+"buy": 0,
+"sell": 17659,
+"net": -17659,
+"etf_count": 1
+},
+"LMT US": {
+"name": "洛克希德馬丁",
+"buy": 4854,
+"sell": 0,
+"net": 4854,
+"etf_count": 1
+},
+"APP US": {
+"name": "AppLovin公司",
+"buy": 0,
+"sell": 3145,
+"net": -3145,
+"etf_count": 1
+},
+"GE US": {
+"name": "奇異公司",
+"buy": 10935,
+"sell": 0,
+"net": 10935,
+"etf_count": 1
+},
+"RTX US": {
+"name": "雷神科技公司",
+"buy": 0,
+"sell": 35894,
+"net": -35894,
+"etf_count": 1
+},
+"BOCHGR GA": {
+"name": "賽普勒斯銀行控股公開有限公司",
+"buy": 220000,
+"sell": 0,
+"net": 220000,
+"etf_count": 1
+},
+"BAC US": {
+"name": "美國銀行",
+"buy": 0,
+"sell": 20000,
+"net": -20000,
+"etf_count": 1
+},
+"C US": {
+"name": "花旗集團公司",
+"buy": 5000,
+"sell": 0,
+"net": 5000,
+"etf_count": 1
+},
+"EQH US": {
+"name": "公平控股公司",
+"buy": 33000,
+"sell": 0,
+"net": 33000,
+"etf_count": 1
+},
+"G IM": {
+"name": "忠意保險股份公司",
+"buy": 15000,
+"sell": 0,
+"net": 15000,
+"etf_count": 1
+},
+"055550 KS": {
+"name": "新韓金融集團",
+"buy": 30000,
+"sell": 0,
+"net": 30000,
+"etf_count": 1
+},
+"8411 JP": {
+"name": "瑞穗金融集團",
+"buy": 30000,
+"sell": 0,
+"net": 30000,
+"etf_count": 1
+},
+"ARES US": {
+"name": "戰神管理公司",
+"buy": 0,
+"sell": 8000,
+"net": -8000,
+"etf_count": 1
+},
+"SDLF LN": {
+"name": "標準人壽公開有限公司",
+"buy": 170000,
+"sell": 0,
+"net": 170000,
+"etf_count": 1
+},
+"BARC LN": {
+"name": "巴克萊集團",
+"buy": 0,
+"sell": 160000,
+"net": -160000,
+"etf_count": 1
+},
+"KBC BB": {
+"name": "比利時聯合金融集團",
+"buy": 12000,
+"sell": 0,
+"net": 12000,
+"etf_count": 1
+},
+"INGA NA": {
+"name": "荷蘭國際集團",
+"buy": 30000,
+"sell": 0,
+"net": 30000,
+"etf_count": 1
+},
+"DBK GY": {
+"name": "德意志銀行",
+"buy": 20000,
+"sell": 0,
+"net": 20000,
+"etf_count": 1
+}
+}
+}
