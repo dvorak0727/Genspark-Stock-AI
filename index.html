@@ -314,7 +314,7 @@
 
     /* 深色模式過渡動畫 */
     body, .header, .card, .cs-card, .phase-card, .wash-card,
-    .bpc-card, .peak-card, .contra-card, .scatter-card,
+    .bpc-card, .peak-card, .scatter-card,
     .ai-card, .signal-bar, .load-progress-bar, .module-nav-item,
     .fab-panel, .candle-pattern-wrap {
       transition: background-color 0.25s ease, border-color 0.2s ease,
@@ -3256,9 +3256,9 @@
     .module-nav::-webkit-scrollbar { display: none; }
     /* 錨點跳轉預留 header 高度 */
     #csCard, #techCard, #aiCard, #peakCard,
-    #contraCard, #phaseCard, #biCard, #bpcCard, #washCard,
+    #phaseCard, #biCard, #bpcCard, #washCard,
     #scatterCard, #bigIntentCard,
-    #geoRiskCard, #hedgeCard {
+    #hedgeCard {
       scroll-margin-top: 60px;
     }
     .module-nav-item {
@@ -3740,7 +3740,7 @@
     /* ====== 底部探測 ====== */
     /* 底部探測（上）+ 高點偵測（下）上下疊 */
     /* v7.22：底部探測 / 高點偵測 / 反指標 各自獨立全寬一行 */
-    .bottom-detect, .peak-card, .contra-card {
+    .bottom-detect, .peak-card {
       width: 100%;
       box-sizing: border-box;
     }
@@ -6263,93 +6263,6 @@
     .peak-item.miss .peak-item-val { color:var(--fg3); }
     .peak-item-detail { font-size:0.62rem; color:var(--fg3); line-height:1.45; }
 
-    /* ====== 反指標邏輯 ====== */
-    .contra-card {
-      background:var(--surface);
-      border:2px solid #0369A1;
-      border-radius:14px;
-      padding:9px 11px;
-      margin-bottom:8px;
-      position:relative; overflow:hidden;
-    }
-    .contra-card::before {
-      content:''; position:absolute;top:0;left:0;right:0;height:3px;
-      background:linear-gradient(90deg,#0369A1,#7C3AED,#059669);
-    }
-    .contra-header {
-      display:flex;align-items:center;gap:7px;
-      margin-bottom:6px;padding-bottom:5px;
-      border-bottom:1px solid #E0F2FE;
-    }
-    .contra-header-icon {
-      width:28px;height:28px;
-      background:linear-gradient(135deg,#0369A1,#7C3AED);
-      border-radius:8px;
-      display:flex;align-items:center;justify-content:center;
-      font-size:0.88rem;flex-shrink:0;
-    }
-    .contra-header-title { font-size:0.84rem; font-weight:800; color:#0C4A6E; }
-    .contra-header-sub   { font-size:0.72rem; color:#0369A1; margin-top:2px; }
-    .contra-header-badge {
-      margin-left:auto; border-radius:12px; padding:3px 12px;
-      font-size:0.7rem; font-weight:700;
-    }
-    .contra-grid {
-      display:grid; grid-template-columns:repeat(6,1fr); gap:5px;
-      margin-bottom:8px; align-items:start;
-    }
-    @media(max-width:960px){ .contra-grid{ grid-template-columns:repeat(3,1fr); } }
-    @media(max-width:520px){ .contra-grid{ grid-template-columns:repeat(2,1fr); } }
-    .contra-module {
-      border-radius:9px; padding:5px 7px;
-      border:1px solid var(--border);
-    }
-    /* signal types */
-    .contra-module.contra-up   { background:#ECFDF5; border-color:#6EE7B7; }
-    .contra-module.contra-down { background:#FEF2F2; border-color:#FECACA; }
-    .contra-module.neutral     { background:var(--surface2); }
-    .contra-module.pulse-up    { animation:pulseUp 2s infinite; }
-    .contra-module.pulse-down  { animation:pulseDn 2s infinite; }
-    @keyframes pulseUp { 0%,100%{border-color:#6EE7B7}50%{border-color:#059669} }
-    @keyframes pulseDn { 0%,100%{border-color:#FECACA}50%{border-color:#DC2626} }
-    .contra-signal-badge {
-      display:inline-flex;align-items:center;gap:3px;
-      padding:1px 6px; border-radius:20px;
-      font-size:0.60rem; font-weight:800; margin-bottom:3px;
-    }
-    .contra-module.contra-up   .contra-signal-badge { background:#D1FAE5; color:#065F46; border:1px solid #6EE7B7; }
-    .contra-module.contra-down .contra-signal-badge { background:#FEE2E2; color:#7F1D1D; border:1px solid #FECACA; }
-    .contra-module.neutral     .contra-signal-badge { background:var(--bg2); color:var(--fg3); border:1px solid var(--border); }
-    .contra-module-title { font-size:0.65rem; font-weight:800; color:var(--fg); margin-bottom:2px; }
-    .contra-module-result { font-size:0.75rem; font-weight:800; margin-bottom:2px; line-height:1.3; }
-    .contra-module.contra-up   .contra-module-result { color:#059669; }
-    .contra-module.contra-down .contra-module-result { color:#DC2626; }
-    .contra-module.neutral     .contra-module-result { color:var(--fg3); }
-    .contra-module-detail { font-size:0.62rem; color:var(--fg2); line-height:1.5; }
-    /* 外盤比特殊樣式 */
-    .ob-ratio-bar {
-      display:flex; align-items:center; gap:6px; margin-top:6px;
-    }
-    .ob-label  { font-size:0.66rem; color:var(--fg3); min-width:30px; text-align:right; }
-    .ob-track  { flex:1; height:9px; background:var(--bg2); border-radius:6px; overflow:hidden; display:flex; }
-    .ob-buy-fill  { height:100%; background:#E8343A; border-radius:6px 0 0 6px; transition:width 1s; }
-    .ob-sell-fill { height:100%; background:#16A34A; border-radius:0 6px 6px 0; transition:width 1s; }
-    .ob-ratio-val { font-size:0.78rem; font-weight:800; }
-    /* 巨量解讀 */
-    .contra-bigvol {
-      background:linear-gradient(135deg,#0C4A6E,#1E3A5F);
-      border-radius:9px; padding:6px 9px;
-      color:#fff; margin-top:4px;
-    }
-    .contra-bigvol-title { font-size:0.68rem; font-weight:700; color:#7DD3FC; margin-bottom:4px; }
-    .contra-bigvol-items { display:flex; flex-direction:row; flex-wrap:wrap; gap:6px; }
-    .contra-bigvol-item {
-      display:flex; align-items:flex-start; gap:5px;
-      background:rgba(255,255,255,0.07); border-radius:7px;
-      padding:4px 7px; font-size:0.65rem; color:#BAE6FD; line-height:1.45;
-      flex:1; min-width:160px;
-    }
-    .contra-bigvol-item b { color:#F9A8D4; }
 
     /* ====== Autocomplete 搜尋下拉 ====== */
     .search-wrap { position:relative; flex:1; min-width:200px; max-width:340px; }
@@ -8414,128 +8327,6 @@
       margin-top: 4px;
     }
 
-    /* ══════════════════════════════════════════════════
-       🌏 地緣政治風險儀表板 — GeoRisk  v6.31
-    ══════════════════════════════════════════════════ */
-    .georisk-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 12px; padding: 10px 13px 12px;
-      margin-bottom: 8px; position: relative; overflow: hidden;
-    }
-    .georisk-card::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      background: linear-gradient(90deg, #EF4444, #F97316, #EAB308);
-    }
-    /* 標題列 */
-    .georisk-header {
-      display: flex; align-items: center; gap: 9px;
-      margin-bottom: 10px; flex-wrap: wrap;
-    }
-    .georisk-header-icon { font-size: 1.3rem; line-height: 1; }
-    .georisk-header-title {
-      font-size: 0.92rem; font-weight: 900; color: var(--fg); flex: 1; min-width: 0;
-    }
-    .georisk-header-sub { font-size: 0.65rem; color: var(--fg3); margin-top: 1px; }
-    .georisk-alert-badge {
-      font-size: 0.65rem; font-weight: 800; padding: 3px 10px;
-      border-radius: 20px; flex-shrink: 0; white-space: nowrap;
-    }
-    .georisk-alert-badge.low    { background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; }
-    .georisk-alert-badge.mid    { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
-    .georisk-alert-badge.high   { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
-    .georisk-alert-badge.crisis { background: #7F1D1D; color: #FCA5A5; border: 1px solid #991B1B; }
-    /* 總壓力儀表列 */
-    .georisk-gauge-row {
-      display: flex; gap: 10px; align-items: stretch; margin-bottom: 10px;
-    }
-    .georisk-gauge-wrap {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 4px; flex-shrink: 0; min-width: 80px;
-    }
-    .georisk-gauge-score {
-      font-size: 2rem; font-weight: 900; line-height: 1;
-      background: linear-gradient(135deg, #EF4444, #F97316);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .georisk-gauge-label { font-size: 0.6rem; color: var(--fg3); font-weight: 700; text-align: center; }
-    /* 半弧進度 */
-    .georisk-arc-wrap { position: relative; width: 80px; height: 44px; }
-    .georisk-arc-bg, .georisk-arc-fill {
-      fill: none; stroke-width: 7; stroke-linecap: round;
-    }
-    .georisk-arc-bg   { stroke: var(--border); }
-    .georisk-arc-fill { stroke: url(#georiskGrad); transition: stroke-dashoffset 0.8s ease; }
-    /* 六大因子格 */
-    .georisk-factors {
-      flex: 1; display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-    }
-    @media(max-width:540px) { .georisk-factors { grid-template-columns: repeat(2, 1fr); } }
-    .georisk-factor {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 8px; padding: 7px 8px;
-      display: flex; flex-direction: column; gap: 3px;
-    }
-    .grf-top { display: flex; justify-content: space-between; align-items: center; }
-    .grf-name { font-size: 0.65rem; color: var(--fg2); font-weight: 700; }
-    .grf-val  { font-size: 0.72rem; font-weight: 900; }
-    .grf-val.low  { color: #059669; }
-    .grf-val.mid  { color: #D97706; }
-    .grf-val.high { color: #DC2626; }
-    .grf-bar-track {
-      height: 4px; border-radius: 2px; background: var(--border); overflow: hidden;
-    }
-    .grf-bar-fill {
-      height: 100%; border-radius: 2px;
-      transition: width 0.6s ease;
-    }
-    .grf-bar-fill.low  { background: #10B981; }
-    .grf-bar-fill.mid  { background: #F59E0B; }
-    .grf-bar-fill.high { background: #EF4444; }
-    .grf-desc { font-size: 0.6rem; color: var(--fg3); line-height: 1.4; }
-    /* 事件時間軸 */
-    .georisk-events-title {
-      font-size: 0.72rem; font-weight: 800; color: var(--fg2);
-      margin: 8px 0 6px; display: flex; align-items: center; gap: 6px;
-    }
-    .georisk-events-title::after { content:''; flex:1; height:1px; background:var(--border); }
-    .georisk-event-list { display: flex; flex-direction: column; gap: 4px; }
-    .georisk-event-item {
-      display: flex; gap: 8px; align-items: flex-start;
-      padding: 6px 8px; border-radius: 7px;
-      border: 1px solid var(--border); background: var(--bg);
-      font-size: 0.72rem;
-    }
-    .georisk-event-icon { font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
-    .georisk-event-body { flex: 1; min-width: 0; }
-    .georisk-event-name { font-weight: 700; color: var(--fg); }
-    .georisk-event-desc { color: var(--fg3); margin-top: 1px; line-height: 1.4; }
-    .georisk-event-impact {
-      font-size: 0.6rem; font-weight: 700; padding: 1px 6px;
-      border-radius: 3px; flex-shrink: 0; align-self: center;
-      white-space: nowrap;
-    }
-    .georisk-event-impact.pos  { background:#D1FAE5; color:#065F46; }
-    .georisk-event-impact.neg  { background:#FEE2E2; color:#991B1B; }
-    .georisk-event-impact.neut { background:#F1F5F9; color:#475569; }
-    /* 台股衝擊雷達 */
-    .georisk-impact-row {
-      display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;
-    }
-    .georisk-impact-chip {
-      display: flex; align-items: center; gap: 5px;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 20px; padding: 4px 10px;
-      font-size: 0.65rem; flex-shrink: 0;
-    }
-    .gic-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-    .gic-label { color: var(--fg2); font-weight: 600; }
-    .gic-val { font-weight: 900; }
-    /* 底部注意 */
-    .georisk-notice {
-      font-size: 0.62rem; color: var(--fg3); margin-top: 8px;
-      line-height: 1.5; border-top: 1px solid var(--border); padding-top: 6px;
-    }
 
     /* ══════════════════════════════════════════════════
        🛡️ 對沖策略三欄卡片  v6.31
@@ -16867,13 +16658,11 @@ a.module-nav-item.acc-active {
       <!-- ④ 主力行為 -->
       <a class="module-nav-item" href="#biCard">👤 大戶意圖</a>
       <a class="module-nav-item" href="#bpcCard">💎 五大券商</a>
-      <a class="module-nav-item" href="#contraCard">🔀 反指標</a>
       <a class="module-nav-item" href="#washCard">🎯 洗盤估算</a>
       <a class="module-nav-item" href="#peakCard">🔴 高點</a>
 
       <!-- ⑤ 風險與比較 -->
       <a class="module-nav-item" href="#vrAnchor">📐 VR噪音檢驗</a>
-      <a class="module-nav-item" href="#geoRiskAnchor">🌏 地緣風險</a>
       <a class="module-nav-item" href="#hedgeAnchor">🛡️ 對沖策略</a>
       <a class="module-nav-item" href="#compareAnchor"
          onclick="document.getElementById('compareCard').scrollIntoView({behavior:'smooth'});return false;">📊 多股比較</a>
@@ -19395,21 +19184,6 @@ a.module-nav-item.acc-active {
       </div>
     </div>
 
-    <!-- ③ 反指標邏輯分析 — 全寬 -->
-    <div class="contra-card" id="contraCard" style="margin-bottom:0;height:fit-content;">
-      <div class="contra-header">
-        <div class="contra-header-icon">🔀</div>
-        <div>
-          <div class="contra-header-title">反指標邏輯分析（Contrarian）</div>
-          <div class="contra-header-sub">超賣反彈 · 超買過熱 · 情緒對沖 · 外盤比監控</div>
-        </div>
-        <div class="contra-header-badge" id="contraBadge"
-             style="background:#E0F2FE;color:#0369A1;border:1px solid #BAE6FD;">分析中…</div>
-      </div>
-      <div class="contra-grid" id="contraGrid"><!-- JS --></div>
-      <!-- 外盤比 + 巨量解讀（佔滿整行） -->
-      <div id="contraExtra"><!-- JS --></div>
-    </div><!-- /.contra-card -->
 
     <!-- (融資融券 / 主力進出彙系表 已整併入籌碼總覽) -->
 
@@ -20265,67 +20039,6 @@ a.module-nav-item.acc-active {
         <b>⚠️ 統計結論僅供參考，不構成任何投資建議。</b>
       </div>
     </div><!-- /.vr-card -->
-
-    <!-- ============================================================
-         🌏 地緣政治風險儀表板 — GeoRisk  v6.31
-    ============================================================ -->
-    <div class="georisk-card" id="geoRiskCard">
-      <span id="geoRiskAnchor" style="position:relative;top:-60px;"></span>
-
-      <!-- 標題列 -->
-      <div class="georisk-header">
-        <div class="georisk-header-icon">🌏</div>
-        <div style="min-width:0;flex:1;">
-          <div class="georisk-header-title">地緣政治風險儀表板</div>
-          <div class="georisk-header-sub">台海 · 美中貿易 · 半導體禁令 · 匯率壓力 · 能源 · 地緣熱點 × 台股衝擊估算</div>
-        </div>
-        <div class="georisk-alert-badge low" id="geoRiskBadge">計算中</div>
-      </div>
-
-      <!-- 總壓力儀表 + 六大因子 -->
-      <div class="georisk-gauge-row">
-        <!-- 半弧儀表 -->
-        <div class="georisk-gauge-wrap">
-          <div class="georisk-arc-wrap">
-            <svg viewBox="0 0 80 44" width="80" height="44">
-              <defs>
-                <linearGradient id="georiskGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%"   stop-color="#EF4444"/>
-                  <stop offset="50%"  stop-color="#F97316"/>
-                  <stop offset="100%" stop-color="#EAB308"/>
-                </linearGradient>
-              </defs>
-              <!-- 背景弧 -->
-              <path class="georisk-arc-bg"
-                d="M8,42 A32,32,0,0,1,72,42"
-                stroke-dasharray="100" stroke-dashoffset="0"/>
-              <!-- 填充弧 -->
-              <path class="georisk-arc-fill" id="geoArcFill"
-                d="M8,42 A32,32,0,0,1,72,42"
-                stroke-dasharray="100" stroke-dashoffset="100"/>
-            </svg>
-          </div>
-          <div class="georisk-gauge-score" id="geoRiskScore">—</div>
-          <div class="georisk-gauge-label">地緣壓力指數<br>（0–100）</div>
-        </div>
-
-        <!-- 六大因子格 -->
-        <div class="georisk-factors" id="geoFactors"><!-- JS 渲染 --></div>
-      </div>
-
-      <!-- 近期事件時間軸 -->
-      <div class="georisk-events-title">📌 近期關鍵事件 &amp; 台股衝擊評估</div>
-      <div class="georisk-event-list" id="geoEventList"><!-- JS 渲染 --></div>
-
-      <!-- 台股板塊衝擊標籤 -->
-      <div class="georisk-events-title" style="margin-top:10px;">⚡ 台股各板塊風險曝險度</div>
-      <div class="georisk-impact-row" id="geoImpactRow"><!-- JS 渲染 --></div>
-
-      <div class="georisk-notice">
-        ⚠️ 本模組依公開資訊與歷史事件統計建構靜態風險模型，不代表即時報價或主動預測。
-        地緣政治事件具高度不確定性，投資人應自行評估風險承受度，本資訊不構成任何投資建議。
-      </div>
-    </div><!-- /.georisk-card -->
 
     <!-- ============================================================
          🛡️ 對沖策略三欄卡片  v6.31
@@ -36935,7 +36648,6 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
     setLoadStep(2, 'doing');
     renderAI(stockId, info, lc, fSeries, tSeries, lRSI, lK, lD, lHist, lMA5, lMA20, lMACD, lSig, closes);  // AI v5.61 (+MACD值+成本)
     renderPeakDetect(closes, highs, lows, vols, fSeries, tSeries, lRSI, lK, lD, ma20, lMA5); // 高點
-    renderContrarian(closes, vols, fSeries, tSeries, lRSI, lK, lD, lMA20, stockId);    // 反指標
     setLoadStep(2, 'done');
   });
 
@@ -36976,7 +36688,6 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
     // 📐 v6.18 跨script呼叫修復：VRNoise/GeoRisk/Hedge 定義在第二段<script>，用 setTimeout 確保解析完成後才執行
     setTimeout(() => {
       if (typeof renderVRNoise  === 'function') renderVRNoise(stockId, closes, dates, fSeries, tSeries, lc);
-      if (typeof renderGeoRisk === 'function') renderGeoRisk(stockId, lc, lRSI, lK, lD, fSeries, tSeries);
       if (typeof renderHedge   === 'function') renderHedge(stockId, lc, lRSI, fSeries, tSeries);
     }, 50); // 50ms 確保第二段 <script> 已完成解析
     // ── 第四批完成後：彙整矩陣 + CF Pill ──
@@ -52335,395 +52046,6 @@ function renderPeakDetect(closes, highs, lows, vols, fSeries, tSeries, lRSI, lK,
   }).join('');
 }
 
-// ==============================================================
-//  ★ 反指標邏輯分析 ★
-// ==============================================================
-function renderContrarian(closes, vols, fSeries, tSeries, lRSI, lK, lD, lMA20, stockId) {
-  const lc  = closes.at(-1);
-  const lv  = vols.at(-1);
-  const avg5Vol = vols.slice(-6,-1).reduce((a,b)=>a+b,0)/5 || 1;
-
-  // 法人近5日
-  const fNet5 = fSeries.slice(-5).reduce((a,b)=>a+b,0);
-  const tNet5 = tSeries.slice(-5).reduce((a,b)=>a+b,0);
-  const revF=[...fSeries].reverse(), revT=[...tSeries].reverse();
-  let fCons=0; for(const v of revF){if(v>0)fCons++;else break;}
-  let tCons=0; for(const v of revT){if(v>0)tCons++;else break;}
-  let fSellCons=0; for(const v of revF){if(v<0)fSellCons++;else break;}
-
-  // ── 模組1：超賣反彈訊號 Contrarian Up ──
-  // 條件：RSI<30(超賣，對齊 computeScore 核心) + 外資/主力近期回補(逆向買超)
-  // v5.68 修正：原 RSI<38 與 computeScore(<30) 不一致，統一為 <30
-  // 說明：反指標訊號門檻需高確定性，故與核心評分對齊，RSI 30~38 歸為「接近超賣」
-  const oversold    = lRSI != null && lRSI < 30;  // v5.68: 38→30，對齊 computeScore
-  const oversoldNear = lRSI != null && lRSI < 38 && lRSI >= 30; // 30~38 接近超賣
-  const instBuying  = fCons >= 3 || tCons >= 3;   // v5.68: 法人連3日（對齊底部偵測）
-  const priceDown15 = lMA20 > 0 && lc < lMA20*0.92; // 大跌離月線8%以上
-  const contrarianUpStrong = oversold && instBuying;          // 強力反彈：RSI<30 + 連買≥3
-  const contrarianUp       = oversold && (fCons >= 2 || tCons >= 2); // 標準反彈：RSI<30 + 連買≥2
-  const contrarianUpWatch  = oversoldNear && instBuying;    // 觀察：RSI 30~38 + 連買≥3
-
-  // ── 模組2：超買過熱 Contrarian Down ──
-  // 條件：RSI>72 + 股價大幅高於月線 + 外資近賣超
-  const overbought   = lRSI != null && lRSI > 70;
-  const highBias     = lMA20 > 0 && lc > lMA20*1.12;
-  // 個股價格閾值（可擴充）
-  // v5.68 更新：依 06-01 FinMind 真實收盤重算超買警示門檻（原本+15~20%為警示帶）
-  const priceAlerts = {
-    '2330': 2600,   // 台積電  2355 × 1.10 ≈ 2590，取整 2600
-    '2317': 330,    // 鴻海    293.5 × 1.12 ≈ 329，取整 330
-    '2382': 420,    // 廣達    372.5 × 1.12 ≈ 417，取整 420
-    '2454': 5100,   // 聯發科  4555 × 1.12 ≈ 5102，取整 5100
-    '6669': 6200,   // 緯穎    5515 × 1.12 ≈ 6177，取整 6200
-    '3661': 5500,   // 世芯-KY 4855 × 1.13 ≈ 5486，取整 5500
-  }; // v5.68 更新至 2026-06-01 收盤基礎
-  const priceThresh = priceAlerts[stockId];
-  const priceTooHigh = priceThresh && lc > priceThresh;
-  const instSelling  = fSellCons >= 2 || fNet5 < -300;
-  const contrarianDown = overbought && (highBias || priceTooHigh) && instSelling;
-  const contrarianDownWarn = overbought && (highBias || priceTooHigh) && !instSelling;
-
-  // ── 模組3：情緒對沖驗證 ──
-  // 核心邏輯：法人動向 vs 技術面悲觀 → 若法人持續買超但技術面疲弱，優先相信法人
-  const techBearish   = (lRSI!=null&&lRSI<45) || (lc < (lMA20||lc));
-  const instContraBuy = (fCons>=3 || tCons>=3) && techBearish;
-  const techBullish   = (lRSI!=null&&lRSI>60) && lc>(lMA20||0);
-  const instContraSell= (fSellCons>=3) && techBullish;
-
-  // ── 模組4：外盤比模擬 ──
-  // 真實需要委買委賣資料，用近期法人買賣比例模擬
-  const totalBuy5  = fSeries.slice(-5).filter(v=>v>0).reduce((a,b)=>a+b,0);
-  const totalSell5 = Math.abs(fSeries.slice(-5).filter(v=>v<0).reduce((a,b)=>a+b,0));
-  const obRatio    = totalSell5 > 0 ? totalBuy5/totalSell5 : totalBuy5>0 ? 5 : 1;
-  const obBull     = obRatio >= 3;
-  const obBear     = obRatio <= 0.33;
-  // v6.21o：橋接外盤比壓差給 renderCFD() ∇P 使用
-  // obRatio = buy/sell 比值 → cfdObPct = buy/(buy+sell)*100 → ∇P = cfdObPct - 50（-50%~+50%）
-  const cfdObPct = (totalBuy5 + totalSell5) > 0
-    ? totalBuy5 / (totalBuy5 + totalSell5) * 100
-    : 50;
-  window._lastOBR = cfdObPct; // 橋接：0~100% 的外盤占比，供 renderCFD ∇P 計算壓差
-
-  // ── 巨量成交解讀 ──
-  const c30 = closes.slice(-30), v30 = vols.slice(-30), d30 = (aData.dates||[]).slice(-30);
-  let bigVolItems = [];
-  for(let i=0;i<v30.length;i++){
-    const avgBefore = v30.slice(Math.max(0,i-5),i).reduce((a,b)=>a+b,0) / Math.min(5,i) || avg5Vol;
-    if(v30[i] >= avgBefore*2.5 && v30[i] > 0){
-      const isUp = i>0 ? c30[i]>c30[i-1] : true;
-      const dropPct = i>0 ? (c30[i]-c30[i-1])/c30[i-1]*100 : 0;
-      bigVolItems.push({
-        date: d30[i]?.slice(5)||'—',
-        vol:  v30[i],
-        price:c30[i],
-        isUp,
-        dropPct,
-        type: isUp && v30[i]>avgBefore*3   ? '🛡️ 護盤主力大量買入'
-            : isUp                          ? '📈 大量紅K，主力吸籌'
-            : Math.abs(dropPct)>3           ? '🚨 出貨！爆量長黑'
-            : '⚠️ 巨量跌停，恐慌殺出',
-        ratio: (v30[i]/avgBefore).toFixed(1),
-      });
-    }
-  }
-
-  // ── 渲染四個模組 ──
-  const mods = [];
-
-  // M1 超賣反彈
-  mods.push({
-    cls:  contrarianUpStrong ? 'contra-up pulse-up' : contrarianUp ? 'contra-up' : contrarianUpWatch ? 'neutral' : 'neutral',
-    badge: contrarianUpStrong ? '🔥 強力 Contrarian Up' : contrarianUp ? '🟢 Contrarian Up' : contrarianUpWatch ? '🟡 接近超賣觀察' : '⚪ 未觸發',
-    title:'① 超賣反彈偵測',
-    result: contrarianUpStrong
-      ? `✅✅ 強力反指標買進（RSI確認超賣 + 法人連${Math.max(fCons,tCons)}日進場）`
-      : contrarianUp
-        ? `✅ 反指標買進訊號（Contrarian Up）`
-        : contrarianUpWatch
-          ? `⚠️ 接近超賣觀察（RSI ${lRSI?.toFixed(1)}，法人已連${Math.max(fCons,tCons)}日布局）`
-          : `未達反彈訊號門檻`,
-    detail: contrarianUpStrong
-      ? `RSI ${lRSI?.toFixed(1)} 確認超賣（<30），同時法人（外資連${fCons}日/投信連${tCons}日）連續3日以上逆勢買超。
-        市場恐慌殺出之際，大戶悄悄承接。<b>建議積極標記為反彈觀察名單</b>，等KD低檔交叉後進場。`
-      : contrarianUp
-        ? `RSI ${lRSI?.toFixed(1)} 超賣（<30），法人（外資連${fCons}日/投信連${tCons}日）逆勢買超。
-          市場恐慌殺出之際，大戶悄悄承接。<b>建議標記為反彈觀察名單</b>，等KD低檔交叉後進場。`
-        : contrarianUpWatch
-          ? `RSI ${lRSI?.toFixed(1)} 接近超賣區間（30~38），法人（外資連${fCons}日/投信連${tCons}日）已開始布局。
-            尚未達到強力反彈訊號，但值得加入觀察清單，等待 RSI 進一步下探確認。`
-          : `RSI ${lRSI?.toFixed(1)||'—'}（需 <30 超賣）/ 外資連${fCons}日買 / 投信連${tCons}日買。
-            條件未全部成立，尚無強力反指標買進訊號。`,
-  });
-
-  // M2 超買過熱
-  mods.push({
-    cls:  contrarianDown ? 'contra-down pulse-down' : contrarianDownWarn ? 'contra-down' : 'neutral',
-    badge: contrarianDown ? '🔴 Contrarian Down' : contrarianDownWarn ? '⚠️ 過熱警示' : '⚪ 未觸發',
-    title:'② 超買過熱偵測',
-    result: contrarianDown
-      ? `🚨 反指標賣出訊號（Contrarian Down）`
-      : contrarianDownWarn
-        ? `⚠️ 過熱訊號，追價風險偏高`
-        : `未達過熱訊號`,
-    detail: contrarianDown
-      ? `RSI ${lRSI?.toFixed(1)} 超買 + 股價大幅偏離月線（${((lc/lMA20-1)*100).toFixed(1)}%）+ 法人近期賣超。
-        ${priceTooHigh ? '股價 ' + lc.toFixed(2) + ' 已超警戒閾值 ' + priceThresh + '。' : ''}
-        <b>非理性樂觀，強烈警示追價風險！</b>建議逢高分批減碼。`
-      : contrarianDownWarn
-        ? `RSI ${lRSI?.toFixed(1)} 偏高，股價偏離月線 ${((lc/(lMA20||1)-1)*100).toFixed(1)}%，但法人尚未明顯出場。追高須謹慎。`
-        : `RSI ${lRSI?.toFixed(1)||'—'}，偏離月線 ${lMA20>0?((lc/lMA20-1)*100).toFixed(1)+'%':'—'}，過熱條件未成立。`,
-  });
-
-  // M3 情緒對沖
-  mods.push({
-    cls:  instContraBuy ? 'contra-up' : instContraSell ? 'contra-down' : 'neutral',
-    badge: instContraBuy ? '📡 優先信法人（多）' : instContraSell ? '📡 優先信法人（空）' : '⚪ 訊號中性',
-    title:'③ 情緒對沖驗證',
-    result: instContraBuy
-      ? `🔍 新聞報憂 × 法人持續買超 → 過濾雜訊，相信大戶！`
-      : instContraSell
-        ? `🔍 市場看多 × 法人悄悄撤出 → 注意出貨訊號！`
-        : `目前法人動向與技術面方向一致，無明顯背離`,
-    detail: instContraBuy
-      ? `技術面偏弱（RSI ${lRSI?.toFixed(1)||'—'} / 股價${lc<(lMA20||lc)?'跌破':'接近'}月線），但法人（外資連${fCons}日/投信連${tCons}日）持續承接。
-        市場可能過度悲觀，<b>優先採信大戶動向，過濾市場噪音</b>，視為潛在買進機會。`
-      : instContraSell
-        ? `技術面走強，但法人近期連續賣超（外資連${fSellCons}日賣）。市場樂觀情緒或已過頭，注意法人出貨訊號。`
-        : `法人買賣方向與技術面大致一致，無明顯情緒背離。`,
-  });
-
-  // M4 外盤比 — 加入 mods 陣列
-  const obCls   = obBull ? '#E8343A' : obBear ? '#16A34A' : '#F59E0B';
-  const obLabel = obBull ? '🔥 大戶蓄勢盤（買力壓倒性）'
-                : obBear ? '❄️ 大戶撤退盤（賣壓沉重）'
-                : '⚖️ 多空平衡盤（方向待確認）';
-  const obPct   = Math.min(Math.max(obRatio/(obRatio+1), 0.05), 0.95);
-  const obModCls = obBull ? 'contra-up' : obBear ? 'contra-down' : 'neutral';
-  mods.push({
-    cls: obModCls,
-    badge: '📊 外盤比監控',
-    title: '④ 委買 vs 委賣比例',
-    result: obLabel,
-    detail: `<div class="ob-ratio-bar"><span class="ob-label" style="color:#E8343A;">買</span><div class="ob-track"><div class="ob-buy-fill" style="width:${(obPct*100).toFixed(0)}%"></div><div class="ob-sell-fill" style="width:${((1-obPct)*100).toFixed(0)}%"></div></div><span class="ob-label" style="color:#16A34A;">賣</span></div><div style="text-align:center;font-size:0.72rem;font-weight:800;color:${obCls};margin-top:3px;">買/賣=${obRatio.toFixed(2)}:1</div>`
-  });
-
-  // 巨量解讀 — 作為第5格加入 mods
-  const bigVolHtml = bigVolItems.length > 0
-    ? bigVolItems.slice(-3).map(b =>
-        `<div class="contra-bigvol-item" style="min-width:0;">
-          <span>${b.type}</span>
-          <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${b.date} <b>${b.price.toFixed(0)}</b> <b>${(b.vol/1000).toFixed(0)}K</b>(${b.ratio}x)</span>
-        </div>`).join('')
-    : '<div class="contra-bigvol-item"><span>⚪</span><span>近期無異常巨量</span></div>';
-
-  mods.push({
-    cls: 'neutral',
-    badge: '⚡ 巨量成交解讀',
-    title: '⑤ 收盤前巨量（前均量2.5x↑）',
-    result: bigVolItems.length > 0 ? `偵測到 ${bigVolItems.length} 筆異常巨量` : '近期無明顯異常巨量',
-    detail: `<div class="contra-bigvol-items" style="flex-direction:column;gap:3px;">${bigVolHtml}</div>`
-  });
-
-  // ── v6.21s M6：OBV 底部/頂部背離偵測（含 SVG 迷你走勢圖）──
-  // 使用近30日收盤價＋成交量計算累計OBV，偵測價量背離
-  (function() {
-    const c30 = closes.slice(-30);
-    const v30 = vols.slice(-30);
-    const n = c30.length;
-    if (n < 10) return;
-
-    // 計算30日累計OBV（以0為起點）
-    const obvArr = [0];
-    for (let i = 1; i < n; i++) {
-      const prev = obvArr[i-1];
-      if (c30[i] > c30[i-1])      obvArr.push(prev + v30[i]);
-      else if (c30[i] < c30[i-1]) obvArr.push(prev - v30[i]);
-      else                         obvArr.push(prev);
-    }
-
-    // 找近30日的價格最低點（底部背離候選）
-    let priceMinIdx = 0;
-    for (let i = 1; i < n; i++) {
-      if (c30[i] < c30[priceMinIdx]) priceMinIdx = i;
-    }
-    const obvAtPriceMin = obvArr[priceMinIdx];
-    const recentSlice = c30.slice(-8);
-    const recentOBVSlice = obvArr.slice(-8);
-    let recentLowIdx = 0;
-    for (let i = 1; i < recentSlice.length; i++) {
-      if (recentSlice[i] < recentSlice[recentLowIdx]) recentLowIdx = i;
-    }
-    const recentLowPrice = recentSlice[recentLowIdx];
-    const recentLowOBV   = recentOBVSlice[recentLowIdx];
-
-    // 找近30日的價格最高點（頂部背離候選）
-    let priceMaxIdx = 0;
-    for (let i = 1; i < n; i++) {
-      if (c30[i] > c30[priceMaxIdx]) priceMaxIdx = i;
-    }
-    const obvAtPriceMax = obvArr[priceMaxIdx];
-    let recentHighIdx = 0;
-    for (let i = 1; i < recentSlice.length; i++) {
-      if (recentSlice[i] > recentSlice[recentHighIdx]) recentHighIdx = i;
-    }
-    const recentHighPrice = recentSlice[recentHighIdx];
-    const recentHighOBV   = recentOBVSlice[recentHighIdx];
-
-    // 背離判定
-    const bottomDiv = priceMinIdx < n-8
-      && recentLowPrice <= c30[priceMinIdx] * 1.03
-      && recentLowOBV > obvAtPriceMin * 0.7
-      && recentLowOBV > obvAtPriceMin;
-    const topDiv = priceMaxIdx < n-8
-      && recentHighPrice >= c30[priceMaxIdx] * 0.97
-      && recentHighOBV < obvAtPriceMax;
-
-    const obvLast = obvArr[n-1];
-    const obvTrend = obvLast > obvArr[Math.max(0,n-6)] ? '📈 上升（籌碼淨流入）'
-                   : obvLast < obvArr[Math.max(0,n-6)] ? '📉 下降（籌碼淨流出）'
-                   : '➡️ 橫盤整理';
-
-    // ── SVG 迷你雙折線圖（股價 + OBV）──
-    const svgW = 240, svgH = 60, pad = 6;
-    const innerW = svgW - pad*2, innerH = svgH - pad*2;
-
-    // 股價座標（上半區 0~38px）
-    const pMin = Math.min(...c30), pMax = Math.max(...c30);
-    const pRange = pMax - pMin || 1;
-    const pricePoints = c30.map((v, i) => {
-      const x = pad + (i / (n-1)) * innerW;
-      const y = pad + (1 - (v - pMin) / pRange) * (innerH * 0.45);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-
-    // OBV 座標（下半區 42~72px）
-    const oMin = Math.min(...obvArr), oMax = Math.max(...obvArr);
-    const oRange = oMax - oMin || 1;
-    const obvPoints = obvArr.map((v, i) => {
-      const x = pad + (i / (n-1)) * innerW;
-      const y = pad + innerH * 0.55 + (1 - (v - oMin) / oRange) * (innerH * 0.4);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    }).join(' ');
-
-    // 標記關鍵點：價格低/高點 + OBV 對應點
-    const markPriceMin  = { x: pad + (priceMinIdx/(n-1))*innerW, y: pad + (1-(c30[priceMinIdx]-pMin)/pRange)*(innerH*0.45) };
-    const markOBVMin    = { x: pad + (priceMinIdx/(n-1))*innerW, y: pad + innerH*0.55 + (1-(obvAtPriceMin-oMin)/oRange)*(innerH*0.4) };
-    const markRecentLow = { x: pad + ((n-8+recentLowIdx)/(n-1))*innerW, y: pad + (1-(recentLowPrice-pMin)/pRange)*(innerH*0.45) };
-    const markRecentOBV = { x: pad + ((n-8+recentLowIdx)/(n-1))*innerW, y: pad + innerH*0.55 + (1-(recentLowOBV-oMin)/oRange)*(innerH*0.4) };
-    // v6.25 Fix 4: 補入頂部背離相關標記點（原本缺失，topDiv 時連線位置錯誤）
-    const markPriceMax   = { x: pad + (priceMaxIdx/(n-1))*innerW, y: pad + (1-(c30[priceMaxIdx]-pMin)/pRange)*(innerH*0.45) };
-    const markOBVMax     = { x: pad + (priceMaxIdx/(n-1))*innerW, y: pad + innerH*0.55 + (1-(obvAtPriceMax-oMin)/oRange)*(innerH*0.4) };
-    const markRecentHigh = { x: pad + ((n-8+recentHighIdx)/(n-1))*innerW, y: pad + (1-(recentHighPrice-pMin)/pRange)*(innerH*0.45) };
-    const markRecentHOBV = { x: pad + ((n-8+recentHighIdx)/(n-1))*innerW, y: pad + innerH*0.55 + (1-(recentHighOBV-oMin)/oRange)*(innerH*0.4) };
-
-    const divColor = bottomDiv ? '#10B981' : topDiv ? '#EF4444' : '#94A3B8';
-    // v6.25 Fix 4: 依 bottomDiv/topDiv 選擇對應標記點
-    const [mk1, mk2, mk3, mk4] = bottomDiv
-      ? [markPriceMin, markRecentLow, markOBVMin,  markRecentOBV]
-      : [markPriceMax, markRecentHigh, markOBVMax, markRecentHOBV];
-    const divDash = (bottomDiv || topDiv) ? `
-      <line x1="${mk1.x.toFixed(1)}" y1="${mk1.y.toFixed(1)}"
-            x2="${mk2.x.toFixed(1)}" y2="${mk2.y.toFixed(1)}"
-            stroke="${divColor}" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
-      <line x1="${mk3.x.toFixed(1)}" y1="${mk3.y.toFixed(1)}"
-            x2="${mk4.x.toFixed(1)}" y2="${mk4.y.toFixed(1)}"
-            stroke="${divColor}" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/>
-      <circle cx="${mk1.x.toFixed(1)}" cy="${mk1.y.toFixed(1)}" r="3" fill="${divColor}" opacity="0.9"/>
-      <circle cx="${mk2.x.toFixed(1)}" cy="${mk2.y.toFixed(1)}" r="3" fill="${divColor}" opacity="0.9"/>
-      <circle cx="${mk3.x.toFixed(1)}" cy="${mk3.y.toFixed(1)}" r="3" fill="${divColor}" opacity="0.9"/>
-      <circle cx="${mk4.x.toFixed(1)}" cy="${mk4.y.toFixed(1)}" r="3" fill="${divColor}" opacity="0.9"/>
-    ` : '';
-
-    const miniSvg = `<div style="margin:6px 0 4px 0;">
-      <div style="display:flex;justify-content:space-between;font-size:0.58rem;color:var(--fg3);margin-bottom:2px;">
-        <span style="color:#60A5FA;">── 股價</span>
-        <span style="color:#A78BFA;">── OBV</span>
-        <span style="color:${divColor};font-weight:700;">${bottomDiv?'↑底部背離':topDiv?'↓頂部背離':'無明顯背離'}</span>
-      </div>
-      <svg width="${svgW}" height="${svgH}" style="width:100%;max-width:${svgW}px;background:var(--surface2);border-radius:6px;overflow:visible;" viewBox="0 0 ${svgW} ${svgH}">
-        <line x1="${pad}" y1="${(pad+innerH*0.5).toFixed(1)}" x2="${(pad+innerW).toFixed(1)}" y2="${(pad+innerH*0.5).toFixed(1)}"
-              stroke="var(--border)" stroke-width="0.5" stroke-dasharray="4,3"/>
-        <text x="${pad}" y="${(pad+innerH*0.45*0.5).toFixed(1)}" font-size="7" fill="#60A5FA" opacity="0.8">Price</text>
-        <text x="${pad}" y="${(pad+innerH*0.55+innerH*0.4*0.5).toFixed(1)}" font-size="7" fill="#A78BFA" opacity="0.8">OBV</text>
-        <polyline points="${pricePoints}" fill="none" stroke="#60A5FA" stroke-width="1.5" stroke-linejoin="round"/>
-        <polyline points="${obvPoints}" fill="none" stroke="#A78BFA" stroke-width="1.5" stroke-linejoin="round"/>
-        ${divDash}
-      </svg>
-    </div>`;
-
-    let divCls, divBadge, divResult, divDetail;
-    if (bottomDiv) {
-      divCls    = 'contra-up';
-      divBadge  = '🔍 底部背離（大戶暗中吸籌）';
-      divResult = `✅ OBV 底部背離：股價創新低，OBV 未創新低`;
-      divDetail = miniSvg + `近30日最低股價出現在前期，但近期再次探低時，OBV（量能積分）<b>沒有跟著跌到新低</b>。<br/>
-        意義：相同的下跌幅度，近期帶動的賣盤量比前次少 → <b>大戶正在底部悄悄承接籌碼（暗中吸籌）</b>。<br/>
-        OBV趨勢：${obvTrend}。搭配 KD 低檔交叉可強化進場信心。`;
-    } else if (topDiv) {
-      divCls    = 'contra-down';
-      divBadge  = '🔍 頂部背離（大戶拉高出貨）';
-      divResult = `⚠️ OBV 頂部背離：股價創新高，OBV 未創新高`;
-      divDetail = miniSvg + `近30日最高股價出現在前期，近期股價再次拉到高點，但 OBV<b>沒有跟著到達新高</b>。<br/>
-        意義：相同的上漲幅度，近期追價買盤比前次少 → <b>大戶可能在高位趁量出貨，散戶接手</b>（拉高出貨）。<br/>
-        OBV趨勢：${obvTrend}。追高須謹慎，可等待RSI高點背離再確認。`;
-    } else {
-      divCls    = 'neutral';
-      divBadge  = '🔍 OBV 量能背離偵測';
-      divResult = `⚪ 近期無明顯價量背離`;
-      divDetail = miniSvg + `OBV趨勢：${obvTrend}。<br/>股價與 OBV 方向一致，無底部/頂部背離訊號。量能健康。`;
-    }
-
-    mods.push({
-      cls: divCls,
-      badge: divBadge,
-      title: '⑥ OBV 能量潮背離偵測',
-      result: divResult,
-      detail: divDetail
-    });
-  })();
-
-  document.getElementById('contraGrid').innerHTML = mods.map(m => `
-    <div class="contra-module ${m.cls}">
-      <div class="contra-signal-badge">${m.badge}</div>
-      <div class="contra-module-title">${m.title}</div>
-      <div class="contra-module-result">${m.result}</div>
-      <div class="contra-module-detail">${m.detail}</div>
-    </div>`).join('');
-
-  document.getElementById('contraExtra').innerHTML = '';
-
-  // ── v5.68 Badge：三階層 Contrarian Up + Down 顯示 ──
-  const topSignal =
-    contrarianUpStrong ? '🔥 強力 Contrarian Up — RSI確認超賣+法人連買3日'
-    : contrarianUp     ? '🟢 Contrarian Up — 反彈訊號（RSI<30+法人買）'
-    : contrarianUpWatch? '🟡 接近超賣觀察 — RSI 30~38+法人連買'
-    : contrarianDown   ? '🔴 Contrarian Down — 過熱警示'
-    : contrarianDownWarn? '⚠️ 過熱預警 — RSI超買+偏離月線'
-    : instContraBuy    ? '📡 情緒對沖：法人逆勢買，優先信法人'
-    : instContraSell   ? '📡 情緒對沖：法人逆勢賣，警惕追高'
-    : '⚪ 無強力反指標訊號';
-
-  const badgeEl = document.getElementById('contraBadge');
-  if      (contrarianUpStrong) { badgeEl.style.background='#ECFDF5';badgeEl.style.color='#065F46';badgeEl.style.border='1px solid #34D399'; }
-  else if (contrarianUp)       { badgeEl.style.background='#D1FAE5';badgeEl.style.color='#065F46';badgeEl.style.border='1px solid #6EE7B7'; }
-  else if (contrarianUpWatch)  { badgeEl.style.background='#FEF9C3';badgeEl.style.color='#713F12';badgeEl.style.border='1px solid #FDE047'; }
-  else if (contrarianDown)     { badgeEl.style.background='#FEE2E2';badgeEl.style.color='#7F1D1D';badgeEl.style.border='1px solid #FECACA'; }
-  else if (contrarianDownWarn) { badgeEl.style.background='#FFF7ED';badgeEl.style.color='#7C2D12';badgeEl.style.border='1px solid #FED7AA'; }
-  else                         { badgeEl.style.background='#E0F2FE';badgeEl.style.color='#0369A1';badgeEl.style.border='1px solid #BAE6FD'; }
-  badgeEl.textContent = topSignal;
-
-  // ── v5.68 橋接 _smData（三階層） ──
-  if (window._smData) window._smData.ctr = {
-    verd: topSignal,
-    cls: contrarianUpStrong ? 'bull'
-       : contrarianUp       ? 'bull'
-       : contrarianUpWatch  ? 'warn'
-       : contrarianDown     ? 'bear'
-       : contrarianDownWarn ? 'warn'
-       : instContraBuy      ? 'warn'
-       : 'neut'
-  };
-}
 
 // ==============================================================
 //  ★ 大戶洗盤邏輯 ★
@@ -61909,133 +61231,6 @@ ${instNote}
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  🌏 地緣政治風險儀表板  renderGeoRisk()  v6.31
-// ══════════════════════════════════════════════════════════════
-function renderGeoRisk(stockId, lc, lRSI, lK, lD, fSeries, tSeries) {
-
-  // ── 靜態地緣事件庫（持續更新的基準場景）──
-  const GEO_EVENTS = [
-    { icon:'⚔️', name:'台海軍事演習週期', desc:'解放軍定期演習干擾台灣海峽航運與半導體供應鏈', impact:'neg', weight:25, base:55 },
-    { icon:'🏛️', name:'美中科技脫鉤', desc:'晶片出口管制持續擴大，台廠夾在美中之間承壓', impact:'neg', weight:20, base:62 },
-    { icon:'💵', name:'美元指數強勢', desc:'Fed緊縮週期末端，新台幣匯率波動，影響外資進出', impact:'neg', weight:15, base:48 },
-    { icon:'🛢️', name:'中東能源衝突', desc:'紅海航運受阻，能源成本壓力影響製造業毛利', impact:'neg', weight:10, base:40 },
-    { icon:'🤝', name:'美台貿易協定', desc:'TIFA重啟談判，有利台灣科技業取得市場準入', impact:'pos', weight:15, base:35 },
-    { icon:'🌐', name:'全球供應鏈重組', desc:'友岸外包（Friend-shoring）利好台灣半導體自主地位', impact:'pos', weight:15, base:30 },
-  ];
-
-  // ── 依個股籌碼動態調整風險係數 ──
-  const fTrend  = (fSeries.at(-1)||0) - (fSeries.at(-5)||0);  // 外資近5日趨勢
-  const tTrend  = (tSeries.at(-1)||0) - (tSeries.at(-5)||0);  // 投信近5日
-  const techStress = (lRSI < 35 ? 15 : lRSI < 45 ? 8 : 0)    // 技術超賣加壓
-                   + (lK < 25 ? 10 : lK < 35 ? 5 : 0);
-
-  // 股票類型對地緣敏感度
-  const { type: stype } = (typeof classifyStockType === 'function')
-    ? classifyStockType(stockId) : { type: 'mid' };
-  const GEO_SENSITIVITY = { large:1.2, mid:0.9, small:0.7, etf:1.0 };
-  const sensitivity = GEO_SENSITIVITY[stype] || 1.0;
-
-  // 計算各因子分數（0–100）
-  const factors = GEO_EVENTS.map(ev => {
-    let score = ev.base;
-    if (ev.name.includes('台海'))     score += (fTrend < -3 ? 8 : fTrend > 3 ? -5 : 0);
-    if (ev.name.includes('美中'))     score += (tTrend < -2 ? 5 : 0);
-    if (ev.name.includes('美元'))     score += techStress * 0.3;
-    if (ev.name.includes('供應鏈'))   score -= (fTrend > 2 ? 6 : 0);
-    score = Math.max(10, Math.min(90, Math.round(score * (ev.impact === 'neg' ? sensitivity : 1))));
-    return { ...ev, score };
-  });
-
-  // 加權總分
-  const totalScore = Math.round(
-    factors.reduce((s, f) => s + f.score * f.weight / 100, 0) * sensitivity
-  );
-  const clampedScore = Math.max(10, Math.min(90, totalScore));
-
-  // 等級
-  const level = clampedScore >= 70 ? 'crisis'
-              : clampedScore >= 55 ? 'high'
-              : clampedScore >= 38 ? 'mid'
-              : 'low';
-  const levelLabel = { low:'低度風險', mid:'中度警戒', high:'高度風險', crisis:'危機模式' }[level];
-
-  // ── 渲染 Badge ──
-  const badge = document.getElementById('geoRiskBadge');
-  if (badge) {
-    badge.className = `georisk-alert-badge ${level}`;
-    badge.textContent = `${levelLabel} ${clampedScore}`;
-  }
-
-  // ── 渲染分數 & 弧形 ──
-  const scoreEl = document.getElementById('geoRiskScore');
-  if (scoreEl) scoreEl.textContent = clampedScore;
-
-  const arcFill = document.getElementById('geoArcFill');
-  if (arcFill) {
-    // 弧總長約100，dashoffset越小填充越多
-    const offset = Math.round(100 - clampedScore);
-    arcFill.style.strokeDashoffset = offset;
-  }
-
-  // ── 渲染六大因子格 ──
-  const factorsEl = document.getElementById('geoFactors');
-  if (factorsEl) {
-    const lvl = s => s >= 65 ? 'high' : s >= 45 ? 'mid' : 'low';
-    factorsEl.innerHTML = factors.map(f => `
-      <div class="georisk-factor">
-        <div class="grf-top">
-          <div class="grf-name">${f.icon} ${f.name.slice(0,8)}</div>
-          <div class="grf-val ${lvl(f.score)}">${f.score}</div>
-        </div>
-        <div class="grf-bar-track">
-          <div class="grf-bar-fill ${lvl(f.score)}" style="width:${f.score}%"></div>
-        </div>
-        <div class="grf-desc">${f.desc.slice(0,24)}…</div>
-      </div>`).join('');
-  }
-
-  // ── 渲染事件列表 ──
-  const eventEl = document.getElementById('geoEventList');
-  if (eventEl) {
-    // 依風險高低排序，取前5
-    const sorted = [...factors].sort((a,b) => (b.impact==='neg'?b.score:-b.score) - (a.impact==='neg'?a.score:-a.score)).slice(0,5);
-    eventEl.innerHTML = sorted.map(f => `
-      <div class="georisk-event-item">
-        <div class="georisk-event-icon">${f.icon}</div>
-        <div class="georisk-event-body">
-          <div class="georisk-event-name">${f.name}</div>
-          <div class="georisk-event-desc">${f.desc}</div>
-        </div>
-        <div class="georisk-event-impact ${f.impact === 'pos' ? 'pos' : 'neg'}">
-          ${f.impact === 'pos' ? '↑利多' : '↓利空'} ${f.score}
-        </div>
-      </div>`).join('');
-  }
-
-  // ── 板塊曝險 Chip ──
-  const SECTOR_EXPOSURE = [
-    { name:'半導體', color:'#EF4444', val: Math.round(clampedScore * 0.95) },
-    { name:'伺服器', color:'#F97316', val: Math.round(clampedScore * 0.82) },
-    { name:'金融',   color:'#EAB308', val: Math.round(clampedScore * 0.68) },
-    { name:'傳產',   color:'#6B7280', val: Math.round(clampedScore * 0.52) },
-    { name:'電信',   color:'#3B82F6', val: Math.round(clampedScore * 0.38) },
-    { name:'ETF',    color:'#8B5CF6', val: Math.round(clampedScore * 0.60) },
-  ];
-  const impactEl = document.getElementById('geoImpactRow');
-  if (impactEl) {
-    impactEl.innerHTML = SECTOR_EXPOSURE.map(s => `
-      <div class="georisk-impact-chip">
-        <div class="gic-dot" style="background:${s.color}"></div>
-        <span class="gic-label">${s.name}</span>
-        <span class="gic-val" style="color:${s.color}">${s.val}</span>
-      </div>`).join('');
-  }
-
-  // 儲存供 hedge 讀取
-  window._geoRiskLevel = level;
-  window._geoRiskScore = clampedScore;
-}
 
 // ══════════════════════════════════════════════════════════════
 //  🛡️ 對沖策略三欄卡片  renderHedge()  v6.31
@@ -79700,12 +78895,10 @@ if (typeof _origRenderSM === 'function') {
     // ── 主力行為 ──
     { id:'bigIntentCard', label:'大戶意圖',  emoji:'👤', why:'法人是不對稱資訊的持有者。外資、投信、自營商的方向，比任何技術線型都可靠。',       ksTab:'bigplayer' },
     { id:'bpcCard',       label:'五大券商',  emoji:'💎', why:'特定券商分點的進出，往往透露主力佈局動作，是籌碼分析中最細緻的一層。',             ksTab:'chips' },
-    { id:'contraCard',    label:'反指標',    emoji:'🔀', why:'散戶情緒是反指標。大家都看多時要小心，大家都看空時才是底部。',                     ksTab:'philosophy' },
     { id:'washCard',      label:'洗盤估算',  emoji:'🎯', why:'主力洗盤是為了讓散戶出清再低價補貨。學會判斷洗盤，才能在最佳位置掛單。',           ksTab:'math', ksAnchor:'ks-wallis-theory' },
 
     // ── 風險與比較 ──
     { id:'vrCard',        label:'VR噪音',    emoji:'📐', why:'VR值衡量成交量的真實性。大量但VR低，可能是假成交量。',                             ksTab:'indicators' },
-    { id:'geoRiskCard',   label:'地緣風險',  emoji:'🌏', why:'地緣政治是系統性風險，不管個股多好，戰爭/制裁可以讓整個板塊歸零。',               ksTab:'quantum' },
     { id:'hedgeCard',     label:'對沖策略',  emoji:'🛡️', why:'不是每次都要進攻。學會用選擇權或反向ETF保護部位，才是成熟的投資者。',             ksTab:'etf' },
     { id:'compareCard',   label:'多股比較',  emoji:'📊', why:'同板塊比強弱，選強的買。相對強度比絕對價格更能告訴你資金往哪裡流。',               ksTab:'sectors' },
     { id:'earnCalCard',   label:'財報日曆',  emoji:'📅', why:'財報前後是最容易出現暴漲暴跌的時間點，提前知道日期才不會被洗出去。',               ksTab:'philosophy' },
@@ -79729,7 +78922,6 @@ if (typeof _origRenderSM === 'function') {
   const HREF_MAP = {
     'biCard':           'bigIntentCard',
     'vrAnchor':         'vrCard',
-    'geoRiskAnchor':    'geoRiskCard',
     'hedgeAnchor':      'hedgeCard',
     'compareAnchor':    'compareCard',
     'earnCalAnchor':    'earnCalCard',
