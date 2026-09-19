@@ -17302,6 +17302,8 @@ a.module-nav-item.acc-active {
 
     <!-- 📅 資料新鮮度警示 Banner -->
     <div class="data-freshness-warn" id="dataFreshnessWarn" style="display:none;"></div>
+    <!-- 📉 v7.72 低成交量警示 Banner：成交量太薄，技術指標參考價值有限 -->
+    <div class="data-freshness-warn" id="lowVolumeWarn" style="display:none;"></div>
     <!-- ⚠️ v6.29 季底倒計時 chip（距季底 ≤21 日才顯示） -->
     <div id="heroQEndChip" style="display:none;" class="fit-qend-chip notice"></div>
 
@@ -43991,6 +43993,38 @@ function renderHero(id, info, price, chg, chgPct, row, vol) {
       <span class="dfw-icon">📅</span>
       <span class="dfw-text">${msg}</span>
       <span class="dfw-badge">${badge}</span>
+    `;
+  })();
+
+  // 📉 v7.72 低成交量警示：技術指標（RSI/KD/MACD等）公式不看成交量，只看收
+  // 盤價序列，冷門股一天可能只有幾張成交，價格容易被少數單子牽動，指標算出
+  // 來的數字在數學上沒錯，但代表的市場共識強度遠不如成交量正常的股票——
+  // 這種「樣本代表性不足」沒辦法用資料清洗解決，只能提醒使用者自行判斷。
+  (function checkLowVolume() {
+    const warnEl = document.getElementById('lowVolumeWarn');
+    if (!warnEl) return;
+    const volsArr = window.aData?.vols || [];
+    if (volsArr.length < 5) { warnEl.style.display = 'none'; return; }
+
+    const todayVolLots = (volsArr.at(-1) || 0) / 1000; // 股 → 張
+    const histVols = volsArr.slice(-21, -1); // 排除今天，抓前20個交易日
+    const avgLots = histVols.length ? (histVols.reduce((a,b) => a+b, 0) / histVols.length) / 1000 : 0;
+
+    const ABS_FLOOR = 50; // 張——低於此視為極低流動性，不管跟均量比起來如何都要提醒
+    const isExtremeLow = todayVolLots < ABS_FLOOR;
+    const isRelLow = avgLots > 0 && todayVolLots < avgLots * 0.2; // 只有均量的20%以下
+
+    if (!isExtremeLow && !isRelLow) { warnEl.style.display = 'none'; return; }
+
+    const msg = isExtremeLow
+      ? `本日成交量僅 <b>${todayVolLots.toFixed(1)} 張</b>，流動性極低——RSI/KD/MACD等技術指標算得出數字，但價格容易被少數單子牽動，代表性遠不如成交量正常的股票，訊號僅供參考，不建議單獨依賴。`
+      : `本日成交量 <b>${todayVolLots.toFixed(1)} 張</b>，遠低於近20日均量（約 ${avgLots.toFixed(1)} 張），今天的技術指標訊號可信度較低，建議謹慎看待。`;
+
+    warnEl.style.display = 'flex';
+    warnEl.innerHTML = `
+      <span class="dfw-icon">📉</span>
+      <span class="dfw-text">${msg}</span>
+      <span class="dfw-badge">成交量過低</span>
     `;
   })();
 }
