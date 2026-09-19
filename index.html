@@ -64247,7 +64247,7 @@ function renderScreenerCards(showStats=false) {
     const verdictCls = r.score>=_th4?'strong':r.score>=_th2?'mid':'weak';
     const up = r.chgPct >= 0;
 
-    const _showVal = (_curMode === 'macdmatrix' || _curMode === 'exdiv'); // 這兩個模式顯示數值
+    const _showVal = (_curMode === 'macdmatrix' || _curMode === 'exdiv' || _curMode === 'etfFlow'); // 這些模式顯示數值（etfFlow用來顯示是哪些ETF在買）
     const checksHtml = r.checks.map(c => {
       const cls = c.hit?'hit':c.warn?'warn':'miss';
       const icon = c.hit?'✓':c.warn?'△':'×';
