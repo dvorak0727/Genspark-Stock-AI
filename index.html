@@ -3256,8 +3256,8 @@
     .module-nav::-webkit-scrollbar { display: none; }
     /* 錨點跳轉預留 header 高度 */
     #csCard, #techCard, #aiCard, #peakCard,
-    #phaseCard, #biCard, #bpcCard, #washCard,
-    #scatterCard, #bigIntentCard,
+    #phaseCard, #bpcCard, #washCard,
+    #scatterCard,
     #hedgeCard {
       scroll-margin-top: 60px;
     }
@@ -7586,127 +7586,6 @@
       font-size:0.62rem; color:var(--fg3); padding:6px 10px;
     }
 
-    /* ====== 大戶意圖偵測 ====== */
-    .bigintent-card {
-      background:var(--surface); border:1px solid var(--border);
-      border-radius:12px; padding:9px 11px; margin-bottom:8px;
-      box-shadow:0 1px 4px rgba(0,0,0,0.04);
-      position:relative; overflow:hidden;
-    }
-    .bigintent-card::before {
-      content:''; position:absolute; top:0; left:0; right:0; height:3px;
-      background:linear-gradient(90deg,#7C3AED,#A855F7,#6366F1);
-    }
-    .bi-header {
-      display:flex; align-items:center; gap:7px; margin-bottom:6px;
-    }
-    .bi-header-icon {
-      width:28px; height:28px; border-radius:7px; flex-shrink:0;
-      background:linear-gradient(135deg,#7C3AED,#6366F1);
-      display:flex; align-items:center; justify-content:center;
-      font-size:0.88rem; box-shadow:0 2px 5px rgba(124,58,237,0.22);
-    }
-    .bi-header-title { font-size:0.82rem; font-weight:800; color:var(--fg); }
-    .bi-header-sub   { font-size:0.64rem; color:var(--fg3); margin-top:1px; }
-    .bi-badge {
-      margin-left:auto; font-size:0.62rem; font-weight:700;
-      padding:3px 10px; border-radius:8px; white-space:nowrap;
-    }
-    .bi-badge.buy  { background:#FEE2E2; color:#B91C1C; border:1.5px solid #FCA5A5; }
-    .bi-badge.sell { background:#DCFCE7; color:#15803D; border:1.5px solid #86EFAC; }
-    .bi-badge.wait { background:#FEF3C7; color:#92400E; border:1.5px solid #FCD34D; }
-    .bi-badge.neut { background:var(--bg2); color:var(--fg3); border:1.5px solid var(--border); }
-    /* 裁決橫幅色系 */
-    .bi-verdict.buy  { background:linear-gradient(90deg,#FFF0F0,#FEE2E2); border-color:#E8343A; }
-    .bi-verdict.sell { background:linear-gradient(90deg,#F0FFF4,#DCFCE7); border-color:#16A34A; }
-    .bi-verdict.wait { background:linear-gradient(90deg,#FFFBEB,#FEF3C7); border-color:#F59E0B; }
-    .bi-verdict.neut { background:var(--bg2); border-color:#7C3AED; }
-    .bi-vemoji { font-size:1.3rem; flex-shrink:0; }
-    .bi-vmain  { flex:1; min-width:0; }
-    .bi-vaction {
-      font-size:0.78rem; font-weight:900;
-      color:inherit;
-    }
-    .bi-verdict.buy  .bi-vaction { color:#B91C1C; }
-    .bi-verdict.sell .bi-vaction { color:#15803D; }
-    .bi-verdict.wait .bi-vaction { color:#92400E; }
-    .bi-verdict.neut .bi-vaction { color:#4C1D95; }
-    .bi-vdesc  { font-size:0.72rem; color:var(--fg3); margin-top:3px; }
-    .bi-vconf  { text-align:right; flex-shrink:0; }
-    .bi-vconf-num { font-size:1.05rem; font-weight:900; }
-    .bi-verdict.buy  .bi-vconf-num { color:#E8343A; }
-    .bi-verdict.sell .bi-vconf-num { color:#16A34A; }
-    .bi-verdict.wait .bi-vconf-num { color:#F59E0B; }
-    .bi-verdict.neut .bi-vconf-num { color:#7C3AED; }
-    .bi-vconf-lbl { font-size:0.6rem; color:var(--fg3); }
-    /* 四項指標格 */
-    .bi-grid {
-      display:grid; grid-template-columns:repeat(4,1fr); gap:4px;
-      margin-bottom:5px;
-    }
-    @media(max-width:700px){ .bi-grid{grid-template-columns:repeat(2,1fr);} }
-    @media(max-width:420px){ .bi-grid{grid-template-columns:repeat(2,1fr);} }
-    .bi-item {
-      background:var(--surface2); border:1px solid var(--border);
-      border-radius:8px; padding:5px 7px;
-    }
-    .bi-item-label  { font-size:0.61rem; color:var(--fg3); font-weight:700; margin-bottom:1px; }
-    .bi-item-val    { font-size:0.82rem; font-weight:900; }
-    .bi-item-val.bull { color:#E8343A; }
-    .bi-item-val.bear { color:#16A34A; }
-    .bi-item-val.neut { color:#F59E0B; }
-    .bi-item-sub    { font-size:0.62rem; color:var(--fg3); margin-top:1px; line-height:1.4; }
-    .bi-item-bar    { height:4px; border-radius:3px; background:var(--border); margin-top:3px; overflow:hidden; }
-    .bi-item-bar-fill { height:100%; border-radius:3px; transition:width 0.8s; }
-    /* 第5格：意圖條式樣 */
-    .bi-intent-cell {
-      background:var(--surface2); border:1px solid var(--border);
-      border-radius:8px; padding:5px 6px;
-      display:flex; flex-direction:column; justify-content:center;
-    }
-    .bi-intent-cell-lbl { font-size:0.62rem; color:var(--fg3); font-weight:700; margin-bottom:2px; }
-    .bi-intent-bar {
-      display:flex; height:14px; border-radius:4px; overflow:hidden;
-      margin-bottom:4px;
-    }
-    .bi-intent-buy  { background:#E8343A; display:flex;align-items:center;justify-content:center;
-      font-size:0.56rem;font-weight:700;color:#fff;transition:width 0.8s; }
-    .bi-intent-sell { background:#16A34A; display:flex;align-items:center;justify-content:center;
-      font-size:0.56rem;font-weight:700;color:#fff;transition:width 0.8s; }
-    /* 裁決 + 結論 2×1 並排 */
-    .bi-top-row {
-      display:grid; grid-template-columns:1fr 1fr; gap:5px;
-      margin-bottom:5px; align-items:stretch;
-    }
-    @media(max-width:640px){ .bi-top-row{ grid-template-columns:1fr; } }
-
-    /* 裁決橫幅（左欄）*/
-    .bi-verdict {
-      display:flex; align-items:center; gap:6px; padding:5px 8px;
-      border-radius:9px; border-left:4px solid; margin-bottom:0;
-    }
-    /* 結論（右欄）*/
-    .bi-conclusion {
-      display:grid; grid-template-columns:1fr auto;
-      gap:6px; align-items:center;
-      background:linear-gradient(90deg,rgba(124,58,237,0.08),rgba(99,102,241,0.05));
-      border:1px solid rgba(124,58,237,0.2); border-radius:9px;
-      padding:5px 8px; margin-top:0;
-    }
-    @media(max-width:560px){ .bi-conclusion{ grid-template-columns:1fr; } }
-    .bi-conclusion-label {
-      font-size:0.64rem; font-weight:800; color:#7C3AED;
-      letter-spacing:0.5px; margin-bottom:4px;
-    }
-    .bi-conclusion-text { font-size:0.73rem; color:var(--fg2); line-height:1.65; }
-    .bi-conclusion-pct {
-      text-align:center; flex-shrink:0; min-width:64px;
-      padding:4px 7px; background:rgba(124,58,237,0.08);
-      border-radius:7px; border:1px solid rgba(124,58,237,0.15);
-    }
-    .bi-conclusion-pct-buy  { font-size:0.82rem; font-weight:900; color:#E8343A; }
-    .bi-conclusion-pct-sell { font-size:0.82rem; font-weight:900; color:#16A34A; }
-    .bi-conclusion-pct-lbl  { font-size:0.58rem; color:var(--fg3); margin-top:2px; }
 
     .peg-notice {
       font-size:0.62rem; color:var(--fg3); margin-top:7px;
@@ -16656,7 +16535,6 @@ a.module-nav-item.acc-active {
       <a class="module-nav-item" href="#teachCard">📚 教學操盤</a>
 
       <!-- ④ 主力行為 -->
-      <a class="module-nav-item" href="#biCard">👤 大戶意圖</a>
       <a class="module-nav-item" href="#bpcCard">💎 五大券商</a>
       <a class="module-nav-item" href="#washCard">🎯 洗盤估算</a>
       <a class="module-nav-item" href="#peakCard">🔴 高點</a>
@@ -16824,7 +16702,7 @@ a.module-nav-item.acc-active {
       <div class="ogb-steps">
         <span class="ogb-step" id="ogbStep1">① 先看開盤壓力表</span>
         <span class="ogb-step" id="ogbStep2">② 查籌碼</span>
-        <span class="ogb-step" id="ogbStep3">③ 對照大戶意圖</span>
+        <span class="ogb-step" id="ogbStep3">③ 看籌碼總覽大戶意圖</span>
       </div>
     </div>
 
@@ -19189,62 +19067,6 @@ a.module-nav-item.acc-active {
 
     <!-- 12. 股權分散分析 — v7.23 已移除 -->
 
-    <!-- 14. 大戶意圖偵測 🔍 -->
-    <div class="bigintent-card" id="bigIntentCard"><!-- biCard anchor -->
-    <span id="biCard" style="position:relative;top:-60px;"></span>
-      <div class="bi-header">
-        <div class="bi-header-icon">🔍</div>
-        <div>
-          <div class="bi-header-title">大戶意圖偵測</div>
-          <div class="bi-header-sub">內盤比 · 主力掛單 · 法人綜合動向 · 鎖券偵測</div>
-        </div>
-        <div class="bi-badge neut" id="biBadge">分析中…</div>
-      </div>
-
-      <!-- 裁決 + 結論 2×1 並排 -->
-      <div class="bi-top-row">
-        <!-- 左欄：裁決橫幅 -->
-        <div class="bi-verdict neut" id="biVerdict">
-          <div class="bi-vemoji" id="biVEmoji">🔍</div>
-          <div class="bi-vmain">
-            <div class="bi-vaction" id="biVAction">分析中</div>
-            <div class="bi-vdesc"   id="biVDesc">—</div>
-          </div>
-          <div class="bi-vconf">
-            <div class="bi-vconf-num" id="biVConf">—</div>
-            <div class="bi-vconf-lbl">大戶方向</div>
-          </div>
-        </div>
-
-        <!-- 右欄：整體結論（文字 + 買賣%）-->
-        <div class="bi-conclusion">
-          <div>
-            <div class="bi-conclusion-label" data-tip="大戶意圖">📊 大戶意圖綜合研判</div>
-            <div class="bi-conclusion-text" id="biConcText">—</div>
-            <!-- 意圖條整合於此 -->
-            <div class="bi-intent-cell-lbl" data-tip="買進意圖" style="margin-top:8px;">買進 ↔ 賣出 意圖比</div>
-            <div class="bi-intent-bar" id="biIntentBar">
-              <div class="bi-intent-buy"  id="biIntentBuy"  style="width:50%">買</div>
-              <div class="bi-intent-sell" id="biIntentSell" style="width:50%">賣</div>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:0.6rem;color:var(--fg3);margin-top:2px;">
-              <span id="biIntentBuyPct">—</span>
-              <span id="biIntentSellPct">—</span>
-            </div>
-          </div>
-          <div class="bi-conclusion-pct">
-            <div class="bi-conclusion-pct-buy"  id="biConcBuyPct">—</div>
-            <div class="bi-conclusion-pct-sell" id="biConcSellPct">—</div>
-            <div class="bi-conclusion-pct-lbl">買方 / 賣方</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4格同排：4大指標 -->
-      <div class="bi-grid" id="biGrid">
-        <!-- rendered by JS -->
-      </div>
-    </div><!-- /.bigintent-card -->
 
     <!-- ══════════════════════════════════════════════════
          12.5 💎 主力五大券商籌碼解析 · 黃金節律計算器
@@ -36629,6 +36451,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   setTimeout(() => { if (!isStale() && typeof renderProfitQuality === 'function') renderProfitQuality(stockId); }, 300); // 💊 獲利品質檢查（個股分析第一站，季報資料不急，錯開避免搶頻寬）
   setTimeout(() => { if (!isStale() && typeof renderPeRatio === 'function') renderPeRatio(stockId); }, 450); // 📐 本益比檢查
   setTimeout(() => { if (!isStale() && typeof checkDispositionAlert === 'function') checkDispositionAlert(stockId); }, 600); // ⚠️ 處置股+籌碼共振提示
+  renderBigIntent(closes, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, lc, lRSI, lK, lD, lHist, lMA5, lMA20); // 大戶意圖 // v7.72：移到renderChipSummary之前，讓_smData.bi在ABCD判讀卡引用時已經算好
   renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes, vols, lc, dates); // 籌碼總覽
 
   buildKAnnotEvents(dates, closes, ma20, vols, instMap, instDays, lows, opens, highs, ma5, fSeries, tSeries);     // [v6.40] K線標注事件（v7.7加入lows供前波低點偵測，v7.88加入opens/highs供K線形態偵測，v7.90加入ma5/fSeries/tSeries供突破共振偵測）
@@ -36672,7 +36495,6 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
     // 週期濾波：從 phaseConfNum DOM 取得信心分數（renderPhaseDetect 已渲染）
     const _cfConf = parseInt(document.getElementById('phaseConfNum')?.textContent, 10) || 0;
     renderCycleFilter(stockId, closes, vols, fSeries, tSeries, lc, _cfConf);            // ⚙️ 週期濾波
-    renderBigIntent(closes, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, lc, lRSI, lK, lD, lHist, lMA5, lMA20); // 大戶意圖
     renderBigPlayerChip(closes, opens, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, lc, lRSI, lK, lMA5, lMA20); // 券商
     _renderBpcRealBrokers(stockId); // v7.55：非同步嘗試補上真實分點資料，抓得到才覆蓋AI推算卡片
     renderWashDetect(closes, opens, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, ma20, lc, lRSI, lK, lD, lL, lM, lMA5); // 洗盤估算
@@ -37875,6 +37697,16 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
       abcdDesc  = `外資（5日${f5>=0?'+':''}${Math.round(f5).toLocaleString()}張）與投信（5日${t5>=0?'+':''}${Math.round(t5).toLocaleString()}張），方向尚未明確分化。融資${marginEst}%、券資比${_se2.shortToMarginRatio || '—'}%，無強烈訊號。`;
       abcdAction = '⏳ 等待外資明確表態後再介入';
     }
+
+    // v7.72：原本獨立的「大戶意圖偵測」卡片(bigIntentCard)已整併進籌碼總覽，
+    // renderBigIntent() 仍會照常運算（只是原本寫入的DOM元素已移除，寫入時
+    // 靜靜跳過），計算結果留在 window._smData.bi 裡，這裡直接讀出來接在
+    // ABCD判讀文字後面，不用重算一次同樣的內盤比/法人動向/鎖券邏輯。
+    const _bi = window._smData?.bi;
+    if (_bi && _bi.action) {
+      abcdDesc += ` 🔍 大戶意圖偵測（${_bi.score}分）：${_bi.action}，${_bi.desc}。`;
+    }
+
     // v7.23 緊湊橫條佈局：icon+標題+說明+操作指引+5格數字全部在一起
     el.innerHTML = `
       <div style="background:${abcdBg};border-left:3px solid ${abcdColor};border-radius:7px;padding:6px 10px;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;">
@@ -78893,7 +78725,6 @@ if (typeof _origRenderSM === 'function') {
     { id:'teachCard',     label:'教學操盤',  emoji:'📚', why:'AI陪你學！把技術指標翻譯成白話，告訴你現在該買、該賣、還是等，附上掛單參考價。',   ksTab:'philosophy', vip:true },
 
     // ── 主力行為 ──
-    { id:'bigIntentCard', label:'大戶意圖',  emoji:'👤', why:'法人是不對稱資訊的持有者。外資、投信、自營商的方向，比任何技術線型都可靠。',       ksTab:'bigplayer' },
     { id:'bpcCard',       label:'五大券商',  emoji:'💎', why:'特定券商分點的進出，往往透露主力佈局動作，是籌碼分析中最細緻的一層。',             ksTab:'chips' },
     { id:'washCard',      label:'洗盤估算',  emoji:'🎯', why:'主力洗盤是為了讓散戶出清再低價補貨。學會判斷洗盤，才能在最佳位置掛單。',           ksTab:'math', ksAnchor:'ks-wallis-theory' },
 
@@ -78920,7 +78751,6 @@ if (typeof _origRenderSM === 'function') {
 
   // href → card id 對應表（有些 nav href 和 card id 不一致）
   const HREF_MAP = {
-    'biCard':           'bigIntentCard',
     'vrAnchor':         'vrCard',
     'hedgeAnchor':      'hedgeCard',
     'compareAnchor':    'compareCard',
