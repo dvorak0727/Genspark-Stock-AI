@@ -17201,8 +17201,6 @@ a.module-nav-item.acc-active {
          onclick="document.getElementById('etfCalCard').scrollIntoView({behavior:'smooth'});return false;">📆 ETF換檔</a>
       <a class="module-nav-item" href="#chipLogAnchor"
          onclick="document.getElementById('chipLogCard').scrollIntoView({behavior:'smooth'});return false;">📋 籌碼記錄</a>
-      <a class="module-nav-item" href="#backtestCard"
-         onclick="document.getElementById('backtestCard').scrollIntoView({behavior:'smooth'});return false;">💹 績效回測</a>
 
       <a class="module-nav-item" href="broker-scanner.html" target="_blank"
          style="border-color:#f97316;color:#f97316;font-weight:700;">🏦 券商囤貨掃描</a>
@@ -21435,50 +21433,6 @@ a.module-nav-item.acc-active {
     
 
     <!-- 💹 績效回測模擬器 -->
-    <div class="backtest-card" id="backtestCard" style="display:none;">
-      <div class="backtest-header">
-        <div class="backtest-header-icon">💹</div>
-        <div>
-          <div class="backtest-header-title">績效回測模擬器</div>
-          <div class="backtest-header-sub">輸入買入條件，試算本波段持倉績效</div>
-        </div>
-        <div class="backtest-badge" id="backtestBadge">設定中</div>
-      </div>
-
-      <!-- 輸入區 -->
-      <div class="backtest-input-row">
-        <div class="backtest-input-group">
-          <label class="backtest-label">📅 買入日期</label>
-          <select class="backtest-select" id="backtestDateSel">
-            <option value="">-- 選擇日期 --</option>
-          </select>
-        </div>
-        <div class="backtest-input-group">
-          <label class="backtest-label">💰 買入價格</label>
-          <input class="backtest-input" id="backtestPrice" type="number" step="0.5" placeholder="自動填入收盤價"/>
-        </div>
-        <div class="backtest-input-group">
-          <label class="backtest-label">📦 張數</label>
-          <input class="backtest-input" id="backtestShares" type="number" value="1" min="1" placeholder="張"/>
-        </div>
-        <button class="backtest-run-btn" onclick="runBacktest()">▶ 試算</button>
-      </div>
-
-      <!-- 結果區 -->
-      <div class="backtest-result" id="backtestResult" style="display:none;">
-        <!-- 五大績效指標 -->
-        <div class="backtest-kpi-row" id="backtestKpiRow"></div>
-        <!-- 走勢比對 -->
-        <div class="chart-wrap" style="height:160px; margin-top:10px;">
-          <canvas id="backtestChart"></canvas>
-        </div>
-        <!-- 情境分析 -->
-        <div class="backtest-scenario-row" id="backtestScenario"></div>
-        <div class="backtest-disclaimer">
-          ⚠️ 本試算以歷史收盤價計算，不含手續費/稅，僅供學習參考，不構成任何投資建議。
-        </div>
-      </div>
-    </div>
 
     <!-- [v6.39] 同業比較雷達圖 v5.41 已移除 -->
 
@@ -37787,7 +37741,6 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   renderCandlePatterns(opens, highs, lows, closes);                           // 📉 K線形態
   renderBottomDetect(instMap, instDays, fSeries, tSeries, closes, lK, lD, ma20, vols, lc, lRSI); // 底部
   // v7.82：renderInterp()「白話速覽」已整併進 renderAI() 的操作建議清單，不再另外呼叫
-  initBacktest(dates, closes, stockId, info.name);                              // 💹 回測初始化
   if (!isStale()) renderSectorRotation(stockId);                               // 🌍 板塊輪動脈絡
   setTimeout(() => { if (!isStale() && typeof renderUSLeading === 'function') renderUSLeading(stockId); }, 600);  // 🌐 美股先行指標
   setLoadStep(1, 'done');
@@ -43323,166 +43276,7 @@ document.addEventListener('click', e => {
 // ==============================================================
 //  💹 績效回測模擬器
 // ==============================================================
-function initBacktest(dates, closes, stockId, stockName) {
-  const card = document.getElementById('backtestCard');
-  if (!card) return;
-  card.style.display = '';
 
-  // 填入日期選項
-  const sel = document.getElementById('backtestDateSel');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">-- 選擇買入日期 --</option>';
-  dates.forEach((d, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = `${d}  ¥${closes[i].toFixed(1)}`;
-    sel.appendChild(opt);
-  });
-  // 預設選倒數第 20 根（約一個月前）
-  const defIdx = Math.max(0, dates.length - 20);
-  sel.value = defIdx;
-  // 自動填入對應收盤價
-  const priceEl = document.getElementById('backtestPrice');
-  if (priceEl) priceEl.value = closes[defIdx].toFixed(2);
-  sel.addEventListener('change', () => {
-    const idx = parseInt(sel.value);
-    if (!isNaN(idx) && priceEl) priceEl.value = closes[idx].toFixed(2);
-  });
-
-  // 更新 module-nav 加入回測
-  const nav = document.getElementById('moduleNav');
-  if (nav && !nav.querySelector('[href="#backtestCard"]')) {
-    const a = document.createElement('a');
-    a.className = 'module-nav-item';
-    a.href = '#backtestCard';
-    a.textContent = '💹 回測';
-    nav.appendChild(a);
-  }
-
-  // 存 context
-  card._dates  = dates;
-  card._closes = closes;
-  card._stockId   = stockId;
-  card._stockName = stockName;
-
-  // 隱藏結果區等待輸入
-  const res = document.getElementById('backtestResult');
-  if (res) res.style.display = 'none';
-  const badge = document.getElementById('backtestBadge');
-  if (badge) { badge.textContent = '設定中'; badge.className = 'backtest-badge'; }
-}
-
-function runBacktest() {
-  const card = document.getElementById('backtestCard');
-  if (!card || !card._closes) return;
-  const dates  = card._dates;
-  const closes = card._closes;
-
-  const selIdx = parseInt(document.getElementById('backtestDateSel').value);
-  const buyPx  = parseFloat(document.getElementById('backtestPrice').value);
-  const shares = parseInt(document.getElementById('backtestShares').value) || 1;
-  if (isNaN(selIdx) || isNaN(buyPx) || buyPx <= 0) {
-    alert('請先設定買入日期與價格'); return;
-  }
-
-  const buyDate  = dates[selIdx];
-  const nowPx    = closes[closes.length - 1];
-  const nowDate  = dates[dates.length - 1];
-  const holdDays = closes.length - 1 - selIdx;
-
-  // ── 計算 KPI ─────────────────────────────────────────────
-  const pnlPct   = (nowPx - buyPx) / buyPx * 100;
-  const pnlAmt   = (nowPx - buyPx) * shares * 1000; // 每張 1000 股
-
-  // MDD（最大回撤）
-  let maxPx = buyPx, mdd = 0;
-  for (let i = selIdx; i < closes.length; i++) {
-    maxPx = Math.max(maxPx, closes[i]);
-    mdd   = Math.max(mdd, (maxPx - closes[i]) / maxPx * 100);
-  }
-
-  // 最高/最低
-  const slice  = closes.slice(selIdx);
-  const highest = Math.max(...slice), lowest = Math.min(...slice);
-
-  // 年化報酬
-  const annReturn = holdDays > 0 ? (Math.pow(nowPx / buyPx, 365 / holdDays) - 1) * 100 : 0;
-
-  // ── 渲染 KPI ─────────────────────────────────────────────
-  const kpiData = [
-    { label:'持有損益', val: (pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%',
-      cls: pnlPct >= 0 ? 'pos' : 'neg',
-      sub: `${pnlAmt >= 0 ? '+' : ''}${(pnlAmt/10000).toFixed(1)} 萬元` },
-    { label:'持倉天數', val: holdDays + ' 天', cls:'neu', sub:`${buyDate} 買入` },
-    { label:'最大回撤', val: '-' + mdd.toFixed(1) + '%', cls:'neg', sub:'持有期間高點計算' },
-    { label:'最高達到', val: highest.toFixed(1), cls:'pos',
-      sub: `+${((highest - buyPx)/buyPx*100).toFixed(1)}%` },
-    { label:'年化報酬', val: (annReturn >= 0 ? '+' : '') + annReturn.toFixed(1) + '%',
-      cls: annReturn >= 0 ? 'pos' : 'neg', sub: '複利換算' },
-  ];
-  document.getElementById('backtestKpiRow').innerHTML = kpiData.map(k => `
-    <div class="backtest-kpi">
-      <div class="backtest-kpi-label">${k.label}</div>
-      <div class="backtest-kpi-val ${k.cls}">${k.val}</div>
-      <div class="backtest-kpi-sub">${k.sub}</div>
-    </div>`).join('');
-
-  // ── 走勢迷你圖（買入→今日） ───────────────────────────────
-  const subDates  = dates.slice(selIdx).map(d => d.slice(5).replace('-','/'));
-  const subCloses = closes.slice(selIdx);
-  const buyLine   = new Array(subCloses.length).fill(buyPx);
-
-  destroyChart('backtestChart');
-  const ctx = document.getElementById('backtestChart')?.getContext('2d');
-  if (ctx) {
-    charts['backtestChart'] = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: subDates,
-        datasets: [
-          { label: '股價走勢', data: subCloses, borderColor: pnlPct >= 0 ? '#059669' : '#DC2626',
-            borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 },
-          { label: '買入成本', data: buyLine,  borderColor: '#F59E0B',
-            borderWidth: 1.5, borderDash: [5,4], pointRadius: 0, fill: false },
-        ]
-      },
-      options: lightChartOpts(`持倉走勢：${card._stockId} 買入成本 ${buyPx.toFixed(2)}`, false, true),
-    });
-  }
-
-  // ── 三情境分析 ─────────────────────────────────────────────
-  const target1 = buyPx * 1.10, target2 = buyPx * 1.20, stop = buyPx * 0.93;
-  const amt1    = (target1 - buyPx) * shares * 1000;
-  const amt2    = (target2 - buyPx) * shares * 1000;
-  const stopAmt = (stop   - buyPx) * shares * 1000;
-  const scenarios = [
-    { cls:'bull', title:'📈 樂觀情境：+10% 目標出場',
-      body:`目標價 <b>${target1.toFixed(1)}</b>，預估獲利 <b>+${(amt1/10000).toFixed(1)} 萬</b>（${shares}張）<br>
-            目前距離 +10%：差 <b>${(target1 - nowPx).toFixed(1)}</b> 元（${((target1/nowPx-1)*100).toFixed(1)}%）` },
-    { cls:'neut', title:'📊 積極情境：+20% 大波段',
-      body:`目標價 <b>${target2.toFixed(1)}</b>，預估獲利 <b>+${(amt2/10000).toFixed(1)} 萬</b>（${shares}張）<br>
-            目前距離 +20%：差 <b>${(target2 - nowPx).toFixed(1)}</b> 元（${((target2/nowPx-1)*100).toFixed(1)}%）` },
-    { cls:'bear', title:'🛑 停損設定：-7% 停損線',
-      body:`停損價 <b>${stop.toFixed(1)}</b>，最大虧損 <b>${(stopAmt/10000).toFixed(1)} 萬</b>（${shares}張）<br>
-            距停損：${nowPx > stop ? `空間 <b>${(nowPx-stop).toFixed(1)}</b> 元（${((nowPx/stop-1)*100).toFixed(1)}%）` : '<b style="color:var(--down)">⚠️ 已觸及停損！</b>'}` },
-  ];
-  document.getElementById('backtestScenario').innerHTML = scenarios.map(s => `
-    <div class="backtest-scenario ${s.cls}">
-      <div class="backtest-scenario-title">${s.title}</div>
-      <div class="backtest-scenario-body">${s.body}</div>
-    </div>`).join('');
-
-  // ── badge & 顯示 ──────────────────────────────────────────
-  const badge = document.getElementById('backtestBadge');
-  if (badge) {
-    badge.textContent = pnlPct >= 0 ? `獲利 +${pnlPct.toFixed(1)}%` : `虧損 ${pnlPct.toFixed(1)}%`;
-    badge.className   = 'backtest-badge ' + (pnlPct >= 0 ? 'profit' : 'loss');
-  }
-  const res = document.getElementById('backtestResult');
-  if (res) res.style.display = '';
-  // 自動滾到回測結果
-  document.getElementById('backtestCard')?.scrollIntoView({ behavior:'smooth', block:'nearest' });
-}
 
 // ==============================================================
 //  🌙 深色/淡色模式切換
@@ -82145,7 +81939,6 @@ if (typeof _origRenderSM === 'function') {
     { id:'macdScanWrap',  label:'MACD多方結構掃描', emoji:'📉', why:'DIF即將突破DEA、柱狀體由負轉正——用結構條件掃出正在準備發動的股票。',        ksTab:'indicators' },
     { id:'etfCalCard',    label:'ETF換檔',   emoji:'📆', why:'ETF成分股調整日前後，被加入的股票會被動買進，製造短期紅利。',                     ksTab:'etf' },
     { id:'chipLogCard',   label:'籌碼記錄',  emoji:'📋', why:'把歷史籌碼記錄下來，才能看出主力的完整佈局時間軸，而不只是看昨天的動作。',         ksTab:'chips' },
-    { id:'backtestCard',  label:'績效回測',  emoji:'💹', why:'訊號好不好用，要拿歷史資料驗證過才算數。回測是把「我覺得」變成「我算過」的那一步。' },
 
     // ── 其他 ──
     { id:'tradeLogCard',     label:'下單清單', emoji:'📋', why:'建倉記錄 × AI波段出場評分。查詢持倉股票時自動更新燈號，訊號觸發立即提醒。' },
