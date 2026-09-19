@@ -17491,7 +17491,7 @@ a.module-nav-item.acc-active {
         <div id="pqBadge" style="font-size:.68rem;font-weight:900;padding:4px 12px;border-radius:20px;background:var(--bg2);color:var(--fg3);">載入中</div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;">
         <div style="background:var(--bg2);border-radius:10px;padding:10px;">
           <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;cursor:pointer;" data-tip="獲利品質檢查">📈 最新季 EPS <span style="opacity:.6;">?</span></div>
           <div style="font-size:1.1rem;font-weight:900;" id="pqEpsVal">—</div>
@@ -17509,6 +17509,12 @@ a.module-nav-item.acc-active {
           <div style="font-size:1.1rem;font-weight:900;" id="pqRatioVal">—</div>
           <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pqRatioTag">—</div>
           <div style="margin-top:6px;text-align:right;"><span onclick="pqToggleRaw('ratio')" style="font-size:.5rem;color:#059669;cursor:pointer;text-decoration:underline;">▼ 近5季趨勢</span></div>
+        </div>
+        <div style="background:var(--bg2);border-radius:10px;padding:10px;">
+          <div style="font-size:.62rem;color:var(--fg3);font-weight:700;margin-bottom:6px;cursor:pointer;" data-tip="月營收YoY">📊 月營收 YoY <span style="opacity:.6;">?</span></div>
+          <div style="font-size:1.1rem;font-weight:900;" id="pqRevVal">—</div>
+          <div style="font-size:.58rem;color:var(--fg3);margin-top:4px;" id="pqRevYoy">—</div>
+          <div style="margin-top:6px;text-align:right;"><span onclick="pqToggleRaw('rev')" style="font-size:.5rem;color:#059669;cursor:pointer;text-decoration:underline;">▼ 近12月趨勢</span></div>
         </div>
       </div>
 
@@ -70555,7 +70561,7 @@ function _pqDequarterize(cumRows) {
   return out.sort((a,b) => a.date.localeCompare(b.date));
 }
 
-window._pqRawData = { eps: [], cfo: [], ratio: [] };
+window._pqRawData = { eps: [], cfo: [], ratio: [], rev: [] };
 let _pqCurrentRaw = null;
 
 function pqToggleRaw(type) {
@@ -70568,9 +70574,9 @@ function pqToggleRaw(type) {
   if (data.length === 0) { showEpicToast('尚無資料可展開', '#B45309'); return; }
   _pqCurrentRaw = type;
   area.style.display = 'block';
-  const nameMap = { eps: 'EPS（近5季，單位：元）', cfo: '年度營業現金流（近5年，單位：億元）', ratio: '獲利含金量（近5季，單季CFO÷單季淨利）' };
+  const nameMap = { eps: 'EPS（近5季，單位：元）', cfo: '年度營業現金流（近5年，單位：億元）', ratio: '獲利含金量（近5季，單季CFO÷單季淨利）', rev: '月營收（近12月，單位：億元）' };
   title.textContent = `${nameMap[type] || type}`;
-  const fmtVal = (v) => type === 'cfo' ? ((v>=0?'+':'')+(v/1e8).toFixed(1)) : ((v>=0?'+':'')+v.toFixed(2));
+  const fmtVal = (v) => (type === 'cfo' || type === 'rev') ? ((v>=0?'+':'')+(v/1e8).toFixed(1)) : ((v>=0?'+':'')+v.toFixed(2));
   const colorOf = (v) => v >= 0 ? '#059669' : '#dc2626';
   table.innerHTML = `
     <tr>${data.map(r => `<th style="padding:4px 6px;border-bottom:1px solid var(--border);font-size:.56rem;color:var(--fg3);white-space:nowrap;">${r.date}</th>`).join('')}</tr>
@@ -70889,9 +70895,10 @@ async function renderProfitQuality(stockId) {
   try {
     if (badge) { badge.textContent = '載入中'; badge.style.background = 'var(--bg2)'; badge.style.color = 'var(--fg3)'; }
 
-    const [finRows, cfRows] = await Promise.all([
+    const [finRows, cfRows, revRows] = await Promise.all([
       fmFetch('TaiwanStockFinancialStatements', token),
       fmFetch('TaiwanStockCashFlowsStatement', token),
+      fmFetch('TaiwanStockMonthRevenue', token),
     ]);
 
     const epsRows = finRows.filter(r => r.type === 'EPS').sort((a,b) => a.date.localeCompare(b.date));
@@ -70901,6 +70908,27 @@ async function renderProfitQuality(stockId) {
     const niRows  = finRows.filter(r => r.type === 'IncomeAfterTaxes' || r.type === 'IncomeAfterTax').sort((a,b) => a.date.localeCompare(b.date));
     const cfoCumRows = cfRows.filter(r => r.type === 'CashFlowsFromOperatingActivities').sort((a,b) => a.date.localeCompare(b.date));
     const cfoQtrRows = _pqDequarterize(cfoCumRows); // 單季化後的現金流，拿來跟單季淨利配對算比值
+
+    // v7.72 月營收YoY——獨立於EPS/現金流的資料可用性判斷（放在下面的
+    // 早退return之前），因為有些公司（例如金控）月營收申報方式跟一般
+    // 公司不同，不想因為EPS/CFO判斷邏輯把這張卡也一起卡成「資料不足」。
+    (function renderMonthRevenue() {
+      const revSorted = (revRows || []).slice().sort((a,b) => a.date.localeCompare(b.date));
+      if (revSorted.length === 0) {
+        setTx('pqRevVal', '資料不足'); setTx('pqRevYoy', '');
+        return;
+      }
+      const lastRev = revSorted.at(-1);
+      const yoyRow = revSorted.find(r => r.revenue_year === lastRev.revenue_year - 1 && r.revenue_month === lastRev.revenue_month);
+      setTx('pqRevVal', `${(lastRev.revenue/1e8).toFixed(1)} 億`);
+      if (yoyRow && yoyRow.revenue) {
+        const g = (lastRev.revenue - yoyRow.revenue) / Math.abs(yoyRow.revenue) * 100;
+        setHtml('pqRevYoy', `${lastRev.revenue_year}/${String(lastRev.revenue_month).padStart(2,'0')} 年增：<span style="color:${g>=0?healthy:danger};font-weight:700;">${g>=0?'+':''}${g.toFixed(1)}%</span>`);
+      } else {
+        setTx('pqRevYoy', `${lastRev.revenue_year}/${String(lastRev.revenue_month).padStart(2,'0')}｜年增：無去年同期資料`);
+      }
+      window._pqRawData.rev = revSorted.slice(-12).map(r => ({ date: `${r.revenue_year}/${String(r.revenue_month).padStart(2,'0')}`, value: r.revenue }));
+    })();
 
     if (epsRows.length === 0 || niRows.length === 0 || cfoCumRows.length === 0) {
       setTx('pqEpsVal', '資料不足'); setTx('pqEpsYoy', '');
@@ -75110,6 +75138,13 @@ const INDICATOR_TIP_DB = {
     title: '💊 獲利品質檢查（人話版）',
     formula: '獲利含金量 = 營業活動現金流 ÷ 本期稅後淨利\n比值 ≥ 1：賺的錢真的變成現金了\n比值 < 1（尤其接近0或負）：帳上賺錢，但沒收到現金',
     body: '🔍 這是什麼？\n損益表上的「獲利」是用會計原則算出來的，可以透過認列時點、存貨評價、應收帳款掛帳等方式美化；但現金流是真金白銀的進出，很難長期造假。這個模組比對「帳上賺多少」跟「真的收到多少現金」，抓出落差。\n\n📈 獲利含金量 ≥ 1：\n• 本業收到的現金比帳上獲利還多，代表獲利品質紮實，甚至偏保守\n\n📉 獲利含金量遠低於1，甚至是負的：\n• EPS看起來在賺錢，但營業現金流卻沒跟上、甚至是負的\n• 常見原因：錢卡在應收帳款收不回來、存貨堆積賣不掉\n• 這是財報地雷的典型早期徵兆之一，很多出事公司倒下前都是這個模式\n\n✅ 怎麼用：\n不是絕對規則，短期一兩季偏低可能只是正常的商業週期（例如出貨旺季應收帳款暫時墊高），重點是看「連續好幾季都偏低」——那才是真警訊，不是雜訊。\n\n⚠️ 提醒：\n這是體質檢查，不是買賣訊號。體質好不代表股價會漲，體質差也不代表股價會跌，只是提醒你「這家公司的獲利數字，可信度打幾折」。'
+  },
+
+  /* ── v7.72 月營收 YoY ── */
+  '月營收YoY': {
+    title: '📊 月營收年增率（人話版）',
+    formula: '月營收YoY = (本月營收 − 去年同月營收) ÷ 去年同月營收 × 100%',
+    body: '🔍 這是什麼？\n台灣上市櫃公司依規定每月10日前要公布上個月的合併營收，是所有財務資訊裡更新最快的一種——比一季才公布一次、還常常落後1~2個月的季報EPS即時得多，很多籌碼提前布局的動作都跟月營收公告連動。\n\n📈 YoY連續轉正或加速：\n• 常常領先股價反應，是法人提前卡位的重要線索之一\n\n📉 YoY連續轉負或大幅衰退：\n• 本業訂單真的在萎縮，需要留意\n\n⚠️ 這個數字的限制（一定要知道）：\n• 淡旺季效應：有些產業本來就是這個月比去年同月本來就該高或低，單月數字容易被淡旺季干擾，YoY比MoM（月增率）乾淨一些，但也不是萬能\n• 業外認列：偶爾一次性大單、業外收入認列時點會讓單月數字暴衝或暴跌，不代表本業真的變化這麼大\n• 小型股/ 低成交量股票的營收數字，容易被單一大客戶訂單認列時點劇烈扭曲，波動本來就比大型股劇烈\n\n✅ 怎麼用：\n看「連續幾個月」的趨勢，比看單一月份的數字更有意義，最好搭配公司的產業特性（有沒有明顯淡旺季）一起判讀，不要看到單月轉正/轉負就急著下結論。'
   },
 };
 
