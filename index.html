@@ -38761,9 +38761,27 @@ function _diagnoseCyclePhase(top10, days) {
     // 整體effNet可能仍是正值（其他券商還在買，只是少數主力已經悄悄出貨）。原本
     // 不分這兩種情況，一律用Math.abs(effNet)硬套「淨賣」的文字，當effNet其實是
     // 正值時會顯示「校正有效淨賣+4,705張」這種文字方向跟數字方向相反的矛盾句子。
-    phaseTip = effNet < 0
-      ? `校正有效淨賣 ${Math.abs(Math.round(effNet)).toLocaleString()} 張${washNote}，主力正在悄悄出脫籌碼。`
-      : `雖然整體仍是校正有效淨買 ${Math.round(effNet).toLocaleString()} 張${washNote}，但有 ${nDist} 家券商個別出現倒貨行為，疑似少數主力趁其他買盤還在時悄悄出脫籌碼，需留意。`;
+    if (effNet < 0) {
+      phaseTip = `校正有效淨賣 ${Math.abs(Math.round(effNet)).toLocaleString()} 張${washNote}，主力正在悄悄出脫籌碼。`;
+    } else {
+      // v7.72：把「這是不是真的要緊張」的判斷邏輯直接寫進提示文字，不用每個
+      // 訂閱戶都跑來問——① 倒貨券商的量體佔當日總量比例高不高（量小比較
+      // 像零星獲利了結，量大要提高警覺）② 對照長線的「籌碼週期階段診斷」
+      // 目前在哪個Phase（4拉升/5出貨），方向一致才是真正的警訊。
+      const distVol = diagResults.filter(bv => bv.label.includes('倒貨') || bv.label.includes('出貨'))
+        .reduce((s, bv) => s + Math.abs(bv.realNet || 0), 0);
+      const distPct = totalVol > 0 ? (distVol / totalVol * 100) : 0;
+      const sizeNote = distPct < 15
+        ? `占當日總量約${distPct.toFixed(0)}%，量體不大，較像零星獲利了結`
+        : `占當日總量達${distPct.toFixed(0)}%，量體不小，建議提高警覺`;
+      const longPhaseIdx = window._teachData?.phaseIdx;
+      const longPhaseNote = longPhaseIdx === 5
+        ? '，且長線「籌碼週期階段診斷」本身也已顯示出貨期，方向一致，出場訊號較明確'
+        : longPhaseIdx === 4
+        ? '，但長線「籌碼週期階段診斷」目前仍在拉升期，比較像短線雜訊，不代表趨勢反轉'
+        : (longPhaseIdx ? '，可對照上方「籌碼週期階段診斷」目前所在Phase一起判讀' : '');
+      phaseTip = `雖然整體仍是校正有效淨買 ${Math.round(effNet).toLocaleString()} 張${washNote}，但有 ${nDist} 家券商個別出現倒貨行為（${sizeNote}）${longPhaseNote}，疑似少數主力趁其他買盤還在時悄悄出脫籌碼。`;
+    }
   } else if (nMarkup >= 2 || (buyRatio >= 2.5 && effNetRatio > 0.20)) {
     phase = '🚀 威科夫：拉升期（Mark-Up）';
     phaseClass = 'cp-markup';
