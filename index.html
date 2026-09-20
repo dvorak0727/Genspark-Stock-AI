@@ -36207,26 +36207,25 @@ function srOpenPopup(secId) {
         + (ser || []).map(r => '<td style="text-align:center;padding:1px 3px;">' + fmt(r.net) + '</td>').join('')
         + '<td style="padding:1px 4px;border-left:1px solid var(--border);">' + fmt(sum) + '</td>'
         + '</tr>';
-      // v7.72：這支股票自己的籌碼週期階段粗估，放header行「合計」右邊本來
-      // 空著的地方——corrPriceMap/foreign5Map/trust5Map本來就每支keyStocks
-      // 都有（跟板塊代表股同一批資料），不用多打API。
-      const stPhase = _srEstimatePhase(st.code);
-      const phaseCellHtml = stPhase
-        ? '<td style="padding:1px 4px 1px 8px;color:var(--fg2);font-weight:700;" data-tip="用該股近期價量+法人5日淨額粗略估算，非個股頁完整籌碼週期分析">' + stPhase.label + '</td>'
-        : '<td></td>';
       instHtml = '<div style="margin-top:3px;overflow-x:auto;">'
         + '<table style="font-size:.56rem;border-collapse:collapse;white-space:nowrap;">'
         + '<tr><td></td>' + dates.map(d => '<td style="text-align:center;color:var(--fg3);padding:1px 3px;">' + d + '</td>').join('')
-        + '<td style="color:var(--fg3);padding:1px 4px;border-left:1px solid var(--border);">合計</td>' + phaseCellHtml + '</tr>'
+        + '<td style="color:var(--fg3);padding:1px 4px;border-left:1px solid var(--border);">合計</td></tr>'
         + rowHtml('外資', fSer, _f5m[st.code])
         + rowHtml('投信', tSer, _t5m[st.code])
         + rowHtml('自營', dSer, _d5m[st.code])
         + '</table></div>';
     }
+    // v7.72：週期粗估放在名稱同一行、靠右——原本放在表格header裡要滑到最
+    // 右邊才看得到，改到卡片最上面一眼可見的位置，不用捲動。
+    const stPhase = _srEstimatePhase(st.code);
+    const phaseBadgeHtml = stPhase
+      ? '<span data-tip="用該股近期價量+法人5日淨額粗略估算，非個股頁完整籌碼週期分析" style="margin-left:auto;font-size:.62rem;font-weight:700;color:var(--fg2);background:var(--bg2);border-radius:5px;padding:1px 6px;white-space:nowrap;">' + stPhase.label + '</span>'
+      : '';
     return '<div class="sr-popup-stock' + (isCur ? ' current' : '') + '" onclick="srPopupGo(\'' + st.code + '\')">'
       + '<div class="sr-popup-stock-code">' + st.code + '</div>'
       + '<div class="sr-popup-stock-info">'
-      +   '<div class="sr-popup-stock-name">' + st.name + (isCur ? ' 📍' : '') + '</div>'
+      +   '<div class="sr-popup-stock-name" style="display:flex;align-items:center;">' + st.name + (isCur ? ' 📍' : '') + phaseBadgeHtml + '</div>'
       +   '<div class="sr-popup-stock-role">' + st.role + '</div>'
       +   '<div class="sr-popup-stock-price" style="font-size:.64rem;margin-top:2px;">' + priceHtml + '</div>'
       +   instHtml
