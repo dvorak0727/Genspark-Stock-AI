@@ -36207,10 +36207,17 @@ function srOpenPopup(secId) {
         + (ser || []).map(r => '<td style="text-align:center;padding:1px 3px;">' + fmt(r.net) + '</td>').join('')
         + '<td style="padding:1px 4px;border-left:1px solid var(--border);">' + fmt(sum) + '</td>'
         + '</tr>';
+      // v7.72：這支股票自己的籌碼週期階段粗估，放header行「合計」右邊本來
+      // 空著的地方——corrPriceMap/foreign5Map/trust5Map本來就每支keyStocks
+      // 都有（跟板塊代表股同一批資料），不用多打API。
+      const stPhase = _srEstimatePhase(st.code);
+      const phaseCellHtml = stPhase
+        ? '<td style="padding:1px 4px 1px 8px;color:var(--fg2);font-weight:700;" data-tip="用該股近期價量+法人5日淨額粗略估算，非個股頁完整籌碼週期分析">' + stPhase.label + '</td>'
+        : '<td></td>';
       instHtml = '<div style="margin-top:3px;overflow-x:auto;">'
         + '<table style="font-size:.56rem;border-collapse:collapse;white-space:nowrap;">'
         + '<tr><td></td>' + dates.map(d => '<td style="text-align:center;color:var(--fg3);padding:1px 3px;">' + d + '</td>').join('')
-        + '<td style="color:var(--fg3);padding:1px 4px;border-left:1px solid var(--border);">合計</td></tr>'
+        + '<td style="color:var(--fg3);padding:1px 4px;border-left:1px solid var(--border);">合計</td>' + phaseCellHtml + '</tr>'
         + rowHtml('外資', fSer, _f5m[st.code])
         + rowHtml('投信', tSer, _t5m[st.code])
         + rowHtml('自營', dSer, _d5m[st.code])
