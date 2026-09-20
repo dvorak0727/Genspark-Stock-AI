@@ -31,6 +31,11 @@
     src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"
     onerror="window._chartLoadError=true;console.warn('[v5.75] Chart.js CDN 載入失敗，圖表功能將降級')">
   </script>
+  <!-- v7.72：html2canvas，供「模式說明」面板的下載圖片功能使用 -->
+  <script defer crossorigin="anonymous"
+    src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"
+    onerror="console.warn('[v7.72] html2canvas CDN 載入失敗，下載圖片功能將不可用')">
+  </script>
   <!-- v5.73 Polyfill：Array.prototype.at（Android Chrome < 92 需要） -->
 
   <script>
@@ -15954,6 +15959,7 @@ a.module-nav-item.acc-active {
         <div class="mgp-mode-name" id="mgpModeName">底部探測</div>
         <span class="mgp-mode-tag" id="mgpModeTag">底部探測</span>
       </div>
+      <button class="mgp-close-btn" id="mgpDownloadBtn" onclick="mgpDownloadImage()" title="下載本模式說明的完整圖片（不用怕螢幕太小截不到全文）">⬇️</button>
       <button class="mgp-close-btn" onclick="closeModeGuide()">✕</button>
     </div>
 
@@ -61241,6 +61247,44 @@ function closeModeGuide(e) {
   if (e && e.target !== document.getElementById('mgpOverlay')) return;
   document.getElementById('mgpOverlay').classList.remove('show');
   document.body.style.overflow = '';
+}
+
+// v7.72：模式說明下載成圖片——螢幕太小時使用者要滑動才能看到全文，
+// 手動截圖常常截不到完整內容還要自己拼接。html2canvas 是直接對DOM
+// 節點渲染，抓到的是「面板實際的完整高度」，不受螢幕可視範圍限制，
+// 一次就能拿到含所有文字的完整圖片，不用管螢幕多小、要滑幾次。
+function mgpDownloadImage() {
+  const panel = document.getElementById('mgpPanel');
+  if (!panel) return;
+  if (typeof html2canvas !== 'function') {
+    alert('圖片下載功能載入失敗（html2canvas未載入成功），請檢查網路連線後重新整理頁面再試一次。');
+    return;
+  }
+  const btn = document.getElementById('mgpDownloadBtn');
+  const handle = panel.querySelector('.mgp-handle');
+  const closeBtns = panel.querySelectorAll('.mgp-close-btn');
+  // 截圖時隱藏按鈕本身跟拖曳手把，這些是操作UI，不需要出現在貼文用的圖片裡
+  closeBtns.forEach(b => b.style.visibility = 'hidden');
+  if (handle) handle.style.visibility = 'hidden';
+  if (btn) btn.textContent = '⏳';
+
+  html2canvas(panel, { scale: 2, useCORS: true }).then(canvas => {
+    closeBtns.forEach(b => b.style.visibility = '');
+    if (handle) handle.style.visibility = '';
+    if (btn) btn.textContent = '⬇️';
+    const modeName = document.getElementById('mgpModeName')?.textContent?.trim() || '模式說明';
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const link = document.createElement('a');
+    link.download = `模式說明_${modeName}_${dateStr}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  }).catch(e => {
+    closeBtns.forEach(b => b.style.visibility = '');
+    if (handle) handle.style.visibility = '';
+    if (btn) btn.textContent = '⬇️';
+    console.warn('[mgpDownloadImage]', e);
+    alert('截圖失敗：' + e.message);
+  });
 }
 
 /* ══════════════════════════════════════════════════════════════════
