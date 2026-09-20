@@ -15785,7 +15785,7 @@ a.module-nav-item.acc-active {
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
-          <option value="broker">🏦 券商囤貨掃描</option>
+          <option value="broker">🏦 券商囤貨掃描（需付費Token）</option>
           <option value="obi">📡 外盤強勢掃描</option>
           <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
           <option value="etfFlow">📡 主動式ETF買賣超掃描（需付費Token）</option>
@@ -16046,7 +16046,7 @@ a.module-nav-item.acc-active {
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
-          <option value="broker">🏦 券商囤貨掃描</option>
+          <option value="broker">🏦 券商囤貨掃描（需付費Token）</option>
           <option value="obi">📡 外盤強勢掃描</option>
           <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
           <option value="etfFlow">📡 主動式ETF買賣超掃描（需付費Token）</option>
@@ -57648,7 +57648,7 @@ const SCREENER_MODE_META = {
   chippure:   { title:'資減人走·籌碼淨化',    subtitle:'融資減碼確認 · 散戶清洗完畢 · 法人悄悄集中 · 資減價揚底部質變', badge:'📉 淨化' },
   macdmatrix: { title:'MACD 多方結構掃瞄矩陣', subtitle:'C1 MACD柱翻紅擴張 · C2 DIF突破DEA · C3 零軸上方 · C4 法人買超 · C5 均線多排 · C6 KD多頭', badge:'📊 MACD矩陣' },
   bandwalk:   { title:'騎帶上行掃描',           subtitle:'布林通道Band Walk — C1 近3日收盤貼上軌 · C2 帶寬同步擴張 · C3 量能同步放大 · C4 均線多排 · C5 法人買超（碰上軌不是要跌，是強勢的證明）', badge:'🏇 騎帶上行' },
-  broker:     { title:'券商囤貨掃描',           subtitle:'C1 累積淨買超 · C2 連買天數 · C3 籌碼集中度 · C4 近5日加速 · C5 主力成本低於現價', badge:'🏦 囤貨' },
+  broker:     { title:'券商囤貨掃描',           subtitle:'C1 累積淨買超 · C2 連買天數 · C3 籌碼集中度 · C4 近3日加速 · C5 主力成本低於現價（近5日窗口）', badge:'🏦 囤貨' },
   obi:        { title:'外盤強勢掃描',            subtitle:'收盤外盤比率排行 · 主動買盤強度確認 · 外盤>內盤篩選 · 資金動能方向', badge:'📡 外盤強' },
   whale:      { title:'千張大戶籌碼集中掃描',    subtitle:'量的是「持股比例」增加，不是人數增加（常常人數變少但籌碼更集中）— C1 佔比週增為正 · C2 增幅≥0.5% · C3 連續兩週增 · C4 散戶同步減碼 · C5 大戶佔比過半（⚠️需FinMind Sponsor付費Token）', badge:'🐋 籌碼集中' },
   etfFlow:    { title:'主動式ETF買賣超掃描',      subtitle:'C1 淨買超為正 · C2 ≥2檔ETF同步買進 · C3 ≥3檔ETF同步買進 · C4 淨買超≥10萬股 · C5 無同步賣壓（⚠️需FinMind Sponsor付費Token，資料每日排程更新，非即時）', badge:'📡 ETF買超' },
@@ -57656,14 +57656,17 @@ const SCREENER_MODE_META = {
 
 // ═══════════════════════════════════════════════════════════════
 //  🏦 v7.29 券商囤貨掃描評分引擎
-//  五維度評分：C1累積淨買超 C2連買天數 C3籌碼集中度 C4近5日加速 C5主力成本低於現價
+//  五維度評分（近5日窗口）：C1累積淨買超 C2連買天數 C3籌碼集中度 C4近3日加速 C5主力成本低於現價
 //  總分 0~5 分，≥4 = 強力囤貨訊號，≥3 = 明確囤貨
 //  呼叫 _fetchBrokerData()（TaiwanStockBrokerTradingDetail）
 // ═══════════════════════════════════════════════════════════════
 async function calcBrokerHoardScore(stockId) {
   const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _brokerRaw:null };
   try {
-    const { rows, live, reason } = await _fetchBrokerData(stockId, 30);
+    // v7.72：海選批次掃描50檔股票時，逐日查詢的天數直接乘上50檔，天數越多越慢。
+    // 改成只抓近5個交易日（配合千張大戶模式的週更新步調），犧牲一點歷史深度換取
+    // 掃描速度——券商分點資料本來就T+1更新，5日已經足夠看出短線是否有主力進場。
+    const { rows, live, reason } = await _fetchBrokerData(stockId, 5);
     if (!rows || rows.length === 0) return EMPTY;
 
     // 依日期排序（舊→新）
@@ -57685,24 +57688,23 @@ async function calcBrokerHoardScore(stockId) {
       dayMap[d].brokers[bn] = (dayMap[d].brokers[bn] || 0) + net;
     }
 
-    const days   = Object.keys(dayMap).sort();
-    const last10 = days.slice(-10);
-    const last5  = days.slice(-5);
-    const last20 = days.slice(-20);
+    const days  = Object.keys(dayMap).sort();
+    const last5 = days.slice(-5);
+    const last3 = days.slice(-3);
 
-    if (last10.length < 5) return EMPTY;
+    if (last5.length < 3) return EMPTY;
 
-    // ── C1：累積淨買超（近10日，正數且達一定規模）──
-    const netSum10 = last10.reduce((s, d) => s + dayMap[d].total, 0);
-    const c1 = netSum10 > 500;            // 近10日累積淨買 >500張
+    // ── C1：累積淨買超（近5日，正數且達一定規模）──
+    const netSum5 = last5.reduce((s, d) => s + dayMap[d].total, 0);
+    const c1 = netSum5 > 250;            // 近5日累積淨買 >250張（原本近10日500張，窗口減半門檻也減半）
 
-    // ── C2：連買天數（近10日中，連續正net天數 ≥ 4）──
+    // ── C2：連買天數（近5日中，連續正net天數 ≥ 3）──
     let streak = 0;
-    for (let i = last10.length - 1; i >= 0; i--) {
-      if (dayMap[last10[i]].total > 0) streak++;
+    for (let i = last5.length - 1; i >= 0; i--) {
+      if (dayMap[last5[i]].total > 0) streak++;
       else break;
     }
-    const c2 = streak >= 4;
+    const c2 = streak >= 3;
 
     // ── C3：籌碼集中度（前3大券商淨買佔全日淨買比例平均 ≥ 55%）──
     // v7.72 修正兩個問題：
@@ -57712,7 +57714,7 @@ async function calcBrokerHoardScore(stockId) {
     // ② 極端情況下（某券商大量賣超把total拉得很小），top3/total可能算出
     //   超過1的離譜比例，改成封頂在1（100%），避免顯示「集中230%」這種
     //   更誇張的數字。
-    const concRatios = last10.map(d => {
+    const concRatios = last5.map(d => {
       const total = dayMap[d].total;
       if (total <= 0) return null; // 當天淨賣超或平盤，不適用「淨買集中度」的概念
       const vals = Object.values(dayMap[d].brokers).sort((a, b) => b - a);
@@ -57721,20 +57723,18 @@ async function calcBrokerHoardScore(stockId) {
       return Math.min(1, top3 / total);
     }).filter(v => v !== null);
     const avgConc = concRatios.length ? concRatios.reduce((s, v) => s + v, 0) / concRatios.length : 0;
-    // 至少要有3天「券商筆數足夠、可信」的樣本才判定成立，避免用1、2天的資料下結論
-    const c3 = concRatios.length >= 3 && avgConc >= 0.55;
+    // 窗口縮到5天後，樣本數也跟著調降：至少要有2天「券商筆數足夠、可信」的樣本才判定成立
+    const c3 = concRatios.length >= 2 && avgConc >= 0.55;
 
-    // ── C4：近5日加速（近5日平均淨買 > 近20日平均淨買 × 1.5）──
-    const avg5  = last5.reduce((s, d) => s + dayMap[d].total, 0)  / last5.length;
-    const avg20 = last20.length > 0
-      ? last20.reduce((s, d) => s + dayMap[d].total, 0) / last20.length
-      : 0;
-    const c4 = avg5 > 0 && avg5 > avg20 * 1.5;
+    // ── C4：近3日加速（近3日平均淨買 > 近5日平均淨買 × 1.5）──
+    const avg3 = last3.reduce((s, d) => s + dayMap[d].total, 0) / last3.length;
+    const avg5 = last5.reduce((s, d) => s + dayMap[d].total, 0) / last5.length;
+    const c4 = avg3 > 0 && avg3 > avg5 * 1.5;
 
-    // ── C5：主力成本低於現價（用最近10日加權平均買入價 vs 最後一筆收盤）──
+    // ── C5：主力成本低於現價（用近5日加權平均買入價 vs 最後一筆收盤）──
     // 用 rows 的 buy_price / sell_price 加權（若有）；若無則用該日淨買為正的資料估算
     let weightedCost = 0, totalBuyShares = 0;
-    for (const r of sorted.slice(-30)) {
+    for (const r of sorted) {
       const buyVol  = +r.buy  || 0;
       const buyPx   = +r.buy_price  || 0;
       if (buyVol > 0 && buyPx > 0) {
@@ -57751,10 +57751,10 @@ async function calcBrokerHoardScore(stockId) {
 
     // ── 彙整分數與 checks ──
     const checks = [
-      { label: `C1 累積淨買超`, hit: c1, val: `近10日${netSum10 > 0 ? '+' : ''}${netSum10}張` },
-      { label: `C2 連買${streak}日`, hit: c2, val: streak >= 4 ? '主力持續進場' : '連買不足4日' },
-      { label: `C3 集中度${(avgConc*100).toFixed(0)}%`, hit: c3, val: concRatios.length < 3 ? '券商筆數不足，無法判斷' : (avgConc >= 0.55 ? '籌碼高度集中' : '籌碼分散') },
-      { label: `C4 近5日加速`, hit: c4, val: `近5日均${avg5.toFixed(0)}張 vs 近20日均${avg20.toFixed(0)}張` },
+      { label: `C1 累積淨買超`, hit: c1, val: `近5日${netSum5 > 0 ? '+' : ''}${netSum5}張` },
+      { label: `C2 連買${streak}日`, hit: c2, val: streak >= 3 ? '主力持續進場' : '連買不足3日' },
+      { label: `C3 集中度${(avgConc*100).toFixed(0)}%`, hit: c3, val: concRatios.length < 2 ? '券商筆數不足，無法判斷' : (avgConc >= 0.55 ? '籌碼高度集中' : '籌碼分散') },
+      { label: `C4 近3日加速`, hit: c4, val: `近3日均${avg3.toFixed(0)}張 vs 近5日均${avg5.toFixed(0)}張` },
       { label: `C5 主力成本${avgCost > 0 ? avgCost.toFixed(1) : 'N/A'}`, hit: c5, val: lc > 0 ? `現價${lc}` : '無收盤價' },
     ];
     const score = checks.filter(c => c.hit).length;
@@ -61027,11 +61027,11 @@ const MODE_GUIDE = {
     tag:  '主力分點追蹤 · 找出正在被悄悄囤積的標的',
     summary: '透過券商分點資料，找出「某幾家券商持續在某個價位大量買進、累積庫存」的股票。這就像跟蹤超市的大盤商——他們悄悄把貨全買走了，下次上架你就買不到了。',
     features: [
-      { icon: '📦', text: '<b>C1 累積淨買超 > 500張（近10日）</b>：近10個交易日，整體券商買進明顯大於賣出，代表有資金在系統性進場，而非雜訊。' },
-      { icon: '📅', text: '<b>C2 連買天數 ≥ 4日</b>：末段連續 4 日以上保持淨買，代表買盤沒有中斷，是有計畫、有節奏的佈局，而非一日衝動。' },
-      { icon: '🎯', text: '<b>C3 籌碼集中度 ≥ 55%</b>：前3大券商的淨買量，佔全市場總淨買量的比例超過55%，代表籌碼正在向少數「知情者」集中。' },
-      { icon: '🚀', text: '<b>C4 近5日買盤加速 ≥ 1.5×</b>：近5日平均淨買量，比近20日平均淨買量高出50%以上，代表主力正在「踩油門」加速囤貨。' },
-      { icon: '💰', text: '<b>C5 主力加權成本低於現價</b>：依照近30日所有買入記錄加權計算的平均買入價，仍低於當前收盤價（含2%緩衝），代表主力目前仍在獲利保護帶內、不會急著出貨。' },
+      { icon: '📦', text: '<b>C1 累積淨買超 > 250張（近5日）</b>：近5個交易日，整體券商買進明顯大於賣出，代表有資金在系統性進場，而非雜訊。' },
+      { icon: '📅', text: '<b>C2 連買天數 ≥ 3日</b>：近5日裡末段連續 3 日以上保持淨買，代表買盤沒有中斷，是有計畫、有節奏的佈局，而非一日衝動。' },
+      { icon: '🎯', text: '<b>C3 籌碼集中度 ≥ 55%</b>：近5日裡，前3大券商的淨買量佔全市場總淨買量的比例平均超過55%，代表籌碼正在向少數「知情者」集中。' },
+      { icon: '🚀', text: '<b>C4 近3日買盤加速 ≥ 1.5×</b>：近3日平均淨買量，比近5日平均淨買量高出50%以上，代表主力正在「踩油門」加速囤貨。' },
+      { icon: '💰', text: '<b>C5 主力加權成本低於現價</b>：依照近5日所有買入記錄加權計算的平均買入價，仍低於當前收盤價（含2%緩衝），代表主力目前仍在獲利保護帶內、不會急著出貨。' },
     ],
     warns: [
       '本模式需要 FinMind Token（券商分點 API 為付費資料）。無 Token 或抓不到真實資料時，該檔股票會被跳過不列入結果，不會顯示模擬/推算數字。',
@@ -62115,7 +62115,7 @@ function renderScreenerCards(showStats=false) {
       const _streak  = r.fCons || 0;
       const _concPct = r.tCons || 0;
       if (_streak >= 4 || _concPct >= 55) {
-        instBadge = `<span class="sc-inst-badge strong sc-quick-btn" onclick="_scQuickBroker('${r.stockId}', this)" title="集中度＝近10日「前3大券商淨買總和」÷「全部券商淨買總和」的平均值。數字越高代表買盤越集中在少數幾家券商手上，越像是特定主力/大戶在買，不是散戶行情；數字低則代表買盤來源分散，較接近一般市場自然成交。點擊展開主力分點熱力圖">🏦 連買${_streak}日 · 集中${_concPct}% ▾</span>`;
+        instBadge = `<span class="sc-inst-badge strong sc-quick-btn" onclick="_scQuickBroker('${r.stockId}', this)" title="集中度＝近5日「前3大券商淨買總和」÷「全部券商淨買總和」的平均值。數字越高代表買盤越集中在少數幾家券商手上，越像是特定主力/大戶在買，不是散戶行情；數字低則代表買盤來源分散，較接近一般市場自然成交。點擊展開主力分點熱力圖">🏦 連買${_streak}日 · 集中${_concPct}% ▾</span>`;
       } else if (_streak >= 1) {
         instBadge = `<span class="sc-inst-badge mild sc-quick-btn" onclick="_scQuickBroker('${r.stockId}', this)" title="點擊展開主力分點熱力圖">📦 連買${_streak}日 ▾</span>`;
       }
@@ -62575,7 +62575,7 @@ function _scQuickMacd(stockId, triggerEl) {
 }
 
 // _scQuickBroker(stockId, triggerEl)
-// v7.30 券商囤貨掃描模式 → 卡片內展開前5大淨買券商近10日熱力圖
+// v7.30 券商囤貨掃描模式 → 卡片內展開前5大淨買券商熱力圖（v7.72起窗口縮到近5日，配合calcBrokerHoardScore同步）
 function _scQuickBroker(stockId, triggerEl) {
   const panel = document.getElementById(`scqp-${stockId}`);
   if (!panel) return;
@@ -62607,7 +62607,7 @@ function _scQuickBroker(stockId, triggerEl) {
     if (!dayMap[d]) dayMap[d] = {};
     dayMap[d][bn] = (dayMap[d][bn] || 0) + net;
   }
-  const days = Object.keys(dayMap).sort().slice(-10);
+  const days = Object.keys(dayMap).sort().slice(-5);
 
   // ── 找前5大累積淨買券商 ──
   const brokerTotals = {};
@@ -62685,7 +62685,7 @@ function _scQuickBroker(stockId, triggerEl) {
   </div>`;
 
   const html = '<div class="scqp-inner">'
-    + '<div class="scqp-title">&#x1F3E6; 主力分點熱力圖（前5大 × 近10日）' + _cBtn + '</div>'
+    + '<div class="scqp-title">&#x1F3E6; 主力分點熱力圖（前5大 × 近5日）' + _cBtn + '</div>'
     + _statusBar
     + tableHtml
     + '<div style="font-size:0.55rem;color:var(--fg3);margin-top:4px;">🔴 紅色＝淨買；🟢 綠色＝淨賣（張）｜合計為前5大之和</div>'
