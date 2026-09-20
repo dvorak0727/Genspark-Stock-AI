@@ -62626,7 +62626,7 @@ function _scQuickBroker(stockId, triggerEl) {
     </div>`;
   }).join('');
   const _windowPanel = `<div style="margin:6px 0;padding:6px 8px;background:var(--bg2);border-radius:6px;">
-    <div style="font-size:0.55rem;color:var(--fg3);margin-bottom:2px;">多窗口淨買總覽 <span style="cursor:help;border:1px solid var(--fg3);border-radius:50%;padding:0 4px;" title="把「最近N個交易日」裡全部券商（不只熱力圖畫出來的前5大）的「買進−賣出」加總起來。例如10日=最近10個交易日全部券商淨買總和；不是把下面熱力圖裡的每日合計直接相加就能對上——因為熱力圖只列了前5大券商，這裡的窗口總和是用全部券商計算，數字通常會更大。">?</span></div>
+    <div style="font-size:0.55rem;color:var(--fg3);margin-bottom:2px;">多窗口淨買總覽 <span data-tip="把「最近N個交易日」裡全部券商（不只熱力圖畫出來的前5大）的「買進−賣出」加總起來。例如10日＝最近10個交易日全部券商淨買總和；不是把下面熱力圖裡的每日合計直接相加就能對上——因為熱力圖只列了前5大券商，這裡的窗口總和是用全部券商計算，數字通常會更大。" style="cursor:help;border:1px solid var(--fg3);border-radius:50%;padding:0 4px;">?</span></div>
     <div style="display:flex;gap:2px;">${_windowRow}</div>
     ${_reversed ? `<div style="margin-top:4px;font-size:0.6rem;font-weight:700;color:${_w3<0?'#86efac':'#f87171'};">⚠️ 買勢${_w3<0?'反轉：近3日轉賣壓':'反轉：近3日轉買盤'}，跟10日長線方向不一致，留意趨勢是否正在改變</div>` : ''}
   </div>`;
