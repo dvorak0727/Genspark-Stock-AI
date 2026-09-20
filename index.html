@@ -57663,10 +57663,10 @@ const SCREENER_MODE_META = {
 async function calcBrokerHoardScore(stockId) {
   const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _brokerRaw:null };
   try {
-    // v7.72：海選批次掃描50檔股票時，逐日查詢的天數直接乘上50檔，天數越多越慢。
-    // 改成只抓近5個交易日（配合千張大戶模式的週更新步調），犧牲一點歷史深度換取
-    // 掃描速度——券商分點資料本來就T+1更新，5日已經足夠看出短線是否有主力進場。
-    const { rows, live, reason } = await _fetchBrokerData(stockId, 5);
+    // v7.72：資料一次抓10天，記憶體裡就有了，之後3/5/7/10天的加總都是純計算、
+    // 不用再打API——比起「只挑一個固定天數」，同時看多個窗口能抓到「10天還是
+    // 買超、但近3天已經轉賣」這種動能反轉訊號，比單一天數更有價值。
+    const { rows, live, reason } = await _fetchBrokerData(stockId, 10);
     if (!rows || rows.length === 0) return EMPTY;
 
     // 依日期排序（舊→新）
@@ -62607,7 +62607,28 @@ function _scQuickBroker(stockId, triggerEl) {
     if (!dayMap[d]) dayMap[d] = {};
     dayMap[d][bn] = (dayMap[d][bn] || 0) + net;
   }
-  const days = Object.keys(dayMap).sort().slice(-5);
+  const allDays = Object.keys(dayMap).sort();
+  const days = allDays.slice(-10);
+
+  // v7.72：多窗口淨買總覽——資料反正都抓回來了，3/5/7/10天的加總都是純計算，
+  // 不用多打API。比起只挑一個固定天數，同時看多個窗口能抓到「10天還是買超，
+  // 但近3天已經轉賣」這種單一窗口看不出來的動能反轉訊號。
+  const _windowSum = n => allDays.slice(-n).reduce((s, d) =>
+    s + Object.values(dayMap[d]).reduce((a, b) => a + b, 0), 0);
+  const _w3 = _windowSum(3), _w5 = _windowSum(5), _w7 = _windowSum(7), _w10 = _windowSum(10);
+  // 反轉偵測：長窗口（10日）跟短窗口（3日）方向不一致，才值得特別提醒
+  const _reversed = (_w10 > 0 && _w3 < 0) || (_w10 < 0 && _w3 > 0);
+  const _windowRow = [['3日',_w3], ['5日',_w5], ['7日',_w7], ['10日',_w10]].map(([lbl, v]) => {
+    const c = v > 0 ? '#f87171' : v < 0 ? '#86efac' : 'var(--fg3)';
+    return `<div style="text-align:center;flex:1;">
+      <div style="font-size:0.55rem;color:var(--fg3);">${lbl}</div>
+      <div style="font-size:0.68rem;font-weight:800;color:${c};">${v>0?'+':''}${v}</div>
+    </div>`;
+  }).join('');
+  const _windowPanel = `<div style="margin:6px 0;padding:6px 8px;background:var(--bg2);border-radius:6px;">
+    <div style="display:flex;gap:2px;">${_windowRow}</div>
+    ${_reversed ? `<div style="margin-top:4px;font-size:0.6rem;font-weight:700;color:${_w3<0?'#86efac':'#f87171'};">⚠️ 買勢${_w3<0?'反轉：近3日轉賣壓':'反轉：近3日轉買盤'}，跟10日長線方向不一致，留意趨勢是否正在改變</div>` : ''}
+  </div>`;
 
   // ── 找前5大累積淨買券商 ──
   const brokerTotals = {};
@@ -62685,8 +62706,9 @@ function _scQuickBroker(stockId, triggerEl) {
   </div>`;
 
   const html = '<div class="scqp-inner">'
-    + '<div class="scqp-title">&#x1F3E6; 主力分點熱力圖（前5大 × 近5日）' + _cBtn + '</div>'
+    + '<div class="scqp-title">&#x1F3E6; 主力分點熱力圖（前5大 × 近10日）' + _cBtn + '</div>'
     + _statusBar
+    + _windowPanel
     + tableHtml
     + '<div style="font-size:0.55rem;color:var(--fg3);margin-top:4px;">🔴 紅色＝淨買；🟢 綠色＝淨賣（張）｜合計為前5大之和</div>'
     + '<button class="scqp-goto-btn" onclick="quickSearch(\'' + stockId + '\')">&#x1F50D; 進入 ' + info.name + ' 完整分析 ↓</button>'
