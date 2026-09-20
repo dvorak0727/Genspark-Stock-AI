@@ -10461,6 +10461,10 @@
 .sr-sec-count {
   font-size:0.48rem;color:var(--fg3);margin-top:1px;
 }
+.sr-sec-phase {
+  font-size:0.48rem;font-weight:700;color:var(--fg2);margin-top:2px;
+  background:var(--bg2);border-radius:4px;padding:1px 5px;display:inline-block;
+}
 
 /* 載入佔位 */
 .sr-loading {
@@ -34629,6 +34633,7 @@ async function srFetchSectorData() {
   // 外資在拉、還是三大法人一起拉」——同一批instRes回應本來就含這幾天的資料，
   // 只是原本只取「最新一日」，這裡多篩幾天加總，不用多打API。
   const foreign5Map = {}, trust5Map = {}, dealer5Map = {};
+  const foreignDailyMap = {}, trustDailyMap = {}, dealerDailyMap = {}; // v7.72：逐日明細，供「連5日變化」展開用
   let fetchOK = 0;
 
   for (const code of allCodes) {
@@ -34674,14 +34679,21 @@ async function srFetchSectorData() {
         const lastT = trustRows.at(-1);
         trustMap[code] = (+lastT.buy || 0) - (+lastT.sell || 0);
       }
-      // 近5日合計：跟其餘全站「自營」口徑一致，只算Dealer_self（自營自行買賣），
-      // 不含Dealer_Hedging（避險，市場中立對沖，不代表方向性判斷）。
-      const sum5 = name => instRes.value.filter(r => r.name === name)
+      // 近5日合計＋逐日明細：跟其餘全站「自營」口徑一致，只算Dealer_self
+      // （自營自行買賣），不含Dealer_Hedging（避險，市場中立對沖，不代表
+      // 方向性判斷）。逐日明細供板塊公司清單展開「連5日變化」用。
+      const series5 = name => instRes.value.filter(r => r.name === name)
         .sort((a,b)=>a.date.localeCompare(b.date)).slice(-5)
-        .reduce((s,r) => s + ((+r.buy||0) - (+r.sell||0)), 0);
-      foreign5Map[code] = sum5('Foreign_Investor');
-      trust5Map[code]   = sum5('Investment_Trust');
-      dealer5Map[code]  = sum5('Dealer_self');
+        .map(r => ({ date: r.date, net: (+r.buy||0) - (+r.sell||0) }));
+      const foreignSeries = series5('Foreign_Investor');
+      const trustSeries   = series5('Investment_Trust');
+      const dealerSeries  = series5('Dealer_self');
+      foreign5Map[code] = foreignSeries.reduce((s,r) => s + r.net, 0);
+      trust5Map[code]   = trustSeries.reduce((s,r) => s + r.net, 0);
+      dealer5Map[code]  = dealerSeries.reduce((s,r) => s + r.net, 0);
+      foreignDailyMap[code] = foreignSeries;
+      trustDailyMap[code]   = trustSeries;
+      dealerDailyMap[code]  = dealerSeries;
     }
   }
 
@@ -34825,7 +34837,8 @@ async function srFetchSectorData() {
   // v7.98：把個股層級資料一併存起來，「產業總表」的聚焦細節modal跟
   // 「指標吸金/拖累個股」要用，不用為了這個表再重打一次API。
   const result = { ready:true, sectorData, epicId, safeHavens, rotDay, isLive: fetchOK >= 5, sectorCorr,
-    priceMap, instMap, trustMap, foreign5Map, trust5Map, dealer5Map };
+    priceMap, corrPriceMap, instMap, trustMap, foreign5Map, trust5Map, dealer5Map,
+    foreignDailyMap, trustDailyMap, dealerDailyMap };
   SR_CACHE[cacheKey] = result;
   return result;
 }
@@ -34942,6 +34955,10 @@ async function renderSectorRotation(stockId) {
   window._srForeign5Map = result.foreign5Map || {};
   window._srTrust5Map   = result.trust5Map   || {};
   window._srDealer5Map  = result.dealer5Map  || {};
+  window._srForeignDailyMap = result.foreignDailyMap || {};
+  window._srTrustDailyMap   = result.trustDailyMap   || {};
+  window._srDealerDailyMap  = result.dealerDailyMap  || {};
+  window._srCorrPriceMap    = result.corrPriceMap    || {};
 
   grid.innerHTML = SR_SECTOR_DEF.map(sec => {
     const d = sectorData[sec.id];
@@ -34953,12 +34970,20 @@ async function renderSectorRotation(stockId) {
     const chgCls = chg > 0.1 ? 'up' : chg < -0.1 ? 'dn' : 'flat';
     const badge = sec.id === epicId ? '🎯' : safeHavens.includes(sec.id) ? '🛡️' : sec.id === stockSec.id ? '📍' : '';
     const stockCount = (sec.keyStocks || []).length;
+    // v7.72：用板塊代表股（sec.stocks[0]）估算籌碼週期階段，填進原本的空白處。
+    // 這是簡化版估算（只用代表股的價量+法人5日淨額），不是個股頁那套完整
+    // 籌碼週期引擎，資料量不到那個等級，僅供板塊層級的粗略參考。
+    const phase = _srEstimatePhase(sec.stocks?.[0]);
+    const phaseHtml = phase
+      ? '<div class="sr-sec-phase" data-tip="用板塊代表股（' + sec.stocks[0] + '）粗略估算，僅供參考，非個股頁的完整籌碼週期分析">' + phase.label + '</div>'
+      : '';
     return '<div class="sr-sec ' + cls + activeCls + '" onclick="srOpenPopup(\'' + sec.id + '\')" title="點擊查看' + sec.name + '板塊重要公司">'
       + '<div class="sr-sec-sig"></div>'
       + '<span class="sr-sec-emoji">' + sec.emoji + badge + '</span>'
       + '<div class="sr-sec-name">' + sec.name + '</div>'
       + '<div class="sr-sec-chg ' + chgCls + '">' + (chg>0?'+':'') + chg + '%</div>'
       + '<div class="sr-sec-count">' + stockCount + '支↗</div>'
+      + phaseHtml
       + '</div>';
   }).join('');
 
@@ -36094,6 +36119,37 @@ function showEpicToast(msg, bg) {
   }, 2800);
 }
 
+// v7.72：板塊層級的籌碼週期階段粗估——用板塊代表股的corrPriceMap（本來就
+// 已經抓35天OHLC供相關係數計算用，不用多打API）算MA5/MA20/量比，配合
+// 該股的法人近5日淨額，套簡化規則分成吸籌/洗盤/啟動/拉升/出貨五階段。
+// ⚠️ 這是簡化估算，不是個股頁「籌碼週期階段診斷」那套完整引擎（那套要
+// 額外抓RSI/KD/MACD/近20日instDays等更多資料），只用來讓板塊格子有個
+// 粗略方向感，不要拿來當精準的個股進出場依據。
+function _srEstimatePhase(code) {
+  if (!code) return null;
+  const rows = (window._srCorrPriceMap || {})[code];
+  if (!rows || rows.length < 21) return null;
+  const closes = rows.map(r => +r.close);
+  const vols   = rows.map(r => +r.Trading_Volume || 0);
+  const ma5arr  = calcMA(closes, 5);
+  const ma20arr = calcMA(closes, 20);
+  const lc = closes.at(-1), lma5 = ma5arr.at(-1), lma20 = ma20arr.at(-1);
+  if (!lma5 || !lma20) return null;
+
+  const chg5 = closes.length >= 6 ? (lc - closes.at(-6)) / closes.at(-6) * 100 : 0;
+  const avgVol20 = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / Math.max(vols.slice(-21, -1).length, 1);
+  const volRatio = avgVol20 > 0 ? vols.at(-1) / avgVol20 : 1;
+  const instNet5 = (window._srForeign5Map?.[code] || 0) + (window._srTrust5Map?.[code] || 0);
+  const near20High = Math.max(...closes.slice(-20)) * 0.97 <= lc;
+
+  if (near20High && instNet5 < 0) return { key: 'distribution', label: '⚠️出貨期' };
+  if (lma5 > lma20 && lc > lma5 && instNet5 > 0 && volRatio >= 1.15 && chg5 > 3) return { key: 'markup', label: '📈拉升期' };
+  if (lc > lma20 && instNet5 > 0 && volRatio >= 1.3 && chg5 > 0) return { key: 'launch', label: '🚀啟動期' };
+  if (Math.abs(chg5) < 3 && instNet5 > 0 && volRatio < 1.3) return { key: 'absorb', label: '🧲吸籌期' };
+  if (lc <= lma20 * 1.02 && lc >= lma20 * 0.95) return { key: 'washout', label: '🌀洗盤期' };
+  return null; // 不夠明確就不硬貼標籤
+}
+
 /* ── 板塊公司 Popup ── */
 function srOpenPopup(secId) {
   const sec   = SR_SECTOR_DEF.find(s => s.id === secId);
@@ -36121,6 +36177,9 @@ function srOpenPopup(secId) {
   const _f5m = window._srForeign5Map || {};
   const _t5m = window._srTrust5Map   || {};
   const _d5m = window._srDealer5Map  || {};
+  const _fDm = window._srForeignDailyMap || {};
+  const _tDm = window._srTrustDailyMap   || {};
+  const _dDm = window._srDealerDailyMap  || {};
   const stocksHtml = (sec.keyStocks || []).map(st => {
     const isCur = st.code === curStock;
     const rows = _pmap[st.code];
@@ -36135,16 +36194,27 @@ function srOpenPopup(secId) {
         + ' ' + (stChg>=0?'▲':'▼') + Math.abs(stChg).toFixed(2) + '%</span>'
         + '<span style="color:var(--fg3);font-size:.6rem;margin-left:4px;">成交' + tvYi.toFixed(1) + '億</span>';
     }
-    // 三大法人近5日買賣超（張）：有資料才顯示，缺資料的欄位維持「—」不硬湊數字
+    // v7.72：三大法人連5日逐日明細（不只總和），卡片會變高沒關係——
+    // 使用者要的是看得到「這5天是怎麼變化的」，不是只看一個合計數字。
     let instHtml = '';
-    if (_f5m[st.code] != null || _t5m[st.code] != null || _d5m[st.code] != null) {
+    const fSer = _fDm[st.code], tSer = _tDm[st.code], dSer = _dDm[st.code];
+    if (fSer?.length || tSer?.length || dSer?.length) {
+      const dates = (fSer || tSer || dSer).map(r => r.date.slice(5));
       const fmt = v => v == null ? '<span style="color:var(--fg3);">—</span>'
         : '<span style="color:' + (v>0?'#b91c1c':v<0?'#15803d':'var(--fg3)') + ';font-weight:700;">' + (v>0?'+':'') + Math.round(v/1000).toLocaleString() + '</span>';
-      instHtml = '<div style="font-size:.58rem;color:var(--fg3);margin-top:3px;display:flex;gap:8px;">'
-        + '<span>外資 ' + fmt(_f5m[st.code]) + '</span>'
-        + '<span>投信 ' + fmt(_t5m[st.code]) + '</span>'
-        + '<span>自營 ' + fmt(_d5m[st.code]) + '</span>'
-        + '</div>';
+      const rowHtml = (label, ser, sum) => '<tr>'
+        + '<td style="color:var(--fg3);padding:1px 4px;white-space:nowrap;">' + label + '</td>'
+        + (ser || []).map(r => '<td style="text-align:center;padding:1px 3px;">' + fmt(r.net) + '</td>').join('')
+        + '<td style="padding:1px 4px;border-left:1px solid var(--border);">' + fmt(sum) + '</td>'
+        + '</tr>';
+      instHtml = '<div style="margin-top:3px;overflow-x:auto;">'
+        + '<table style="font-size:.56rem;border-collapse:collapse;white-space:nowrap;">'
+        + '<tr><td></td>' + dates.map(d => '<td style="text-align:center;color:var(--fg3);padding:1px 3px;">' + d + '</td>').join('')
+        + '<td style="color:var(--fg3);padding:1px 4px;border-left:1px solid var(--border);">合計</td></tr>'
+        + rowHtml('外資', fSer, _f5m[st.code])
+        + rowHtml('投信', tSer, _t5m[st.code])
+        + rowHtml('自營', dSer, _d5m[st.code])
+        + '</table></div>';
     }
     return '<div class="sr-popup-stock' + (isCur ? ' current' : '') + '" onclick="srPopupGo(\'' + st.code + '\')">'
       + '<div class="sr-popup-stock-code">' + st.code + '</div>'
