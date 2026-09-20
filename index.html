@@ -34625,6 +34625,10 @@ async function srFetchSectorData() {
   const corrPriceMap = {};
   const instMap = {}; // v7.58：code → 外資最新一日買賣超（股），供震央強度公式的第三因子用
   const trustMap = {}; // v7.98：code → 投信最新一日買賣超（股），供矩陣散點圖「法人合計」用
+  // v7.72：code → 三大法人近5日買賣超合計（股），供板塊公司列表顯示「是投信在拉、
+  // 外資在拉、還是三大法人一起拉」——同一批instRes回應本來就含這幾天的資料，
+  // 只是原本只取「最新一日」，這裡多篩幾天加總，不用多打API。
+  const foreign5Map = {}, trust5Map = {}, dealer5Map = {};
   let fetchOK = 0;
 
   for (const code of allCodes) {
@@ -34670,6 +34674,14 @@ async function srFetchSectorData() {
         const lastT = trustRows.at(-1);
         trustMap[code] = (+lastT.buy || 0) - (+lastT.sell || 0);
       }
+      // 近5日合計：跟其餘全站「自營」口徑一致，只算Dealer_self（自營自行買賣），
+      // 不含Dealer_Hedging（避險，市場中立對沖，不代表方向性判斷）。
+      const sum5 = name => instRes.value.filter(r => r.name === name)
+        .sort((a,b)=>a.date.localeCompare(b.date)).slice(-5)
+        .reduce((s,r) => s + ((+r.buy||0) - (+r.sell||0)), 0);
+      foreign5Map[code] = sum5('Foreign_Investor');
+      trust5Map[code]   = sum5('Investment_Trust');
+      dealer5Map[code]  = sum5('Dealer_self');
     }
   }
 
@@ -34813,7 +34825,7 @@ async function srFetchSectorData() {
   // v7.98：把個股層級資料一併存起來，「產業總表」的聚焦細節modal跟
   // 「指標吸金/拖累個股」要用，不用為了這個表再重打一次API。
   const result = { ready:true, sectorData, epicId, safeHavens, rotDay, isLive: fetchOK >= 5, sectorCorr,
-    priceMap, instMap, trustMap };
+    priceMap, instMap, trustMap, foreign5Map, trust5Map, dealer5Map };
   SR_CACHE[cacheKey] = result;
   return result;
 }
@@ -34927,6 +34939,9 @@ async function renderSectorRotation(stockId) {
   window._srPriceMap = result.priceMap || {};
   window._srInstMap  = result.instMap  || {};
   window._srTrustMap = result.trustMap || {};
+  window._srForeign5Map = result.foreign5Map || {};
+  window._srTrust5Map   = result.trust5Map   || {};
+  window._srDealer5Map  = result.dealer5Map  || {};
 
   grid.innerHTML = SR_SECTOR_DEF.map(sec => {
     const d = sectorData[sec.id];
@@ -36101,6 +36116,11 @@ function srOpenPopup(secId) {
   // 原本這裡「個別股票漲跌留空」是因為沒把這批資料傳出來，現在補上真實收盤價/
   // 漲跌幅/成交金額，不用再多打API。
   const _pmap = window._srPriceMap || {};
+  // v7.72：三大法人近5日買賣超合計（股），讓使用者一眼看出「是投信在拉、
+  // 外資在拉、還是三大法人一起拉」，不用另外查一次每一檔。
+  const _f5m = window._srForeign5Map || {};
+  const _t5m = window._srTrust5Map   || {};
+  const _d5m = window._srDealer5Map  || {};
   const stocksHtml = (sec.keyStocks || []).map(st => {
     const isCur = st.code === curStock;
     const rows = _pmap[st.code];
@@ -36115,12 +36135,24 @@ function srOpenPopup(secId) {
         + ' ' + (stChg>=0?'▲':'▼') + Math.abs(stChg).toFixed(2) + '%</span>'
         + '<span style="color:var(--fg3);font-size:.6rem;margin-left:4px;">成交' + tvYi.toFixed(1) + '億</span>';
     }
+    // 三大法人近5日買賣超（張）：有資料才顯示，缺資料的欄位維持「—」不硬湊數字
+    let instHtml = '';
+    if (_f5m[st.code] != null || _t5m[st.code] != null || _d5m[st.code] != null) {
+      const fmt = v => v == null ? '<span style="color:var(--fg3);">—</span>'
+        : '<span style="color:' + (v>0?'#b91c1c':v<0?'#15803d':'var(--fg3)') + ';font-weight:700;">' + (v>0?'+':'') + Math.round(v/1000).toLocaleString() + '</span>';
+      instHtml = '<div style="font-size:.58rem;color:var(--fg3);margin-top:3px;display:flex;gap:8px;">'
+        + '<span>外資 ' + fmt(_f5m[st.code]) + '</span>'
+        + '<span>投信 ' + fmt(_t5m[st.code]) + '</span>'
+        + '<span>自營 ' + fmt(_d5m[st.code]) + '</span>'
+        + '</div>';
+    }
     return '<div class="sr-popup-stock' + (isCur ? ' current' : '') + '" onclick="srPopupGo(\'' + st.code + '\')">'
       + '<div class="sr-popup-stock-code">' + st.code + '</div>'
       + '<div class="sr-popup-stock-info">'
       +   '<div class="sr-popup-stock-name">' + st.name + (isCur ? ' 📍' : '') + '</div>'
       +   '<div class="sr-popup-stock-role">' + st.role + '</div>'
       +   '<div class="sr-popup-stock-price" style="font-size:.64rem;margin-top:2px;">' + priceHtml + '</div>'
+      +   instHtml
       + '</div>'
       + '<button class="sr-popup-stock-go" onclick="event.stopPropagation();srPopupGo(\'' + st.code + '\')">分析 →</button>'
       + '</div>';
