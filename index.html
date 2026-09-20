@@ -38756,7 +38756,14 @@ function _diagnoseCyclePhase(top10, days) {
   if (nDist >= 2 || (effNetRatio < -0.20 && effNet < -300)) {
     phase = '📤 威科夫：出貨/分配期（Distribution）';
     phaseClass = 'cp-dist';
-    phaseTip = `校正有效淨賣 ${Math.abs(Math.round(effNet)).toLocaleString()} 張${washNote}，主力正在悄悄出脫籌碼。`;
+    // v7.72 修正：這個階段有兩種觸發路徑——①整體校正淨額真的是淨賣（effNet<-300）
+    // ②不看整體、只看「有≥2家券商個別被診斷出倒貨行為」（nDist>=2），這種情況
+    // 整體effNet可能仍是正值（其他券商還在買，只是少數主力已經悄悄出貨）。原本
+    // 不分這兩種情況，一律用Math.abs(effNet)硬套「淨賣」的文字，當effNet其實是
+    // 正值時會顯示「校正有效淨賣+4,705張」這種文字方向跟數字方向相反的矛盾句子。
+    phaseTip = effNet < 0
+      ? `校正有效淨賣 ${Math.abs(Math.round(effNet)).toLocaleString()} 張${washNote}，主力正在悄悄出脫籌碼。`
+      : `雖然整體仍是校正有效淨買 ${Math.round(effNet).toLocaleString()} 張${washNote}，但有 ${nDist} 家券商個別出現倒貨行為，疑似少數主力趁其他買盤還在時悄悄出脫籌碼，需留意。`;
   } else if (nMarkup >= 2 || (buyRatio >= 2.5 && effNetRatio > 0.20)) {
     phase = '🚀 威科夫：拉升期（Mark-Up）';
     phaseClass = 'cp-markup';
