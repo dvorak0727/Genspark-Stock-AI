@@ -16703,6 +16703,11 @@ a.module-nav-item.acc-active {
       </div>
     </div>
 
+    <!-- v7.72 多模組收斂警示：分點券商(付費)+籌碼四象限(免費)+CFD危險警示(免費)
+         裡至少2個獨立模組同時指向「出貨/危險」，才跳出這條警示——單一模組出現
+         警訊很常見，多個獨立角度收斂到同一結論，才是真正該提高警覺的時候。 -->
+    <div id="chipConvergenceWarn" style="display:none;"></div>
+
     <!-- 0a. 操作指導欄（常駐，時間感知） -->
     <div id="opGuideBar">
       <span class="ogb-clock" id="ogbClock">--:--</span>
@@ -36447,6 +36452,9 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   try { _updatePinBtn(stockId, isStockPinned(stockId)); } catch(e) {}
   // ── v5.21：重置全域橋接物件（各模組裁決存此，供 Signal Matrix 讀取）──
   window._smData = { ai:{}, peak:{}, ctr:{}, bd:{}, trt:{}, cf:{}, qoe:{}, bi:{}, wash:{}, vr:{}, cfd:{} };
+  // v7.72：換股票查詢時重置，避免上一檔股票的brokerDistribution（只有展開過
+  // 分點券商面板才會有值）殘留到這一檔，造成收斂警示誤判成這檔股票也中招。
+  window._chipConvergence = {};
   instRaw.sort((a,b)=>a.date.localeCompare(b.date));
   priceRaw.sort((a,b)=>a.date.localeCompare(b.date));
 
@@ -36605,6 +36613,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
     renderPhaseDetect(closes, opens, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, ma20, lc, lRSI, lK, lD, lL, lMA5, lMA20); // 籌碼週期
     if (typeof _patchAIPhaseAdvice === 'function') _patchAIPhaseAdvice(); // v7.80：回頭補上AI建言裡的籌碼週期那一條（renderAI跑得比這裡早，第一次算的時候phaseIdx還沒好）
     renderCFD(); // 🌊 v6.21n 籌碼流體動力學（renderPhaseDetect 之後立即執行，CFD 卡片顯示於 phase-card 正上方）
+    _renderChipConvergenceWarning(); // v7.72：ABCD+CFD兩個免費訊號都已算好，先評估一次（券商資料補上後會再評估一次）
     // 週期濾波：從 phaseConfNum DOM 取得信心分數（renderPhaseDetect 已渲染）
     const _cfConf = parseInt(document.getElementById('phaseConfNum')?.textContent, 10) || 0;
     renderCycleFilter(stockId, closes, vols, fSeries, tSeries, lc, _cfConf);            // ⚙️ 週期濾波
@@ -37811,6 +37820,11 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
       abcdAction = '⏳ 等待外資明確表態後再介入';
     }
 
+    // v7.72：把ABCD判定結果掛到全域，供「多模組收斂警示」讀取——這個判定
+    // 完全用免費的三大法人買賣超資料算出來，不用Sponsor付費token。
+    window._chipConvergence = window._chipConvergence || {};
+    window._chipConvergence.abcd = abcdState;
+
     // v7.72：原本獨立的「大戶意圖偵測」卡片(bigIntentCard)已整併進籌碼總覽，
     // renderBigIntent() 仍會照常運算（只是原本寫入的DOM元素已移除，寫入時
     // 靜靜跳過），計算結果留在 window._smData.bi 裡，這裡直接讀出來接在
@@ -38971,6 +38985,13 @@ function _drawBrokerUI(result, days) {
 
   // ── ② 籌碼週期診斷 ─────────────────────────────────
   const cp  = _diagnoseCyclePhase(top10, days);
+  // v7.72：把分點券商的威科夫判定掛到全域，供「多模組收斂警示」讀取——
+  // 這個判定需要Sponsor付費token（TaiwanStockTradingDailyReport），只有
+  // 使用者已經展開過「分點券商買賣明細」面板時才會有值，屬於加分項，
+  // 不強制要求，沒有付費token的使用者靠另外兩個免費訊號一樣能觸發警示。
+  window._chipConvergence = window._chipConvergence || {};
+  window._chipConvergence.brokerDistribution = (cp.phaseClass === 'cp-dist');
+  if (typeof _renderChipConvergenceWarning === 'function') _renderChipConvergenceWarning(); // 補上券商資料後重新評估一次
   const sig = document.getElementById('csBrokerSignal');
   if (sig) {
     sig.className = `cs-broker-signal ${cp.phaseClass}`;
@@ -48660,6 +48681,40 @@ function l2BuildThermo(norm) {
 //  計算：雷諾數Re（量比）/ 渦量Ω（BPR方向）/ 壓力梯度∇P（外盤比）
 //        假湍流指數PT（量增/價增比） / 流態判定 / 週期一致性
 // ==============================================================
+// ══════════════════════════════════════════════════════════════
+//  v7.72 多模組收斂警示——分點券商(需付費)、籌碼四象限(免費)、CFD危險
+//  警示(免費) 這三個獨立模組，只要有≥2個同時指向「出貨/危險」，就跳出
+//  一條醒目提示。單一模組出現警訊很常見（可能只是雜訊），多個互不依賴
+//  的角度同時收斂到同一結論，才是真正該提高警覺、不要追高的時候。
+//  ⚠️ 沒有Sponsor付費token的使用者，brokerDistribution永遠是undefined，
+//  這裡改成「兩個免費訊號都要成立」才觸發，用更嚴格的雙重確認補回少一
+//  個訊號來源的可信度落差，不會因為少一個來源就變得太容易誤跳。
+// ══════════════════════════════════════════════════════════════
+function _renderChipConvergenceWarning() {
+  const el = document.getElementById('chipConvergenceWarn');
+  if (!el) return;
+  const c = window._chipConvergence || {};
+  const abcdBad = c.abcd === 'B' || c.abcd === 'C';
+  const hasBrokerSignal = c.brokerDistribution !== undefined; // 是否有付費資料可用
+  const hitCount = [abcdBad, !!c.cfdDanger, !!c.brokerDistribution].filter(Boolean).length;
+
+  const triggered = hasBrokerSignal ? hitCount >= 2 : (abcdBad && c.cfdDanger);
+  if (!triggered) { el.style.display = 'none'; return; }
+
+  const reasons = [];
+  if (abcdBad) reasons.push(c.abcd === 'B' ? '外資出貨中（外資借投信作帳嫌疑）' : '法人齊撤退');
+  if (c.cfdDanger) reasons.push('CFD顯示高檔不穩定，隨時可能反轉');
+  if (c.brokerDistribution) reasons.push('分點券商多家出現倒貨行為');
+
+  const upsell = hasBrokerSignal ? '' : '（建議使用 Sponsor 付費方案，可再加入分點券商買賣明細交叉比對，分析更完整）';
+
+  el.style.display = 'block';
+  el.innerHTML = `<div style="margin:8px 0;padding:10px 14px;border-radius:10px;background:rgba(220,38,38,.08);border:1.5px solid rgba(220,38,38,.35);">
+    <div style="font-size:.8rem;font-weight:900;color:#DC2626;">⚠️ 多模組收斂警示：${hitCount}個獨立角度同時指向出貨/危險</div>
+    <div style="font-size:.68rem;color:var(--fg2);margin-top:4px;line-height:1.6;">${reasons.join('、')}——這不是單一模組的雜訊，多個互不依賴的判斷同時收斂到同一結論，明日追高風險偏高，建議不追高、評估現有部位是否減碼。${upsell}</div>
+  </div>`;
+}
+
 function renderCFD() {
   const d = window.aData;
   if (!d) return;
@@ -49403,6 +49458,10 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
     axis: trtAxis, label: trtAxisTxt, verdict: trtVerdictTxt, conf,
     cls: trtAxis === 3 ? 'bull' : trtAxis === 2 ? 'bear' : 'warn'
   };
+  // v7.72：CFD危險警示（第二軸：高檔不穩定中間軸）掛到全域，供「多模組
+  // 收斂警示」讀取——這個判定只用股價+成交量，不用Sponsor付費token。
+  window._chipConvergence = window._chipConvergence || {};
+  window._chipConvergence.cfdDanger = (trtAxis === 2);
   // ── v6.20 橋接：預算共享給 renderCycleFilter 避免重複計算 ──
   if (window._smData) {
     window._smData._phaseShared = { avgV20, vol20pct: volatility };
