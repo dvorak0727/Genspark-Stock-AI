@@ -62619,7 +62619,7 @@ function _scQuickBroker(stockId, triggerEl) {
   // 反轉偵測：長窗口（10日）跟短窗口（3日）方向不一致，才值得特別提醒
   const _reversed = (_w10 > 0 && _w3 < 0) || (_w10 < 0 && _w3 > 0);
   const _windowRow = [['3日',_w3], ['5日',_w5], ['7日',_w7], ['10日',_w10]].map(([lbl, v]) => {
-    const c = v > 0 ? '#f87171' : v < 0 ? '#86efac' : 'var(--fg3)';
+    const c = v > 0 ? '#b91c1c' : v < 0 ? '#15803d' : 'var(--fg3)';
     return `<div style="text-align:center;flex:1;">
       <div style="font-size:0.55rem;color:var(--fg3);">${lbl}</div>
       <div style="font-size:0.68rem;font-weight:800;color:${c};">${v>0?'+':''}${v}</div>
@@ -62652,14 +62652,17 @@ function _scQuickBroker(stockId, triggerEl) {
   const bodyRows = top5.map(bn => {
     const cells = days.map(d => {
       const v = dayMap[d]?.[bn] || 0;
+      // v7.72 修正：淺紅/淺綠文字疊在同色系深色底上對比度太低，看不清楚數字。
+      // 改成深色底配白字、淺色底配深色字，兩種情境都維持清楚可讀。
       const bg = v > 200 ? 'rgba(239,68,68,0.65)' : v > 50 ? 'rgba(239,68,68,0.30)' : v > 0 ? 'rgba(239,68,68,0.12)'
                : v < -200 ? 'rgba(34,197,94,0.60)' : v < -50 ? 'rgba(34,197,94,0.28)' : v < 0 ? 'rgba(34,197,94,0.10)' : '';
-      const color = Math.abs(v) > 20 ? (v > 0 ? '#fca5a5' : '#86efac') : 'var(--fg3)';
+      const color = v > 200 ? '#ffffff' : v > 50 ? '#7f1d1d' : v > 0 ? '#b91c1c'
+                  : v < -200 ? '#ffffff' : v < -50 ? '#14532d' : v < 0 ? '#15803d' : 'var(--fg3)';
       const txt   = v === 0 ? '' : (v > 0 ? '+' : '') + v;
-      return `<td style="font-size:0.53rem;text-align:center;padding:2px 2px;background:${bg};color:${color};">${txt}</td>`;
+      return `<td style="font-size:0.53rem;text-align:center;padding:2px 2px;background:${bg};color:${color};font-weight:700;">${txt}</td>`;
     }).join('');
     const total = days.reduce((s,d) => s + (dayMap[d]?.[bn] || 0), 0);
-    const totCls = total > 0 ? '#f87171' : total < 0 ? '#86efac' : 'var(--fg3)';
+    const totCls = total > 0 ? '#b91c1c' : total < 0 ? '#15803d' : 'var(--fg3)';
     const bnShort = bn.length > 6 ? bn.slice(0,6) + '…' : bn;
     return `<tr>
       <td style="font-size:0.55rem;padding:2px 4px;white-space:nowrap;color:var(--fg2);" title="${bn}">${bnShort}</td>
@@ -62671,7 +62674,7 @@ function _scQuickBroker(stockId, triggerEl) {
   // 每日合計列
   const totalRow = days.map(d => {
     const tot = top5.reduce((s,bn) => s + (dayMap[d]?.[bn] || 0), 0);
-    const c   = tot > 0 ? '#f87171' : tot < 0 ? '#86efac' : 'var(--fg3)';
+    const c   = tot > 0 ? '#b91c1c' : tot < 0 ? '#15803d' : 'var(--fg3)';
     return `<td style="font-size:0.52rem;text-align:center;font-weight:700;color:${c};">${tot > 0 ? '+' : ''}${tot || ''}</td>`;
   }).join('');
 
