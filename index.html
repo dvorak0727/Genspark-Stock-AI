@@ -62472,7 +62472,7 @@ function renderScreenerCards(showStats=false) {
             &nbsp;
             <span class="sc-chg" data-rt-chg="${r.stockId}" style="color:${up?'var(--up)':'var(--down)'};">${up?'▲':'▼'}${Math.abs(r.chgPct).toFixed(1)}%</span>
           </div>
-          <div class="sc-badges-row">${instBadge}${biasBadge}${window._buildEtfRebalBadgeHtml ? window._buildEtfRebalBadgeHtml(r.stockId) : ''}${bottomBadgeHtml}</div>
+          <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}</div>
           <div class="sc-industry">${info.industry}</div>
         </div>
       </div>
