@@ -15779,8 +15779,8 @@ a.module-nav-item.acc-active {
           <option value="arglasses">🕶️ AI智慧眼鏡族群</option>
           <option value="quantum">⚛️ 量子電腦族群</option>
           <option value="asic">🔲 ASIC供應鏈</option>
+          <option value="cpo">💡 CPO概念股</option>
           <option value="defense">🛡️ 台灣軍工鏈（無人機／國防）</option>
-          <option value="all50">📋 精選50檔權值股（固定清單）</option>
           <option value="dynamic50">🔄 市值前50大（即時計算）</option>
         </select>
         <div class="screener-mode-divider">▸</div>
@@ -16039,7 +16039,6 @@ a.module-nav-item.acc-active {
           <option value="ai">🤖 AI相關族群</option>
           <option value="finance">🏦 金融族群</option>
           <option value="ship">🚢 航運族群</option>
-          <option value="all50">📋 精選50檔權值股（固定清單）</option>
           <option value="dynamic50">🔄 市值前50大（即時計算）</option>
         </select>
       </div>
@@ -33449,6 +33448,10 @@ const STOCK_DB = {
   '4979': { name:'華星光',      industry:'CPO矽光子光收發模組' },
   '3163': { name:'波若威',      industry:'CPO矽光子光被動元件' },
   '6442': { name:'光聖',        industry:'CPO矽光子光被動元件' },
+  '3363': { name:'上詮',        industry:'CPO矽光子光通訊模組' }, // v8.x補入
+  '3450': { name:'聯鈞',        industry:'CPO矽光子光被動元件' }, // v8.x補入
+  '4908': { name:'前鼎',        industry:'CPO矽光子光通訊供應鏈' }, // v8.x補入
+  '4977': { name:'眾達-KY',     industry:'CPO矽光子光通訊零組件' }, // v8.x補入
   // ── 人形機器人 ── v7.55 補入
   // ⚠️ 日馳/直得代號跟系統原本「人形機器人族群」清單的誤植代號
   // （1522其實是堤維西、2392其實是正崴）已一併修正，見 SR_SECTOR_DEF
@@ -55812,6 +55815,26 @@ const SCREENER_POOLS = {
           '3711','2449','3264','6239','6223','6510',
           '2383','4958','3017','3324',
           '6669','2382','2317','3231','2308']
+  },
+  // ── 💡 CPO概念股（Co-Packaged Optics，共同封裝光學，v8.x新增）──
+  // 2026年矽光子商轉元年，NVIDIA Spectrum-X Photonics交換器量產+台積電COUPE平台
+  // 推進帶動的題材，涵蓋：
+  //   先進封裝：台積電(2330，COUPE平台)
+  //   光通訊模組/被動元件：上詮(3363)、聯鈞(3450)、前鼎(4908)、眾達-KY(4977)
+  //   光引擎/耦光元件：波若威(3163，FAU/光纖配線盒)、光聖(6442，高階光纖連接器)
+  //   雷射源/磊晶：華星光(4979，CPO外部雷射源)、聯亞(3081，上游磊晶)
+  cpo: {
+    label: '💡 CPO概念股',
+    ids: ['2330','3363','3163','4979','3450','3081','4908','6442','4977']
+    //  2330 台積電  — COUPE平台，矽光子先進封裝
+    //  3363 上詮    — 光通訊模組廠，CPO題材領跑股
+    //  3163 波若威  — FAU、光纖配線盒，直接對接CPO光引擎耦光需求
+    //  4979 華星光  — 已切入800G ZR、CPO外部雷射源，2026年1.6T接棒放量
+    //  3450 聯鈞    — 光通訊被動元件
+    //  3081 聯亞    — 上游磊晶與光學元件廠
+    //  4908 前鼎    — 光通訊供應鏈
+    //  6442 光聖    — 高階光纖連接器/跳線，受惠800G/1.6T升級精密對位需求
+    //  4977 眾達-KY — 光通訊零組件
   },
   finance: {
     label: '🏦 金融族群',
