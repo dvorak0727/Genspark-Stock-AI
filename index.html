@@ -56114,9 +56114,20 @@ function renderIndexBorderPage1(page1) {
       <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:52px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
       <span style="font-weight:700;color:var(--fg3);width:80px;text-align:right;" title="市值（億元）">${(x.marketCap/1e8).toFixed(0)}億</span>
     </div>`;
+  const mid = Math.ceil(page1.length / 2);
+  const colA = page1.slice(0, mid);
+  const colB = page1.slice(mid);
   return `
-    <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名1~${IDX_BORDER_LO - 1}，穩坐門檻之上）</div>
-    ${page1.length ? page1.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div>
+        <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名1~${colA.length ? colA[colA.length-1].rank : ''}）</div>
+        ${colA.length ? colA.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名${colB.length ? colB[0].rank : ''}~${IDX_BORDER_LO - 1}）</div>
+        ${colB.length ? colB.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
+      </div>
+    </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);">這一頁排名穩定，短期內被擠出台灣50的機率低，主要拿來對照「門檻觀察區」（第二頁）比較差距用。</div>`;
 }
 
