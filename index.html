@@ -58097,7 +58097,14 @@ async function calcBrokerHoardScore(stockId) {
       const vals = Object.values(dayMap[d].brokers).sort((a, b) => b - a);
       if (vals.length < 4) return null; // 券商筆數太少，前3大必然=全部，數字沒有意義
       const top3 = vals.slice(0, 3).reduce((s, v) => s + Math.max(v, 0), 0);
-      return Math.min(1, top3 / total);
+      // v8.x 修正：分母改用「全部券商正淨買總和」而不是「全日淨額」——
+      // 原本分母是net total（買賣互抵後的淨值），只要當天有其他券商在賣，
+      // 淨額就會被拉低，導致top3/total動不動就超過100%被硬壓封頂，變成
+      // 一堆不同股票都顯示「集中100%」的系統性灌水，不是真的高度集中。
+      // 分子分母都改成同一基礎（只看買超方），比例才有意義。
+      const totalBuy = vals.reduce((s, v) => s + Math.max(v, 0), 0);
+      if (totalBuy <= 0) return null;
+      return Math.min(1, top3 / totalBuy);
     }).filter(v => v !== null);
     const avgConc = concRatios.length ? concRatios.reduce((s, v) => s + v, 0) / concRatios.length : 0;
     // 窗口縮到5天後，樣本數也跟著調降：至少要有2天「券商筆數足夠、可信」的樣本才判定成立
