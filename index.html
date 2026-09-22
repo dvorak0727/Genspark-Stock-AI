@@ -56082,24 +56082,14 @@ function renderIndexBorderList(list) {
   const outGroup = list.filter(x => x.direction === 'out').sort((a,b) => a.rank - b.rank); // 排名42~50，越接近50風險越高
   const inGroup  = list.filter(x => x.direction === 'in').sort((a,b) => a.rank - b.rank);  // 排名51~59，越接近51機會越大
 
-  const rowHtml = x => {
-    // v7.73：門檻差距小橫條——用已有的gapPct畫成填充比例，越接近門檻(±3%)橘色越顯眼，不用多抓資料
-    const fillPct = Math.min(Math.abs(x.gapPct) / 20 * 100, 100);
-    const barColor = Math.abs(x.gapPct) <= 3 ? '#d97706' : '#94a3b8';
-    return `
+  const rowHtml = x => `
     <div onclick="quickSearch && quickSearch('${x.id}')" title="點擊查看 ${x.name}(${x.id}) 完整分析" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
       <span style="font-weight:800;color:var(--fg3);width:28px;">#${x.rank}</span>
       <span style="font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
       <span style="color:var(--fg3);font-size:0.65rem;">${x.industry}</span>
       <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:52px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
-      <span style="display:inline-flex;align-items:center;gap:4px;width:96px;justify-content:flex-end;" title="與第50名市值差距，橫條越滿代表離門檻越近">
-        <span style="width:36px;height:6px;border-radius:3px;background:var(--border);overflow:hidden;display:inline-block;">
-          <span style="display:block;height:100%;width:${fillPct.toFixed(0)}%;background:${barColor};"></span>
-        </span>
-        <span style="font-weight:700;color:${Math.abs(x.gapPct)<=3?'#d97706':'var(--fg3)'};">${x.gapPct>=0?'+':''}${x.gapPct.toFixed(1)}%</span>
-      </span>
+      <span id="chipSig-${x.id}" style="font-size:0.66rem;font-weight:700;color:var(--fg3);width:110px;text-align:right;white-space:nowrap;">⏳判斷中</span>
     </div>`;
-  };
 
   return `
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
@@ -56143,11 +56133,60 @@ function renderIndexBorderPage1(page1) {
 
 let _idxBorderData = { list: [], page1: [] };
 
+// v7.73：輕量版「籌碼落底」判斷——不畫K線圖，只跑判斷邏輯輸出一個文字標籤。
+// 用近20個交易日的收盤+成交量：①現價是否貼近20日低點 ②近5日均量是否比前15日明顯縮量。
+// 取代原本「是否會擠進台灣50」的差距%顯示——那個訊號跟籌碼狀態無關，用戶不需要。
+async function _computeChipBottomSignal(stockId) {
+  const end = new Date();
+  const start = new Date(end.getTime() - 40 * 24 * 60 * 60 * 1000); // 抓寬一點蓋過非交易日
+  const rows = await fetchFM('TaiwanStockPrice', stockId, start, end);
+  if (!rows || rows.length < 10) throw new Error('資料不足');
+
+  const recent = rows.slice(-20);
+  const closes = recent.map(r => r.close).filter(v => v > 0);
+  const vols   = recent.map(r => r.Trading_Volume).filter(v => v > 0);
+  if (closes.length < 10 || vols.length < 10) throw new Error('資料不足');
+
+  const latestClose = closes[closes.length - 1];
+  const low20 = Math.min(...closes);
+  const nearLow = (latestClose - low20) / low20 <= 0.05; // 現價在20日低點的5%以內
+
+  const vol5  = vols.slice(-5).reduce((a,b) => a+b, 0) / Math.min(5, vols.length);
+  const vol15 = vols.slice(0, -5).reduce((a,b) => a+b, 0) / Math.max(1, vols.length - 5);
+  const shrinking = vol15 > 0 && vol5 < vol15 * 0.7; // 近5日均量比前段縮超過30%
+
+  if (nearLow && shrinking)  return { label: '🟢籌碼近底量縮', color: '#16a34a' };
+  if (nearLow && !shrinking) return { label: '🟠低檔量仍大', color: '#d97706' };
+  return { label: '⚪未到低檔', color: 'var(--fg3)' };
+}
+
+async function annotateChipSignals(list) {
+  // 用小批次併發，避免同時間炸出太多請求；fetchFM本身有快取，同一天重複載入不會再打API
+  const CONCURRENCY = 4;
+  let i = 0;
+  async function worker() {
+    while (i < list.length) {
+      const x = list[i++];
+      const el = document.getElementById(`chipSig-${x.id}`);
+      if (!el) continue;
+      try {
+        const sig = await _computeChipBottomSignal(x.id);
+        el.textContent = sig.label;
+        el.style.color = sig.color;
+      } catch (e) {
+        el.textContent = '－查無資料';
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+}
+
 function switchIndexBorderPage(n) {
   const body = document.getElementById('idxBorderBody');
   document.getElementById('idxBorderTab1').style.opacity = n === 1 ? '1' : '.55';
   document.getElementById('idxBorderTab2').style.opacity = n === 2 ? '1' : '.55';
   body.innerHTML = n === 1 ? renderIndexBorderPage1(_idxBorderData.page1) : renderIndexBorderList(_idxBorderData.list);
+  if (n === 2) annotateChipSignals(_idxBorderData.list);
 }
 
 async function loadIndexBorderCandidates() {
