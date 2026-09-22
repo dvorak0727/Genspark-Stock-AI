@@ -18060,6 +18060,10 @@ a.module-nav-item.acc-active {
           <button class="etfcal-add-btn" onclick="loadIndexBorderCandidates()" id="idxBorderLoadBtn">📡 載入候選名單</button>
           <span style="font-size:0.6rem;color:var(--text-muted);" id="idxBorderUpdated"></span>
         </div>
+        <div id="idxBorderPageTabs" style="display:none;gap:6px;margin-bottom:8px;">
+          <button onclick="switchIndexBorderPage(1)" id="idxBorderTab1" class="etfcal-add-btn" style="padding:4px 12px;font-size:0.68rem;">第一頁・現有50大（1~34名）</button>
+          <button onclick="switchIndexBorderPage(2)" id="idxBorderTab2" class="etfcal-add-btn" style="padding:4px 12px;font-size:0.68rem;">第二頁・門檻觀察區（35~65名）</button>
+        </div>
         <div id="idxBorderBody">
           <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">按「載入候選名單」開始（資料源同「市值前50大（即時計算）」那組API，抓排名35~65名）</div>
         </div>
@@ -56020,7 +56024,7 @@ async function fetchIndexBorderCandidates() {
   try {
     const cached = JSON.parse(localStorage.getItem(IDX_BORDER_CACHE_KEY) || 'null');
     if (cached && cached.date === todayStr && Array.isArray(cached.list) && cached.list.length >= 10) {
-      return cached.list;
+      return { list: cached.list, page1: cached.page1 || [] };
     }
   } catch (e) {}
 
@@ -56067,8 +56071,11 @@ async function fetchIndexBorderCandidates() {
     };
   });
 
-  localStorage.setItem(IDX_BORDER_CACHE_KEY, JSON.stringify({ date: todayStr, list, computedAt: new Date().toISOString() }));
-  return list;
+  // v7.73：第一頁補齊排名1~34（門檻觀察區之外、穩坐台灣50的既有成分股）
+  const page1 = capList.slice(0, IDX_BORDER_LO - 1).map((x, i) => ({ ...x, rank: i + 1 }));
+
+  localStorage.setItem(IDX_BORDER_CACHE_KEY, JSON.stringify({ date: todayStr, list, page1, computedAt: new Date().toISOString() }));
+  return { list, page1 };
 }
 
 function renderIndexBorderList(list) {
@@ -56098,15 +56105,42 @@ function renderIndexBorderList(list) {
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);">與第50名市值差距欄：橘色代表差距在±3%以內，代表這次調整「翻盤機率」較高，值得優先觀察。</div>`;
 }
 
+function renderIndexBorderPage1(page1) {
+  const rowHtml = x => `
+    <div onclick="quickSearch && quickSearch('${x.id}')" title="點擊查看 ${x.name}(${x.id}) 完整分析" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <span style="font-weight:800;color:var(--fg3);width:28px;">#${x.rank}</span>
+      <span style="font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span style="color:var(--fg3);font-size:0.65rem;">${x.industry}</span>
+      <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:52px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
+      <span style="font-weight:700;color:var(--fg3);width:80px;text-align:right;" title="市值（億元）">${(x.marketCap/1e8).toFixed(0)}億</span>
+    </div>`;
+  return `
+    <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名1~${IDX_BORDER_LO - 1}，穩坐門檻之上）</div>
+    ${page1.length ? page1.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
+    <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);">這一頁排名穩定，短期內被擠出台灣50的機率低，主要拿來對照「門檻觀察區」（第二頁）比較差距用。</div>`;
+}
+
+let _idxBorderData = { list: [], page1: [] };
+
+function switchIndexBorderPage(n) {
+  const body = document.getElementById('idxBorderBody');
+  document.getElementById('idxBorderTab1').style.opacity = n === 1 ? '1' : '.55';
+  document.getElementById('idxBorderTab2').style.opacity = n === 2 ? '1' : '.55';
+  body.innerHTML = n === 1 ? renderIndexBorderPage1(_idxBorderData.page1) : renderIndexBorderList(_idxBorderData.list);
+}
+
 async function loadIndexBorderCandidates() {
   const btn = document.getElementById('idxBorderLoadBtn');
   const body = document.getElementById('idxBorderBody');
+  const tabs = document.getElementById('idxBorderPageTabs');
   btn.disabled = true; btn.textContent = '⏳ 計算中…';
   body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">⏳ 抓取市值排名資料中…</div>';
   try {
-    const list = await fetchIndexBorderCandidates();
-    body.innerHTML = renderIndexBorderList(list);
-    document.getElementById('idxBorderUpdated').textContent = `資料日期：${new Date().toISOString().slice(0,10)}（排名${IDX_BORDER_LO}~${IDX_BORDER_HI}）`;
+    const { list, page1 } = await fetchIndexBorderCandidates();
+    _idxBorderData = { list, page1 };
+    tabs.style.display = 'flex';
+    switchIndexBorderPage(2);
+    document.getElementById('idxBorderUpdated').textContent = `資料日期：${new Date().toISOString().slice(0,10)}（第一頁1~${IDX_BORDER_LO - 1}名／第二頁${IDX_BORDER_LO}~${IDX_BORDER_HI}名）`;
   } catch (e) {
     body.innerHTML = `<div style="text-align:center;padding:20px;color:#dc2626;font-size:0.8rem;">❌ ${e.message}</div>`;
   } finally {
