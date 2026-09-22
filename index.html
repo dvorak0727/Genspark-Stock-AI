@@ -39086,6 +39086,26 @@ function _drawBrokerUI(result, days) {
       }).join('') + '</tbody>';
     } else {
       // ══ 今日模式（單日）：類型/買/賣/淨/校正淨/行為 ══
+      // v8.x：改成依「行為診斷」分組排列（同行為的券商排在一起），不再單純依淨買賣量排序，
+      // 方便一眼看出「吸籌的一掛」「倒貨的一掛」，組內再依校正淨量絕對值大到小排。
+      const BV_GROUP_ORDER = {
+        'bv-accum': 0,      // 🧲 吸籌
+        'bv-markup': 1,     // 🚀 拉升／📈 買超
+        'bv-mild-buy': 2,   // ⬆️ 輕買
+        'bv-hold': 3,       // 🔄 換手
+        'bv-neutral': 4,    // —
+        'bv-mild-sell': 5,  // ⬇️ 輕賣
+        'bv-wash': 6,       // 🌀 洗盤
+        'bv-dist': 7,       // 📤 倒貨／出貨
+        'bv-daytrade': 8,   // ⚡ 沖銷為主
+        'bv-nextday': 9,    // 🌙 隔日沖
+      };
+      const rowsData = top10.map(b => ({ b, bv: _diagnoseBrokerBehavior(b, allVol) }));
+      rowsData.sort((x, y) => {
+        const gx = BV_GROUP_ORDER[x.bv.cls] ?? 99, gy = BV_GROUP_ORDER[y.bv.cls] ?? 99;
+        if (gx !== gy) return gx - gy;
+        return Math.abs(y.bv.realNet || 0) - Math.abs(x.bv.realNet || 0);
+      });
       tb.innerHTML = `<thead><tr>
         <th>券商</th>
         <th>類型</th>
@@ -39093,11 +39113,10 @@ function _drawBrokerUI(result, days) {
         <th>校正淨</th>
         <th>行為診斷</th>
       </tr></thead><tbody>` +
-      top10.map(b => {
+      rowsData.map(({ b, bv }) => {
         const net    = Math.round(b.net);
         const netCls = net >= 0 ? 'td-net-pos' : 'td-net-neg';
         const netStr = (net >= 0 ? '+' : '') + net.toLocaleString();
-        const bv     = _diagnoseBrokerBehavior(b, allVol);
         // 校正淨量欄
         const rn     = bv.realNet !== undefined ? Math.round(bv.realNet) : null;
         const rnStr  = rn !== null
