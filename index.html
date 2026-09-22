@@ -18058,6 +18058,7 @@ a.module-nav-item.acc-active {
         </div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
           <button class="etfcal-add-btn" onclick="loadIndexBorderCandidates()" id="idxBorderLoadBtn">📡 載入候選名單</button>
+          <button class="etfcal-add-btn" onclick="forceRefreshIndexBorder()" id="idxBorderForceBtn" title="清掉這個功能自己的快取，重新抓市值排名+籌碼判斷" style="opacity:.85;">🔄 強制刷新</button>
           <span style="font-size:0.6rem;color:var(--text-muted);" id="idxBorderUpdated"></span>
         </div>
         <div id="idxBorderPageTabs" style="display:none;gap:6px;margin-bottom:8px;">
@@ -56187,6 +56188,19 @@ function switchIndexBorderPage(n) {
   document.getElementById('idxBorderTab2').style.opacity = n === 2 ? '1' : '.55';
   body.innerHTML = n === 1 ? renderIndexBorderPage1(_idxBorderData.page1) : renderIndexBorderList(_idxBorderData.list);
   if (n === 2) annotateChipSignals(_idxBorderData.list);
+}
+
+// v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
+// 重新跑一次完整流程。跟sponsor權限無關，純粹是繞過「當天快取一次」的邏輯。
+function forceRefreshIndexBorder() {
+  localStorage.removeItem(IDX_BORDER_CACHE_KEY);
+  const allIds = [..._idxBorderData.list, ..._idxBorderData.page1].map(x => x.id);
+  allIds.forEach(id => {
+    const prefix = `TaiwanStockPrice|${id}|`;
+    Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => localStorage.removeItem(k));
+    Object.keys(_fmCache).filter(k => k.startsWith(prefix)).forEach(k => delete _fmCache[k]);
+  });
+  loadIndexBorderCandidates();
 }
 
 async function loadIndexBorderCandidates() {
