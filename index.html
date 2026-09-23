@@ -58964,6 +58964,10 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
   score += fSell ? 1 : 0;
   const fCons = fSeries.filter(v=>v>0).length;
   const tCons = tSeries.filter(v=>v>0).length;
+  // v8.x：D2只看外資，完全沒交叉比對投信——「外資小賣+投信同期強力買超」
+  // 這種組合(例如投信連買多日、5日合計為正且金額不小)常常不是真出貨，
+  // 只算外資單一視角容易誤判，這裡多算一個t5給卡片顯示用的警示文字參考。
+  const t5 = tSeries.slice(-5).reduce((a,b)=>a+b,0);
   checks.push({ label:'外資轉賣', hit:fSell, val:`5日${f5>0?'+':''}${f5.toFixed(0)}張` });
 
   // D3: MACD 柱縮小（動能遞減）
@@ -58984,7 +58988,7 @@ function calcDistributionScore(stockId, instRaw, priceRaw) {
   // v7.97：補上迷你K棒資料，跟其他掃描模式一致
   const candles = (() => { const _n=Math.min(15,priceRaw.length),_p=priceRaw.slice(-_n); return { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) }; })();
 
-  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, candles };
+  return { stockId, score, checks, lc, chgPct, fCons, tCons, volRatio, candles, t5 };
 }
 
 
@@ -61736,8 +61740,9 @@ const MODE_GUIDE = {
       '不要因為「股票還在漲」繼續持有；主力出貨往往發生在最後一波上漲中。',
       '若已持有，設好停利點（高點下方 5~8%）；一旦跌破立刻執行，不猶豫。',
       '此階段不適合新買進；若要做空，需等確認頂部訊號（連續兩根長黑K）再操作。',
+      '<b>此模式只看外資，沒交叉比對投信</b>：如果同一檔股票外資小賣、但投信同期強力連買，系統仍可能判成「出貨期訊號明確」，卡片上會標示提醒——這種組合常常不是真出貨，建議搭配「大戶意圖」ABCD籌碼四象限一起看，不要看到出貨期就直接當作賣出訊號。',
     ],
-    action: '📌 操作思路：持有者設停利在高點下 5~8%，觸及立即賣出。未持有者不追高，等回落到吸籌區才重新評估。整個週期完成後，下一個吸籌期才是新的進場機會。',
+    action: '📌 操作思路：持有者設停利在高點下 5~8%，觸及立即賣出；未持有者不追高，等回落到吸籌區才重新評估。若卡片同時顯示投信強力承接的警示，先確認是真出貨還是外資單獨調節，不要照單全收。整個週期完成後，下一個吸籌期才是新的進場機會。',
   },
 
   obi: {
@@ -62754,6 +62759,14 @@ function renderScreenerCards(showStats=false) {
     const etfNote  = isETF
       ? `<div class="sc-etf-note">⚠️ ETF 底部訊號意義不同——代表<b>大盤相對低點</b>，而非個股主力吸籌。法人買入多屬定期定額／再平衡，可作為<b>台股整體底部溫度計</b>參考。</div>`
       : '';
+
+    // v8.x：出貨期偵測(calcDistributionScore)5個條件只看外資，沒交叉比對投信——
+    // 「外資小賣+投信同期強力買超」常常不是真出貨，只顯示分數容易誤判，
+    // 這裡純顯示層加一句警示，不動原本的分數計算。
+    const distCaution = _curMode === 'distribution' && (r.t5 || 0) > 0 && (r.tCons || 0) >= 4;
+    const distCautionNote = distCaution
+      ? `<div class="sc-etf-note" style="background:rgba(16,185,129,.12);border-color:#10B981;color:#065F46;">💡 <b>出貨期訊號但投信同期強力承接</b>：投信近10日有${r.tCons}天買超、5日合計${r.t5>0?'+':''}${Math.round(r.t5).toLocaleString()}張，此判定只看外資單一視角，可能只是外資調節而非真出貨，建議搭配ABCD籌碼四象限交叉確認。</div>`
+      : '';
     const verdictFinal = isETF && r.score >= _th3
       ? '📊 大盤底部訊號（非個股）'
       : verdict;
@@ -62870,6 +62883,7 @@ function renderScreenerCards(showStats=false) {
       <!-- ↓ 指標明細：預設隱藏，解鎖後才顯示 -->
       <div class="sc-checks">${checksHtml}</div>
       ${etfNote}
+      ${distCautionNote}
       <div class="sc-verdict ${verdictCls}${verdictClickable}"${verdictTitle}${verdictClick}>${verdictFinal}${_macdDirTag}</div>
       <div class="sc-click-hint">▶ 點擊分數圈查看完整分析</div>
       <!-- 快速展開面板：法人/MACD（動態注入）-->
