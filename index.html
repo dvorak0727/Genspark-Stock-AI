@@ -57162,16 +57162,6 @@ function _patchWhaleBadge(stockId, whaleSignal, whaleDelta) {
     background:${meta.bg};color:${meta.color};border:1px solid ${meta.border};`;
   span.textContent = `${meta.icon} ${meta.label}${deltaStr ? ' '+deltaStr : ''}`;
   badgeRow.appendChild(span);
-
-  // v8.x：大戶資料是背景非同步抓的，比卡片本身晚到——若這張卡已經因為
-  // 「灰棒+MA20負乖離」顯示過警示，這裡補上「大戶正在撤退」字樣，
-  // 不用等使用者重新整理整頁才看得到完整的風險提示。
-  if (whaleSignal === 'exit') {
-    const grayNote = card.querySelector(`#scGray-${stockId}`);
-    if (grayNote && !grayNote.textContent.includes('大戶正在撤退')) {
-      grayNote.innerHTML = grayNote.innerHTML.replace('賣壓竭盡不代表止跌，', '賣壓竭盡不代表止跌，加上千張大戶正在撤退——');
-    }
-  }
 }
 
 // ── v7.41 底部偵測綜合分（40%洗盤+35%法人+25%千張大戶，0~100）──
@@ -61368,16 +61358,14 @@ const MODE_GUIDE = {
       { icon: '📉', text: '<b>股價站穩月線（MA20）</b>：股價有沒有重新回到20日平均線上方，代表短期跌勢已止。' },
       { icon: '📊', text: '<b>KD 低檔金叉</b>：K 值從超賣區（低於25）往上穿越 D 值，這是最傳統的技術底部訊號。' },
       { icon: '🏦', text: '<b>法人連買3日以上</b>：外資或投信悄悄進場，代表「有人認為這個價格是撿便宜」。' },
-      { icon: '😶', text: '<b>窒息量（灰棒／成交量萎縮）</b>：量縮代表散戶都嚇跑了，剩下的是有耐心的長線投資人在護盤——但這只代表「賣壓一時竭盡」，不等於「止跌」。' },
+      { icon: '😶', text: '<b>窒息量（成交量萎縮）</b>：量縮代表散戶都嚇跑了，剩下的是有耐心的長線投資人在護盤。' },
     ],
     warns: [
       '底部訊號出現後，不代表明天就漲。有時候需要等 1~2 週才真正啟動。',
       '如果同時間大盤也在下跌，個股底部訊號的可信度會下降。先確認大盤止跌再進。',
       '建議分批建倉，不要一次全押，因為「假底部」很常見。',
-      '<b>灰棒兩條路，看 MA20 乖離方向才能分辨</b>：同樣是窒息量，MA20 正乖離（股價在月線之上）通常是健康換手，容易接上攻；MA20 負乖離（股價仍在月線之下）代表下跌中途力竭歇息，不是止跌。',
-      '若灰棒同時出現「大戶撤退」而非悄悄進場，風險更高——系統偵測到這個組合會在卡片上標示「灰棒但趨勢仍空」，勿直接當底部訊號進場。',
     ],
-    action: '📌 操作思路：看到評分 ≥ 4 的個股，先觀察 1~2 天確認不再創新低，再分批進場；同時檢查 MA20 乖離是否為正、有沒有「灰棒但趨勢仍空」警示，兩者都乾淨才是較可信的訊號。建議設停損在近低點下方 3~5%。',
+    action: '📌 操作思路：看到評分 ≥ 4 的個股，先觀察 1~2 天確認不再創新低，再分批進場。建議設停損在近低點下方 3~5%。',
   },
 
   absorb: {
@@ -62602,16 +62590,6 @@ function renderScreenerCards(showStats=false) {
     const etfNote  = isETF
       ? `<div class="sc-etf-note">⚠️ ETF 底部訊號意義不同——代表<b>大盤相對低點</b>，而非個股主力吸籌。法人買入多屬定期定額／再平衡，可作為<b>台股整體底部溫度計</b>參考。</div>`
       : '';
-
-    // v8.x：灰棒（窒息量）風險濾網——同樣是「量縮」，MA20正乖離(盤整換手)跟
-    // 負乖離(下跌中途歇息)意義完全不同；灰棒+大戶還在撤退，更是賣壓竭盡≠止跌
-    // 的警訊，不該當成進場訊號。whaleSignal是背景非同步抓的，卡片先建好時
-    // 通常還沒到，用id掛起來讓_patchWhaleBadge之後可以補寫這段文字。
-    const _c4check = r.checks?.[3]; // 窒息量 check
-    const grayCaution = _curMode === 'bottom' && _c4check?.hit && biasVal !== null && biasVal < 0;
-    const grayCautionNote = grayCaution
-      ? `<div class="sc-etf-note" id="scGray-${r.stockId}" style="background:rgba(245,158,11,.12);border-color:#F59E0B;color:#92400E;">⚠️ <b>灰棒但趨勢仍空</b>：股價仍在月線(MA20 ${biasVal.toFixed(1)}%)之下量縮，賣壓竭盡不代表止跌，${r.whaleSignal==='exit' ? '加上千張大戶正在撤退——' : ''}建議先觀察站上MA20或法人／大戶轉向再進場，勿貿然當底部訊號。</div>`
-      : '';
     const verdictFinal = isETF && r.score >= _th3
       ? '📊 大盤底部訊號（非個股）'
       : verdict;
@@ -62728,7 +62706,6 @@ function renderScreenerCards(showStats=false) {
       <!-- ↓ 指標明細：預設隱藏，解鎖後才顯示 -->
       <div class="sc-checks">${checksHtml}</div>
       ${etfNote}
-      ${grayCautionNote}
       <div class="sc-verdict ${verdictCls}${verdictClickable}"${verdictTitle}${verdictClick}>${verdictFinal}${_macdDirTag}</div>
       <div class="sc-click-hint">▶ 點擊分數圈查看完整分析</div>
       <!-- 快速展開面板：法人/MACD（動態注入）-->
