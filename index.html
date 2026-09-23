@@ -17858,6 +17858,7 @@ a.module-nav-item.acc-active {
           <div class="sr-header-sub" id="srHeaderSub">偵測本股所屬板塊的資金流向與輪動狀態</div>
         </div>
         <span class="sr-api-badge loading" id="srApiBadge">⏳ 載入中</span>
+        <button class="sr-link" id="srRefreshBtn" onclick="refreshSectorRotation()" style="cursor:pointer;font-family:inherit;" title="重新抓取板塊資料">🔄 更新</button>
         <a class="sr-link" href="sector-detector.html" target="_blank">🌍 完整版</a>
       </div>
 
@@ -34882,6 +34883,25 @@ function srSimulateFallback() {
 }
 
 /* ── 主渲染函數 ── */
+// v8.x：板塊輪動脈絡「更新」按鈕——srFetchSectorData() 內部本來就有快取
+// （避免同一分鐘內重複打FinMind），這裡直接重打一次renderSectorRotation()
+// 拿目前正在看的股票id（window.aData.stockId），按鈕本身給個轉圈+防連點。
+async function refreshSectorRotation() {
+  const stockId = window.aData?.stockId;
+  if (!stockId) return;
+  const btn = document.getElementById('srRefreshBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 更新中…'; }
+  try {
+    // srFetchSectorData() 內部用「今天日期」當快取key，同一天內直接按更新
+    // 會拿到同一份舊快取——手動按更新的意圖就是要真的重打一次，這裡先
+    // 清掉今天這把快取，逼它重新從FinMind抓。
+    delete SR_CACHE[new Date().toDateString()];
+    await renderSectorRotation(stockId);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 更新'; }
+  }
+}
+
 async function renderSectorRotation(stockId) {
   const card = document.getElementById('srCard');
   if (!card) return;
