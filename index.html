@@ -56805,6 +56805,10 @@ async function startScreener() {
   _screenerRunning = true;
   _screenerStop    = false;
   _screenerResults = [];
+  // v8.x：單一股票算分失敗（拋例外）以前只會偷偷log到console，畫面上完全
+  // 看不出「消失的股票」是被算失敗、還是本來就沒抓到資料。這裡把每筆
+  // 失敗都記下來，結束時彙整顯示，不用再靠使用者截圖猜測。
+  const _scrCalcFailures = [];
 
   try {
 
@@ -57012,6 +57016,7 @@ async function startScreener() {
 
     } catch(e) {
       console.error(`[screener] ${sid} 計算失敗:`, e.message, e.stack);
+      _scrCalcFailures.push({ sid, name: STOCK_DB[sid]?.name || sid, msg: e.message || String(e) });
     }
 
     processed++;
@@ -57066,7 +57071,18 @@ async function startScreener() {
     : _isBrokerFinish
       ? `✅ 券商囤貨掃描完成！共 ${processed} 檔 · 🏦 全中(5/5)：${_cntB5} 檔 · 🔴 強囤貨(≥4)：${_cntB4} 檔 · 🟡 明確(≥3)：${_cntB3} 檔`
       : `✅ 掃描完成！共分析 ${processed} 檔，找到 ${_screenerResults.filter(r=>r.score>=_th3f).length} 檔【${modeMeta2.title}】訊號`;
-  document.getElementById('screenerProgressText').textContent = _finishMsg;
+  // v8.x：如果有股票在計算階段拋例外（不是抓不到資料，是算分邏輯本身出錯），
+  // 把數量跟明細一起攤出來，不要讓使用者只看到「檔數比預期少」卻不知道為什麼。
+  const _finishMsgFull = _scrCalcFailures.length
+    ? `${_finishMsg} · ⚠️ ${_scrCalcFailures.length}檔計算失敗（詳見Console，或按 F12 查看）`
+    : _finishMsg;
+  document.getElementById('screenerProgressText').textContent = _finishMsgFull;
+  if (_scrCalcFailures.length) {
+    console.error(`[screener] 共 ${_scrCalcFailures.length} 檔計算階段拋例外，明細：`);
+    console.table(_scrCalcFailures);
+    if (typeof showEpicToast === 'function')
+      showEpicToast(`⚠️ ${_scrCalcFailures.length} 檔計算失敗（${_scrCalcFailures.slice(0,3).map(f=>f.name).join('、')}${_scrCalcFailures.length>3?'等':''}），詳見Console`, '#dc2626');
+  }
 
   await sleep(1000);
   document.getElementById('screenerProgress').classList.remove('show');
