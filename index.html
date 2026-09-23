@@ -10301,7 +10301,24 @@
   overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.25);
   display:flex;flex-direction:column;
   animation:srSlideUp 0.18s ease;
+  transition:width 0.15s ease;
 }
+/* v8.x：切成2/3欄截圖時，420px塞不下，切成多欄時把視窗放寬 */
+.sr-popup.cols-wide { width:min(920px,96vw); }
+.sr-popup-col-toggle {
+  display:flex;align-items:center;gap:3px;flex-shrink:0;
+  background:var(--bg2);border-radius:20px;padding:2px;
+}
+.sr-popup-col-btn {
+  border:none;background:transparent;cursor:pointer;
+  font-size:0.62rem;font-weight:700;color:var(--fg3);
+  padding:3px 8px;border-radius:16px;line-height:1.3;
+}
+.sr-popup-col-btn.active { background:var(--accent);color:#fff; }
+.sr-popup-list.cols-2 { column-count:2;column-gap:14px; }
+.sr-popup-list.cols-3 { column-count:3;column-gap:12px; }
+.sr-popup-list.cols-2 .sr-popup-stock,
+.sr-popup-list.cols-3 .sr-popup-stock { break-inside:avoid; }
 @keyframes srSlideUp{from{transform:translateY(16px);opacity:0;}to{transform:none;opacity:1;}}
 .sr-popup-head {
   display:flex;align-items:center;gap:10px;
@@ -36185,6 +36202,7 @@ function _srEstimatePhase(code) {
 }
 
 /* ── 板塊公司 Popup ── */
+let _srPopupCols = 1; // v8.x：欄數偏好，重開別的板塊popup時延續上次選擇，方便連續截圖
 function srOpenPopup(secId) {
   const sec   = SR_SECTOR_DEF.find(s => s.id === secId);
   if (!sec) return;
@@ -36341,7 +36359,7 @@ function srOpenPopup(secId) {
     + '</div>';
 
   overlay.innerHTML = ''
-    + '<div class="sr-popup">'
+    + '<div class="sr-popup' + (_srPopupCols > 1 ? ' cols-wide' : '') + '">'
     +   '<div class="sr-popup-head">'
     +     '<div class="sr-popup-head-emoji">' + sec.emoji + '</div>'
     +     '<div class="sr-popup-head-info">'
@@ -36349,12 +36367,15 @@ function srOpenPopup(secId) {
     +       '<div class="sr-popup-head-meta">' + (sec.keyStocks||[]).length + ' 支重要公司 · 點擊任一公司立即分析</div>'
     +     '</div>'
     +     '<div class="sr-popup-head-badge" style="background:' + badgeBg + ';color:' + badgeFg + ';border:1px solid ' + badgeFg + '33;">' + badgeTxt + '</div>'
+    +     '<div class="sr-popup-col-toggle" title="切換顯示欄數，方便截圖">'
+    +       [1,2,3].map(function(n){ return '<button class="sr-popup-col-btn' + (_srPopupCols===n?' active':'') + '" onclick="srPopupSetCols(' + n + ')">' + n + '欄</button>'; }).join('')
+    +     '</div>'
     +     '<button class="sr-popup-close" onclick="srClosePopup()">✕</button>'
     +   '</div>'
     +   '<div class="sr-popup-stat">' + statHtml + '</div>'
     +   epicBlock
     +   safeBlock
-    +   '<div class="sr-popup-list">'
+    +   '<div class="sr-popup-list cols-' + _srPopupCols + '">'
     +     '<div class="sr-popup-section-title">📋 板塊重要公司（點擊分析 →）</div>'
     +     stocksHtml
     +   '</div>'
@@ -36365,6 +36386,22 @@ function srOpenPopup(secId) {
   // ESC 關閉
   window._srPopupKeyHandler = e => { if (e.key === 'Escape') srClosePopup(); };
   document.addEventListener('keydown', window._srPopupKeyHandler);
+}
+
+// v8.x：板塊公司清單切換1/2/3欄——直接切DOM class，不用整個popup重新渲染
+// （公司清單本身沒變，只是排版變欄數，避免重繪造成閃爍或漏掉已展開的狀態）
+function srPopupSetCols(n) {
+  _srPopupCols = n;
+  const popup = document.querySelector('#srPopupOverlay .sr-popup');
+  const list  = document.querySelector('#srPopupOverlay .sr-popup-list');
+  if (popup) popup.classList.toggle('cols-wide', n > 1);
+  if (list) {
+    list.classList.remove('cols-1', 'cols-2', 'cols-3');
+    list.classList.add('cols-' + n);
+  }
+  document.querySelectorAll('#srPopupOverlay .sr-popup-col-btn').forEach((b, i) => {
+    b.classList.toggle('active', i + 1 === n);
+  });
 }
 
 function srClosePopup() {
