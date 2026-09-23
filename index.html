@@ -57079,12 +57079,20 @@ async function startScreener() {
         result._instRaw  = instRaw;
 
       } else if (modeKey === 'etfFlow') {
-        // 主動式ETF買賣超掃描：純讀靜態JSON（fetch_active_etf_data.py 排程輸出），
-        // 不即時打FinMind API，掃描速度跟其他「已快取」模式一樣快
+        // 主動式ETF買賣超掃描：ETF買賣超本身讀靜態JSON（fetch_active_etf_data.py
+        // 排程輸出），不即時打FinMind API；但價格+三大法人籌碼這裡還是要另外
+        // 抓一次，不然使用者沒辦法自己對照「ETF在買的同時，三大法人籌碼有沒有
+        // 真的同步增加」——之前這裡只補了現價，完全沒補法人資料，導致卡片上
+        // 「法人連買」badge/籌碼快速面板永遠是空的。
         result = await calcActiveETFFlowScore(sid);
         if (result._skip) { processed++; continue; }
         try {
-          const priceRaw = await _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd));
+          const [priceRes, instRes] = await Promise.allSettled([
+            _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd)),
+            _scrFetch(fetchInstFM(sid)),
+          ]);
+          const priceRaw = priceRes.status === 'fulfilled' ? priceRes.value : [];
+          const instRaw  = instRes.status  === 'fulfilled' ? instRes.value  : [];
           const closes = (priceRaw || []).map(d => +d.close);
           if (closes.length >= 2) {
             result.lc = closes.at(-1);
@@ -57095,7 +57103,18 @@ async function startScreener() {
             const _n = Math.min(15, priceRaw.length), _p = priceRaw.slice(-_n);
             result.candles = { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) };
           }
-        } catch(e) { /* 抓不到現價不影響ETF買賣超判斷，維持lc=0 */ }
+          if ((instRaw || []).length) {
+            result._instRaw = instRaw; // 供卡片「法人連買」快速展開面板讀取
+            const instMap  = buildInstMap(instRaw);
+            const instDays = Object.keys(instMap).sort().slice(-10);
+            const fSeries  = instDays.map(d => (instMap[d]?.Foreign_Investor?.net||0)/1000);
+            const tSeries  = instDays.map(d => (instMap[d]?.Investment_Trust?.net||0)/1000);
+            const revF = [...fSeries].reverse(), revT = [...tSeries].reverse();
+            let fCons = 0; for (const v of revF) { if (v > 0) fCons++; else break; }
+            let tCons = 0; for (const v of revT) { if (v > 0) tCons++; else break; }
+            result.fCons = fCons; result.tCons = tCons;
+          }
+        } catch(e) { /* 抓不到現價/法人資料不影響ETF買賣超判斷，維持原值 */ }
 
       } else if (modeKey === 'whale') {
         // 千張大戶增掃描：直接呼叫 calcWhaleIncreaseScore，不走技術指標/價格 API
@@ -62770,10 +62789,12 @@ function renderScreenerCards(showStats=false) {
     const verdictFinal = isETF && r.score >= _th3
       ? '📊 大盤底部訊號（非個股）'
       : verdict;
-    // MACD 矩陣：點擊展開 MACD 圖；broker：點擊展開券商熱力圖；whale/etfFlow：不抓法人買賣資料，
+    // MACD 矩陣：點擊展開 MACD 圖；broker：點擊展開券商熱力圖；whale：不抓法人買賣資料，
     // 沒有東西可以展開，點了只會看到誤導性的「資料不足」，直接不給點；
+    // v8.x：etfFlow 現在也補抓了三大法人籌碼(見掃描迴圈)，移出不給點名單，
+    // 讓使用者可以直接點開驗證「ETF在買的同時，法人籌碼是否真的同步增加」；
     // 其他模式強訊號(≥_th3)：點擊展開法人籌碼面板
-    const _noInstMode = (_curMode === 'whale' || _curMode === 'etfFlow');
+    const _noInstMode = (_curMode === 'whale');
     const verdictClickable = (r.score >= _th3 && !_noInstMode)
       ? ` sc-quick-btn${_curMode === 'macdmatrix' ? ' sc-verdict-macd' : _curMode === 'broker' ? ' sc-verdict-broker' : ''}` : '';
     const verdictTitle = (r.score >= _th3 && !_noInstMode)
