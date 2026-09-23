@@ -7132,6 +7132,13 @@
     .cs-broker-title {
       font-size: 0.72rem; font-weight: 700; color: var(--fg1); white-space: nowrap;
     }
+    .cs-broker-updated { font-size: 0.58rem; color: var(--fg3); white-space: nowrap; }
+    .cs-broker-refresh-btn {
+      font-size: 0.6rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--fg2);
+      cursor: pointer; white-space: nowrap;
+    }
+    .cs-broker-refresh-btn:disabled { opacity: 0.5; cursor: default; }
     .cs-broker-tabs { display: flex; gap: 3px; }
     .cs-broker-tab {
       font-size: 0.6rem; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--border);
@@ -17438,6 +17445,8 @@ a.module-nav-item.acc-active {
         <!-- 第一列：標題 + 日期 Tab -->
         <div class="cs-broker-head">
           <div class="cs-broker-title">🏦 分點券商買賣明細</div>
+          <span class="cs-broker-updated" id="csBrokerUpdated"></span>
+          <button class="cs-broker-refresh-btn" id="csBrokerRefreshBtn" onclick="refreshBrokerPanel()" title="重新抓取最新分點資料">🔄 更新</button>
           <div class="cs-broker-tabs">
             <button class="cs-broker-tab active" id="csBrokerTab1"  onclick="switchBrokerTab(1)">今日</button>
             <button class="cs-broker-tab"        id="csBrokerTab3"  onclick="switchBrokerTab(3)">3日</button>
@@ -38369,14 +38378,17 @@ function _setBrokerLoading(isLoading) {
   if (tw)  tw.style.display  = 'none';
   const nt  = document.getElementById('csBrokerNote');
   if (nt)  nt.style.display  = 'none';
+  const upd = document.getElementById('csBrokerUpdated');
+  if (upd)  upd.textContent  = ''; // 換股票查詢時，先清掉舊時間，避免誤以為是新股票的資料
 }
 
-async function _renderBrokerPanel(stockId, days) {
+async function _renderBrokerPanel(stockId, days, force) {
   const cacheKey = `${stockId}_${days}`;
   const now = Date.now();
-  // 10分鐘快取
-  if (_brokerCache[cacheKey] && now - _brokerCache[cacheKey].ts < 600000) {
+  // 10分鐘快取（force=true時繞過快取，給「🔄 更新」按鈕強制重抓用）
+  if (!force && _brokerCache[cacheKey] && now - _brokerCache[cacheKey].ts < 600000) {
     _drawBrokerUI(_brokerCache[cacheKey].data, days);
+    _updateBrokerTimestamp(_brokerCache[cacheKey].ts);
     return;
   }
 
@@ -38518,8 +38530,33 @@ async function _renderBrokerPanel(stockId, days) {
   const result = { brokers, useDates: usedDates.sort().reverse(), stockId, dailyMap, sortedDates };
   _brokerCache[cacheKey] = { data: result, ts: now };
   _drawBrokerUI(result, days);
+  _updateBrokerTimestamp(now);
   // 資料載入完成後：顯示差異對比按鈕（需要足夠的券商家數）
   try { _updateDiffBtnVisibility(); } catch(e) {}
+}
+
+// v8.x：顯示「幾點幾分抓的」，讓使用者知道資料新不新鮮，不用猜
+function _updateBrokerTimestamp(ts) {
+  const el = document.getElementById('csBrokerUpdated');
+  if (!el || !ts) return;
+  const t = new Date(ts);
+  const hh = String(t.getHours()).padStart(2, '0');
+  const mm = String(t.getMinutes()).padStart(2, '0');
+  const ss = String(t.getSeconds()).padStart(2, '0');
+  el.textContent = `更新於 ${hh}:${mm}:${ss}`;
+}
+
+// v8.x：「🔄 更新」按鈕——繞過10分鐘快取，強制重新打FinMind抓最新分點資料
+async function refreshBrokerPanel() {
+  if (!_brokerStockId) return;
+  const btn = document.getElementById('csBrokerRefreshBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '🔄 更新中…'; }
+  try {
+    await _renderBrokerPanel(_brokerStockId, _brokerDays, true);
+    _updateDiffBtnVisibility();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 更新'; }
+  }
 }
 
 function _brokerShowEmpty(msg) {
