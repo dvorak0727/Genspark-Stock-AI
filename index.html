@@ -45236,7 +45236,7 @@ function renderTechCharts(dates, closes, ma5, ma20, boll, vols, prevClose, opens
     },
     plugins: [_kannotPlugin, _candlestickPlugin, _peakTroughPlugin],
     options: (() => {
-      const opts = lightChartOpts('K棒 + MA5/MA20 + 布林通道 + 候選支撐壓力 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true);
+      const opts = lightChartOpts('K棒 + MA5/MA20 + 布林通道 + 候選支撐壓力 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
       // v7.81：明確指定y軸範圍＝K棒高低範圍（不是布林通道的範圍），K棒才不會被布林通道拉開的y軸壓扁
       const yr = hasOHLC ? _candleYRange(hi, lo) : null;
@@ -45720,7 +45720,7 @@ function _drawPeriodCharts(period, longPriceRows) {
     },
     plugins: [_kannotPlugin, _candlestickPlugin, _peakTroughPlugin],
     options: (() => {
-      const opts = lightChartOpts(`K棒 + ${ma5Label}/${ma20Label} + 布林通道 + 候選支撐壓力 + 頭/底轉折（${labelMap[period]}）`, false, true);
+      const opts = lightChartOpts(`K棒 + ${ma5Label}/${ma20Label} + 布林通道 + 候選支撐壓力 + 頭/底轉折（${labelMap[period]}）`, false, true, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
       // v7.81：明確指定y軸範圍＝K棒高低範圍，避免布林通道把y軸拉開、K棒被壓扁（跟日線同一套修法）
       const yr = _candleYRange(hi, lo);
@@ -52546,7 +52546,27 @@ function drawGauge(score) {
 // ==============================================================
 //  CHART HELPERS
 // ==============================================================
-function lightChartOpts(title, isBar=false, legend=false) {
+// v8.x：isCandle=true 時，滑到/點到K棒任一位置都會顯示這天完整的開/高/低/收
+// 價格（不只是收盤價）——使用者反映常常想不起來自己是在多少錢賣掉的，
+// 靠記憶找不回來。資料來源是各K棒圖表自己掛在chart.$candleData上的
+// {opens,highs,lows,closes}（畫K棒本體的自訂plugin本來就依賴這份資料，
+// 這裡只是多讀一次，不用另外傳參數）。
+function _ohlcTooltipCallbacks() {
+  return {
+    filter: item => item.dataset.label === '收盤價', // 只留一個資料集觸發tooltip，不然MA5/MA20/BB上下每條線都會各跳一行
+    callbacks: {
+      label: item => {
+        const idx = item.dataIndex;
+        const cd  = item.chart.$candleData;
+        const fmt = v => (v == null || Number.isNaN(v)) ? '—' : (v >= 100 ? v.toFixed(1) : v.toFixed(2));
+        if (!cd) return `收盤 ${fmt(item.parsed.y)}`;
+        const o = cd.opens?.[idx], h = cd.highs?.[idx], l = cd.lows?.[idx], c = cd.closes?.[idx];
+        return [`開 ${fmt(o)}　高 ${fmt(h)}`, `低 ${fmt(l)}　收 ${fmt(c)}`];
+      },
+    },
+  };
+}
+function lightChartOpts(title, isBar=false, legend=false, isCandle=false) {
   const dark   = document.documentElement.getAttribute('data-theme') === 'dark';
   const tick   = dark ? '#6B7594' : '#8A90A8';
   const grid   = dark ? 'rgba(45,52,80,0.8)' : 'rgba(224,227,234,0.6)';
@@ -52555,19 +52575,24 @@ function lightChartOpts(title, isBar=false, legend=false) {
   const ttBdr  = dark ? '#2D3450' : '#E0E3EA';
   const ttTit  = dark ? '#E8EAEF' : '#1A1D2E';
   const ttBdy  = dark ? '#B0B8CC' : '#4A5068';
-  return {
+  const tooltipBase = { backgroundColor: ttBg, borderColor: ttBdr, borderWidth:1, titleColor: ttTit, bodyColor: ttBdy };
+  const opts = {
     responsive: true, maintainAspectRatio: false,
     animation: { duration: 500 },
     plugins: {
       legend: { display: legend, labels: { color: legClr, font:{size:11}, boxWidth:12 } },
       title:  { display:!!title, text:title, color: tick, font:{size:11} },
-      tooltip:{ backgroundColor: ttBg, borderColor: ttBdr, borderWidth:1, titleColor: ttTit, bodyColor: ttBdy },
+      tooltip: isCandle ? { ...tooltipBase, ..._ohlcTooltipCallbacks() } : tooltipBase,
     },
     scales: {
       x: { ticks:{color: tick, font:{size:10}, maxTicksLimit:10}, grid:{color: grid} },
       y: { ticks:{color: tick, font:{size:10}}, grid:{color: grid} },
     },
   };
+  // isCandle：hover在該天欄位任何位置（不用精準點到K棒本體）就觸發tooltip，
+  // 因為K棒是自訂plugin畫的、實際資料點(_high/_low隱形線)半徑是0，精準點擊很難
+  if (isCandle) opts.interaction = { mode: 'index', intersect: false };
+  return opts;
 }
 
 function destroyChart(id) { if(charts[id]){charts[id].destroy();delete charts[id];} }
@@ -69766,7 +69791,7 @@ function renderTwseCandleChart() {
     },
     plugins: [_candlestickPlugin, _peakTroughPlugin],
     options: (() => {
-      const opts = lightChartOpts('加權指數K棒 + MA5/10/20/60 + 候選支撐壓力 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true);
+      const opts = lightChartOpts('加權指數K棒 + MA5/10/20/60 + 候選支撐壓力 + 頭/底轉折（規則式偵測，非型態學AI判讀）', false, true, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
       // v7.89：避免最後一根K棒被畫在圖表最邊緣、一半被裁掉看不到
       opts.scales.x.offset = true;
@@ -76967,7 +76992,7 @@ function renderNightFuturesChart() {
     },
     plugins: [_kannotPlugin, _candlestickPlugin, _peakTroughPlugin],
     options: (() => {
-      const opts = lightChartOpts('台指夜盤K棒 + MA5/10/20 + 布林通道 + 候選支撐壓力 + 趨勢線（規則式偵測，非型態學AI判讀）', false, true);
+      const opts = lightChartOpts('台指夜盤K棒 + MA5/10/20 + 布林通道 + 候選支撐壓力 + 趨勢線（規則式偵測，非型態學AI判讀）', false, true, true);
       opts.plugins.legend.labels.filter = item => !item.text.startsWith('_');
       const yr = _candleYRange(highs, lows);
       if (yr) { opts.scales.y.min = yr.min; opts.scales.y.max = yr.max; }
