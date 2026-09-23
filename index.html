@@ -56846,6 +56846,7 @@ async function startScreener() {
     new Promise((_, rej) => setTimeout(() => rej(new Error('scrTimeout')), 4000))
   ]);
   let _scrFailStreak = 0;   // 連續 API 失敗計數
+  let _scrCooldownDone = false; // v8.x：長冷卻只觸發一次，避免每次都拖慢整個掃描
 
   for (const sid of ids) {
     if (_screenerStop) break;
@@ -57014,11 +57015,29 @@ async function startScreener() {
     }
 
     processed++;
-    // 每檔間隔120ms，避免超出API速率
-    await sleep(120);
+    // v8.x：原本固定間隔120ms，不管有沒有被限速都用同一個節奏，遇到FinMind
+    // 限速時等於繼續火力全開猛打，只會讓限速更嚴重、後面的股票全部失敗。
+    // 改成依連續失敗次數動態拉長間隔，給API喘息空間；連續失敗到一定程度
+    // 觸發一次性長冷卻（只做一次，避免每輪都拖慢整體掃描時間）。
+    let _scrDelay = 120;
+    if (_scrFailStreak >= 8 && !_scrCooldownDone) {
+      _scrDelay = 5000;
+      _scrCooldownDone = true;
+      if (typeof showEpicToast === 'function')
+        showEpicToast('⏸️ 偵測到持續限速，暫停5秒讓 FinMind API 冷卻…', '#d97706');
+    } else if (_scrFailStreak >= 5) {
+      _scrDelay = 1000;
+    } else if (_scrFailStreak >= 3) {
+      _scrDelay = 400;
+    }
+    await sleep(_scrDelay);
   }
 
-  // 完成
+  // 完成——v8.x：這一段（統計摘要計算+最終渲染）獨立包一層try/catch，
+  // 之前這裡若拋例外會直接掉到最外層catch，顯示「掃描發生錯誤」，
+  // 但其實掃描本身早就跑完、每支股票的卡片也都已經即時渲染出來了，
+  // 只是最後這段統計/收尾出包，不該讓使用者以為整個掃描白跑。
+  try {
   document.getElementById('screenerFill').style.width = '100%';
   const modeMeta2 = SCREENER_MODE_META[modeKey] || SCREENER_MODE_META.bottom;
   // MACD 矩陣 / broker / obi 模式：完成訊息加入專屬統計
@@ -57057,9 +57076,22 @@ async function startScreener() {
   // ── v7.41 背景靜默抓持股分級（不阻塞主流程，完成後刷新卡片）──
   _screenerFetchHoldings();
 
+  } catch (finishErr) {
+    // 統計/收尾階段出錯：掃描結果都還在，只是這段沒跑完，不用整個判成失敗
+    console.error('[screener] 完成階段統計/渲染失敗（掃描結果仍保留）:', finishErr);
+    if (typeof showEpicToast === 'function')
+      showEpicToast('⚠️ 統計摘要顯示失敗，但已找到的個股卡片仍正常，可忽略', '#d97706');
+    try { renderScreenerCards(true); } catch(_) {}
+  }
+
   } catch(e) {
     console.error('startScreener error:', e);
-    if (typeof showEpicToast === 'function') showEpicToast('❌ 掃描發生錯誤，請重試', '#dc2626');
+    // v8.x：原本一律顯示「掃描發生錯誤，請重試」，看不出真正原因——
+    // 常見是fetchDynamicTop50Ids()證交所資料異常，或FinMind整批被擋。
+    // 改成把實際錯誤訊息帶出來，使用者回報問題時才好定位，也方便自己除錯。
+    const _emsg = e?.message || String(e) || '未知錯誤';
+    if (typeof showEpicToast === 'function')
+      showEpicToast(`❌ 掃描發生錯誤：${_emsg}（詳細請開瀏覽器Console查看）`, '#dc2626');
   } finally {
     _screenerRunning = false;
     document.getElementById('screenerBtn').disabled = false;
