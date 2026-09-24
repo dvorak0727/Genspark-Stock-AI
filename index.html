@@ -3409,6 +3409,24 @@
     }
     #indChartModal.open { display: flex; }
 
+    #idxBorderTrendModal {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    #idxBorderTrendModal.open { display: flex; }
+    .ibtm-box {
+      background: var(--surface); border-radius: 14px; width: min(520px, 92vw);
+      max-height: 82vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+    }
+    .ibtm-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; border-bottom: 1px solid var(--border);
+      font-weight: 800; font-size: 0.88rem; position: sticky; top: 0;
+      background: var(--surface); border-radius: 14px 14px 0 0;
+    }
+
     /* Modal 主體 */
     .icm-box {
       background: var(--surface);
@@ -18105,6 +18123,9 @@ a.module-nav-item.acc-active {
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
           <button class="etfcal-add-btn" onclick="loadIndexBorderCandidates()" id="idxBorderLoadBtn">📡 載入候選名單</button>
           <button class="etfcal-add-btn" onclick="forceRefreshIndexBorder()" id="idxBorderForceBtn" title="清掉這個功能自己的快取，重新抓市值排名+籌碼判斷" style="opacity:.85;">🔄 強制刷新</button>
+          <select id="idxBorderDateSelect" onchange="onIndexBorderDateChange()" style="display:none;font-size:0.68rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--fg);" title="回看每個交易日收盤後排程存下來的歷史快照">
+            <option value="live">📡 即時（今天重新計算）</option>
+          </select>
           <span style="font-size:0.6rem;color:var(--text-muted);" id="idxBorderUpdated"></span>
         </div>
         <div id="idxBorderPageTabs" style="display:none;gap:6px;margin-bottom:8px;">
@@ -18119,6 +18140,19 @@ a.module-nav-item.acc-active {
         </div>
       </div>
     </div><!-- /#idxBorderCard -->
+
+    <!-- v7.9x 門檻觀察區個股歷史走勢彈窗（排名/市值/漲跌幅跨日期） -->
+    <div id="idxBorderTrendModal" onclick="if(event.target===this)closeIndexBorderTrend()">
+      <div class="ibtm-box">
+        <div class="ibtm-header">
+          <span id="ibtmTitle">—</span>
+          <span onclick="closeIndexBorderTrend()" style="cursor:pointer;font-size:1.1rem;">✕</span>
+        </div>
+        <div id="ibtmBody" style="padding:12px 14px;">
+          <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">載入中…</div>
+        </div>
+      </div>
+    </div>
 
     <!-- 🫧 v7.72 AI概念股泡沫體檢排行：AI供應鏈觀察名單逐檔算PER百分位+PEG -->
     <div class="sr-card show" id="aiBubbleScanCard">
@@ -56493,11 +56527,12 @@ function renderIndexBorderList(list) {
   const inGroup  = list.filter(x => x.direction === 'in').sort((a,b) => a.rank - b.rank);  // 排名51~59，越接近51機會越大
 
   const rowHtml = x => `
-    <div onclick="quickSearch && quickSearch('${x.id}')" title="點擊查看 ${x.name}(${x.id}) 完整分析" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
       <span style="font-weight:800;color:var(--fg3);width:28px;">#${x.rank}</span>
-      <span style="font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
-      <span style="color:var(--fg3);font-size:0.65rem;">${x.industry}</span>
+      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span style="color:var(--fg3);font-size:0.65rem;">${x.industry || '其他'}</span>
       <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:52px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
+      <span onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="看這檔股票在門檻觀察區的歷史走勢" style="cursor:pointer;font-size:0.7rem;">📈</span>
       <span id="chipSig-${x.id}" style="font-size:0.66rem;font-weight:700;color:var(--fg3);width:110px;text-align:right;white-space:nowrap;">⏳判斷中</span>
     </div>`;
 
@@ -56517,11 +56552,12 @@ function renderIndexBorderList(list) {
 
 function renderIndexBorderPage1(page1) {
   const rowHtml = x => `
-    <div onclick="quickSearch && quickSearch('${x.id}')" title="點擊查看 ${x.name}(${x.id}) 完整分析" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
       <span style="font-weight:800;color:var(--fg3);width:28px;">#${x.rank}</span>
-      <span style="font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
-      <span style="color:var(--fg3);font-size:0.65rem;">${x.industry}</span>
+      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span style="color:var(--fg3);font-size:0.65rem;">${x.industry || '其他'}</span>
       <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:52px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
+      <span onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="看這檔股票在門檻觀察區的歷史走勢" style="cursor:pointer;font-size:0.7rem;">📈</span>
       <span id="chipSig-${x.id}" style="font-size:0.66rem;font-weight:700;color:var(--fg3);width:110px;text-align:right;white-space:nowrap;">⏳判斷中</span>
     </div>`;
   const mid = Math.ceil(page1.length / 2);
@@ -56612,12 +56648,139 @@ function forceRefreshIndexBorder() {
   loadIndexBorderCandidates();
 }
 
+// v7.9x：每日排程存下來的門檻觀察區歷史快照（見 fetch_index_border_history.py +
+// .github/workflows/update-index-border-history.yml）。純讀靜態JSON，讓使用者能
+// 回看任一天的候選名單、以及單一股票跨日期的排名/漲跌走勢，不用即時打API。
+let _idxBorderHistCache = null;
+async function _tryLoadIndexBorderHistory() {
+  if (_idxBorderHistCache !== null) return _idxBorderHistCache;
+  try {
+    const r = await fetch('./index_border_history.json', { cache: 'no-store' });
+    _idxBorderHistCache = r.ok ? await r.json() : false;
+  } catch (e) {
+    console.warn('[門檻觀察區歷史] JSON 讀取失敗', e.message);
+    _idxBorderHistCache = false;
+  }
+  return _idxBorderHistCache;
+}
+
+function _idxBorderIndustry(id) {
+  return (typeof STOCK_DB !== 'undefined' && STOCK_DB[id]?.industry) || '其他';
+}
+
+async function _populateIndexBorderDateSelect() {
+  const sel = document.getElementById('idxBorderDateSelect');
+  const hist = await _tryLoadIndexBorderHistory();
+  if (!hist || !Object.keys(hist).length) return; // 還沒有任何排程資料，維持只有「即時」選項
+  const dates = Object.keys(hist).sort().reverse();
+  dates.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = `🗓️ ${d}（歷史快照）`;
+    sel.appendChild(opt);
+  });
+  sel.style.display = 'inline-block';
+}
+
+async function onIndexBorderDateChange() {
+  const sel = document.getElementById('idxBorderDateSelect');
+  const val = sel.value;
+  if (val === 'live') { loadIndexBorderCandidates(); return; }
+  const hist = await _tryLoadIndexBorderHistory();
+  const day = hist && hist[val];
+  if (!day) return;
+  const body = document.getElementById('idxBorderBody');
+  const tabs = document.getElementById('idxBorderPageTabs');
+  const enrich = arr => arr.map(x => ({ ...x, industry: _idxBorderIndustry(x.id) }));
+  _idxBorderData = { list: enrich(day.border || []), page1: enrich(day.page1 || []) };
+  tabs.style.display = 'flex';
+  switchIndexBorderPage(2);
+  document.getElementById('idxBorderUpdated').textContent = `資料日期：${val}（歷史快照，收盤後排程存檔／第一頁1~${IDX_BORDER_LO - 1}名／第二頁${IDX_BORDER_LO}~${IDX_BORDER_HI}名）`;
+}
+
+// v7.9x：單一股票在門檻觀察區的跨日期走勢（排名越小=市值排名越前面，
+// 用反轉Y軸讓「往上」直覺對應「排名進步」）
+async function openIndexBorderTrend(id, name) {
+  const modal = document.getElementById('idxBorderTrendModal');
+  const body = document.getElementById('ibtmBody');
+  document.getElementById('ibtmTitle').textContent = `📈 ${name}(${id}) 門檻觀察區走勢`;
+  modal.classList.add('open');
+  body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">載入中…</div>';
+
+  const hist = await _tryLoadIndexBorderHistory();
+  if (!hist || !Object.keys(hist).length) {
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">目前還沒有累積到歷史資料，排程開始跑之後（每個交易日收盤後）會逐日累積，過幾天再回來看就有走勢了。</div>';
+    return;
+  }
+
+  const points = [];
+  Object.keys(hist).sort().forEach(d => {
+    const day = hist[d];
+    const row = [...(day.page1 || []), ...(day.border || [])].find(x => x.id === id);
+    if (row) points.push({ date: d, rank: row.rank, changePct: row.changePct, marketCap: row.marketCap });
+  });
+
+  if (!points.length) {
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">這檔股票目前沒有落在排名1~65名的歷史紀錄裡。</div>';
+    return;
+  }
+
+  const tableRows = points.slice().reverse().map(p => `
+    <tr>
+      <td style="padding:4px 8px;font-size:0.7rem;color:var(--fg2);">${p.date}</td>
+      <td style="padding:4px 8px;font-size:0.7rem;text-align:center;font-weight:700;">#${p.rank}</td>
+      <td style="padding:4px 8px;font-size:0.7rem;text-align:right;color:${p.changePct>=0?'#dc2626':'#16a34a'};font-weight:700;">${p.changePct>=0?'+':''}${p.changePct.toFixed(1)}%</td>
+      <td style="padding:4px 8px;font-size:0.7rem;text-align:right;color:var(--fg3);">${(p.marketCap/1e8).toFixed(0)}億</td>
+    </tr>`).join('');
+
+  body.innerHTML = `
+    <div style="height:160px;margin-bottom:12px;"><canvas id="ibtmChart"></canvas></div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="border-bottom:1px solid var(--border);">
+        <th style="padding:4px 8px;font-size:0.66rem;text-align:left;color:var(--fg3);">日期</th>
+        <th style="padding:4px 8px;font-size:0.66rem;text-align:center;color:var(--fg3);">排名</th>
+        <th style="padding:4px 8px;font-size:0.66rem;text-align:right;color:var(--fg3);">當日漲跌</th>
+        <th style="padding:4px 8px;font-size:0.66rem;text-align:right;color:var(--fg3);">市值</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>
+    <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);">排名越小＝市值排名越前面／越靠近台灣50核心；#50是入指出指的門檻線。</div>`;
+
+  const canvas = document.getElementById('ibtmChart');
+  if (canvas && typeof Chart !== 'undefined') {
+    new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: points.map(p => p.date.slice(5)),
+        datasets: [{
+          label: '市值排名', data: points.map(p => p.rank),
+          borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.12)',
+          borderWidth: 2, pointRadius: 3, tension: .25, fill: true,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { reverse: true, ticks: { stepSize: 5 }, title: { display: true, text: '排名（越小越前面）', font: { size: 10 } } },
+          x: { ticks: { font: { size: 9 } } },
+        },
+        plugins: { legend: { display: false } },
+      },
+    });
+  }
+}
+
+function closeIndexBorderTrend() {
+  document.getElementById('idxBorderTrendModal').classList.remove('open');
+}
+
 async function loadIndexBorderCandidates() {
   const btn = document.getElementById('idxBorderLoadBtn');
   const body = document.getElementById('idxBorderBody');
   const tabs = document.getElementById('idxBorderPageTabs');
   btn.disabled = true; btn.textContent = '⏳ 計算中…';
   body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">⏳ 抓取市值排名資料中…</div>';
+  _populateIndexBorderDateSelect();
   try {
     const { list, page1 } = await fetchIndexBorderCandidates();
     _idxBorderData = { list, page1 };

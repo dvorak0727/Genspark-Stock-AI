@@ -1,0 +1,29 @@
+name: 更新台灣50門檻觀察區歷史資料（TWSE官方）
+
+on:
+  schedule:
+    # 台灣時間下午5點30分，收盤+官方STOCK_DAY_ALL結算完成後（UTC+8 → UTC 09:30）
+    - cron: '30 9 * * 1-5'
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便第一次測試
+
+jobs:
+  update-index-border-history:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 requests
+        run: pip install requests
+
+      - name: 執行抓取腳本
+        run: python fetch_index_border_history.py
+
+      - name: 自動 commit 更新後的 index_border_history.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新台灣50門檻觀察區歷史資料"
+          file_pattern: index_border_history.json
