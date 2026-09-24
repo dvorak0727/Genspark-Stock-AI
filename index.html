@@ -10327,10 +10327,14 @@
   padding:3px 8px;border-radius:16px;line-height:1.3;
 }
 .sr-popup-col-btn.active { background:var(--accent);color:#fff; }
-.sr-popup-list.cols-2 { column-count:2;column-gap:14px; }
-.sr-popup-list.cols-3 { column-count:3;column-gap:12px; }
+/* v8.x：原本用column-count(多欄流動)，每欄各自往下疊、高度完全對不齊，
+   截圖時卡片參差不齊很難看。改用CSS Grid——同一列的卡片會自動被拉伸到
+   跟該列最高的卡片一樣高(Grid預設align-items:stretch)，欄與欄之間
+   永遠對齊，不會有一張卡特別長、把下一列擠歪的問題。 */
+.sr-popup-list.cols-2 { display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;align-items:stretch; }
+.sr-popup-list.cols-3 { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;align-items:stretch; }
 .sr-popup-list.cols-2 .sr-popup-stock,
-.sr-popup-list.cols-3 .sr-popup-stock { break-inside:avoid; }
+.sr-popup-list.cols-3 .sr-popup-stock { margin-bottom:0;height:100%; }
 @keyframes srSlideUp{from{transform:translateY(16px);opacity:0;}to{transform:none;opacity:1;}}
 .sr-popup-head {
   display:flex;align-items:center;gap:10px;
