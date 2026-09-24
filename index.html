@@ -39066,15 +39066,18 @@ function _diagnoseCyclePhase(top10, days) {
   // v8.x：吸籌強度分級（微/小/中/大/暴）——用戶提出「吸籌不是二分法，是連續的
   // 光譜」，強度跟「知情者的資訊還有多久曝光」成反比：時間越短、越急，強度
   // 越大（願意付出更高的價格衝擊成本換取速度）；時間越長，越能悄悄地吃，
-  // 強度越小。這裡用「校正有效淨量佔當日(窗口)總量比例」當強度指標，
-  // 搭配觀察天數(days)一起看，給一個粗略的「可能在等什麼」猜測——這是
-  // 推測，不是確定答案，文字裡會明講。
+  // 強度越小。這裡用「校正有效淨量佔當日(窗口)總量比例」當強度指標。
+  // 門檻校準依據：券商VWAP/TWAP演算法為了「不驚動市場(Less Market
+  // Footprint)」，實務上會把參與率(Participation Rate)上限設在當日成交量
+  // 的10~20%——這是業界真的在用的門檻，不是憑感覺訂的。所以10~20%訂為
+  // 「中」（業界標準的正常吸籌範圍），低於10%算悄悄進行的微/小量，
+  // 超過20%已經明顯超出演算法慣用的隱蔽範圍，才開始算大/暴。
   const intensityPct = totalVol > 0 ? Math.abs(effNet) / totalVol * 100 : 0;
   const intensityLabel =
     intensityPct < 5  ? '微' :
-    intensityPct < 15 ? '小' :
-    intensityPct < 30 ? '中' :
-    intensityPct < 60 ? '大' : '暴';
+    intensityPct < 10 ? '小' :
+    intensityPct < 20 ? '中' :  // 10~20% = VWAP/TWAP演算法慣用參與率上限，業界「正常吸籌」基準
+    intensityPct < 40 ? '大' : '暴';
   const isAccumDir = effNet > 0; // 強度分級本身方向中立，這裡只在買超時才給「等什麼」的猜測，賣超時猜測意義不大
   let horizonGuess = '';
   if (isAccumDir) {
@@ -39288,8 +39291,9 @@ function _drawBrokerUI(result, days) {
       ? `<span style="font-size:0.56rem;opacity:0.75;margin-left:4px">（${cp.nDaytrader}家當沖商已沖銷校正）</span>`
       : '';
     // v8.x：吸籌強度分級顯示（微/小/中/大/暴）+ 觀察窗口天數 + 推測用途
-    const intensityNote = `<div class="bk-phase-sub" style="margin-top:2px;">` +
-      `🔥 強度 <strong>${cp.intensityLabel}</strong>（${cp.intensityPct.toFixed(0)}%）· 觀察窗口 ${days}日` +
+    // 門檻校準自券商VWAP/TWAP演算法慣用參與率上限(10~20%)，「中」=業界標準
+    const intensityNote = `<div class="bk-phase-sub" style="margin-top:2px;" title="門檻對齊VWAP/TWAP演算法慣用參與率上限：10~20%為業界標準的「正常吸籌」範圍，低於10%更隱蔽，超過20%已明顯偏離隱蔽操作">` +
+      `🔥 強度 <strong>${cp.intensityLabel}</strong>（${cp.intensityPct.toFixed(0)}%，業界標準10~20%）· 觀察窗口 ${days}日` +
       (cp.horizonGuess ? `<br><span style="opacity:0.8;">💭 ${cp.horizonGuess}（推測，非確定答案）</span>` : '') +
       `</div>`;
     sig.innerHTML =
