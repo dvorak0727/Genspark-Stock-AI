@@ -7207,6 +7207,7 @@
     .bk-bv-tag { font-size: 0.58rem; font-weight: 700; padding: 1px 5px; border-radius: 4px;
                  white-space: nowrap; cursor: help; }
     /* 行為顏色 */
+    .bv-hoard     { background: rgba(180,83,9,0.16);    color: #92400e; } /* 囤貨：幾乎不賣，跟吸籌(有流動)分開一個顏色 */
     .bv-accum     { background: rgba(5,150,105,0.15);   color: #047857; }
     .bv-markup    { background: rgba(220,38,38,0.12);   color: #dc2626; }
     .bv-dist      { background: rgba(37,99,235,0.12);   color: #1e40af; }
@@ -38877,7 +38878,19 @@ function _diagnoseBrokerBehavior(b, allBrokersTotalVol) {
       typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
   }
 
-  // 吸籌（外資低調建倉最典型）
+  // v8.x：囤貨——跟吸籌的差別在於「賣出量趨近於零」。吸籌是淨買超為正但
+  // 籌碼仍有流動(還是有賣出動作，只是買比賣多很多)；囤貨是幾乎完全不賣，
+  // 買進的籌碼實質上被鎖住、退出市場流通，是比吸籌更強的長線鎖籌訊號。
+  // 原本的吸籌條件(rRatio>=4)沒辦法分辨這兩種情況——sell=0時ratio直接
+  // 給99，跟sell稍微有一點量但buy/sell剛好等於4的情況，會被貼上同一個
+  // 標籤，看不出差異，用戶指出這點後拆開處理。
+  if (realNet > 50 && sell <= Math.max(buy * 0.05, 3) && volShare < 0.3) {
+    return { label: '📦 囤貨', cls: 'bv-hoard',
+      tip: `${base}\n校正淨買 ${Math.round(realNet)}張，賣出僅${Math.round(sell)}張，幾乎沒有賣出動作——籌碼被鎖住不流動，比吸籌更強的長線訊號`,
+      typeLabel: typeTag.label, typeCls: typeTag.cls, washIdx, realNet, brokerType: type };
+  }
+
+  // 吸籌（外資低調建倉最典型；跟囤貨不同，這裡買賣雙邊都還有流動，只是買方力道明顯較大）
   if (rRatio >= 4 && realNet > 50 && volShare < 0.3) {
     return { label: '🧲 吸籌', cls: 'bv-accum',
       tip: `${base}\n校正淨買 ${Math.round(realNet)}張，低調穩健建倉`,
@@ -38945,7 +38958,9 @@ function _diagnoseCyclePhase(top10, days) {
   const behaviors = diagResults.map(bv => bv.label);
   const countOf = (kw) => behaviors.filter(l => l.includes(kw)).length;
 
-  const nAccum  = countOf('吸籌');
+  // v8.x：囤貨是比吸籌更強的建倉訊號(幾乎不賣)，威科夫吸籌期判斷要把它也算進去，
+  // 不然「囤貨」券商反而不會被計入吸籌期信號，跟語意矛盾。
+  const nAccum  = countOf('吸籌') + countOf('囤貨');
   const nMarkup = countOf('拉升') + countOf('買超');
   const nDist   = countOf('出貨') + countOf('倒貨');
   const nWash   = countOf('洗盤');
@@ -39273,16 +39288,17 @@ function _drawBrokerUI(result, days) {
       // v8.x：改成依「行為診斷」分組排列（同行為的券商排在一起），不再單純依淨買賣量排序，
       // 方便一眼看出「吸籌的一掛」「倒貨的一掛」，組內再依校正淨量絕對值大到小排。
       const BV_GROUP_ORDER = {
-        'bv-accum': 0,      // 🧲 吸籌
-        'bv-markup': 1,     // 🚀 拉升／📈 買超
-        'bv-mild-buy': 2,   // ⬆️ 輕買
-        'bv-hold': 3,       // 🔄 換手
-        'bv-neutral': 4,    // —
-        'bv-mild-sell': 5,  // ⬇️ 輕賣
-        'bv-wash': 6,       // 🌀 洗盤
-        'bv-dist': 7,       // 📤 倒貨／出貨
-        'bv-daytrade': 8,   // ⚡ 沖銷為主
-        'bv-nextday': 9,    // 🌙 隔日沖
+        'bv-hoard': 0,      // 📦 囤貨（幾乎不賣，比吸籌更強的鎖籌訊號，排最前面）
+        'bv-accum': 1,      // 🧲 吸籌
+        'bv-markup': 2,     // 🚀 拉升／📈 買超
+        'bv-mild-buy': 3,   // ⬆️ 輕買
+        'bv-hold': 4,       // 🔄 換手
+        'bv-neutral': 5,    // —
+        'bv-mild-sell': 6,  // ⬇️ 輕賣
+        'bv-wash': 7,       // 🌀 洗盤
+        'bv-dist': 8,       // 📤 倒貨／出貨
+        'bv-daytrade': 9,   // ⚡ 沖銷為主
+        'bv-nextday': 10,   // 🌙 隔日沖
       };
       const rowsData = top10.map(b => ({ b, bv: _diagnoseBrokerBehavior(b, allVol) }));
       rowsData.sort((x, y) => {
