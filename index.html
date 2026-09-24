@@ -7145,6 +7145,10 @@
       background: transparent; color: var(--fg2); cursor: pointer; transition: all .15s;
     }
     .cs-broker-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .cs-broker-etf-note {
+      font-size: 0.64rem; line-height: 1.5; padding: 6px 9px; margin-bottom: 6px;
+      border-radius: 7px; background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.25); color: var(--fg2);
+    }
     /* 摘要卡（前5大主力） */
     .cs-broker-summary {
       display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px;
@@ -17468,6 +17472,11 @@ a.module-nav-item.acc-active {
         </div>
         <!-- 差異對比面板（預設隱藏）-->
         <div id="csBrokerDiffPanel" class="cs-broker-diff-panel" style="display:none;"></div>
+        <!-- v8.x：主動式ETF買賣超交叉提示——分點資料本身沒有「這筆是不是ETF」的
+             標籤（FinMind不揭露、券商也不公開），沒辦法逐筆對應；但至少可以告訴
+             使用者「今天已知有哪些ETF在買賣這檔股票」，讓他自己判斷分點買盤裡
+             有沒有可能是ETF換股造成的，不用切去另一個面板對照。 -->
+        <div id="csBrokerEtfNote" class="cs-broker-etf-note" style="display:none;"></div>
         <div id="csBrokerSummary" class="cs-broker-summary">
           <div class="cs-broker-empty">🔍 查詢個股後自動載入分點資料</div>
         </div>
@@ -39143,6 +39152,11 @@ function _drawBrokerUI(result, days) {
   const { brokers, useDates, dailyMap, sortedDates } = result;
   if (!brokers || brokers.length === 0) { _brokerShowEmpty('⚠️ 查無分點資料'); return; }
 
+  // v8.x：分點資料完全沒有「這筆是不是ETF」的標籤，沒辦法逐筆對應，但至少
+  // 把「近期已知有哪些主動式ETF在買賣這檔股票」顯示出來，讓使用者自己判斷
+  // 分點買盤裡有沒有可能是ETF換股造成的。非同步載入，不擋主流程渲染。
+  _injectBrokerEtfNote(result.stockId);
+
   // ── TopN 控制（全域 _brokerTopN：10 或 20）──
   const N       = Math.min(_brokerTopN || 10, brokers.length);
   const topN    = brokers.slice(0, N);
@@ -41365,6 +41379,35 @@ async function _tryLoadActiveETFData() {
     _etfFlowJsonCache = false;
   }
   return _etfFlowJsonCache;
+}
+
+// v8.x：分點券商面板上方的「主動式ETF買賣超」交叉提示——用戶反映「如果能
+// 知道是ETF在換股，就發了」，但分點資料(TaiwanStockTradingDailyReport)
+// 完全沒有揭露「這筆單是不是ETF下的」，FinMind沒有、券商也不會公開這種
+// 逐筆歸屬資訊，技術上做不到精確比對。退而求其次：直接把「近期已知有
+// 哪些主動式ETF在買賣這檔股票」顯示在分點面板最上面，讓使用者自己判斷
+// 今天的買盤裡有沒有可能包含ETF換股的成分，不用切去另一個面板對照。
+async function _injectBrokerEtfNote(stockId) {
+  const el = document.getElementById('csBrokerEtfNote');
+  if (!el || !stockId) return;
+  try {
+    const json = await _tryLoadActiveETFData();
+    const row  = json && json.by_stock ? json.by_stock[String(stockId)] : null;
+    if (!row || (!row.buy && !row.sell)) { el.style.display = 'none'; return; }
+    const buyLots  = Math.round((row.buy  || 0) / 1000);
+    const sellLots = Math.round((row.sell || 0) / 1000);
+    const netLots  = Math.round((row.net  || 0) / 1000);
+    const winDays  = json.window_days || 5;
+    const topBuyers = (row.etfs || []).filter(e => e.buy > e.sell)
+      .sort((a, b) => b.buy - a.buy).slice(0, 3).map(e => e.name).join('、');
+    const netTxt = netLots >= 0 ? `淨買 +${netLots.toLocaleString()}張` : `淨賣 ${netLots.toLocaleString()}張`;
+    el.innerHTML = `📊 近${winDays}日已知 <b>${row.etf_count || 0}檔</b>主動式ETF對這檔股票有買賣動作（買${buyLots.toLocaleString()}張／賣${sellLots.toLocaleString()}張，${netTxt}）`
+      + (topBuyers ? `，買超較多的有：${topBuyers}` : '')
+      + `。⚠️ 分點資料無法逐筆對應是不是ETF下的單，這裡只能告訴你「有這個可能性」，不是精確歸因。`;
+    el.style.display = '';
+  } catch (e) {
+    el.style.display = 'none';
+  }
 }
 
 let _finlabJsonCache = null; // 一次載入、整頁共用，避免每檔股票都重新 fetch 同一個檔案
