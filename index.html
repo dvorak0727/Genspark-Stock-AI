@@ -56527,13 +56527,16 @@ function renderIndexBorderList(list) {
   const inGroup  = list.filter(x => x.direction === 'in').sort((a,b) => a.rank - b.rank);  // 排名51~59，越接近51機會越大
 
   const rowHtml = x => `
-    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
-      <span style="font-weight:800;color:var(--fg3);width:28px;">#${x.rank}</span>
-      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
-      <span style="color:var(--fg3);font-size:0.65rem;">${x.industry || '其他'}</span>
-      <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:52px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
-      <span onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="看這檔股票在門檻觀察區的歷史走勢" style="cursor:pointer;font-size:0.7rem;">📈</span>
-      <span id="chipSig-${x.id}" style="font-size:0.66rem;font-weight:700;color:var(--fg3);width:110px;text-align:right;white-space:nowrap;">⏳判斷中</span>
+    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:wrap;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <span style="font-weight:800;color:var(--fg3);width:26px;">#${x.rank}</span>
+      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:70px;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span style="color:var(--fg3);font-size:0.62rem;">${x.industry || '其他'}</span>
+      <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:46px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
+      <span onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="看這檔股票在門檻觀察區的歷史走勢" style="cursor:pointer;">📈</span>
+      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="font-size:0.64rem;font-weight:700;color:var(--fg3);width:90px;text-align:right;white-space:nowrap;">⏳</span>
+      <span id="sectorSig-${x.id}" style="font-size:0.7rem;">${_idxBorderSectorBadge(x.id)}</span>
+      <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="font-size:0.7rem;">⏳</span>
+      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日前3大分點集中度（需FinMind贊助Token，點了才會查）" style="cursor:pointer;font-size:0.62rem;color:var(--fg3);width:56px;text-align:right;white-space:nowrap;">🏦查分點</span>
     </div>`;
 
   return `
@@ -56547,7 +56550,9 @@ function renderIndexBorderList(list) {
         ${inGroup.length ? inGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
       </div>
     </div>
-    <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);">籌碼標籤：判斷近20個交易日是否貼近低點、量能是否明顯縮小，跟今日漲跌幅是兩件獨立的事，可以互相對照看。</div>`;
+    <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
+      複合訊號說明：📈走勢／籌碼標籤=近20日是否貼近低點+量縮／🌍板塊=該股所屬板塊今日資金流向(要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／🏦分點=點擊才查、最近一個交易日前3大券商成交量集中度。今日漲跌只是參考，這幾個訊號才是複合判斷的重點，彼此獨立、互相對照看。
+    </div>`;
 }
 
 function renderIndexBorderPage1(page1) {
@@ -56627,12 +56632,98 @@ async function annotateChipSignals(list) {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 }
 
+// v7.9x 複合訊號①：板塊——同步、不打API，直接查這檔股票屬於哪個板塊，
+// 有today快取的話（使用者今天已經開過「板塊」分頁）就順便顯示資金流向。
+function _idxBorderSectorBadge(stockId) {
+  const sec = (typeof srFindSector === 'function') ? srFindSector(stockId) : null;
+  if (!sec) return '<span style="color:var(--fg3);">—</span>';
+  const cacheKey = new Date().toDateString();
+  const cached = SR_CACHE[cacheKey];
+  const d = cached && cached.ready && cached.sectorData ? cached.sectorData[sec.id] : null;
+  if (d) {
+    const stateLabel = d.state === 'flee' ? '外逃' : d.state === 'warn' ? '走弱' : d.state === 'flow' ? '流入' : '中性';
+    const color = d.state === 'flow' ? '#16a34a' : d.state === 'flee' ? '#dc2626' : 'var(--fg3)';
+    return `<span title="板塊：${sec.name}　今日${(d.change>0?'+':'')}${d.change}%　資金${stateLabel}" style="font-weight:700;color:${color};">${sec.emoji}${stateLabel}</span>`;
+  }
+  return `<span title="板塊：${sec.name}（尚未載入板塊資料，去『板塊輪動脈絡』分頁按一次即可補上資金流向）" style="color:var(--fg3);">${sec.emoji}${sec.name}</span>`;
+}
+
+// v7.9x 複合訊號②：千張大戶——複用 fetchHoldingShares()（FinMind
+// TaiwanStockHoldingSharesPer，週更、需贊助會員），跟籌碼標籤一樣小批次併發。
+async function annotateWhaleSignals(list) {
+  const CONCURRENCY = 3;
+  let i = 0;
+  async function worker() {
+    while (i < list.length) {
+      const x = list[i++];
+      const el = document.getElementById(`whaleSig-${x.id}`);
+      if (!el) continue;
+      try {
+        const { parsed, error } = await fetchHoldingShares(x.id);
+        if (!parsed) { el.textContent = '—'; el.title = error || '需FinMind贊助Token'; continue; }
+        const meta = _whaleSignalMeta(parsed.whaleSignal);
+        el.textContent = meta.icon;
+        el.style.color = meta.color;
+        el.title = `千張大戶：${meta.label}（資料日期：${parsed.latestDate}）`;
+      } catch (e) {
+        el.textContent = '—';
+        el.title = '查詢失敗';
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+}
+
+// v7.9x 複合訊號③：分點集中度——手動點擊才查（不像上面兩個自動批次跑），
+// 因為TaiwanStockTradingDailyReport單檔就要打一次API，30幾檔自動全打
+// 容易撞到FinMind流量限制；改成「使用者真的想深入看的那幾檔」才查。
+// 只抓最近一個交易日、算前3大分點（買+賣量）佔當日總成交量的比例，
+// 不跑完整的威科夫多空診斷（那個要多日資料，太重）。
+async function checkIndexBorderBrokerConcen(id, name) {
+  const el = document.getElementById(`brokerSig-${id}`);
+  if (!el) return;
+  el.textContent = '⏳查詢中'; el.onclick = null;
+  const token = (typeof getToken === 'function' ? getToken() : '') || localStorage.getItem('tsai_finmind_token') || '';
+  try {
+    let d = new Date();
+    for (let i = 0; i < 10; i++) {
+      const dow = d.getDay();
+      if (dow !== 0 && dow !== 6) break;
+      d.setDate(d.getDate() - 1);
+    }
+    const dateStr = d.toISOString().slice(0, 10);
+    const url = `${FINMIND}?dataset=TaiwanStockTradingDailyReport&data_id=${id}&start_date=${dateStr}&end_date=${dateStr}${token ? '&token=' + token : ''}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+    const j = await res.json();
+    const rows = Array.isArray(j.data) ? j.data : [];
+    if (!rows.length) {
+      el.textContent = '查無資料'; el.title = j.msg || `${dateStr} 無分點資料（可能需要FinMind贊助Token）`;
+      el.onclick = () => checkIndexBorderBrokerConcen(id, name);
+      return;
+    }
+    const byBroker = rows.map(r => ({ name: r.securities_trader, vol: (+r.buy || 0) + (+r.sell || 0) }));
+    const totalVol = byBroker.reduce((s, r) => s + r.vol, 0) || 1;
+    byBroker.sort((a, b) => b.vol - a.vol);
+    const top3Vol = byBroker.slice(0, 3).reduce((s, r) => s + r.vol, 0);
+    const pct = top3Vol / totalVol * 100;
+    const label = pct >= 40 ? `🏦集中${pct.toFixed(0)}%` : pct >= 25 ? `分點適中${pct.toFixed(0)}%` : `分點分散${pct.toFixed(0)}%`;
+    el.textContent = label;
+    el.style.color = pct >= 40 ? '#dc2626' : pct >= 25 ? '#d97706' : 'var(--fg3)';
+    el.title = `${dateStr} 前3大分點（${byBroker.slice(0,3).map(b=>b.name).join('、')}）合計佔當日成交量 ${pct.toFixed(1)}%`;
+  } catch (e) {
+    el.textContent = '查詢失敗';
+    el.title = e.message;
+    el.onclick = () => checkIndexBorderBrokerConcen(id, name);
+  }
+}
+
 function switchIndexBorderPage(n) {
   const body = document.getElementById('idxBorderBody');
   document.getElementById('idxBorderTab1').style.opacity = n === 1 ? '1' : '.55';
   document.getElementById('idxBorderTab2').style.opacity = n === 2 ? '1' : '.55';
   body.innerHTML = n === 1 ? renderIndexBorderPage1(_idxBorderData.page1) : renderIndexBorderList(_idxBorderData.list);
   annotateChipSignals(n === 1 ? _idxBorderData.page1 : _idxBorderData.list);
+  if (n === 2) annotateWhaleSignals(_idxBorderData.list); // 複合訊號②：千張大戶（只有第二頁門檻觀察區有這個欄位）
 }
 
 // v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
