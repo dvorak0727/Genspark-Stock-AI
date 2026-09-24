@@ -56672,6 +56672,8 @@ async function _populateIndexBorderDateSelect() {
   const sel = document.getElementById('idxBorderDateSelect');
   const hist = await _tryLoadIndexBorderHistory();
   if (!hist || !Object.keys(hist).length) return; // 還沒有任何排程資料，維持只有「即時」選項
+  // 每次呼叫都先清掉舊的歷史選項（只留第一個「即時」），避免重複載入時疊加出重複日期
+  Array.from(sel.options).slice(1).forEach(o => o.remove());
   const dates = Object.keys(hist).sort().reverse();
   dates.forEach(d => {
     const opt = document.createElement('option');
