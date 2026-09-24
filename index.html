@@ -10335,6 +10335,11 @@
 .sr-popup-list.cols-3 { display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 12px;align-items:stretch; }
 .sr-popup-list.cols-2 .sr-popup-stock,
 .sr-popup-list.cols-3 .sr-popup-stock { margin-bottom:0;height:100%; }
+/* v8.x修正：.sr-popup-list變成display:grid後，裡面的「📋板塊重要公司」
+   標題文字也會被當成一個網格項目、佔走第一個格子，把所有卡片往後推
+   一格，左上角就空出一大塊白色區域。讓標題橫跨整列寬度，排版才正常。 */
+.sr-popup-list.cols-2 .sr-popup-section-title,
+.sr-popup-list.cols-3 .sr-popup-section-title { grid-column:1 / -1; }
 @keyframes srSlideUp{from{transform:translateY(16px);opacity:0;}to{transform:none;opacity:1;}}
 .sr-popup-head {
   display:flex;align-items:center;gap:10px;
