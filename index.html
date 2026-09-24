@@ -16690,6 +16690,8 @@ a.module-nav-item.acc-active {
     <div class="data-freshness-warn" id="lowVolumeWarn" style="display:none;"></div>
     <!-- ⚠️ v6.29 季底倒計時 chip（距季底 ≤21 日才顯示） -->
     <div id="heroQEndChip" style="display:none;" class="fit-qend-chip notice"></div>
+    <!-- 📅 v8.x ETF換股倒數 chip（換股前5天出現，換完1週後自動消失，不用手動關） -->
+    <div id="heroEtfRebalChip" style="display:none;" class="fit-qend-chip notice"></div>
 
     <!-- ⏳ 載入進度條 -->
     <div class="load-progress-bar" id="loadProgressBar">
@@ -37298,6 +37300,29 @@ function renderFITPanel(instMap, instDays, fSeries, tSeries, closes, dates, lc) 
     }
   }
 
+  // ── v8.x：ETF換股倒數 chip——換股前5天出現、換完1週後自動消失，不用
+  // 手動關掉。用戶要求：被動ETF季度/半年度調整會製造機械性買盤，提前
+  // 知道窗口，才看得懂「這幾天特別強」是不是被動資金而不是主力自己的意圖。
+  const etfChip = $('heroEtfRebalChip');
+  if (etfChip) {
+    const stockIdNow = window.aData?.stockId || '';
+    const w = stockIdNow ? window._checkEtfRebalHeroWindow(stockIdNow, refDate) : null;
+    if (w) {
+      const lvl = w.direction === 'today' ? 'urgent' : w.direction === 'upcoming' ? 'warning' : 'notice';
+      const text = w.direction === 'upcoming'
+        ? `📅 ${w.type} · 還有 ${Math.abs(w.daysAway)} 天生效 · ${w.etfs.join('/')}`
+        : w.direction === 'today'
+        ? `📅 ${w.type} · 今日生效 · ${w.etfs.join('/')}`
+        : `📅 ${w.type} · 生效後第 ${w.daysAway} 天 · ${w.etfs.join('/')}`;
+      etfChip.className = `fit-qend-chip ${lvl}`;
+      etfChip.textContent = text;
+      etfChip.title = `${w.note}（生效日：${w.date}）——這段窗口內的強勢，有一部分可能是被動資金機械性買盤，不完全是主力自己的意圖；窗口結束後力道會回歸主力本身的真實想法。`;
+      etfChip.style.display = 'inline-flex';
+    } else {
+      etfChip.style.display = 'none';
+    }
+  }
+
   console.log(`[FIT v6.28] state=${fit.state} smoke=${fit.smokeIndex}% qEnd=${qEnd.daysLeft}d f5=${Math.round(fit.f5).toLocaleString()}張 t5=${Math.round(fit.t5).toLocaleString()}張`);
 
   // ── v6.29 FIT B狀態歷史回測 ──
@@ -53354,6 +53379,38 @@ window._checkEtfRebalWindow = function(stockId, todayStr) {
         note:      ev.note,
         daysAway:  diffDays,  // 負 = 尚未到，正 = 已過
         direction: diffDays < 0 ? 'upcoming' : diffDays === 0 ? 'today' : 'recent'
+      };
+    }
+  }
+  return null;
+};
+
+/**
+ * _checkEtfRebalHeroWindow(stockId, todayStr)
+ * v8.x：用戶要求的「換股前5天提醒、換完1週後自動消失」——跟原本
+ * _checkEtfRebalWindow()的對稱±5天窗口不一樣（那個是給洗盤卡用的），
+ * 這裡故意做成不對稱（前5天／後7天），符合Hero倒數chip的使用情境。
+ * 沒有另外存「使用者已讀」狀態，純粹用日期算，時間一到自己消失，
+ * 不用手動清除，也不會忘記關掉。
+ */
+window._checkEtfRebalHeroWindow = function(stockId, todayStr) {
+  const info = (typeof STOCK_DB !== 'undefined') ? (STOCK_DB[stockId] || {}) : {};
+  if (info.industry === 'ETF') return null;
+
+  const today = todayStr ? new Date(todayStr) : new Date();
+  today.setHours(0, 0, 0, 0);
+  const BEFORE_DAYS = 5;  // 換股前5天開始提醒
+  const AFTER_DAYS  = 7;  // 換股後7天自動消失
+
+  for (const ev of window._ETF_REBAL_CALENDAR) {
+    const evDate = new Date(ev.date);
+    evDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((today - evDate) / 86400000); // 負=尚未到，正=已過
+    if (diffDays >= -BEFORE_DAYS && diffDays <= AFTER_DAYS) {
+      return {
+        date: ev.date, etfs: ev.etfs, type: ev.type, note: ev.note,
+        daysAway: diffDays,
+        direction: diffDays < 0 ? 'upcoming' : diffDays === 0 ? 'today' : 'recent',
       };
     }
   }
