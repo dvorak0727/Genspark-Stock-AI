@@ -56632,7 +56632,7 @@ function renderIndexBorderList(list) {
       <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="font-size:0.64rem;font-weight:700;color:var(--fg3);width:90px;text-align:right;white-space:nowrap;">⏳</span>
       <span id="sectorSig-${x.id}" style="font-size:0.7rem;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="font-size:0.7rem;">⏳</span>
-      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日前3大分點集中度（需FinMind贊助Token，點了才會查）" style="cursor:pointer;font-size:0.62rem;color:var(--fg3);width:56px;text-align:right;white-space:nowrap;">🏦查分點</span>
+      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="cursor:pointer;font-size:0.62rem;color:var(--fg3);width:98px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
 
   return `
@@ -56662,7 +56662,7 @@ function renderIndexBorderPage1(page1) {
       <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="font-size:0.64rem;font-weight:700;color:var(--fg3);width:90px;text-align:right;white-space:nowrap;">⏳</span>
       <span id="sectorSig-${x.id}" style="font-size:0.7rem;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="font-size:0.7rem;">⏳</span>
-      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日前3大分點集中度（需FinMind贊助Token，點了才會查）" style="cursor:pointer;font-size:0.62rem;color:var(--fg3);width:56px;text-align:right;white-space:nowrap;">🏦查分點</span>
+      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="cursor:pointer;font-size:0.62rem;color:var(--fg3);width:98px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
   const mid = Math.ceil(page1.length / 2);
   const colA = page1.slice(0, mid);
@@ -56863,15 +56863,25 @@ async function checkIndexBorderBrokerConcen(id, name) {
       el.onclick = () => checkIndexBorderBrokerConcen(id, name);
       return;
     }
-    const byBroker = rows.map(r => ({ name: r.securities_trader, vol: (+r.buy || 0) + (+r.sell || 0) }));
-    const totalVol = byBroker.reduce((s, r) => s + r.vol, 0) || 1;
+    // v7.9x 修正：原本用「前3大分點佔當日總成交量%」當指標，但一檔股票常有
+    // 上百家分點都有掛單，前3大佔比天生就低（5~12%這種），每檔都會落在
+    // 「分散」，完全沒有辨識度。改成直接講「今天量最大的那家分點是誰、
+    // 買超還是賣超多少張」——跟個股完整版分點面板同一種「講人話」邏輯，
+    // 買/賣單位是股，換算成張（÷1000）跟站內其他地方一致。
+    const byBroker = rows.map(r => ({
+      name: r.securities_trader,
+      buy:  (+r.buy  || 0) / 1000,
+      sell: (+r.sell || 0) / 1000,
+    }));
+    byBroker.forEach(b => { b.vol = b.buy + b.sell; });
     byBroker.sort((a, b) => b.vol - a.vol);
-    const top3Vol = byBroker.slice(0, 3).reduce((s, r) => s + r.vol, 0);
-    const pct = top3Vol / totalVol * 100;
-    const label = pct >= 40 ? `🏦集中${pct.toFixed(0)}%` : pct >= 25 ? `分點適中${pct.toFixed(0)}%` : `分點分散${pct.toFixed(0)}%`;
+    const top = byBroker[0];
+    const net = top.buy - top.sell;
+    const netLots = Math.round(Math.abs(net));
+    const label = `🏦${top.name}${net >= 0 ? '買超' : '賣超'}${netLots.toLocaleString()}張`;
     el.textContent = label;
-    el.style.color = pct >= 40 ? '#dc2626' : pct >= 25 ? '#d97706' : 'var(--fg3)';
-    el.title = `${dateStr} 前3大分點（${byBroker.slice(0,3).map(b=>b.name).join('、')}）合計佔當日成交量 ${pct.toFixed(1)}%`;
+    el.style.color = net >= 0 ? '#dc2626' : '#16a34a';
+    el.title = `${dateStr} 成交量最大的分點：${top.name}，買${Math.round(top.buy).toLocaleString()}張／賣${Math.round(top.sell).toLocaleString()}張，淨${net >= 0 ? '買超' : '賣超'}${netLots.toLocaleString()}張`;
   } catch (e) {
     el.textContent = '查詢失敗';
     el.title = e.message;
