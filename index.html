@@ -37994,7 +37994,7 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
   if (marginDanger)      tags.push(['danger', '⚠️ 融資偏高']);
   // v7.18 融券標籤
   const _se = window._shortEstData || {};
-  if (_se.squeezRisk)         tags.push(['warn',   '⚡ 券資比偏高，軋空風險升高']);
+  if (_se.squeezRisk)         tags.push(['warn',   `⚡ 券資比${_se.shortToMarginRatio||''}%偏高，軋空風險升高 <span data-tip="SHORT_MARGIN_RATIO" style="cursor:help;">(?)</span>`]);
   if (_se.shortDecr3)         tags.push(['good',   '↘ 融券回補（空方退場）']);
   if (_se.shortIncr3 >= 2)    tags.push(['danger', '📉 空方連續加碼放空']);
   if (!tags.length)      tags.push(['info',   '⚪ 籌碼無明顯異常']);
@@ -38085,7 +38085,7 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
         <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:180px;">
           <span style="font-size:1.3rem;line-height:1;flex-shrink:0;">${abcdIcon}</span>
           <div style="min-width:0;">
-            <div style="font-size:0.78rem;font-weight:800;color:${abcdColor};line-height:1.2;">${abcdTitle}</div>
+            <div style="font-size:0.78rem;font-weight:800;color:${abcdColor};line-height:1.2;">${abcdTitle}${abcdState==='D'?` <span data-tip="SHORT_MARGIN_RATIO" style="cursor:help;font-weight:700;font-size:0.7rem;border:1px solid ${abcdColor};border-radius:50%;padding:0 5px;">?</span>`:''}</div>
             <div style="font-size:0.62rem;color:var(--fg3);margin-top:1px;">AI 籌碼四象限偵測 · 融券已納入計算</div>
           </div>
         </div>
@@ -73026,6 +73026,12 @@ function _injectModals() {
 
 // 技術指標說明資料庫
 const INDICATOR_TIP_DB = {
+  /* ── v7.9x 券資比 — 多少%算警戒？ ── */
+  'SHORT_MARGIN_RATIO': {
+    title: '券資比是什麼？多少%要開始觀察',
+    formula: '券資比 = 融券餘額 ÷ 融資餘額 × 100%\n融資＝借錢買股票（賭漲）／融券＝借股票來賣（賭跌，遲早要買回來還）',
+    body: '白話講：券資比＝賭它會跌的人 ÷ 賭它會漲的人（只算有用槓桿的這群人）。\n\n市場慣用參考門檻（非官方，證交所沒訂標準）：\n• 20%以上：開始算偏高，值得留意\n• 30~50%：明顯偏高，空方存在感強\n• 50%以上：相對明確的警戒區，空單累積量已經不小\n• 80%以上：罕見極端值，通常伴隨股價已經噴出一段\n\n⚠️ 高券資比≠一定軋空！很多時候是主力刻意製造下跌，誘導散戶追空養大空單，等散戶壓越多才反手拉上去軋。券資比只代表「潛在被迫買盤有多少」，真正觸發要等外資轉買＋融券真的開始回補（餘額下降），兩件事同時發生才算數。'
+  },
   /* ── v7.98 板塊輪動：資金輪動訊號四象限 ── */
   'SR_ROTATION_SIGNAL': {
     title: '資金輪動訊號 — 基期×法人買賣超四象限',
