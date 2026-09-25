@@ -56653,13 +56653,16 @@ function renderIndexBorderList(list) {
 
 function renderIndexBorderPage1(page1) {
   const rowHtml = x => `
-    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
-      <span style="font-weight:800;color:var(--fg3);width:28px;">#${x.rank}</span>
-      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
-      <span style="color:var(--fg3);font-size:0.65rem;">${x.industry || '其他'}</span>
-      <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:52px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
-      <span onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="看這檔股票在門檻觀察區的歷史走勢" style="cursor:pointer;font-size:0.7rem;">📈</span>
-      <span id="chipSig-${x.id}" style="font-size:0.66rem;font-weight:700;color:var(--fg3);width:110px;text-align:right;white-space:nowrap;">⏳判斷中</span>
+    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:wrap;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <span style="font-weight:800;color:var(--fg3);width:26px;">#${x.rank}</span>
+      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:70px;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span style="color:var(--fg3);font-size:0.62rem;">${x.industry || '其他'}</span>
+      <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:46px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
+      <span onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="看這檔股票在門檻觀察區的歷史走勢" style="cursor:pointer;">📈</span>
+      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="font-size:0.64rem;font-weight:700;color:var(--fg3);width:90px;text-align:right;white-space:nowrap;">⏳</span>
+      <span id="sectorSig-${x.id}" style="font-size:0.7rem;">${_idxBorderSectorBadge(x.id)}</span>
+      <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="font-size:0.7rem;">⏳</span>
+      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日前3大分點集中度（需FinMind贊助Token，點了才會查）" style="cursor:pointer;font-size:0.62rem;color:var(--fg3);width:56px;text-align:right;white-space:nowrap;">🏦查分點</span>
     </div>`;
   const mid = Math.ceil(page1.length / 2);
   const colA = page1.slice(0, mid);
@@ -56675,7 +56678,7 @@ function renderIndexBorderPage1(page1) {
         ${colB.length ? colB.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
       </div>
     </div>
-    <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);">這一頁排名穩定，短期內被擠出台灣50的機率低，主要拿來對照「門檻觀察區」（第二頁）比較差距用。</div>`;
+    <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">這一頁排名穩定，短期內被擠出台灣50的機率低，主要拿來對照「門檻觀察區」（第二頁）比較差距用。複合訊號欄位跟第二頁同一套：🌍板塊／🐋千張大戶／🏦分點（點擊才查），說明見第二頁下方。</div>`;
 }
 
 let _idxBorderData = { list: [], page1: [] };
@@ -56819,7 +56822,7 @@ function switchIndexBorderPage(n) {
   document.getElementById('idxBorderTab2').style.opacity = n === 2 ? '1' : '.55';
   body.innerHTML = n === 1 ? renderIndexBorderPage1(_idxBorderData.page1) : renderIndexBorderList(_idxBorderData.list);
   annotateChipSignals(n === 1 ? _idxBorderData.page1 : _idxBorderData.list);
-  if (n === 2) annotateWhaleSignals(_idxBorderData.list); // 複合訊號②：千張大戶（只有第二頁門檻觀察區有這個欄位）
+  annotateWhaleSignals(n === 1 ? _idxBorderData.page1 : _idxBorderData.list); // 複合訊號②：千張大戶（兩頁都有這個欄位）
 }
 
 // v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
