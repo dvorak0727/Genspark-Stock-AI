@@ -57003,6 +57003,7 @@ function renderIndexBorderList(list) {
       <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="font-size:0.64rem;font-weight:700;color:var(--fg3);width:90px;text-align:right;white-space:nowrap;">⏳</span>
       <span id="sectorSig-${x.id}" style="font-size:0.7rem;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="font-size:0.7rem;">⏳</span>
+      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="font-size:0.62rem;width:56px;text-align:right;white-space:nowrap;">⏳</span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="cursor:pointer;font-size:0.62rem;color:var(--fg3);width:98px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
 
@@ -57018,7 +57019,7 @@ function renderIndexBorderList(list) {
       </div>
     </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
-      複合訊號說明：📈走勢／籌碼標籤=近20日是否貼近低點+量縮／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
+      複合訊號說明：📈走勢／籌碼標籤=近20日是否貼近低點+量縮／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
     </div>`;
 }
 
@@ -57032,6 +57033,7 @@ function renderIndexBorderPage1(page1) {
       <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="font-size:0.64rem;font-weight:700;color:var(--fg3);width:90px;text-align:right;white-space:nowrap;">⏳</span>
       <span id="sectorSig-${x.id}" style="font-size:0.7rem;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="font-size:0.7rem;">⏳</span>
+      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="font-size:0.62rem;width:56px;text-align:right;white-space:nowrap;">⏳</span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="cursor:pointer;font-size:0.62rem;color:var(--fg3);width:98px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
   const mid = Math.ceil(page1.length / 2);
@@ -57205,6 +57207,52 @@ async function annotateWhaleSignals(list) {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 }
 
+// v7.9x 複合訊號④：月營收YoY——用戶提醒：候選名單排名位置本身不代表公司
+// 體質好壞（51~65是想擠進50大、不是快垮的公司），與其讓排名暗示好壞，
+// 不如直接附上真實的基本面數字，讓使用者自己判斷。複用既有的
+// TaiwanStockMonthRevenue（月營收即時面板已經在用的同一支dataset）。
+async function _computeRevenueYoY(stockId) {
+  const end = new Date();
+  const start = new Date(end.getFullYear() - 1, end.getMonth() - 1, 1); // 拉13個月，確保抓得到去年同月
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+  const token = getToken();
+  const url = `${FINMIND}?dataset=TaiwanStockMonthRevenue&data_id=${stockId}&start_date=${fmt(start)}&end_date=${fmt(end)}${token?'&token='+token:''}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+  const json = await res.json();
+  if (json.status !== 200 || !Array.isArray(json.data) || !json.data.length) throw new Error(json.msg || '查無月營收資料');
+  const rows = json.data.sort((a,b) => a.date.localeCompare(b.date));
+  const latest = rows.at(-1);
+  const thisYM = latest.date.slice(0,7);
+  const lastYM = `${parseInt(thisYM.slice(0,4))-1}${thisYM.slice(4)}`;
+  const prevY = rows.find(r => r.date.slice(0,7) === lastYM);
+  if (!prevY || !prevY.revenue) throw new Error('缺去年同月資料，算不出YoY');
+  const yoy = (latest.revenue - prevY.revenue) / prevY.revenue * 100;
+  return { yoy, ym: thisYM };
+}
+
+async function annotateRevenueYoY(list) {
+  const CONCURRENCY = 3;
+  let i = 0;
+  async function worker() {
+    while (i < list.length) {
+      const x = list[i++];
+      const el = document.getElementById(`revYoy-${x.id}`);
+      if (!el) continue;
+      try {
+        const { yoy, ym } = await _computeRevenueYoY(x.id);
+        const r = Math.round(yoy);
+        el.textContent = `📊${r>=0?'+':''}${r}%`;
+        el.style.color = yoy >= 0 ? '#dc2626' : '#16a34a';
+        el.title = `${ym} 月營收YoY ${r>=0?'+':''}${r}%（跟排名無關，是真實的營收成長/衰退）`;
+      } catch (e) {
+        el.textContent = '📊—';
+        el.title = e.message || '查無月營收資料';
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+}
+
 // v7.9x 複合訊號③：分點集中度——手動點擊才查（不像上面兩個自動批次跑），
 // 因為TaiwanStockTradingDailyReport單檔就要打一次API，30幾檔自動全打
 // 容易撞到FinMind流量限制；改成「使用者真的想深入看的那幾檔」才查。
@@ -57271,6 +57319,7 @@ function switchIndexBorderPage(n) {
   annotateChipSignals(n === 1 ? _idxBorderData.page1 : _idxBorderData.list);
   annotateWhaleSignals(n === 1 ? _idxBorderData.page1 : _idxBorderData.list); // 複合訊號②：千張大戶（兩頁都有這個欄位）
   annotateMiniCharts(n === 1 ? _idxBorderData.page1 : _idxBorderData.list); // 小K線縮圖，一眼看走勢不用點開
+  annotateRevenueYoY(n === 1 ? _idxBorderData.page1 : _idxBorderData.list); // 月營收YoY，跟排名無關的真實基本面數字
 }
 
 // v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
