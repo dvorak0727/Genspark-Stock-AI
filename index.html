@@ -44294,49 +44294,89 @@ function renderShortTable(n) {
   if (!wrap) return;
 
   const realData = window._shortRealData;
-  const marginData = window._marginRealData;
-  if (!realData || !realData.byDate || !Object.keys(realData.byDate).length) {
-    wrap.innerHTML = '<p style="color:var(--fg3);font-size:0.62rem;padding:8px;">⚠️ 融券真實資料尚未載入（需 FinMind token），或請先查詢個股</p>';
-    return;
-  }
-
   const dates = (window._marginEstData?.dates || window.aData?.dates || []);
   const sliceN = Math.min(n, dates.length);
   const dDates = dates.slice(-sliceN);
 
-  let rows = '';
-  for (let i = sliceN - 1; i >= 0; i--) {
-    const dateKey = dDates[i] || '';
-    const label = dateKey.slice(5);
-    const r = realData.byDate[dateKey];
-    if (!r || r.ratio == null) {
-      rows += `<tr><td>${label}</td><td colspan="3" style="color:var(--fg3);text-align:center;">—</td></tr>`;
-      continue;
+  if (realData && realData.byDate && Object.keys(realData.byDate).length) {
+    // ─── 真實資料版 ───────────────────────────────────────
+    let rows = '';
+    for (let i = sliceN - 1; i >= 0; i--) {
+      const dateKey = dDates[i] || '';
+      const label = dateKey.slice(5);
+      const r = realData.byDate[dateKey];
+      if (!r || r.ratio == null) {
+        rows += `<tr><td>${label}</td><td colspan="3" style="color:var(--fg3);text-align:center;">—</td></tr>`;
+        continue;
+      }
+      const net = r.net;
+      const netCls = net > 0 ? 'dn' : net < 0 ? 'up' : ''; // 空單增加(net>0)標紅色警示，回補(net<0)標綠色
+      const balStr = r.balance > 0 ? r.balance.toLocaleString() + '張' : '—';
+      const level = r.ratio >= 50 ? '🔴警戒' : r.ratio >= 30 ? '🟠偏高' : r.ratio >= 20 ? '🟡留意' : '⚪正常';
+      const dirIcon = net > 200 ? '⬆ 空單大增' : net > 0 ? '↑ 空單增' : net < -200 ? '⬇ 大幅回補' : net < 0 ? '↓ 回補' : '— 持平';
+      rows += `<tr>
+        <td style="color:var(--fg3)">${label}</td>
+        <td style="font-weight:700;">${r.ratio}%</td>
+        <td>${level}</td>
+        <td class="${netCls}">${balStr}／<span style="font-size:0.6rem;">${dirIcon}</span></td>
+      </tr>`;
     }
-    const net = r.net;
-    const netCls = net > 0 ? 'dn' : net < 0 ? 'up' : ''; // 空單增加(net>0)標紅色警示，回補(net<0)標綠色
-    const balStr = r.balance > 0 ? r.balance.toLocaleString() + '張' : '—';
-    const level = r.ratio >= 50 ? '🔴警戒' : r.ratio >= 30 ? '🟠偏高' : r.ratio >= 20 ? '🟡留意' : '⚪正常';
-    const dirIcon = net > 200 ? '⬆ 空單大增' : net > 0 ? '↑ 空單增' : net < -200 ? '⬇ 大幅回補' : net < 0 ? '↓ 回補' : '— 持平';
-    rows += `<tr>
-      <td style="color:var(--fg3)">${label}</td>
-      <td style="font-weight:700;">${r.ratio}%</td>
-      <td>${level}</td>
-      <td class="${netCls}">${balStr}／<span style="font-size:0.6rem;">${dirIcon}</span></td>
-    </tr>`;
+    wrap.innerHTML = `
+      <table class="cs-expand-table">
+        <thead><tr>
+          <th>日期</th>
+          <th>券資比</th>
+          <th>警戒等級</th>
+          <th>融券餘額／方向</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">ⓘ 券資比 = 融券餘額 ÷ 融資餘額 × 100%（真實資料，來源：FinMind TaiwanStockMarginPurchaseShortsale）；方向欄「空單增/減」看的是當天賣出放空 − 買進回補 − 現券償還。<span data-tip="SHORT_MARGIN_RATIO" style="cursor:help;">門檻怎麼看？</span></div>`;
+    return;
   }
 
+  // ─── 備援估算版（FinMind token沒設定、或TaiwanStockMarginPurchaseShortsale
+  // 暫時拉不到時）：跟融資明細的備援邏輯同一套精神，用外資5日/股價5日
+  // 漲跌回推每一天的估計值，不是留白不顯示 ───────────────────────
+  const estData = window._marginEstData;
+  const fullF = window._majorDailySeries?.fSeries || [];
+  const fullCloses = window.aData?.closes || [];
+  if (!estData || !fullF.length || !fullCloses.length) {
+    wrap.innerHTML = '<p style="color:var(--fg3);font-size:0.62rem;padding:8px;">⚠️ 融券真實資料尚未載入（需 FinMind token），或請先查詢個股</p>';
+    return;
+  }
+  const marginEstNow = estData.marginEst;
+  const totalLen = fullCloses.length;
+  let rows = '';
+  for (let i = sliceN - 1; i >= 0; i--) {
+    const idx = totalLen - sliceN + i; // 對應到完整陣列裡的位置
+    const label = (dDates[i] || '').slice(5);
+    if (idx < 10) { rows += `<tr><td>${label}</td><td colspan="3" style="color:var(--fg3);text-align:center;">—</td></tr>`; continue; }
+    const fNet10_i = fullF.slice(idx - 9, idx + 1).reduce((a,b)=>a+b, 0);
+    const priceChg5_i = idx >= 5 ? ((fullCloses[idx] - fullCloses[idx-5]) / fullCloses[idx-5] * 100) : 0;
+    const shortBase_i = Math.max(2, 8 - fNet10_i / 3000 * 4);
+    const shortAdj_i  = priceChg5_i > 3 ? -2 : priceChg5_i < -3 ? +2 : 0;
+    const shortEst_i  = Math.min(Math.max(shortBase_i + shortAdj_i, 1), 25);
+    const ratio_i = marginEstNow > 0 ? Math.round(shortEst_i / marginEstNow * 100) : 0;
+    const level = ratio_i >= 50 ? '🔴警戒' : ratio_i >= 30 ? '🟠偏高' : ratio_i >= 20 ? '🟡留意' : '⚪正常';
+    rows += `<tr>
+      <td style="color:var(--fg3)">${label}</td>
+      <td style="font-weight:700;">${ratio_i}% (估)</td>
+      <td>${level}</td>
+      <td style="color:var(--fg3);font-size:0.6rem;">融券${shortEst_i.toFixed(1)}%(估)</td>
+    </tr>`;
+  }
   wrap.innerHTML = `
     <table class="cs-expand-table">
       <thead><tr>
         <th>日期</th>
-        <th>券資比</th>
+        <th>券資比(估)</th>
         <th>警戒等級</th>
-        <th>融券餘額／方向</th>
+        <th>參考</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
-    <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">ⓘ 券資比 = 融券餘額 ÷ 融資餘額 × 100%（真實資料，來源：FinMind TaiwanStockMarginPurchaseShortsale）；方向欄「空單增/減」看的是當天賣出放空 − 買進回補 − 現券償還。<span data-tip="SHORT_MARGIN_RATIO" style="cursor:help;">門檻怎麼看？</span></div>`;
+    <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">⚠️ 融券真實資料暫時拉不到（需 FinMind token，或明日再試），以外資5日買賣超＋股價5日漲跌回推估算，不是真實結算值，僅供參考。<span data-tip="SHORT_MARGIN_RATIO" style="cursor:help;">門檻怎麼看？</span></div>`;
 }
 
 // ── OBI 展開 ──
