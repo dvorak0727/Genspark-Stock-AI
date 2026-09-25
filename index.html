@@ -56647,7 +56647,7 @@ function renderIndexBorderList(list) {
       </div>
     </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
-      複合訊號說明：📈走勢／籌碼標籤=近20日是否貼近低點+量縮／🌍板塊=該股所屬板塊今日資金流向(要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／🏦分點=點擊才查、最近一個交易日前3大券商成交量集中度。今日漲跌只是參考，這幾個訊號才是複合判斷的重點，彼此獨立、互相對照看。
+      複合訊號說明：📈走勢／籌碼標籤=近20日是否貼近低點+量縮／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
     </div>`;
 }
 
@@ -56790,7 +56790,7 @@ async function annotateMiniCharts(list) {
 }
 
 // v7.9x 複合訊號①：板塊——同步、不打API，直接查這檔股票屬於哪個板塊，
-// 有today快取的話（使用者今天已經開過「板塊」分頁）就順便顯示資金流向。
+// 有today快取的話（使用者今天已經開過「板塊」分頁）就順便顯示板塊動能。
 function _idxBorderSectorBadge(stockId) {
   const sec = (typeof srFindSector === 'function') ? srFindSector(stockId) : null;
   if (!sec) return '<span style="color:var(--fg3);">—</span>';
@@ -56798,11 +56798,15 @@ function _idxBorderSectorBadge(stockId) {
   const cached = SR_CACHE[cacheKey];
   const d = cached && cached.ready && cached.sectorData ? cached.sectorData[sec.id] : null;
   if (d) {
-    const stateLabel = d.state === 'flee' ? '外逃' : d.state === 'warn' ? '走弱' : d.state === 'flow' ? '流入' : '中性';
+    // v7.9x 修正：這個state本質是「板塊代表股今日平均漲跌幅」算出來的，
+    // 不是外資/投信買賣超金額加總，原本沿用主板塊模組的「流入/外逃」講法
+    // 容易被誤會成籌碼概念，這裡改用不暗示資金進出的字眼，避免跟🏦分點
+    // （真正的個股籌碼訊號）混淆——兩者本來就是不同層級、可以互相背離。
+    const stateLabel = d.state === 'flee' ? '重挫' : d.state === 'warn' ? '走弱' : d.state === 'flow' ? '上漲' : '中性';
     const color = d.state === 'flow' ? '#16a34a' : d.state === 'flee' ? '#dc2626' : 'var(--fg3)';
-    return `<span title="板塊：${sec.name}　今日${(d.change>0?'+':'')}${d.change}%　資金${stateLabel}" style="font-weight:700;color:${color};">${sec.emoji}${stateLabel}</span>`;
+    return `<span title="板塊：${sec.name}　今日${(d.change>0?'+':'')}${d.change}%（板塊代表股平均漲跌幅，非資金流向）" style="font-weight:700;color:${color};">${sec.emoji}${stateLabel}</span>`;
   }
-  return `<span title="板塊：${sec.name}（尚未載入板塊資料，去『板塊輪動脈絡』分頁按一次即可補上資金流向）" style="color:var(--fg3);">${sec.emoji}${sec.name}</span>`;
+  return `<span title="板塊：${sec.name}（尚未載入板塊資料，去『板塊輪動脈絡』分頁按一次即可補上）" style="color:var(--fg3);">${sec.emoji}${sec.name}</span>`;
 }
 
 // v7.9x 複合訊號②：千張大戶——複用 fetchHoldingShares()（FinMind
