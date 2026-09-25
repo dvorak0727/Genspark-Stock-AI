@@ -56842,19 +56842,24 @@ async function checkIndexBorderBrokerConcen(id, name) {
   el.textContent = '⏳查詢中'; el.onclick = null;
   const token = (typeof getToken === 'function' ? getToken() : '') || localStorage.getItem('tsai_finmind_token') || '';
   try {
+    // 分點資料(TaiwanStockTradingDailyReport)常常要盤後才結算完，白天查「今天」
+    // 十之八九是空的——跟原本個股頁完整版分點面板同一招：查無資料就往前找，
+    // 最多找15個自然日（含跳過假日），撞到第一筆有資料的日期就停。
+    let rows = [], dateStr = '', lastMsg = '';
     let d = new Date();
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const dow = d.getDay();
-      if (dow !== 0 && dow !== 6) break;
+      if (dow === 0 || dow === 6) { d.setDate(d.getDate() - 1); continue; }
+      const tryDate = d.toISOString().slice(0, 10);
+      const url = `${FINMIND}?dataset=TaiwanStockTradingDailyReport&data_id=${id}&start_date=${tryDate}&end_date=${tryDate}${token ? '&token=' + token : ''}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      const j = await res.json();
+      if (j.msg) lastMsg = j.msg;
+      if (Array.isArray(j.data) && j.data.length > 0) { rows = j.data; dateStr = tryDate; break; }
       d.setDate(d.getDate() - 1);
     }
-    const dateStr = d.toISOString().slice(0, 10);
-    const url = `${FINMIND}?dataset=TaiwanStockTradingDailyReport&data_id=${id}&start_date=${dateStr}&end_date=${dateStr}${token ? '&token=' + token : ''}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
-    const j = await res.json();
-    const rows = Array.isArray(j.data) ? j.data : [];
     if (!rows.length) {
-      el.textContent = '查無資料'; el.title = j.msg || `${dateStr} 無分點資料（可能需要FinMind贊助Token）`;
+      el.textContent = '查無資料'; el.title = lastMsg || '近15天都查無分點資料（可能需要FinMind贊助Token）';
       el.onclick = () => checkIndexBorderBrokerConcen(id, name);
       return;
     }
