@@ -17182,8 +17182,8 @@ a.module-nav-item.acc-active {
         </div>
         <!-- 5b. 融券（今日）v7.18 新增 -->
         <!-- 5c. 集保大戶 v7.21 新增 → v7.25 已移除 -->
-        <div class="cs-inst-item" id="csShortCard">
-          <div class="cs-inst-label" data-tip="融券=借股放空，券資比高→軋空風險大；融券減少=空方回補=潛在買盤">📉 融券（今日）</div>
+        <div class="cs-inst-item clickable" id="csShortCard" onclick="toggleShortPanel()">
+          <div class="cs-inst-label" data-tip="融券=借股放空，券資比高→軋空風險大；融券減少=空方回補=潛在買盤">📉 融券（今日）<span class="cs-inst-expand-arrow" id="csShortArrow">▼</span></div>
           <div class="cs-inst-val" id="csShortVal">—</div>
           <div class="cs-inst-streak" id="csShortSub">—</div>
         </div>
@@ -17233,6 +17233,17 @@ a.module-nav-item.acc-active {
           <button class="cs-expand-tab"        id="marginTab20" onclick="switchMarginTab(20)">近 20 日</button>
         </div>
         <div id="csMarginTableWrap"></div>
+      </div>
+
+      <!-- v7.9x 融券/券資比展開面板 -->
+      <div class="cs-expand-panel" id="csShortPanel">
+        <div class="cs-expand-title">📉 融券／券資比每日記錄</div>
+        <div class="cs-expand-tabs">
+          <button class="cs-expand-tab active" id="shortTab5"  onclick="switchShortTab(5)">近 5 日</button>
+          <button class="cs-expand-tab"        id="shortTab10" onclick="switchShortTab(10)">近 10 日</button>
+          <button class="cs-expand-tab"        id="shortTab20" onclick="switchShortTab(20)">近 20 日</button>
+        </div>
+        <div id="csShortTableWrap"></div>
       </div>
 
       <!-- v6.43 OBI 展開面板（原 obiWrap 內容搬移至此） -->
@@ -39711,6 +39722,10 @@ async function fetchMarginReal(stockId, dates) {
     // 整理：每日 { date, net, balance } — net為增減（張），balance為當日餘額
     const rows = (json.data || []).sort((a,b)=>a.date>b.date?1:-1);
     const byDate = {};
+    // v7.9x：同一支dataset(TaiwanStockMarginPurchaseShortsale)其實同時回傳融資+融券
+    // 欄位，原本只用了融資那半，融券那半白白浪費——這裡補上，順便逐日算真實券資比
+    // （ShortSaleTodayBalance／MarginPurchaseTodayBalance），不用再用外資賣超去估。
+    const byDateShort = {};
     rows.forEach(r => {
       // FinMind 欄位名稱（注意：有些帳號拿不到 Redeem，這時只用 Buy-Sell）
       const buy    = +r.MarginPurchaseBuy    || 0; // 當日融資買進（張）
@@ -39718,9 +39733,19 @@ async function fetchMarginReal(stockId, dates) {
       const redeem = +r.MarginPurchaseRedeem || 0; // 當日現金償還（張）
       const bal    = +r.MarginPurchaseTodayBalance || 0; // 今日餘額（張）
       byDate[r.date] = { net: buy - sell - redeem, balance: bal, buy, sell, redeem };
+
+      // 融券：sSell=當日融券賣出(放空增加)／sBuy=當日融券買進(回補)／sRepay=現券償還
+      // 融券餘額增減 = 賣出 − 買進(回補) − 現券償還；淨值>0＝空單持續累積，<0＝空方在回補
+      const sBuy    = +r.ShortSaleBuy    || 0;
+      const sSell   = +r.ShortSaleSell   || 0;
+      const sRepay  = +r.ShortSaleCashRepayment || 0;
+      const sBal    = +r.ShortSaleTodayBalance || 0;
+      const ratio   = bal > 0 ? +(sBal / bal * 100).toFixed(1) : null; // 真實券資比
+      byDateShort[r.date] = { net: sSell - sBuy - sRepay, balance: sBal, buy: sBuy, sell: sSell, repay: sRepay, ratio };
     });
 
     window._marginRealData = { byDate, rows };
+    window._shortRealData  = { byDate: byDateShort, rows };
 
     // ── 更新卡片頂部（今日數據）──
     const todayKey = (dates || []).at(-1) || '';
@@ -39749,6 +39774,30 @@ async function fetchMarginReal(stockId, dates) {
         renderMarginTable(window._marginTab || 5);
       }
       console.log(`[v6.44 MarginReal] ${stockId} ${todayKey} net=${net} balance=${todayMargin.balance}`);
+    }
+
+    // ── 融券卡片改用真實券資比覆蓋原本的估算值 ──
+    const todayShort = byDateShort[todayKey];
+    if (todayShort != null && todayShort.ratio != null) {
+      const sNet = todayShort.net; // >0=空單增加（賣出放空為主）；<0=空單減少（回補為主）
+      if ($('csShortVal')) {
+        $('csShortVal').textContent = todayShort.ratio + '%';
+        $('csShortVal').className = 'cs-inst-val ' + (todayShort.ratio > 30 ? 'dn' : todayShort.ratio < 10 ? 'up' : '');
+      }
+      const isSqueezRisk = todayShort.ratio > 30 && marginEst > 0;
+      if ($('csShortSub')) {
+        $('csShortSub').textContent =
+          isSqueezRisk && sNet < 0 ? '⚠️ 券資比偏高＋融券回補中，軋空風險升' :
+          isSqueezRisk            ? `⚡ 券資比${todayShort.ratio}%偏高，軋空風險升` :
+          sNet < -200              ? '↘ 融券大幅回補（空方撤退）' :
+          sNet > 200                ? '⚠️ 空方持續加碼放空' :
+          `券資比 ${todayShort.ratio}%（真實資料）`;
+      }
+      window._shortEstData = { ...(window._shortEstData||{}), shortToMarginRatio: todayShort.ratio, squeezRisk: isSqueezRisk, shortDecr3: sNet < -200, shortIncr3: sNet > 200 ? 2 : 0, isReal: true };
+      const shortPanel = document.getElementById('csShortPanel');
+      if (shortPanel && shortPanel.classList.contains('open')) {
+        renderShortTable(window._shortTab || 5);
+      }
     }
   } catch(e) {
     console.warn('[v6.44 MarginReal]', e.message);
@@ -44191,6 +44240,70 @@ function renderMarginTable(n) {
       </table>
       <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">⚠️ 融資 API 資料不可用，以量比估算（需 FinMind token 或明日再試）</div>`;
   }
+}
+
+// ── 融券/券資比展開（v7.9x 新增，跟融資同一支dataset、同一份fetchMarginReal抓回來） ──
+let _shortTab = 5;
+function toggleShortPanel() {
+  _toggleCsPanel('csShortCard','csShortPanel','csShortArrow', () => renderShortTable(_shortTab));
+}
+function switchShortTab(n) {
+  _shortTab = n;
+  window._shortTab = n;
+  [5,10,20].forEach(v => {
+    const t = document.getElementById('shortTab'+v);
+    if (t) t.classList.toggle('active', v === n);
+  });
+  renderShortTable(n);
+}
+function renderShortTable(n) {
+  const wrap = document.getElementById('csShortTableWrap');
+  if (!wrap) return;
+
+  const realData = window._shortRealData;
+  const marginData = window._marginRealData;
+  if (!realData || !realData.byDate || !Object.keys(realData.byDate).length) {
+    wrap.innerHTML = '<p style="color:var(--fg3);font-size:0.62rem;padding:8px;">⚠️ 融券真實資料尚未載入（需 FinMind token），或請先查詢個股</p>';
+    return;
+  }
+
+  const dates = (window._marginEstData?.dates || window.aData?.dates || []);
+  const sliceN = Math.min(n, dates.length);
+  const dDates = dates.slice(-sliceN);
+
+  let rows = '';
+  for (let i = sliceN - 1; i >= 0; i--) {
+    const dateKey = dDates[i] || '';
+    const label = dateKey.slice(5);
+    const r = realData.byDate[dateKey];
+    if (!r || r.ratio == null) {
+      rows += `<tr><td>${label}</td><td colspan="3" style="color:var(--fg3);text-align:center;">—</td></tr>`;
+      continue;
+    }
+    const net = r.net;
+    const netCls = net > 0 ? 'dn' : net < 0 ? 'up' : ''; // 空單增加(net>0)標紅色警示，回補(net<0)標綠色
+    const balStr = r.balance > 0 ? r.balance.toLocaleString() + '張' : '—';
+    const level = r.ratio >= 50 ? '🔴警戒' : r.ratio >= 30 ? '🟠偏高' : r.ratio >= 20 ? '🟡留意' : '⚪正常';
+    const dirIcon = net > 200 ? '⬆ 空單大增' : net > 0 ? '↑ 空單增' : net < -200 ? '⬇ 大幅回補' : net < 0 ? '↓ 回補' : '— 持平';
+    rows += `<tr>
+      <td style="color:var(--fg3)">${label}</td>
+      <td style="font-weight:700;">${r.ratio}%</td>
+      <td>${level}</td>
+      <td class="${netCls}">${balStr}／<span style="font-size:0.6rem;">${dirIcon}</span></td>
+    </tr>`;
+  }
+
+  wrap.innerHTML = `
+    <table class="cs-expand-table">
+      <thead><tr>
+        <th>日期</th>
+        <th>券資比</th>
+        <th>警戒等級</th>
+        <th>融券餘額／方向</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">ⓘ 券資比 = 融券餘額 ÷ 融資餘額 × 100%（真實資料，來源：FinMind TaiwanStockMarginPurchaseShortsale）；方向欄「空單增/減」看的是當天賣出放空 − 買進回補 − 現券償還。<span data-tip="SHORT_MARGIN_RATIO" style="cursor:help;">門檻怎麼看？</span></div>`;
 }
 
 // ── OBI 展開 ──
