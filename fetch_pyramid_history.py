@@ -76,16 +76,37 @@ def level_sort_key(level_str):
     return int(nums[0]) if nums else -1
 
 
-def main():
+WORKER_WATCHLIST_URL = "https://license-worker.dvorak0727.workers.dev/pyramid-watchlist"
+
+
+def load_watchlist():
+    """優先讀 Worker 上的清單（使用者在網頁上按「加入自動存檔」寫的），
+    抓不到才退回 repo 裡的 pyramid_watchlist.json 當備援（手動編輯用）。"""
+    try:
+        r = requests.get(WORKER_WATCHLIST_URL, timeout=15)
+        r.raise_for_status()
+        ids = r.json().get("ids", [])
+        if ids:
+            print(f"[清單來源] Worker：{ids}")
+            return ids
+        print("[清單來源] Worker 回傳空清單，改讀本機備援檔案")
+    except Exception as e:
+        print(f"[警告] Worker清單抓取失敗（{e}），改讀本機備援檔案", file=sys.stderr)
+
     try:
         with open(WATCHLIST_PATH, "r", encoding="utf-8") as f:
-            watchlist = json.load(f)
+            ids = json.load(f)
+            print(f"[清單來源] 本機備援檔案：{ids}")
+            return ids
     except (FileNotFoundError, json.JSONDecodeError):
-        print(f"[錯誤] 讀不到 {WATCHLIST_PATH}，請確認檔案存在且是合法JSON陣列。", file=sys.stderr)
-        sys.exit(1)
+        return []
+
+
+def main():
+    watchlist = load_watchlist()
 
     if not watchlist:
-        print("[提示] pyramid_watchlist.json 目前是空清單，沒有股票要抓，結束。")
+        print("[提示] 目前沒有任何股票在追蹤清單裡，結束。")
         return
 
     try:

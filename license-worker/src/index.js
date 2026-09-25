@@ -299,6 +299,42 @@ export default {
       return json({ ok: true });
     }
 
+    // ══════════════════════════════════════════════════
+    //  股份金字塔自動存檔追蹤清單（2026-09-25新增）
+    //  給 fetch_pyramid_history.py 那支週排程讀的「要追蹤哪些股票」清單，
+    //  原本是使用者手動編輯repo裡的pyramid_watchlist.json，這裡改成前端
+    //  按鈕直接寫，不用開檔案。單一全域清單（不分使用者，這個app本來就
+    //  是單一使用者自用性質），存成LICENSE_KV裡一把固定key的JSON陣列。
+    //  上限30檔，避免單一使用者濫用排程資源（跟/watchlist/save同樣的
+    //  100檔上限精神，這裡資料量更大所以抓更保守）。
+    // ══════════════════════════════════════════════════
+    const PYRAMID_WATCHLIST_KEY = "pyramid_watchlist";
+
+    // GET /pyramid-watchlist
+    if (request.method === "GET" && url.pathname === "/pyramid-watchlist") {
+      const ids = (await env.LICENSE_KV.get(PYRAMID_WATCHLIST_KEY, { type: "json" })) || [];
+      return json({ ids });
+    }
+
+    // POST /pyramid-watchlist  body: { id: "2330", action: "add"|"remove" }
+    if (request.method === "POST" && url.pathname === "/pyramid-watchlist") {
+      let body;
+      try { body = await request.json(); } catch { return json({ ok: false, reason: "invalid_request" }, 400); }
+      const id = String(body.id || "").trim();
+      const action = body.action === "remove" ? "remove" : "add";
+      if (!/^[0-9A-Za-z]{2,8}$/.test(id)) return json({ ok: false, reason: "invalid_id" }, 400);
+
+      const ids = (await env.LICENSE_KV.get(PYRAMID_WATCHLIST_KEY, { type: "json" })) || [];
+      let next;
+      if (action === "remove") {
+        next = ids.filter(x => x !== id);
+      } else {
+        next = ids.includes(id) ? ids : [...ids, id].slice(0, 30);
+      }
+      await env.LICENSE_KV.put(PYRAMID_WATCHLIST_KEY, JSON.stringify(next));
+      return json({ ok: true, ids: next });
+    }
+
     // GET /twse-exdiv → 代理 TWSE 除息預告表（解決瀏覽器 CORS 限制）
     if (url.pathname === "/twse-exdiv") {
       try {

@@ -17080,6 +17080,7 @@ a.module-nav-item.acc-active {
             <span data-tip="股份金字塔" style="cursor:pointer;">?</span>
             <span id="csWhaleBadge" style="margin-left:6px;"></span>
             <span id="csPyramidArchiveBadge" style="margin-left:6px;font-size:0.6rem;font-weight:700;padding:1px 7px;border-radius:10px;white-space:nowrap;"></span>
+            <button id="csPyramidArchiveToggle" onclick="togglePyramidWatchlist()" style="display:none;margin-left:4px;font-size:0.6rem;font-weight:700;padding:1px 8px;border-radius:10px;border:1px solid #7c3aed;background:transparent;color:#7c3aed;cursor:pointer;"></button>
           </div>
           <button class="cs-obv-close" onclick="toggleSharePyramidPanel()">✕ 收合</button>
         </div>
@@ -40711,20 +40712,79 @@ async function _tryLoadPyramidHistory() {
   } catch (e) { _pyramidHistCache = false; }
   return _pyramidHistCache;
 }
+const PYRAMID_WATCHLIST_API = 'https://license-worker.dvorak0727.workers.dev/pyramid-watchlist';
+let _pyramidWatchlistCache = null; // {ids:[...]}，同一次頁面瀏覽內快取，避免每次開面板都打Worker
+
+async function _fetchPyramidWatchlist(force) {
+  if (_pyramidWatchlistCache && !force) return _pyramidWatchlistCache;
+  try {
+    const r = await fetch(PYRAMID_WATCHLIST_API, { cache: 'no-store' });
+    _pyramidWatchlistCache = r.ok ? await r.json() : { ids: [] };
+  } catch (e) { _pyramidWatchlistCache = { ids: [] }; }
+  return _pyramidWatchlistCache;
+}
+
 async function _updatePyramidArchiveBadge(stockId) {
   const el = document.getElementById('csPyramidArchiveBadge');
+  const btn = document.getElementById('csPyramidArchiveToggle');
   if (!el) return;
-  const hist = await _tryLoadPyramidHistory();
+
+  const [hist, watch] = await Promise.all([_tryLoadPyramidHistory(), _fetchPyramidWatchlist()]);
   const weeks = hist && hist[stockId] ? Object.keys(hist[stockId]) : [];
+  const inWatchlist = (watch?.ids || []).includes(stockId);
+
   if (weeks.length) {
     const latest = weeks.sort().at(-1);
     el.textContent = `📌 已自動存檔（最新：${latest}，共${weeks.length}週）`;
     el.style.background = '#D1FAE5'; el.style.color = '#065F46';
-    el.title = '每週排程存下全級距分布，長期累積中，想看歷史走勢可以跟我說';
+    el.title = '每週排程存下全級距分布，長期累積中';
+  } else if (inWatchlist) {
+    el.textContent = '⏳ 已加入追蹤，等下次排程（每週五）';
+    el.style.background = '#FEF3C7'; el.style.color = '#92400E';
+    el.title = '已經在追蹤清單裡了，還沒到下一次排程時間，第一份快照要等到週五';
   } else {
     el.textContent = '尚未加入自動存檔';
     el.style.background = 'var(--surface2)'; el.style.color = 'var(--fg3)';
-    el.title = '想長期追蹤這檔的金字塔變化，跟克館長說一聲「加入OOOO的金字塔追蹤」即可';
+    el.title = '按右邊的按鈕就能加入追蹤，不用開檔案手動編輯';
+  }
+
+  if (btn) {
+    btn.style.display = 'inline-block';
+    btn.textContent = inWatchlist ? '➖ 移除追蹤' : '📌 加入自動存檔';
+    btn.dataset.stockId = stockId;
+    btn.dataset.inWatchlist = inWatchlist ? '1' : '';
+  }
+}
+
+// v7.9x：按鈕直接寫Cloudflare Worker的KV（見license-worker /pyramid-watchlist），
+// 不用再手動編輯repo裡的pyramid_watchlist.json或請人代勞——排程腳本
+// fetch_pyramid_history.py 每次執行都會先讀這份Worker清單。
+async function togglePyramidWatchlist() {
+  const btn = document.getElementById('csPyramidArchiveToggle');
+  if (!btn) return;
+  const stockId = btn.dataset.stockId;
+  const isIn = btn.dataset.inWatchlist === '1';
+  btn.disabled = true;
+  const prevText = btn.textContent;
+  btn.textContent = '⏳…';
+  try {
+    const res = await fetch(PYRAMID_WATCHLIST_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: stockId, action: isIn ? 'remove' : 'add' }),
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.reason || '未知錯誤');
+    _pyramidWatchlistCache = { ids: j.ids };
+    if (typeof showEpicToast === 'function') {
+      showEpicToast(isIn ? `已移除 ${stockId} 的自動存檔追蹤` : `已加入 ${stockId} 自動存檔追蹤，下次排程（週五）開始累積`, isIn ? '#d97706' : '#7c3aed');
+    }
+    await _updatePyramidArchiveBadge(stockId);
+  } catch (e) {
+    btn.textContent = prevText;
+    if (typeof showEpicToast === 'function') showEpicToast(`操作失敗：${e.message}`, '#dc2626');
+  } finally {
+    btn.disabled = false;
   }
 }
 
