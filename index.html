@@ -17076,7 +17076,7 @@ a.module-nav-item.acc-active {
       <!-- v7.60 股份金字塔展開面板 -->
       <div class="cs-obv-panel" id="csPyramidPanel" style="border-color:#DDD6FE;background:linear-gradient(135deg,rgba(124,58,237,0.06),rgba(139,92,246,0.04));">
         <div class="cs-obv-header">
-          <div class="cs-obv-title" style="color:#6D28D9;">🔺 股份金字塔 — 持股分級（千張大戶動向）
+          <div class="cs-obv-title" style="color:#6D28D9;">🔺 <span id="csPyramidStockName" style="font-weight:900;"></span>股份金字塔 — 持股分級（千張大戶動向）
             <span data-tip="股份金字塔" style="cursor:pointer;">?</span>
             <span id="csWhaleBadge" style="margin-left:6px;"></span>
             <span id="csPyramidArchiveBadge" style="margin-left:6px;font-size:0.6rem;font-weight:700;padding:1px 7px;border-radius:10px;white-space:nowrap;"></span>
@@ -40733,6 +40733,11 @@ async function _renderSharePyramid() {
   if (!body) return;
   const stockId = window._currentStockId || document.getElementById('searchInput')?.value?.trim();
   if (!stockId) { body.innerHTML = '<div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">請先查詢個股</div>'; return; }
+  const nameEl = document.getElementById('csPyramidStockName');
+  if (nameEl) {
+    const nm = window._currentStockName || (typeof STOCK_DB !== 'undefined' && STOCK_DB[stockId]?.name) || '';
+    nameEl.textContent = nm ? `${nm}(${stockId}) ` : `${stockId} `;
+  }
   _updatePyramidArchiveBadge(stockId);
 
   const token = getToken();
