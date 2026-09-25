@@ -37879,6 +37879,7 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
   const bigPct   = Math.min(0.85, Math.max(0.45, 0.60 + fNet10/50000 + tNet10/30000));
   const retailPct = Math.round((1 - bigPct) * 100);
   const retailHigh = retailPct >= 20;
+  window._retailData = { retailPct, retailHigh }; // 供 renderChipABCDCard() 之後重算時讀取
 
   // 填入
   // ── 主力卡片（v6.43 新版：今日值 = 今日外資+投信合計） ──
@@ -38042,9 +38043,23 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
   // ── F-2. ABCD 籌碼四象限判決卡（v7.18）─────────────────────
   // 五維度評分：外資、投信、融資、融券、散戶
   // A=大漲機率高 / B=等死（主力出貨） / C=等死（法人撤退） / D=準備翻身（軋空）
-  ;(function _renderChipABCD() {
+
+// v7.9x：原本是renderChipSummary()裡的一段IIFE，抓不到window._shortEstData
+// 之後被fetchMarginReal()的真實資料覆蓋——導致券資比從估算的52%換成真實的
+// 1.7%之後，這張卡片沒有跟著重算，還顯示舊的52%。拆成獨立函式，改讀快取在
+// window上的資料（_majorDailySeries／_marginEstData／_retailData／_shortEstData），
+// 這樣fetchMarginReal的真實資料回來後可以直接再呼叫一次，兩邊才會同步。
+// 掛在window上（不是單純function宣告）是因為這個function文字位置還在
+// renderChipSummary()裡面，宣告式的function只會hoist到renderChipSummary
+// 的scope，fetchMarginReal()這種外部的sibling函式呼叫不到；掛給window
+// 才能跨函式呼叫。
+window.renderChipABCDCard = function renderChipABCDCard() {
+    const $ = id => document.getElementById(id);
     const el = $('csAbcdCard');
     if (!el) return;
+    const { fSeries = [], tSeries = [] } = window._majorDailySeries || {};
+    const { marginEst = 0, marginDanger = false, marginSafe = false } = window._marginEstData || {};
+    const { retailPct = 0, retailHigh = false } = window._retailData || {};
     // 取當前估算值
     const f5  = fSeries.slice(-5).reduce((a,b)=>a+b,0);  // 外資5日（張）
     const t5  = tSeries.slice(-5).reduce((a,b)=>a+b,0);  // 投信5日（張）
@@ -38132,7 +38147,8 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
           <div style="font-size:0.65rem;font-weight:700;color:${abcdColor};background:${abcdBg};border:1px solid ${abcdColor}44;padding:3px 7px;border-radius:4px;text-align:center;line-height:1.4;">${abcdAction}</div>
         </div>
       </div>`;
-  })();
+};
+  window.renderChipABCDCard(); // 首次渲染（函式定義完才呼叫，避免宣告順序問題）
 
   // ── F-b. v7.40 吸籌節律健康係數（並列附加資訊，不影響任何評分）─────────────────
   (() => {
@@ -39817,7 +39833,7 @@ async function fetchMarginReal(stockId, dates) {
           hasUsage    ? `融券限額使用率 ${todayShort.usageRate}%（真實資料）` :
           `融券餘額 ${todayShort.balance.toLocaleString()}張（無限額資料）`;
       }
-      window._shortEstData = { ...(window._shortEstData||{}), shortToMarginRatio: todayShort.ratio, squeezRisk: isSqueezRisk, shortDecr3: sNet < -200, shortIncr3: sNet > 200 ? 2 : 0, isReal: true };
+      window._shortEstData = { ...(window._shortEstData||{}), shortToMarginRatio: todayShort.ratio, shortEst: hasUsage ? todayShort.usageRate : window._shortEstData?.shortEst, squeezRisk: isSqueezRisk, shortDecr3: sNet < -200, shortIncr3: sNet > 200 ? 2 : 0, isReal: true };
       // 券資比獨立一格也改用真實資料覆蓋
       if ($('csRatioVal')) {
         $('csRatioVal').textContent = todayShort.ratio + '%';
@@ -39828,6 +39844,9 @@ async function fetchMarginReal(stockId, dates) {
           todayShort.ratio >= 30 ? '🟠偏高，值得盯著看' :
           todayShort.ratio >= 20 ? '🟡開始偏高，留意' : '⚪正常區間';
       }
+      // v7.9x：真實券資比抓回來後，讓ABCD大卡片跟著重算，不然會停在抓資料
+      // 之前算好的估計值（52%）沒有更新，跟下面兩張小卡片的真實數字對不上。
+      window.renderChipABCDCard?.();
       const shortPanel = document.getElementById('csShortPanel');
       if (shortPanel && shortPanel.classList.contains('open')) {
         renderShortTable(window._shortTab || 5);
