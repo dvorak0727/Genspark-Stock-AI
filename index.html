@@ -39718,7 +39718,7 @@ async function renderHoldingPyramid(stockId) {
 
 // ==============================================================
 //  v6.44 fetchMarginReal — 非同步拉取真實融資增減
-//  dataset: TaiwanStockMarginPurchaseShortsale
+//  dataset: TaiwanStockMarginPurchaseShortSale
 //  欄位: MarginPurchaseBuy(當日買進張) / MarginPurchaseSell(當日賣出張)
 //        MarginPurchaseRedeem(當日現金償還) / MarginPurchaseTodayBalance(今日餘額張)
 //  增減 = MarginPurchaseBuy - MarginPurchaseSell - MarginPurchaseRedeem
@@ -39731,16 +39731,19 @@ async function fetchMarginReal(stockId, dates) {
     const endDate = new Date().toISOString().split('T')[0];
     const sd = new Date(); sd.setDate(sd.getDate() - 40);
     const startDate = sd.toISOString().split('T')[0];
-    const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockMarginPurchaseShortsale&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}${token?'&token='+token:''}`;
+    const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockMarginPurchaseShortSale&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}${token?'&token='+token:''}`;
     const resp = await fetch(url);
-    if (!resp.ok) return;
+    if (!resp.ok) { console.warn(`[v6.44 MarginReal] ${stockId} HTTP ${resp.status}，改用估算備援`); return; }
     const json = await resp.json();
-    if (json.status !== 200 || !(json.data||[]).length) return;
+    if (json.status !== 200 || !(json.data||[]).length) {
+      console.warn(`[v6.44 MarginReal] ${stockId} 無真實資料（status=${json.status}, msg="${json.msg||''}"），改用估算備援`);
+      return;
+    }
 
     // 整理：每日 { date, net, balance } — net為增減（張），balance為當日餘額
     const rows = (json.data || []).sort((a,b)=>a.date>b.date?1:-1);
     const byDate = {};
-    // v7.9x：同一支dataset(TaiwanStockMarginPurchaseShortsale)其實同時回傳融資+融券
+    // v7.9x：同一支dataset(TaiwanStockMarginPurchaseShortSale)其實同時回傳融資+融券
     // 欄位，原本只用了融資那半，融券那半白白浪費——這裡補上，順便逐日算真實券資比
     // （ShortSaleTodayBalance／MarginPurchaseTodayBalance），不用再用外資賣超去估。
     const byDateShort = {};
@@ -44244,7 +44247,7 @@ function renderMarginTable(n) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">ⓘ 融資增減 = 當日買進 − 賣出 − 現金償還（張），來源：FinMind TaiwanStockMarginPurchaseShortsale</div>`;
+      <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">ⓘ 融資增減 = 當日買進 − 賣出 − 現金償還（張），來源：FinMind TaiwanStockMarginPurchaseShortSale</div>`;
   } else {
     // ─── 備援估算版（無法拉到真實資料時）────────────────────
     const { fSeries, vols, marginEst } = estData;
@@ -44331,11 +44334,11 @@ function renderShortTable(n) {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">ⓘ 券資比 = 融券餘額 ÷ 融資餘額 × 100%（真實資料，來源：FinMind TaiwanStockMarginPurchaseShortsale）；方向欄「空單增/減」看的是當天賣出放空 − 買進回補 − 現券償還。<span data-tip="SHORT_MARGIN_RATIO" style="cursor:help;">門檻怎麼看？</span></div>`;
+      <div style="margin-top:6px;font-size:0.58rem;color:var(--fg3);">ⓘ 券資比 = 融券餘額 ÷ 融資餘額 × 100%（真實資料，來源：FinMind TaiwanStockMarginPurchaseShortSale）；方向欄「空單增/減」看的是當天賣出放空 − 買進回補 − 現券償還。<span data-tip="SHORT_MARGIN_RATIO" style="cursor:help;">門檻怎麼看？</span></div>`;
     return;
   }
 
-  // ─── 備援估算版（FinMind token沒設定、或TaiwanStockMarginPurchaseShortsale
+  // ─── 備援估算版（FinMind token沒設定、或TaiwanStockMarginPurchaseShortSale
   // 暫時拉不到時）：跟融資明細的備援邏輯同一套精神，用外資5日/股價5日
   // 漲跌回推每一天的估計值，不是留白不顯示 ───────────────────────
   const estData = window._marginEstData;
