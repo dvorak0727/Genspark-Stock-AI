@@ -39761,8 +39761,10 @@ async function fetchMarginReal(stockId, dates) {
       const sSell   = +r.ShortSaleSell   || 0;
       const sRepay  = +r.ShortSaleCashRepayment || 0;
       const sBal    = +r.ShortSaleTodayBalance || 0;
-      const ratio   = bal > 0 ? +(sBal / bal * 100).toFixed(1) : null; // 真實券資比
-      byDateShort[r.date] = { net: sSell - sBuy - sRepay, balance: sBal, buy: sBuy, sell: sSell, repay: sRepay, ratio };
+      const sLimit  = +r.ShortSaleLimit  || 0; // 融券限額（張）
+      const ratio   = bal > 0 ? +(sBal / bal * 100).toFixed(1) : null; // 券資比＝融券餘額÷融資餘額
+      const usageRate = sLimit > 0 ? +(sBal / sLimit * 100).toFixed(1) : null; // 融券使用率＝融券餘額÷融券限額（跟券資比是兩個不同的分母，別搞混）
+      byDateShort[r.date] = { net: sSell - sBuy - sRepay, balance: sBal, buy: sBuy, sell: sSell, repay: sRepay, ratio, usageRate };
     });
 
     window._marginRealData = { byDate, rows };
@@ -39797,22 +39799,23 @@ async function fetchMarginReal(stockId, dates) {
       console.log(`[v6.44 MarginReal] ${stockId} ${todayKey} net=${net} balance=${todayMargin.balance}`);
     }
 
-    // ── 融券卡片改用真實券資比覆蓋原本的估算值 ──
+    // ── 融券卡片改用真實「融券使用率」覆蓋原本的估算值（跟券資比是不同分母，
+    //    別再兩張卡片顯示同一個數字：融券使用率÷融券限額，券資比÷融資餘額）──
     const todayShort = byDateShort[todayKey];
     if (todayShort != null && todayShort.ratio != null) {
       const sNet = todayShort.net; // >0=空單增加（賣出放空為主）；<0=空單減少（回補為主）
+      const hasUsage = todayShort.usageRate != null;
       if ($('csShortVal')) {
-        $('csShortVal').textContent = todayShort.ratio + '%';
-        $('csShortVal').className = 'cs-inst-val ' + (todayShort.ratio > 30 ? 'dn' : todayShort.ratio < 10 ? 'up' : '');
+        $('csShortVal').textContent = hasUsage ? todayShort.usageRate + '%' : todayShort.balance.toLocaleString() + '張';
+        $('csShortVal').className = 'cs-inst-val ' + (hasUsage ? (todayShort.usageRate > 30 ? 'dn' : todayShort.usageRate < 10 ? 'up' : '') : '');
       }
       const isSqueezRisk = todayShort.ratio > 30 && marginEst > 0;
       if ($('csShortSub')) {
         $('csShortSub').textContent =
-          isSqueezRisk && sNet < 0 ? '⚠️ 券資比偏高＋融券回補中，軋空風險升' :
-          isSqueezRisk            ? `⚡ 券資比${todayShort.ratio}%偏高，軋空風險升` :
-          sNet < -200              ? '↘ 融券大幅回補（空方撤退）' :
-          sNet > 200                ? '⚠️ 空方持續加碼放空' :
-          `券資比 ${todayShort.ratio}%（真實資料）`;
+          sNet < -200 ? '↘ 融券大幅回補（空方撤退）' :
+          sNet > 200  ? '⚠️ 空方持續加碼放空' :
+          hasUsage    ? `融券限額使用率 ${todayShort.usageRate}%（真實資料）` :
+          `融券餘額 ${todayShort.balance.toLocaleString()}張（無限額資料）`;
       }
       window._shortEstData = { ...(window._shortEstData||{}), shortToMarginRatio: todayShort.ratio, squeezRisk: isSqueezRisk, shortDecr3: sNet < -200, shortIncr3: sNet > 200 ? 2 : 0, isReal: true };
       // 券資比獨立一格也改用真實資料覆蓋
