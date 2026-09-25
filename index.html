@@ -6476,7 +6476,7 @@
     /* 頂部：三大法人 3日快照 */
     /* 法人3格 + 主力融資散戶3格 → 6欄一行 */
     .cs-top-row {
-      display:grid; grid-template-columns:repeat(8,1fr); gap:3px; margin-bottom:4px;
+      display:grid; grid-template-columns:repeat(9,1fr); gap:3px; margin-bottom:4px;
     }
     @media(max-width:900px){ .cs-top-row{ grid-template-columns:repeat(4,1fr); } }
     @media(max-width:500px){ .cs-top-row{ grid-template-columns:repeat(2,1fr); } }
@@ -17186,6 +17186,14 @@ a.module-nav-item.acc-active {
           <div class="cs-inst-label" data-tip="融券=借股放空，券資比高→軋空風險大；融券減少=空方回補=潛在買盤">📉 融券（今日）<span class="cs-inst-expand-arrow" id="csShortArrow">▼</span></div>
           <div class="cs-inst-val" id="csShortVal">—</div>
           <div class="cs-inst-streak" id="csShortSub">—</div>
+        </div>
+        <!-- 5d. 券資比（今日）v7.9x 新增：跟融券使用率是兩個不同的數字，
+             融券=融券餘額佔融券限額的比例；券資比=融券餘額佔融資餘額的比例，
+             後者才是判斷軋空燃料夠不夠的關鍵數字，值得單獨一格 -->
+        <div class="cs-inst-item clickable" id="csRatioCard" onclick="toggleShortPanel()">
+          <div class="cs-inst-label" data-tip="SHORT_MARGIN_RATIO">🎯 券資比（今日）<span class="cs-inst-expand-arrow" id="csRatioArrow">▼</span></div>
+          <div class="cs-inst-val" id="csRatioVal">—</div>
+          <div class="cs-inst-streak" id="csRatioSub">—</div>
         </div>
         <!-- 6. 內外盤（今日）→ 尾盤快照：反映主力最後真實選擇，非盤中即時 v7.18 -->
         <div class="cs-inst-item clickable" id="csObiCard" onclick="toggleObiPanel()">
@@ -37932,6 +37940,16 @@ function renderChipSummary(instMap, instDays, fSeries, tSeries, mSeries, closes,
     else                  shortSubTxt = `券資比 ${shortToMarginRatio}%，多空平衡`;
     $('csShortSub').textContent = shortSubTxt;
   }
+  // 券資比獨立一格（v7.9x）：融券卡片是「融券使用率」，這格才是「融券佔融資的比例」
+  if ($('csRatioVal')) {
+    $('csRatioVal').textContent = shortToMarginRatio + '% (估)';
+    $('csRatioVal').className = 'cs-inst-val ' + (+shortToMarginRatio >= 50 ? 'dn' : +shortToMarginRatio >= 30 ? '' : 'up');
+  }
+  if ($('csRatioSub')) {
+    $('csRatioSub').textContent = +shortToMarginRatio >= 50 ? '🔴警戒，空單累積量已不小' :
+      +shortToMarginRatio >= 30 ? '🟠偏高，值得盯著看' :
+      +shortToMarginRatio >= 20 ? '🟡開始偏高，留意' : '⚪正常區間';
+  }
   // 快取
   window._shortEstData = { shortEst: +shortEst, shortToMarginRatio: +shortToMarginRatio,
     squeezRisk, shortDanger, shortIncr3, shortDecr3, priceChg5 };
@@ -39794,6 +39812,16 @@ async function fetchMarginReal(stockId, dates) {
           `券資比 ${todayShort.ratio}%（真實資料）`;
       }
       window._shortEstData = { ...(window._shortEstData||{}), shortToMarginRatio: todayShort.ratio, squeezRisk: isSqueezRisk, shortDecr3: sNet < -200, shortIncr3: sNet > 200 ? 2 : 0, isReal: true };
+      // 券資比獨立一格也改用真實資料覆蓋
+      if ($('csRatioVal')) {
+        $('csRatioVal').textContent = todayShort.ratio + '%';
+        $('csRatioVal').className = 'cs-inst-val ' + (todayShort.ratio >= 50 ? 'dn' : todayShort.ratio >= 30 ? '' : 'up');
+      }
+      if ($('csRatioSub')) {
+        $('csRatioSub').textContent = todayShort.ratio >= 50 ? '🔴警戒，空單累積量已不小' :
+          todayShort.ratio >= 30 ? '🟠偏高，值得盯著看' :
+          todayShort.ratio >= 20 ? '🟡開始偏高，留意' : '⚪正常區間';
+      }
       const shortPanel = document.getElementById('csShortPanel');
       if (shortPanel && shortPanel.classList.contains('open')) {
         renderShortTable(window._shortTab || 5);
@@ -44079,15 +44107,15 @@ function _toggleCsPanel(cardId, panelId, arrowId, onOpen) {
   if (!panel) return;
   const isOpen = panel.classList.contains('open');
   // 關閉所有其他面板
-  ['csMajorPanel','csMarginPanel','csObiPanel','csBidAskPanel'].forEach(id => {
+  ['csMajorPanel','csMarginPanel','csShortPanel','csObiPanel','csBidAskPanel'].forEach(id => {
     const p = document.getElementById(id);
     if (p && id !== panelId) p.classList.remove('open');
   });
-  ['csMajorCard','csMarginCard','csObiCard','csBidAskCard'].forEach(id => {
+  ['csMajorCard','csMarginCard','csShortCard','csRatioCard','csObiCard','csBidAskCard'].forEach(id => {
     const c = document.getElementById(id);
     if (c && id !== cardId) c.classList.remove('open');
   });
-  ['csMajorArrow','csMarginArrow','csObiArrow','csBidAskArrow'].forEach(id => {
+  ['csMajorArrow','csMarginArrow','csShortArrow','csRatioArrow','csObiArrow','csBidAskArrow'].forEach(id => {
     const a = document.getElementById(id);
     if (a && id !== arrowId) a.style.transform = '';
   });
@@ -44096,6 +44124,11 @@ function _toggleCsPanel(cardId, panelId, arrowId, onOpen) {
   panel.classList.toggle('open', willOpen);
   if (card)  card.classList.toggle('open', willOpen);
   if (arrow) arrow.style.transform = willOpen ? 'rotate(180deg)' : '';
+  // 券資比卡片跟融券卡片共用同一個panel(csShortPanel)，兩張卡片的開合視覺要同步
+  if (panelId === 'csShortPanel') {
+    ['csShortCard','csRatioCard'].forEach(id => document.getElementById(id)?.classList.toggle('open', willOpen));
+    ['csShortArrow','csRatioArrow'].forEach(id => { const a = document.getElementById(id); if (a) a.style.transform = willOpen ? 'rotate(180deg)' : ''; });
+  }
   if (willOpen && onOpen) onOpen();
 }
 
