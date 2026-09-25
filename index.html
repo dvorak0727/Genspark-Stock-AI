@@ -40926,6 +40926,57 @@ async function _renderSharePyramid() {
       }).join('');
       return `<tr><td style="padding:2px 6px;color:${color};font-weight:700;white-space:nowrap;">${label}</td>${cells}</tr>`;
     };
+    // v7.9x「稀釋來源」判斷——用戶發現：頂層(1000張以上)人數增加、佔比卻還是掉，
+    // 因為佔比是全級距零和的，人數是各自獨立的加法。這裡把中間各級距的佔比變化
+    // 拆成「底層(1~10張，散戶)」跟「中段(10~1000張，中實戶)」兩組分別加總，
+    // 判斷這週的稀釋主要是誰造成的，不用使用者自己一格一格對數字。
+    const bottomLotsSet = new Set(['1張以下', '1~5張', '5~10張']);
+    let topPctDeltaVal = null, topPeopleDeltaVal = null, bottomPctDelta = 0, midPctDelta = 0;
+    if (prevRowsFiltered) {
+      sorted.forEach(r => {
+        const prev = prevByLevel[r.HoldingSharesLevel];
+        if (!prev) return;
+        const pctD = (+r.percent || 0) - (+prev.percent || 0);
+        if (/more than|以上/i.test(r.HoldingSharesLevel)) {
+          topPctDeltaVal = pctD;
+          topPeopleDeltaVal = (+r.people || 0) - (+prev.people || 0);
+        } else if (bottomLotsSet.has(lvlToLots(r.HoldingSharesLevel))) {
+          bottomPctDelta += pctD;
+        } else {
+          midPctDelta += pctD;
+        }
+      });
+    }
+    let dilutionHtml = '';
+    if (topPctDeltaVal !== null) {
+      if (topPctDeltaVal < -0.005) {
+        const bAbs = Math.abs(bottomPctDelta), mAbs = Math.abs(midPctDelta);
+        let sourceLabel, sourceDetail;
+        if (bAbs > mAbs * 1.3) {
+          sourceLabel = '底層擴張為主（散戶湧入）';
+          sourceDetail = `1~10張這幾層這週佔比合計${bottomPctDelta>=0?'+':''}${bottomPctDelta.toFixed(2)}%`;
+        } else if (mAbs > bAbs * 1.3) {
+          sourceLabel = '中段膨脹為主（中實戶吃貨）';
+          sourceDetail = `10~800張這段這週佔比合計${midPctDelta>=0?'+':''}${midPctDelta.toFixed(2)}%`;
+        } else {
+          sourceLabel = '底層＋中段同時膨脹';
+          sourceDetail = `底層${bottomPctDelta>=0?'+':''}${bottomPctDelta.toFixed(2)}%、中段${midPctDelta>=0?'+':''}${midPctDelta.toFixed(2)}%同時在吃股份`;
+        }
+        const topNote = topPeopleDeltaVal > 0
+          ? `頂層人數這週其實還增加了${topPeopleDeltaVal}人，方向沒錯，只是被稀釋成不到全力——就像拳頭真的打出去了，只是後面有人拉了一把。`
+          : topPeopleDeltaVal < 0
+          ? `頂層人數這週也減少了${Math.abs(topPeopleDeltaVal)}人，這次是真的在退。`
+          : `頂層人數這週持平。`;
+        dilutionHtml = `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(217,119,6,.08);border:1px solid rgba(217,119,6,.25);font-size:.62rem;line-height:1.7;">
+          ⚠️ <b>稀釋來源：${sourceLabel}</b>——${sourceDetail}。${topNote}
+        </div>`;
+      } else if (topPctDeltaVal > 0.005) {
+        dilutionHtml = `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);font-size:.62rem;line-height:1.7;">
+          ✅ <b>頂層佔比這週是上升的（+${topPctDeltaVal.toFixed(2)}%）</b>，沒有被下面級距稀釋，集中趨勢延續中。
+        </div>`;
+      }
+    }
+
     const trendHeadHtml = trendWeeks.map(w => `<td style="padding:2px 5px;text-align:center;color:var(--fg3);white-space:nowrap;">${w.weekKey}</td>`).join('');
     const trendSectionHtml = trendWeeks.length >= 2 ? `
       <div style="margin-top:10px;">
@@ -40961,6 +41012,7 @@ async function _renderSharePyramid() {
         <span>週增減：${totalPeopleDelta===null?'—':totalPeopleDelta>0?`<b style="color:#DC2626;">+${totalPeopleDelta.toLocaleString()}人</b>`:totalPeopleDelta<0?`<b style="color:#10B981;">${totalPeopleDelta.toLocaleString()}人</b>`:'0人'}</span>
       </div>
       <div style="margin-top:6px;font-size:.55rem;color:var(--fg3);">💡 紫色那一列（1000張以上）是千張大戶；▲紅色代表增加、▼綠色代表減少，跟上一次股權分散表快照比較。</div>
+      ${dilutionHtml}
       ${trendSectionHtml}
     `;
   } catch (e) {
