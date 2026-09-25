@@ -15854,6 +15854,7 @@ a.module-nav-item.acc-active {
           <option value="broker">🏦 券商囤貨掃描（需付費Token）</option>
           <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
           <option value="etfFlow">📡 主動式ETF買賣超掃描（需付費Token）</option>
+          <option value="squeeze">⚡ 軋空體質掃描（需付費Token）</option>
         </select>
         <button class="screener-btn" id="screenerBtn" onclick="startScreener()">
           🔭 開始海選
@@ -16115,6 +16116,7 @@ a.module-nav-item.acc-active {
           <option value="broker">🏦 券商囤貨掃描（需付費Token）</option>
           <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
           <option value="etfFlow">📡 主動式ETF買賣超掃描（需付費Token）</option>
+          <option value="squeeze">⚡ 軋空體質掃描（需付費Token）</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -58122,6 +58124,26 @@ async function startScreener() {
           }
         } catch(e) { /* 抓不到現價不影響大戶增判斷，維持lc=0 */ }
 
+      } else if (modeKey === 'squeeze') {
+        // 軋空體質掃描：直接呼叫 calcSqueezeScore，走融資融券dataset，
+        // 不用技術指標/法人買賣API（fetchFM 本身有快取，不用額外處理逾時）
+        result = await calcSqueezeScore(sid);
+        if (result._skip) { processed++; continue; } // 券資比不到20%，不列入候選池
+        // 補充現價：跟其他token模式一樣，用 TaiwanStockPrice 補 lc/chgPct/迷你K棒
+        try {
+          const priceRaw = await _scrFetch(fetchFM('TaiwanStockPrice', sid, _scrStart, _scrEnd));
+          const closes = (priceRaw || []).map(d => +d.close);
+          if (closes.length >= 2) {
+            result.lc = closes.at(-1);
+            const pc = closes.at(-2) || result.lc;
+            result.chgPct = pc ? (result.lc - pc) / pc * 100 : 0;
+          }
+          if ((priceRaw || []).length) {
+            const _n = Math.min(15, priceRaw.length), _p = priceRaw.slice(-_n);
+            result.candles = { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) };
+          }
+        } catch(e) { /* 抓不到現價不影響軋空體質判斷，維持lc=0 */ }
+
       } else {
         // 並行取兩支 API：海選用4秒超時（避免每支卡15秒）
         const [r1, r2] = await Promise.allSettled([
@@ -59283,6 +59305,7 @@ const SCREENER_MODE_META = {
   obi:        { title:'外盤強勢掃描',            subtitle:'收盤外盤比率排行 · 主動買盤強度確認 · 外盤>內盤篩選 · 資金動能方向', badge:'📡 外盤強' },
   whale:      { title:'千張大戶籌碼集中掃描',    subtitle:'量的是「持股比例」增加，不是人數增加（常常人數變少但籌碼更集中）— C1 佔比週增為正 · C2 增幅≥0.5% · C3 連續兩週增 · C4 散戶同步減碼 · C5 大戶佔比過半（⚠️需FinMind Sponsor付費Token）', badge:'🐋 籌碼集中' },
   etfFlow:    { title:'主動式ETF買賣超掃描',      subtitle:'C1 淨買超為正 · C2 ≥2檔ETF同步買進 · C3 ≥3檔ETF同步買進 · C4 淨買超≥10萬股 · C5 無同步賣壓（⚠️需FinMind Sponsor付費Token，資料每日排程更新，非即時）', badge:'📡 ETF買超' },
+  squeeze:    { title:'軋空體質掃描',            subtitle:'C1 券資比≥20% · C2 融資近3日淨減（斷頭跡象）· C3 融券近3日淨增（空方加碼）· C4 券資比≥30%偏高警戒 · C5 券資比連續墊高（燃料已堆好，等外資轉買+融券回補觸發，不代表已經在軋）', badge:'⚡ 軋空體質' },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -59521,6 +59544,71 @@ async function calcWhaleIncreaseScore(stockId) {
     };
   } catch(e) {
     console.warn('[千張大戶增 screener]', stockId, e.message);
+    return EMPTY;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ⚡ v7.9x 軋空體質掃描——用戶自己推導出的三段式偵測邏輯：
+//    ①融資斷頭吐籌碼 ②融券還在加碼放空 ③（掃描抓不到，要靠使用者
+//    自己盯後續2~3天）大戶開始回補、股價上攻，才是真的軋空發生。
+//  這裡掃描的是「燃料已經堆好、體質符合」的候選池，不是「已經在軋」
+//  的確認訊號——那個要等接下來幾天的分點/三大法人資料才能確認，
+//  screener 一次性掃描抓不到「連續發生」這件事。
+// ═══════════════════════════════════════════════════════════════
+async function calcSqueezeScore(stockId) {
+  const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _skip:true };
+  try {
+    const end = new Date();
+    const start = new Date(); start.setDate(end.getDate() - 20);
+    const raw = await fetchFM('TaiwanStockMarginPurchaseShortSale', stockId, start, end);
+    if (!raw || raw.length < 4) return EMPTY;
+
+    const rows = [...raw].sort((a,b) => a.date.localeCompare(b.date));
+    const parsed = rows.map(r => {
+      const buy = +r.MarginPurchaseBuy || 0, sell = +r.MarginPurchaseSell || 0, redeem = +r.MarginPurchaseRedeem || 0;
+      const bal = +r.MarginPurchaseTodayBalance || 0;
+      const sBuy = +r.ShortSaleBuy || 0, sSell = +r.ShortSaleSell || 0, sRepay = +r.ShortSaleCashRepayment || 0;
+      const sBal = +r.ShortSaleTodayBalance || 0;
+      return {
+        date: r.date,
+        marginNet: buy - sell - redeem,
+        shortNet: sSell - sBuy - sRepay,
+        ratio: bal > 0 ? +(sBal / bal * 100).toFixed(1) : null,
+      };
+    }).filter(r => r.ratio != null);
+
+    if (parsed.length < 4) return EMPTY;
+
+    const latest = parsed.at(-1);
+    const last3 = parsed.slice(-3);
+    const marginNet3 = last3.reduce((s,r) => s + r.marginNet, 0); // 負值＝融資近3日淨減（斷頭吐籌碼）
+    const shortNet3  = last3.reduce((s,r) => s + r.shortNet, 0);  // 正值＝融券近3日淨增（空方加碼）
+
+    const c1 = latest.ratio >= 20;
+    if (!c1) return EMPTY; // 券資比連「留意」等級都沒到，不列入候選池，省得每次都跑滿5項checks
+
+    const c2 = marginNet3 < 0;
+    const c3 = shortNet3 > 0;
+    const c4 = latest.ratio >= 30;
+    const c5 = parsed.length >= 2 && (latest.ratio - parsed.at(-2).ratio) > 0;
+
+    const checks = [
+      { label:'C1 券資比≥20%',          hit:c1, val:`${latest.ratio}%` },
+      { label:'C2 融資近3日淨減（斷頭跡象）', hit:c2, val:`${marginNet3>=0?'+':''}${Math.round(marginNet3).toLocaleString()}張` },
+      { label:'C3 融券近3日淨增（空方加碼）', hit:c3, val:`${shortNet3>=0?'+':''}${Math.round(shortNet3).toLocaleString()}張` },
+      { label:'C4 券資比≥30%（偏高警戒）',  hit:c4, val:`${latest.ratio}%` },
+      { label:'C5 券資比今日續墊高',        hit:c5, val: c5 ? '連續墊高' : '持平或回落' },
+    ];
+    const score = checks.filter(c => c.hit).length;
+
+    return {
+      stockId, score, checks,
+      lc:0, chgPct:0, fCons:0, tCons:0,
+      _squeezeRatio: latest.ratio, _marginNet3: marginNet3, _shortNet3: shortNet3,
+    };
+  } catch(e) {
+    console.warn('[軋空體質 screener]', stockId, e.message);
     return EMPTY;
   }
 }
