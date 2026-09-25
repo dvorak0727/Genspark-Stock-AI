@@ -523,5 +523,530 @@
 "gapPct": -33.91
 }
 ]
+},
+"2026-09-25": {
+"computed_at": "2026-09-25T14:42:06Z",
+"rank50_cap": 399287400898.0,
+"page1": [
+{
+"id": "2330",
+"name": "台積電",
+"marketCap": 64182615915825.0,
+"changePct": -1.0,
+"rank": 1
+},
+{
+"id": "2454",
+"name": "聯發科",
+"marketCap": 8482174559705.0,
+"changePct": 1.93,
+"rank": 2
+},
+{
+"id": "2308",
+"name": "台達電",
+"marketCap": 4961307758390.0,
+"changePct": 0.53,
+"rank": 3
+},
+{
+"id": "2317",
+"name": "鴻海",
+"marketCap": 3525974497498.5,
+"changePct": -2.15,
+"rank": 4
+},
+{
+"id": "3711",
+"name": "日月光投控",
+"marketCap": 3124930025118.0,
+"changePct": 0.87,
+"rank": 5
+},
+{
+"id": "2881",
+"name": "富邦金",
+"marketCap": 2101104742800.0,
+"changePct": -1.96,
+"rank": 6
+},
+{
+"id": "3037",
+"name": "欣興",
+"marketCap": 1944930541260.0,
+"changePct": 2.16,
+"rank": 7
+},
+{
+"id": "2303",
+"name": "聯電",
+"marketCap": 1935794460446.0,
+"changePct": -3.75,
+"rank": 8
+},
+{
+"id": "1303",
+"name": "南亞",
+"marketCap": 1887535538182.0,
+"changePct": 4.62,
+"rank": 9
+},
+{
+"id": "2383",
+"name": "台光電",
+"marketCap": 1809521625700.0,
+"changePct": 0.6,
+"rank": 10
+},
+{
+"id": "2408",
+"name": "南亞科",
+"marketCap": 1735453564682.0,
+"changePct": -2.33,
+"rank": 11
+},
+{
+"id": "2882",
+"name": "國泰金",
+"marketCap": 1620947719144.0,
+"changePct": -0.9,
+"rank": 12
+},
+{
+"id": "3017",
+"name": "奇鋐",
+"marketCap": 1395942230385.0,
+"changePct": 2.45,
+"rank": 13
+},
+{
+"id": "2382",
+"name": "廣達",
+"marketCap": 1390431885732.0,
+"changePct": -0.88,
+"rank": 14
+},
+{
+"id": "2891",
+"name": "中信金",
+"marketCap": 1347801397211.0,
+"changePct": -0.58,
+"rank": 15
+},
+{
+"id": "2327",
+"name": "國巨*",
+"marketCap": 1194063799040.0,
+"changePct": 1.22,
+"rank": 16
+},
+{
+"id": "2059",
+"name": "川湖",
+"marketCap": 1176918839200.0,
+"changePct": -0.32,
+"rank": 17
+},
+{
+"id": "3443",
+"name": "創意",
+"marketCap": 1142451541275.0,
+"changePct": 1.67,
+"rank": 18
+},
+{
+"id": "2412",
+"name": "中華電",
+"marketCap": 1124829749025.0,
+"changePct": -0.34,
+"rank": 19
+},
+{
+"id": "2887",
+"name": "台新新光金",
+"marketCap": 1067390134872.5,
+"changePct": -1.05,
+"rank": 20
+},
+{
+"id": "2345",
+"name": "智邦",
+"marketCap": 1063318414815.0,
+"changePct": 0.26,
+"rank": 21
+},
+{
+"id": "7769",
+"name": "鴻勁",
+"marketCap": 1020203100000.0,
+"changePct": -5.1,
+"rank": 22
+},
+{
+"id": "3653",
+"name": "健策",
+"marketCap": 1018650835760.0,
+"changePct": 7.96,
+"rank": 23
+},
+{
+"id": "2360",
+"name": "致茂",
+"marketCap": 975938977890.0,
+"changePct": -1.29,
+"rank": 24
+},
+{
+"id": "2885",
+"name": "元大金",
+"marketCap": 959416199324.8,
+"changePct": -0.57,
+"rank": 25
+},
+{
+"id": "6505",
+"name": "台塑化",
+"marketCap": 830663681654.4,
+"changePct": -0.11,
+"rank": 26
+},
+{
+"id": "3008",
+"name": "大立光",
+"marketCap": 816834740265.0,
+"changePct": 0.89,
+"rank": 27
+},
+{
+"id": "2884",
+"name": "玉山金",
+"marketCap": 808192077477.6,
+"changePct": 0.0,
+"rank": 28
+},
+{
+"id": "8046",
+"name": "南電",
+"marketCap": 801245203880.0,
+"changePct": 2.48,
+"rank": 29
+},
+{
+"id": "2344",
+"name": "華邦電",
+"marketCap": 771750033099.5,
+"changePct": -0.58,
+"rank": 30
+},
+{
+"id": "2886",
+"name": "兆豐金",
+"marketCap": 735735562787.2001,
+"changePct": -0.8,
+"rank": 31
+},
+{
+"id": "2357",
+"name": "華碩",
+"marketCap": 707850546840.0,
+"changePct": -0.52,
+"rank": 32
+},
+{
+"id": "2890",
+"name": "永豐金",
+"marketCap": 667414917753.15,
+"changePct": 0.22,
+"rank": 33
+},
+{
+"id": "2301",
+"name": "光寶科",
+"marketCap": 664722927981.0,
+"changePct": 1.23,
+"rank": 34
+}
+],
+"border": [
+{
+"id": "2883",
+"name": "凱基金",
+"marketCap": 661161155901.25,
+"changePct": -1.02,
+"rank": 35,
+"direction": "out",
+"gapPct": 65.59
+},
+{
+"id": "2880",
+"name": "華南金",
+"marketCap": 643068164309.25,
+"changePct": -0.11,
+"rank": 36,
+"direction": "out",
+"gapPct": 61.05
+},
+{
+"id": "2395",
+"name": "研華",
+"marketCap": 627451217776.0,
+"changePct": 3.0,
+"rank": 37,
+"direction": "out",
+"gapPct": 57.14
+},
+{
+"id": "3231",
+"name": "緯創",
+"marketCap": 586719640125.0,
+"changePct": 2.5,
+"rank": 38,
+"direction": "out",
+"gapPct": 46.94
+},
+{
+"id": "2368",
+"name": "金像電",
+"marketCap": 577840935165.0,
+"changePct": -3.07,
+"rank": 39,
+"direction": "out",
+"gapPct": 44.72
+},
+{
+"id": "2892",
+"name": "第一金",
+"marketCap": 567989011675.0,
+"changePct": -0.88,
+"rank": 40,
+"direction": "out",
+"gapPct": 42.25
+},
+{
+"id": "4958",
+"name": "臻鼎-KY",
+"marketCap": 531387518281.5,
+"changePct": 0.53,
+"rank": 41,
+"direction": "out",
+"gapPct": 33.08
+},
+{
+"id": "2603",
+"name": "長榮",
+"marketCap": 526105448028.0,
+"changePct": 0.0,
+"rank": 42,
+"direction": "out",
+"gapPct": 31.76
+},
+{
+"id": "3189",
+"name": "景碩",
+"marketCap": 506887766320.0,
+"changePct": 6.18,
+"rank": 43,
+"direction": "out",
+"gapPct": 26.95
+},
+{
+"id": "6446",
+"name": "藥華藥",
+"marketCap": 487912004580.0,
+"changePct": -1.7,
+"rank": 44,
+"direction": "out",
+"gapPct": 22.2
+},
+{
+"id": "3665",
+"name": "貿聯-KY",
+"marketCap": 467013467700.0,
+"changePct": 0.0,
+"rank": 45,
+"direction": "out",
+"gapPct": 16.96
+},
+{
+"id": "3045",
+"name": "台灣大",
+"marketCap": 456120299337.5,
+"changePct": -0.41,
+"rank": 46,
+"direction": "out",
+"gapPct": 14.23
+},
+{
+"id": "5880",
+"name": "合庫金",
+"marketCap": 425129800913.64996,
+"changePct": -1.12,
+"rank": 47,
+"direction": "out",
+"gapPct": 6.47
+},
+{
+"id": "1216",
+"name": "統一",
+"marketCap": 423310148864.5,
+"changePct": -1.19,
+"rank": 48,
+"direction": "out",
+"gapPct": 6.02
+},
+{
+"id": "1301",
+"name": "台塑",
+"marketCap": 408043984062.1,
+"changePct": 1.58,
+"rank": 49,
+"direction": "out",
+"gapPct": 2.19
+},
+{
+"id": "2449",
+"name": "京元電子",
+"marketCap": 399287400898.0,
+"changePct": 2.3,
+"rank": 50,
+"direction": "out",
+"gapPct": 0.0
+},
+{
+"id": "3481",
+"name": "群創",
+"marketCap": 395864728048.35,
+"changePct": -0.1,
+"rank": 51,
+"direction": "in",
+"gapPct": -0.86
+},
+{
+"id": "6669",
+"name": "緯穎",
+"marketCap": 393053272965.0,
+"changePct": 0.48,
+"rank": 52,
+"direction": "in",
+"gapPct": -1.56
+},
+{
+"id": "1326",
+"name": "台化",
+"marketCap": 392699481497.0,
+"changePct": 2.45,
+"rank": 53,
+"direction": "in",
+"gapPct": -1.65
+},
+{
+"id": "2379",
+"name": "瑞昱",
+"marketCap": 386118968109.0,
+"changePct": -1.58,
+"rank": 54,
+"direction": "in",
+"gapPct": -3.3
+},
+{
+"id": "4904",
+"name": "遠傳",
+"marketCap": 380612915163.5,
+"changePct": 0.0,
+"rank": 55,
+"direction": "in",
+"gapPct": -4.68
+},
+{
+"id": "6770",
+"name": "力積電",
+"marketCap": 339269821632.0,
+"changePct": -1.5,
+"rank": 56,
+"direction": "in",
+"gapPct": -15.03
+},
+{
+"id": "2801",
+"name": "彰銀",
+"marketCap": 334670478099.75,
+"changePct": -0.36,
+"rank": 57,
+"direction": "in",
+"gapPct": -16.18
+},
+{
+"id": "3034",
+"name": "聯詠",
+"marketCap": 330421727667.0,
+"changePct": -0.37,
+"rank": 58,
+"direction": "in",
+"gapPct": -17.25
+},
+{
+"id": "3661",
+"name": "世芯-KY",
+"marketCap": 325370279780.0,
+"changePct": 0.27,
+"rank": 59,
+"direction": "in",
+"gapPct": -18.51
+},
+{
+"id": "2615",
+"name": "萬海",
+"marketCap": 324109896841.5,
+"changePct": 1.76,
+"rank": 60,
+"direction": "in",
+"gapPct": -18.83
+},
+{
+"id": "2002",
+"name": "中鋼",
+"marketCap": 293455157594.05,
+"changePct": 0.0,
+"rank": 61,
+"direction": "in",
+"gapPct": -26.51
+},
+{
+"id": "2207",
+"name": "和泰車",
+"marketCap": 284122411680.0,
+"changePct": -1.92,
+"rank": 62,
+"direction": "in",
+"gapPct": -28.84
+},
+{
+"id": "3044",
+"name": "健鼎",
+"marketCap": 282775973124.0,
+"changePct": -0.92,
+"rank": 63,
+"direction": "in",
+"gapPct": -29.18
+},
+{
+"id": "2313",
+"name": "華通",
+"marketCap": 274525081052.5,
+"changePct": -0.67,
+"rank": 64,
+"direction": "in",
+"gapPct": -31.25
+},
+{
+"id": "3036",
+"name": "文曄",
+"marketCap": 263006479107.0,
+"changePct": 0.49,
+"rank": 65,
+"direction": "in",
+"gapPct": -34.13
+}
+]
 }
 }
