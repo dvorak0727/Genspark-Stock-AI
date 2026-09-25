@@ -17079,6 +17079,7 @@ a.module-nav-item.acc-active {
           <div class="cs-obv-title" style="color:#6D28D9;">🔺 股份金字塔 — 持股分級（千張大戶動向）
             <span data-tip="股份金字塔" style="cursor:pointer;">?</span>
             <span id="csWhaleBadge" style="margin-left:6px;"></span>
+            <span id="csPyramidArchiveBadge" style="margin-left:6px;font-size:0.6rem;font-weight:700;padding:1px 7px;border-radius:10px;white-space:nowrap;"></span>
           </div>
           <button class="cs-obv-close" onclick="toggleSharePyramidPanel()">✕ 收合</button>
         </div>
@@ -40698,11 +40699,41 @@ function toggleSharePyramidPanel() {
   if (isOpen) _renderSharePyramid();
 }
 
+// v7.9x：全級距金字塔長期存檔（跟前端即時算的千張大戶不同，這個是每週排程
+// 存進repo的 pyramid_history.json，見 fetch_pyramid_history.py。只讀靜態JSON，
+// 不影響原本前端即時抓 FinMind 的流程。
+let _pyramidHistCache = null;
+async function _tryLoadPyramidHistory() {
+  if (_pyramidHistCache !== null) return _pyramidHistCache;
+  try {
+    const r = await fetch('./pyramid_history.json', { cache: 'no-store' });
+    _pyramidHistCache = r.ok ? await r.json() : false;
+  } catch (e) { _pyramidHistCache = false; }
+  return _pyramidHistCache;
+}
+async function _updatePyramidArchiveBadge(stockId) {
+  const el = document.getElementById('csPyramidArchiveBadge');
+  if (!el) return;
+  const hist = await _tryLoadPyramidHistory();
+  const weeks = hist && hist[stockId] ? Object.keys(hist[stockId]) : [];
+  if (weeks.length) {
+    const latest = weeks.sort().at(-1);
+    el.textContent = `📌 已自動存檔（最新：${latest}，共${weeks.length}週）`;
+    el.style.background = '#D1FAE5'; el.style.color = '#065F46';
+    el.title = '每週排程存下全級距分布，長期累積中，想看歷史走勢可以跟我說';
+  } else {
+    el.textContent = '尚未加入自動存檔';
+    el.style.background = 'var(--surface2)'; el.style.color = 'var(--fg3)';
+    el.title = '想長期追蹤這檔的金字塔變化，跟克館長說一聲「加入OOOO的金字塔追蹤」即可';
+  }
+}
+
 async function _renderSharePyramid() {
   const body = document.getElementById('csPyramidBody');
   if (!body) return;
   const stockId = window._currentStockId || document.getElementById('searchInput')?.value?.trim();
   if (!stockId) { body.innerHTML = '<div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">請先查詢個股</div>'; return; }
+  _updatePyramidArchiveBadge(stockId);
 
   const token = getToken();
   if (!token) {

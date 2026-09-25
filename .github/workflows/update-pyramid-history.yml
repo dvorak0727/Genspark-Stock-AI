@@ -1,0 +1,32 @@
+name: 更新股份金字塔全級距歷史存檔（FinMind股權分散表）
+
+on:
+  schedule:
+    # 集保結算所股權分散表通常每週更新，這裡訂在台灣時間週五中午（UTC 04:00）
+    # 跑，同一週資料重複跑不會重複寫入（腳本自己會判斷日期已存在就跳過）。
+    - cron: '0 4 * * 5'
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發
+
+jobs:
+  update-pyramid-history:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 requests
+        run: pip install requests
+
+      - name: 執行抓取腳本
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python fetch_pyramid_history.py
+
+      - name: 自動 commit 更新後的 pyramid_history.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新股份金字塔全級距歷史存檔"
+          file_pattern: pyramid_history.json
