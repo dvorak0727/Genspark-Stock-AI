@@ -57083,6 +57083,24 @@ async function _computeChipBottomSignal(stockId) {
   return { label: '⚪未到低檔', color: 'var(--fg3)' };
 }
 
+// v9.x 複合訊號⑤：量價籌碼雙重確認——chipSig(純技術面：近底+量縮)跟
+// whaleSig(基本面：股權分散表千張大戶佔比週增)本來是兩條互不相干的非同步
+// 查詢，各自查完各填各的欄位。這裡加一個共用暫存，兩邊誰後查完就順便檢查
+// 「兩個條件是否同時成立」，成立的話直接把chipSig那個badge升級成更醒目的
+// 「🎯量價籌碼雙重確認」，不佔用新欄位（列已經很擠，不想再破壞排版）。
+let _idxComboSignalCache = {};
+
+function _tryComboSignal(stockId) {
+  const cache = _idxComboSignalCache[stockId];
+  if (!cache || !cache.chipBottom || !cache.whaleAccum) return;
+  const el = document.getElementById(`chipSig-${stockId}`);
+  if (!el) return;
+  el.textContent = '🎯雙重確認';
+  el.style.color = '#b45309';
+  el.style.fontWeight = '800';
+  el.title = `量價籌碼雙重確認：技術面近底量縮（${cache.chipDetail || ''}）＋ 基本面千張大戶佔比週增（${cache.whaleDetail || ''}），兩套獨立資料互相印證`;
+}
+
 async function annotateChipSignals(list) {
   // 用小批次併發，避免同時間炸出太多請求；fetchFM本身有快取，同一天重複載入不會再打API
   const CONCURRENCY = 4;
@@ -57096,6 +57114,12 @@ async function annotateChipSignals(list) {
         const sig = await _computeChipBottomSignal(x.id);
         el.textContent = sig.label;
         el.style.color = sig.color;
+        _idxComboSignalCache[x.id] = {
+          ..._idxComboSignalCache[x.id],
+          chipBottom: sig.label === '🟢籌碼近底量縮',
+          chipDetail: sig.label,
+        };
+        _tryComboSignal(x.id);
       } catch (e) {
         el.textContent = '－查無資料';
       }
@@ -57199,6 +57223,12 @@ async function annotateWhaleSignals(list) {
         el.textContent = meta.icon;
         el.style.color = meta.color;
         el.title = `千張大戶：${meta.label}（資料日期：${parsed.latestDate}）`;
+        _idxComboSignalCache[x.id] = {
+          ..._idxComboSignalCache[x.id],
+          whaleAccum: parsed.whaleSignal === 'strong' || parsed.whaleSignal === 'accum',
+          whaleDetail: `${meta.label}／${parsed.latestDate}`,
+        };
+        _tryComboSignal(x.id);
       } catch (e) {
         el.textContent = '—';
         el.title = '查詢失敗';
