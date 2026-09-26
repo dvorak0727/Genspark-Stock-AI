@@ -63865,6 +63865,30 @@ function _screenerRankFilter(minScore, btnEl) {
 }
 
 // ── 渲染海選結果卡片 ──
+// ── v9.x 量價同步確認偵測（回測驗證，非猜測）──
+// candles 為近15日資料（升冪：closes/opens/highs/lows/dates/vols），偵測「昨天量縮＋隔天(今天)量增」
+// 且方向同步(同紅或同綠)：昨天量縮定義=昨天量<過去5日均量*0.6；今天量增定義=今天量>昨天量*1.2。
+// 回測依據：backtest_gray_candle.py（65檔候選股，2024-09~2026-09），同步收紅第2天上漲69.7%／
+// 平均+2.79%（498次），同步收綠第2天下跌64.4%／平均-1.60%（494次）。
+function _checkVolPriceConfirm(candles) {
+  const { opens, closes, vols } = candles || {};
+  if (!closes || closes.length < 8) return null;
+  const n = closes.length;
+  const yIdx = n - 2, tIdx = n - 1; // 昨天、今天
+  const ma5vol = vols.slice(yIdx - 5, yIdx).reduce((a, b) => a + b, 0) / 5;
+  if (!ma5vol) return null;
+  const yShrink = vols[yIdx] < ma5vol * 0.6;
+  if (!yShrink) return null;
+  const yColor = closes[yIdx] > opens[yIdx] ? 'red' : closes[yIdx] < opens[yIdx] ? 'green' : null;
+  if (!yColor) return null;
+  const volExpand = vols[tIdx] > vols[yIdx] * 1.2;
+  if (!volExpand) return null;
+  const tColor = closes[tIdx] > opens[tIdx] ? 'red' : closes[tIdx] < opens[tIdx] ? 'green' : null;
+  if (tColor === 'red' && yColor === 'red') return 'bull';
+  if (tColor === 'green' && yColor === 'green') return 'bear';
+  return null;
+}
+
 function renderScreenerCards(showStats=false) {
   if (!_screenerResults.length) return;
 
@@ -64029,6 +64053,14 @@ function renderScreenerCards(showStats=false) {
            border:1px solid ${bottomComposite>=65?'#6EE7B7':bottomComposite>=40?'#F59E0B':'#FCA5A5'};">&#127937; 底部綜合 ${bottomComposite}/100</span>`
       : '';
 
+    // ── v9.x 量價齊揚／量價齊跌 badge（回測驗證：量縮→隔天量增，方向同步才是真確認）──
+    const volPriceConfirm = r.candles ? _checkVolPriceConfirm(r.candles) : null;
+    const volPriceBadgeHtml = volPriceConfirm === 'bull'
+      ? `<span class="sc-inst-badge strong" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5;" title="量縮後隔天量增且同步收紅，回測65檔候選股近2年：第2天上漲機率69.7%、平均報酬+2.79%（樣本498次）">🔥 量價齊揚</span>`
+      : volPriceConfirm === 'bear'
+        ? `<span class="sc-inst-badge strong" style="background:#D1FAE5;color:#065F46;border-color:#6EE7B7;" title="量縮後隔天量增但同步收綠，回測65檔候選股近2年：第2天下跌機率64.4%、平均報酬-1.60%（樣本494次）">⚠️ 量價齊跌</span>`
+        : '';
+
     // 預設 locked（指標隱藏）；解鎖後 JS 移除 locked class
     const lockedCls = _scDetailsUnlocked ? '' : 'locked';
 
@@ -64050,7 +64082,7 @@ function renderScreenerCards(showStats=false) {
             &nbsp;
             <span class="sc-chg" data-rt-chg="${r.stockId}" style="color:${up?'var(--up)':'var(--down)'};">${up?'▲':'▼'}${Math.abs(r.chgPct).toFixed(1)}%</span>
           </div>
-          <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}</div>
+          <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}${volPriceBadgeHtml}</div>
           <div class="sc-industry">${info.industry}</div>
         </div>
       </div>
