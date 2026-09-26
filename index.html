@@ -56996,16 +56996,16 @@ function renderIndexBorderList(list) {
   const inGroup  = list.filter(x => x.direction === 'in').sort((a,b) => a.rank - b.rank);  // 排名51~59，越接近51機會越大
 
   const rowHtml = x => `
-    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:wrap;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
-      <span style="font-weight:800;color:var(--fg3);width:26px;">#${x.rank}</span>
-      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:70px;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
-      <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:46px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
-      <canvas id="mini-${x.id}" width="44" height="22" onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="近15日K線，點擊看完整門檻觀察區走勢" style="cursor:pointer;"></canvas>
-      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.64rem;font-weight:700;color:var(--fg3);width:90px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⏳</span>
-      <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:70px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
-      <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:20px;text-align:center;">⏳</span>
-      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:56px;text-align:right;white-space:nowrap;">⏳</span>
-      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:98px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
+    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:5px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:nowrap;overflow-x:auto;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <span style="flex:0 0 auto;font-weight:800;color:var(--fg3);width:22px;">#${x.rank}</span>
+      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:56px;color:var(--accent);text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span style="flex:0 0 auto;font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:42px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
+      <canvas id="mini-${x.id}" width="40" height="20" onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="近15日K線，點擊看完整門檻觀察區走勢" style="flex:0 0 auto;cursor:pointer;"></canvas>
+      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.64rem;font-weight:700;color:var(--fg3);width:78px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⏳</span>
+      <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
+      <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
+      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
+      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
 
   return `
@@ -57026,16 +57026,16 @@ function renderIndexBorderList(list) {
 
 function renderIndexBorderPage1(page1) {
   const rowHtml = x => `
-    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:wrap;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
-      <span style="font-weight:800;color:var(--fg3);width:26px;">#${x.rank}</span>
-      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:70px;color:var(--accent);text-decoration:underline;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
-      <span style="font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:46px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
-      <canvas id="mini-${x.id}" width="44" height="22" onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="近15日K線，點擊看完整門檻觀察區走勢" style="cursor:pointer;"></canvas>
-      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.64rem;font-weight:700;color:var(--fg3);width:90px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⏳</span>
-      <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:70px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
-      <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:20px;text-align:center;">⏳</span>
-      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:56px;text-align:right;white-space:nowrap;">⏳</span>
-      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:98px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
+    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:5px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:nowrap;overflow-x:auto;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <span style="flex:0 0 auto;font-weight:800;color:var(--fg3);width:22px;">#${x.rank}</span>
+      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:56px;color:var(--accent);text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span style="flex:0 0 auto;font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:42px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
+      <canvas id="mini-${x.id}" width="40" height="20" onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="近15日K線，點擊看完整門檻觀察區走勢" style="flex:0 0 auto;cursor:pointer;"></canvas>
+      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.64rem;font-weight:700;color:var(--fg3);width:78px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⏳</span>
+      <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
+      <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
+      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
+      <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
   const mid = Math.ceil(page1.length / 2);
   const colA = page1.slice(0, mid);
