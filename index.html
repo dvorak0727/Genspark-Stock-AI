@@ -56433,12 +56433,13 @@ function buildMiniCandles(closes, opens, highs, lows, dates, vols, scale = 1, bo
     const o = opens[i];
     const h = highs[i];
     const l = lows[i];
-    const isRed = c >= o;
+    const isFlat = c === o; // 十字/平盤：跟判斷邏輯(_checkVolPriceConfirm)一致，視為中性、不歸紅不歸綠
+    const isRed = c > o;
     const bodyTop    = ((maxV - Math.max(c,o)) / range * KH).toFixed(1);
     const bodyHeight = Math.max(1, (Math.abs(c - o) / range * KH)).toFixed(1);
     const wickTop    = ((maxV - h) / range * KH).toFixed(1);
     const wickH      = ((h - l) / range * KH).toFixed(1);
-    const clr  = isRed ? '#E8343A' : '#16A34A';
+    const clr  = isFlat ? '#94A3B8' : (isRed ? '#E8343A' : '#16A34A');
     const left = (i * W + W * 0.15).toFixed(1);
     const bw   = (W * 0.7).toFixed(1);
     return `
@@ -56458,17 +56459,19 @@ function buildMiniCandles(closes, opens, highs, lows, dates, vols, scale = 1, bo
     volHtml = `<div style="position:relative;height:${VH}px;overflow:hidden;border-top:1px solid var(--border);margin-top:${GAP}px;">` +
       vols.map((v, i) => {
         const c = closes[i];
-        const isRed = c >= (opens[i] || c);
+        const o = opens[i] ?? c;
+        const isFlat = c === o; // 十字/平盤：不歸紅不歸綠，跟K棒本體同一套判斷
+        const isRed = c > o;
         // 量縮程度：< 0.5x 均量 = 極縮，< 0.7x = 縮，> 1.5x = 爆量
         const ratio = v / avgVol;
         const barH  = Math.max(2, (v / maxVol * VH)).toFixed(1);
-        // 顏色：爆量橘、正常紅/綠、量縮灰（越縮越淺）
+        // 顏色：爆量橘、正常紅/綠、量縮灰（越縮越淺）、十字灰
         let clr;
         if (ratio >= 1.8)      clr = '#F97316';   // 爆量 橘
-        else if (ratio >= 1.2) clr = isRed ? '#EF4444' : '#22C55E';  // 放量
+        else if (ratio >= 1.2) clr = isFlat ? '#94A3B8' : (isRed ? '#EF4444' : '#22C55E');  // 放量
         else if (ratio <= 0.5) clr = '#CBD5E1';   // 極縮量 淡灰
         else if (ratio <= 0.7) clr = '#94A3B8';   // 縮量 灰
-        else                   clr = isRed ? '#FCA5A5' : '#86EFAC'; // 正常偏淡
+        else                   clr = isFlat ? '#CBD5E1' : (isRed ? '#FCA5A5' : '#86EFAC'); // 正常偏淡
 
         const left = (i * W + W * 0.1).toFixed(1);
         const bw   = (W * 0.8).toFixed(1);
@@ -57150,8 +57153,9 @@ function _drawMiniCandles(canvas, rows) {
 
   bars.forEach((r, i) => {
     const cx = barW * i + barW / 2;
-    const isUp = r.close >= r.open;
-    const color = isUp ? '#dc2626' : '#16a34a'; // 台股慣例：紅漲綠跌
+    const isFlat = r.close === r.open; // 十字/平盤：跟_checkVolPriceConfirm一致，視為中性
+    const isUp = r.close > r.open;
+    const color = isFlat ? '#94A3B8' : (isUp ? '#dc2626' : '#16a34a'); // 台股慣例：紅漲綠跌，平盤灰
     const yHi = y(r.max ?? r.high ?? r.close);
     const yLo = y(r.min ?? r.low  ?? r.close);
     const yOpen  = y(r.open  ?? r.close);
