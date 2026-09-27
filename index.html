@@ -64722,6 +64722,14 @@ async function _scQuickBlowoff(stockId, triggerEl) {
   const range = (h - l) || 1;
   const upperWick = h - Math.max(o, c);
   const upperWickPct = Math.max(0, upperWick / range * 100);
+  const color = c > o ? 'red' : (c < o ? 'green' : 'flat');
+
+  // v9.x 位階：用整個可視窗口（近15日）的高低點，抓「今天收盤落在這段區間的哪個位置」——
+  // 使用者的觀察：同樣是爆量收黑，在高檔是真出貨（上面沒人接了），在低檔反而常是洗盤/吸籌
+  // （竭盡性賣壓出盡），不能只看顏色，要搭配位階一起判斷。
+  const windowHigh = Math.max(...highs), windowLow = Math.min(...lows);
+  const posPct = windowHigh > windowLow ? (c - windowLow) / (windowHigh - windowLow) * 100 : 50;
+  const posLabel = posPct >= 70 ? '高檔' : posPct <= 30 ? '低檔' : '中段';
 
   // ① 三大法人：優先用卡片已快取的 _instRaw，省一次API
   let instFNet = null, instTNet = null;
@@ -64748,17 +64756,43 @@ async function _scQuickBlowoff(stockId, triggerEl) {
     }
   } catch (e) { /* 查不到就不納入判斷，不影響其他兩項 */ }
 
-  // ── 綜合判斷：三個線索各算一分風險分 ──
+  // ── 綜合判斷：每個線索各算一分風險分 ──
   let riskScore = 0, totalChecked = 0;
   const clues = [];
 
+  // 上影線：收紅時才是重點（收盤守不守得住當天高點）；收綠當天本來就是跌，
+  // 上影線長短意義不大，改由下面「位階」那條線索來承擔判斷。
+  if (color === 'red') {
+    clues.push({
+      label: '上影線比例',
+      val: `${upperWickPct.toFixed(0)}%`,
+      warn: upperWickPct >= 30,
+      desc: upperWickPct >= 30 ? '收盤離當天高點很遠，高點有被賣壓打下來的痕跡' : '收盤貼近當天高點，買方守得住',
+    });
+    if (upperWickPct >= 30) riskScore++;
+    totalChecked++;
+  }
+
+  // 位階＋顏色：同樣收黑，高檔爆量像真出貨（上面沒人接）；低檔爆量常是竭盡性賣壓
+  // 出盡、後面反而容易反彈，不能只看顏色。收紅則相反：低檔爆量收紅=買進籌碼共振，
+  // 高檔爆量收紅又帶長上影線=追高風險最大。
+  let posWarn = false, posDesc = '';
+  if (color === 'green') {
+    if (posPct >= 70)      { posWarn = true;  posDesc = '高檔爆量收黑，上面籌碼浮動，較像真出貨'; }
+    else if (posPct <= 30) { posWarn = false; posDesc = '低檔爆量收黑，較像竭盡性賣壓出盡/洗盤，不是續跌保證'; }
+    else                   { posWarn = true;  posDesc = '中段爆量收黑，方向未明但偏空'; }
+  } else if (color === 'red') {
+    if (posPct <= 30)                            { posWarn = false; posDesc = '低檔爆量收紅，買進籌碼共振，訊號較乾淨'; }
+    else if (posPct >= 70 && upperWickPct >= 30)  { posWarn = true;  posDesc = '高檔爆量收紅又有長上影線，追高風險大'; }
+    else                                          { posWarn = false; posDesc = ''; }
+  }
   clues.push({
-    label: '上影線比例',
-    val: `${upperWickPct.toFixed(0)}%`,
-    warn: upperWickPct >= 30,
-    desc: upperWickPct >= 30 ? '收盤離當天高點很遠，高點有被賣壓打下來的痕跡' : '收盤貼近當天高點，買方守得住',
+    label: `位階（${posLabel}）`,
+    val: `${posPct.toFixed(0)}%`,
+    warn: posWarn,
+    desc: posDesc || '近15日高低區間中的相對位置（0%＝最低、100%＝最高）',
   });
-  if (upperWickPct >= 30) riskScore++;
+  if (posWarn) riskScore++;
   totalChecked++;
 
   if (instFNet !== null && instTNet !== null) {
