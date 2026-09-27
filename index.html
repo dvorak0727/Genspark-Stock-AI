@@ -79719,7 +79719,7 @@ async function _tFetch(id, token) {
     marginStreak=_tStreakN(mSeries);
   }
 
-  return {closes:rows.map(r=>+r.close),highs:rows.map(r=>+r.max),lows:rows.map(r=>+r.min),dates:rows.map(r=>r.date),lc:+rows[rows.length-1].close,fStreak,tStreak,mStreak,marginStreak};
+  return {closes:rows.map(r=>+r.close),opens:rows.map(r=>+(r.open||r.close)),highs:rows.map(r=>+r.max),lows:rows.map(r=>+r.min),dates:rows.map(r=>r.date),lc:+rows[rows.length-1].close,fStreak,tStreak,mStreak,marginStreak};
 }
 
 // ─── 單檔分析 ───
@@ -80416,6 +80416,137 @@ function _tRenderCard(s, ind, isSim) {
   </div>`;
 }
 
+// ─── K棒走勢教學：13分類查表（跟知識站「K棒行為學」、海選「爆量健檢」同一套判斷邏輯）───
+const _TEACH_SHAPE_TABLE = {
+  '高檔|red-solid':  { risk: 0,  note: '買方全面掌控，衝高仍收在高點附近，追價買盤強、賣壓被吸收，續漲機率高（留意乖離過大）' },
+  '高檔|red-upper':  { risk: 1,  note: '盤中買方一度壓制，尾盤賣方悄悄出現，追高的人被套在最高點——典型「誘多出貨」' },
+  '高檔|red-lower':  { risk: -1, note: '盤中一度殺低甚至製造恐慌，買盤強力接手拉回收紅——主力刻意甩轎清浮額，控盤力道極強' },
+  '高檔|green-solid':{ risk: 1,  note: '賣壓從頭到尾主導，收在當天最低附近——主力全面撤退，最明確的出貨訊號' },
+  '高檔|green-upper':{ risk: 1,  note: '盤中仍有人追高，很快被打下來、收盤更弱——追高買盤薄弱，出貨嫌疑濃厚' },
+  '高檔|green-lower':{ risk: 0,  note: '賣壓一度兇猛創新低，尾盤有人接手拉回（仍收黑）——空方力竭、多方反攻的早期跡象' },
+  '低檔|red-solid':  { risk: -1, note: '買盤在低檔全面進場、收在最高附近——實質買進、共振訊號最乾淨，最像真正落底起漲點' },
+  '低檔|red-upper':  { risk: 0,  note: '買盤積極推升，但追高賣壓把最高點打下——雖收紅，上方仍有套牢賣壓，反彈力道可能有限' },
+  '低檔|red-lower':  { risk: -1, note: '開低殺出新低，隨即被強力買盤逆轉收紅——恐慌盤洗完浮額後強力進場，最強落底反轉訊號之一' },
+  '低檔|green-solid':{ risk: 0,  note: '賣壓在低檔繼續加碼、收在當天最低——竭盡性賣壓候選，但當下還沒真正止穩，不能急著認定落底' },
+  '低檔|green-upper':{ risk: 1,  note: '低檔出現反彈，但力道不足又被壓回——空方仍占優勢，可能還要再探一次底，是「假反彈」' },
+  '低檔|green-lower':{ risk: 0,  note: '開低殺出新低，尾盤有承接拉回但仍收黑——低點已有買盤護盤，止跌前兆，隔天觀察是否轉紅' },
+  'doji':            { risk: 0,  note: '開盤收盤幾乎相同、多空拉鋸打成平手——趨勢猶豫/轉折訊號，需隔天確認方向' },
+};
+const _TEACH_SHAPE_LABEL = {
+  'red-solid':'紅實柱','red-upper':'紅上影線','red-lower':'紅下影線',
+  'green-solid':'綠實柱','green-upper':'綠上影線','green-lower':'綠下影線','doji':'十字',
+};
+// 13種組合的完整清單（跟知識站「K棒行為學」速查表一致），K棒教學要輪流覆蓋這13種，
+// 不能只看今天5檔隨機股票剛好長什麼樣子。
+const _TEACH_ALL_SHAPE_KEYS = [
+  '高檔|red-solid','高檔|red-upper','高檔|red-lower',
+  '高檔|green-solid','高檔|green-upper','高檔|green-lower',
+  '低檔|red-solid','低檔|red-upper','低檔|red-lower',
+  '低檔|green-solid','低檔|green-upper','低檔|green-lower',
+  'doji',
+];
+function _teachShapeKeyLabel(key) {
+  if (key === 'doji') return '十字';
+  const [pos, shape] = key.split('|');
+  return pos + (_TEACH_SHAPE_LABEL[shape] || shape);
+}
+// 額外的背景資訊（不是搜尋條件，只是把「這15天大概是什麼走勢」順便算出來顯示）：
+// 用這天之前15天收盤的頭尾變化幅度＋振幅比例粗略分類，不強求精確。
+function _teachTrendLabel(closes, atIndex) {
+  const i = atIndex != null ? atIndex : closes.length - 1;
+  const start = Math.max(0, i - 14);
+  const seg = closes.slice(start, i + 1);
+  if (seg.length < 4) return '資料不足';
+  const first = seg[0], last = seg[seg.length - 1];
+  const chgPct = (last - first) / first * 100;
+  if (chgPct >= 6) return '上升趨勢';
+  if (chgPct <= -6) return '下降趨勢';
+  return '盤整盤';
+}
+// atIndex：要判斷哪一天（預設最後一天）；位階用「這天之前最多15天(含當天)」的高低區間算，
+// 讓歷史掃描時每一天的位階都是「當時看得到」的區間，不是整個下載期間的高低。
+function _teachClassifyCandle(opens, closes, highs, lows, atIndex) {
+  const i = atIndex != null ? atIndex : closes.length - 1;
+  const o=opens[i], c=closes[i], h=highs[i], l=lows[i];
+  const range=(h-l)||1;
+  const upperPct=Math.max(0,(h-Math.max(o,c))/range*100);
+  const lowerPct=Math.max(0,(Math.min(o,c)-l)/range*100);
+  const bodyPct=Math.max(0,Math.abs(c-o)/range*100);
+  const color=c>o?'red':(c<o?'green':'flat');
+  const shape = bodyPct<10 ? 'doji'
+    : (upperPct>=lowerPct*1.5 && upperPct>=30) ? `${color}-upper`
+    : (lowerPct>=upperPct*1.5 && lowerPct>=30) ? `${color}-lower`
+    : `${color}-solid`;
+  const winStart = Math.max(0, i-14);
+  const wh=Math.max(...highs.slice(winStart, i+1)), wl=Math.min(...lows.slice(winStart, i+1));
+  const posPct = wh>wl ? (c-wl)/(wh-wl)*100 : 50;
+  const posLabel = posPct>=70?'高檔':posPct<=30?'低檔':'中段';
+  const key = shape==='doji' ? 'doji' : `${posLabel==='中段'?(color==='green'?'高檔':'低檔'):posLabel}|${shape}`;
+  const info = _TEACH_SHAPE_TABLE[key] || { risk: color==='green'?1:0, note:'中段，位階不明確，僅供參考' };
+  return { posPct, posLabel, upperPct, lowerPct, shape, shapeLabel:_TEACH_SHAPE_LABEL[shape]||shape, color, risk:info.risk, note:info.note, matchKey:key, atIndex:i };
+}
+function _teachCandleSvg(opens, closes, highs, lows) {
+  const n=opens.length, W=300, KH=64, GAP=3, VH=34;
+  const hi=Math.max(...highs), lo=Math.min(...lows), rng=(hi-lo)||1;
+  const w=W/n, bw=w*0.62;
+  const parts=[`<line x1="0" y1="${KH+GAP}" x2="${W}" y2="${KH+GAP}" stroke="#e2e8f0" stroke-width="1"/>`];
+  for(let i=0;i<n;i++){
+    const o=opens[i],c=closes[i],h=highs[i],l=lows[i];
+    const cx=i*w+w/2, isUp=c>=o, color=isUp?'#E8343A':'#16A34A';
+    const yHi=KH-(h-lo)/rng*KH, yLo=KH-(l-lo)/rng*KH, yO=KH-(o-lo)/rng*KH, yC=KH-(c-lo)/rng*KH;
+    const bTop=Math.min(yO,yC), bH=Math.max(1.2,Math.abs(yC-yO));
+    parts.push(`<line x1="${cx.toFixed(1)}" y1="${yHi.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yLo.toFixed(1)}" stroke="${color}" stroke-width="1.4"/>`);
+    parts.push(`<rect x="${(cx-bw/2).toFixed(1)}" y="${bTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${bH.toFixed(1)}" fill="${color}" rx="1"/>`);
+    if(i===n-1){ parts.push(`<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${KH+GAP+VH}" stroke="#f5c451" stroke-width="1" stroke-dasharray="2 2"/>`); }
+  }
+  return `<svg viewBox="0 0 ${W} ${KH+GAP+VH}" width="100%" height="76" style="display:block;background:#f0fdf4;border-radius:6px;">${parts.join('')}</svg>`;
+}
+// s=股票資訊, raw=完整OHLC資料(dates夠長), dayIdx=這題要考的那一天在raw裡的index，
+// targetKey=今天輪到要練習的型態(用來在標題顯示「今天練的是XX」，答案仍照實際算出來的為準)
+function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
+  const uid = `tcandle_${idx}_${s.id}`;
+  if (!raw || !raw.closes || raw.closes.length < 5) {
+    return `<div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);color:var(--fg3);font-size:0.7rem;">⚠️ ${s.name}（${s.id}）K線資料不足，無法出題。</div>`;
+  }
+  const winStart = Math.max(0, dayIdx - 14);
+  const opens=raw.opens.slice(winStart, dayIdx+1), closes=raw.closes.slice(winStart, dayIdx+1),
+        highs=raw.highs.slice(winStart, dayIdx+1), lows=raw.lows.slice(winStart, dayIdx+1);
+  const info = _teachClassifyCandle(opens, closes, highs, lows); // 視窗最後一天＝dayIdx
+  const trend = _teachTrendLabel(closes);
+  const svg = _teachCandleSvg(opens, closes, highs, lows);
+  const simBadge = isSim ? `<span style="font-size:0.6rem;color:#f59e0b;">（模擬數據）</span>` : '';
+  const verdictColor = info.risk>0?'#dc2626':info.risk<0?'#16a34a':'#1E40AF';
+  const verdictText  = info.risk>0?'⚠️ 偏空警訊':info.risk<0?'✅ 偏多訊號':'🔵 中性觀察';
+  const targetLabel = _teachShapeKeyLabel(targetKey);
+  const dateTxt = raw.dates?.[dayIdx] || '';
+  return `
+  <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;flex-wrap:wrap;">
+      <span style="font-weight:800;font-size:0.88rem;">${s.name}</span>
+      <span style="font-size:0.63rem;color:var(--fg3);background:var(--tag-bg,rgba(128,128,128,0.1));padding:1px 6px;border-radius:10px;">${s.id}</span>
+      ${dateTxt?`<span style="font-size:0.62rem;color:var(--fg3);">${dateTxt}</span>`:''}
+      ${simBadge}
+      <span style="margin-left:auto;font-size:0.62rem;font-weight:700;color:#ea580c;background:rgba(234,88,12,0.1);border-radius:10px;padding:2px 8px;">今日練習：${targetLabel}</span>
+    </div>
+    ${svg}
+    <div style="text-align:center;margin:8px 0 4px;">
+      <button onclick="const p=document.getElementById('${uid}');const b=this;if(p.style.display==='none'){p.style.display='block';b.textContent='🙈 收起解答';}else{p.style.display='none';b.textContent='🔍 查看解答';}"
+        style="font-size:0.68rem;font-weight:700;color:#ea580c;background:rgba(234,88,12,0.08);border:1px solid rgba(234,88,12,0.3);border-radius:16px;padding:4px 14px;cursor:pointer;">🔍 查看解答</button>
+    </div>
+    <div id="${uid}" style="display:none;background:rgba(234,88,12,0.06);border-radius:8px;padding:10px 12px;font-size:0.68rem;">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+        <span><b>位階</b>：${info.posLabel}（${info.posPct.toFixed(0)}%）</span>
+        <span><b>型態</b>：${info.shapeLabel}</span>
+        <span><b>上影</b>：${info.upperPct.toFixed(0)}%</span>
+        <span><b>下影</b>：${info.lowerPct.toFixed(0)}%</span>
+        <span><b>近況</b>：${trend}</span>
+      </div>
+      <div style="color:var(--fg2);line-height:1.6;margin-bottom:6px;">${info.note}</div>
+      <div style="font-weight:800;color:${verdictColor};">${verdictText}</div>
+    </div>
+  </div>`;
+}
+
 // ─── 股市大富翁 ───
 function openStockSim() {
   if (typeof DEMO_MODE !== 'undefined' && DEMO_MODE) { alert('大富翁模擬操盤是完整版功能，體驗版尚未開放。'); return; }
@@ -80466,6 +80597,13 @@ async function _openTeachPanel(mode='select') {
             <div style="font-size:0.85rem;font-weight:800;color:#6366f1;">⚡ 條件單練習</div>
             <div style="font-size:0.68rem;color:var(--fg3);margin-top:4px;">依籌碼週期各選1檔・練習母單觸發＋子單執行・進階訓練</div>
           </button>
+          <button onclick="_openTeachPanel('candle')"
+            style="width:100%;padding:16px 18px;border-radius:12px;border:1.5px solid #ea580c;background:rgba(234,88,12,0.06);cursor:pointer;text-align:left;transition:all .15s;"
+            onmouseover="this.style.background='rgba(234,88,12,0.14)'"
+            onmouseout="this.style.background='rgba(234,88,12,0.06)'">
+            <div style="font-size:0.85rem;font-weight:800;color:#ea580c;">🕯️ K棒走勢教學</div>
+            <div style="font-size:0.68rem;color:var(--fg3);margin-top:4px;">每日5檔・看K棒猜位階/顏色/影線・點答案對照白話解讀</div>
+          </button>
         </div>
 
         <div style="font-size:0.63rem;color:var(--fg3);text-align:center;margin-top:14px;">
@@ -80489,13 +80627,25 @@ async function _openTeachPanel(mode='select') {
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
   const five=pool.slice(0,5);
 
+  // K棒教學模式：不是隨機5檔剛好長什麼樣，是「今天輪到練哪5種型態」，每天用日期種子
+  // 從13種組合裡洗牌挑5個，大約3天左右能覆蓋完整一輪13種，之後去全股票池(30檔)歷史
+  // 資料裡找真實符合的那一天，而不是只看今天最後一根K棒。
+  const shapeRand = _teachSeededRand(seed + 51413);
+  const shuffledShapes = [..._TEACH_ALL_SHAPE_KEYS];
+  for(let i=shuffledShapes.length-1;i>0;i--){const j=Math.floor(shapeRand()*(i+1));[shuffledShapes[i],shuffledShapes[j]]=[shuffledShapes[j],shuffledShapes[i]];}
+  const todayTargets = shuffledShapes.slice(0,5);
+
   // 預建佔位格 HTML（直接嵌入模板，不靠動態 DOM 操作）
-  const modeLabel = mode==='normal'?'📋 普通掛單練習':'⚡ 條件單練習';
-  const modeColor = mode==='normal'?'#10b981':'#6366f1';
+  const modeLabel = mode==='normal'?'📋 普通掛單練習':mode==='cond'?'⚡ 條件單練習':'🕯️ K棒走勢教學';
+  const modeColor = mode==='normal'?'#10b981':mode==='cond'?'#6366f1':'#ea580c';
   const phStyle = 'background:var(--surface2);border-radius:12px;padding:14px 16px;margin-bottom:10px;color:var(--fg3);font-size:.75rem;';
-  const placeholders = five.map((s,i)=>
-    `<div id="tcard_${i}" style="${phStyle}">⏳ ${s.name}（${s.id}）載入中…</div>`
-  ).join('');
+  const placeholders = mode==='candle'
+    ? todayTargets.map((key,i)=>
+        `<div id="tcard_${i}" style="${phStyle}">⏳ 尋找「${_teachShapeKeyLabel(key)}」的真實案例中…</div>`
+      ).join('')
+    : five.map((s,i)=>
+        `<div id="tcard_${i}" style="${phStyle}">⏳ ${s.name}（${s.id}）載入中…</div>`
+      ).join('');
 
   const innerHtml = `
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
@@ -80555,12 +80705,17 @@ async function _openTeachPanel(mode='select') {
      sl:'不要設買進條件單，這個階段只設賣出',
      note:'出貨期的任務只有一個：把獲利帶回家。不要再想加碼'},
   ];
+  if (mode === 'candle') {
+    _teachRunCandleQuiz(pool, todayTargets, token, seed);
+    return;
+  }
+
   // 逐檔非同步抓取，完成後替換佔位格
   five.forEach((s,i)=>{
     (async()=>{
-      let ind, isSim=false;
+      let ind, raw, isSim=false;
       try{
-        const raw=await _tFetch(s.id,token);
+        raw=await _tFetch(s.id,token);
         try{ ind=_tAnalyze(raw); } catch(e){ isSim=true; }
       } catch(e){ isSim=true; }
       if(isSim){
@@ -80577,6 +80732,96 @@ async function _openTeachPanel(mode='select') {
       const ph=document.getElementById(`tcard_${i}`);
       if(ph) ph.outerHTML=html;
     })();
+  });
+}
+
+// K棒教學：拿全股票池歷史資料，去找「今天輪到練的5種型態」各自的真實案例——
+// 不是隨機5檔剛好長什麼樣就教什麼，是主動掃描找符合目標型態的那一天。
+// 無token時退化成用種子刻意「造」出符合目標型態的假K棒，至少能練習判讀邏輯。
+function _teachForceCandle(key, sr, price) {
+  const n = 15;
+  const opens=[], closes=[], highs=[], lows=[];
+  let p = price;
+  for (let j=0;j<n-1;j++){
+    const chg=(sr()-0.5)*0.025;
+    const o=p, c=p*(1+chg);
+    const hi=Math.max(o,c)*(1+sr()*0.01), lo=Math.min(o,c)*(1-sr()*0.01);
+    opens.push(o); closes.push(c); highs.push(hi); lows.push(lo); p=c;
+  }
+  const wh=Math.max(...highs), wl=Math.min(...lows);
+  const isDoji = key === 'doji';
+  const [posLabel, shape] = isDoji ? ['中段','doji'] : key.split('|');
+  const color = isDoji ? (sr()>0.5?'red':'green') : shape.split('-')[0];
+  const closeTarget = posLabel==='高檔' ? wh*0.99 : posLabel==='低檔' ? wl*1.01 : (wh+wl)/2;
+  const range = Math.max(wh-wl, closeTarget*0.02);
+  let o,c,h,l;
+  if (isDoji) {
+    o = closeTarget; c = closeTarget + (sr()-0.5)*range*0.05;
+    h = Math.max(o,c) + range*0.35; l = Math.min(o,c) - range*0.35;
+  } else {
+    const shapeType = shape.split('-')[1];
+    const body = shapeType==='solid' ? range*0.7 : range*0.25;
+    if (color==='red'){ o=closeTarget-body; c=closeTarget; } else { o=closeTarget+body; c=closeTarget; }
+    if (shapeType==='upper')      { h=Math.max(o,c)+range*0.45; l=Math.min(o,c)-range*0.05; }
+    else if (shapeType==='lower') { l=Math.min(o,c)-range*0.45; h=Math.max(o,c)+range*0.05; }
+    else                          { h=Math.max(o,c)+range*0.05; l=Math.min(o,c)-range*0.05; }
+  }
+  opens.push(o); closes.push(c); highs.push(h); lows.push(l);
+  return {opens,closes,highs,lows,dates:opens.map((_,j)=>`模擬${j+1}`)};
+}
+
+async function _teachRunCandleQuiz(pool, targets, token, seed) {
+  const remaining = new Set(targets.map((_,i)=>i)); // 還沒找到案例的題號
+  const targetOf = {}; targets.forEach((key,i)=>{ targetOf[i]=key; });
+
+  if (!token) {
+    // 無token：直接用種子造假K棒，保證每題都對得上目標型態
+    targets.forEach((key,i)=>{
+      const s = _TEACH_POOL[i % _TEACH_POOL.length];
+      const sr = _teachSeededRand(seed + i*7919);
+      const raw = _teachForceCandle(key, sr, s.price);
+      const html = _tRenderCandleCard(s, raw, raw.closes.length-1, key, true, i);
+      const ph = document.getElementById(`tcard_${i}`);
+      if (ph) ph.outerHTML = html;
+    });
+    return;
+  }
+
+  const CONCURRENCY = 4;
+  const MAX_STOCKS = pool.length; // 最多把整個股票池(30檔)都掃過
+  let cursor = 0;
+
+  async function worker() {
+    while (remaining.size > 0 && cursor < MAX_STOCKS) {
+      const s = pool[cursor++];
+      let raw;
+      try { raw = await _tFetch(s.id, token); } catch(e) { continue; }
+      if (!raw || !raw.closes || raw.closes.length < 20) continue;
+      // 由新到舊掃描，優先給比較新的案例；每檔股票每種型態最多取一次，
+      // 但同一檔可以同時填多個不同的題號（沒理由浪費已經抓到的資料）。
+      for (let dayIdx = raw.closes.length - 1; dayIdx >= 15 && remaining.size > 0; dayIdx--) {
+        const info = _teachClassifyCandle(
+          raw.opens.slice(0, dayIdx+1), raw.closes.slice(0, dayIdx+1),
+          raw.highs.slice(0, dayIdx+1), raw.lows.slice(0, dayIdx+1)
+        );
+        for (const i of Array.from(remaining)) {
+          if (targetOf[i] === info.matchKey) {
+            remaining.delete(i);
+            const html = _tRenderCandleCard(s, raw, dayIdx, targetOf[i], false, i);
+            const ph = document.getElementById(`tcard_${i}`);
+            if (ph) ph.outerHTML = html;
+            break; // 這個dayIdx已經用掉，換下一天繼續找其他題號
+          }
+        }
+      }
+    }
+  }
+  await Promise.all(Array.from({length:CONCURRENCY}, worker));
+
+  // 掃完整個股票池還是有題號找不到案例，誠實告知，不要硬湊假資料混充「真實案例」
+  remaining.forEach(i=>{
+    const ph = document.getElementById(`tcard_${i}`);
+    if (ph) ph.outerHTML = `<div style="background:var(--surface2);border-radius:12px;padding:14px 16px;margin-bottom:10px;color:var(--fg3);font-size:.75rem;">🤷 今日股票池(${pool.length}檔)裡沒有掃到「${_teachShapeKeyLabel(targetOf[i])}」的真實案例，明天換一批題目再試試看。</div>`;
   });
 }
 </script>
