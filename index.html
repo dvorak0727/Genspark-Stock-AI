@@ -63923,6 +63923,15 @@ function _checkVolPriceConfirm(candles) {
   return null;
 }
 
+// ── v9.x 爆量健檢：今天是否為爆量日（跟 buildMiniCandles 畫橘色量柱同一套門檻：
+// 當日量 ≥ 這15天視覺區間平均量的1.8倍），用來決定要不要顯示「🔥爆量健檢」按鈕。
+function _isTodayBlowoff(candles) {
+  if (!candles || !candles.vols || candles.vols.length < 3) return false;
+  const avgVol = candles.vols.reduce((a, b) => a + b, 0) / candles.vols.length;
+  if (!avgVol) return false;
+  return candles.vols.at(-1) / avgVol >= 1.8;
+}
+
 function renderScreenerCards(showStats=false) {
   if (!_screenerResults.length) return;
 
@@ -64095,6 +64104,12 @@ function renderScreenerCards(showStats=false) {
         ? `<span class="sc-inst-badge strong" style="background:#D1FAE5;color:#065F46;border-color:#6EE7B7;" title="量縮後隔天量增但同步收綠，回測65檔候選股近2年：第2天下跌機率64.4%、平均報酬-1.60%（樣本494次）">⚠️ 量價齊跌</span>`
         : '';
 
+    // ── v9.x 爆量健檢——今天爆量（量≥視窗均量1.8倍）時，補一個可點擊按鈕，
+    // 用上影線比例＋當日三大法人買賣＋當日融資增減，判斷這根爆量是真吃貨還是誘多出貨。
+    const blowoffBadgeHtml = (r.candles && _isTodayBlowoff(r.candles))
+      ? `<span class="sc-inst-badge strong sc-quick-btn" style="background:#FFEDD5;color:#9A3412;border-color:#FDBA74;" onclick="_scQuickBlowoff('${r.stockId}', this)" title="點擊健檢：今天爆量，是真吃貨還是誘多出貨？">🔥 爆量健檢 ▾</span>`
+      : '';
+
     // 預設 locked（指標隱藏）；解鎖後 JS 移除 locked class
     const lockedCls = _scDetailsUnlocked ? '' : 'locked';
 
@@ -64116,7 +64131,7 @@ function renderScreenerCards(showStats=false) {
             &nbsp;
             <span class="sc-chg" data-rt-chg="${r.stockId}" style="color:${up?'var(--up)':'var(--down)'};">${up?'▲':'▼'}${Math.abs(r.chgPct).toFixed(1)}%</span>
           </div>
-          <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}${volPriceBadgeHtml}</div>
+          <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}${volPriceBadgeHtml}${blowoffBadgeHtml}</div>
           <div class="sc-industry">${info.industry}</div>
         </div>
       </div>
@@ -64672,6 +64687,130 @@ function _scQuickBroker(stockId, triggerEl) {
   panel.innerHTML = html;
   panel.dataset.type = 'broker';
   panel.classList.add('open');
+}
+
+// ── v9.x 爆量健檢——找出「今天爆量」是真吃貨還是誘多出貨。
+// 三個線索，全部都當天收盤後就能查，不用等隔天/隔週馬後炮：
+//  ① 上影線比例：收盤離當天最高點多遠，越遠代表當天高點被賣壓打下來，出貨嫌疑越大
+//  ② 三大法人當日買賣：外資+投信同時淨賣，卻同時爆量價漲，是散戶追高、法人倒貨的組合
+//  ③ 融資當日增減：融資大增代表散戶用槓桿追價，正是主力最喜歡倒貨的對象
+async function _scQuickBlowoff(stockId, triggerEl) {
+  const panel = document.getElementById(`scqp-${stockId}`);
+  if (!panel) return;
+
+  if (panel.dataset.type === 'blowoff' && panel.classList.contains('open')) {
+    panel.classList.remove('open'); panel.innerHTML = ''; panel.dataset.type = ''; return;
+  }
+  if (panel.classList.contains('open') && panel.dataset.type !== 'blowoff') {
+    panel.classList.remove('open'); panel.innerHTML = ''; panel.dataset.type = '';
+  }
+
+  const r = _screenerResults.find(x => x.stockId === stockId);
+  if (!r || !r.candles || !r.candles.dates?.length) {
+    panel.innerHTML = '<div class="scqp-inner"><div style="font-size:0.68rem;color:var(--fg3);padding:10px 4px;">⚠️ K線資料不足，無法健檢。</div></div>';
+    panel.dataset.type = 'blowoff'; panel.classList.add('open');
+    return;
+  }
+
+  panel.innerHTML = '<div class="scqp-inner"><div style="font-size:0.68rem;color:var(--fg3);padding:10px 4px;">🔎 查詢中（三大法人＋融資當日資料）…</div></div>';
+  panel.dataset.type = 'blowoff'; panel.classList.add('open');
+
+  const { opens, closes, highs, lows, dates } = r.candles;
+  const idx = dates.length - 1;
+  const o = opens[idx], c = closes[idx], h = highs[idx], l = lows[idx];
+  const todayDate = dates[idx];
+  const range = (h - l) || 1;
+  const upperWick = h - Math.max(o, c);
+  const upperWickPct = Math.max(0, upperWick / range * 100);
+
+  // ① 三大法人：優先用卡片已快取的 _instRaw，省一次API
+  let instFNet = null, instTNet = null;
+  if (r._instRaw && r._instRaw.length) {
+    const hit = r._instRaw.find(x => x.date === todayDate);
+    if (hit) {
+      const map = buildInstMap([hit]);
+      const day = map[todayDate];
+      instFNet = (day?.Foreign_Investor?.net || 0) / 1000;
+      instTNet = (day?.Investment_Trust?.net || 0) / 1000;
+    }
+  }
+
+  // ② 融資當日增減：現查（screener一般模式沒有快取這份資料）
+  let marginNet = null;
+  try {
+    const end = new Date(todayDate);
+    const start = new Date(end.getTime() - 12 * 24 * 60 * 60 * 1000);
+    const mrows = await fetchFM('TaiwanStockMarginPurchaseShortSale', stockId, start, end);
+    const hit = (mrows || []).find(x => x.date === todayDate);
+    if (hit) {
+      const buy = +hit.MarginPurchaseBuy || 0, sell = +hit.MarginPurchaseSell || 0, redeem = +hit.MarginPurchaseRedeem || 0;
+      marginNet = buy - sell - redeem;
+    }
+  } catch (e) { /* 查不到就不納入判斷，不影響其他兩項 */ }
+
+  // ── 綜合判斷：三個線索各算一分風險分 ──
+  let riskScore = 0, totalChecked = 0;
+  const clues = [];
+
+  clues.push({
+    label: '上影線比例',
+    val: `${upperWickPct.toFixed(0)}%`,
+    warn: upperWickPct >= 30,
+    desc: upperWickPct >= 30 ? '收盤離當天高點很遠，高點有被賣壓打下來的痕跡' : '收盤貼近當天高點，買方守得住',
+  });
+  if (upperWickPct >= 30) riskScore++;
+  totalChecked++;
+
+  if (instFNet !== null && instTNet !== null) {
+    const bothSell = instFNet < 0 && instTNet < 0;
+    clues.push({
+      label: '三大法人(當日)',
+      val: `外資${instFNet>=0?'+':''}${instFNet.toFixed(0)}張／投信${instTNet>=0?'+':''}${instTNet.toFixed(0)}張`,
+      warn: bothSell,
+      desc: bothSell ? '外資投信當天同步淨賣，卻爆量價漲，倒貨嫌疑較大' : '法人沒有同步淨賣，倒貨嫌疑較低',
+    });
+    if (bothSell) riskScore++;
+    totalChecked++;
+  }
+
+  if (marginNet !== null) {
+    const surging = marginNet > 0;
+    clues.push({
+      label: '融資(當日增減)',
+      val: `${marginNet>=0?'+':''}${marginNet.toFixed(0)}張`,
+      warn: surging,
+      desc: surging ? '融資當天增加，散戶用槓桿追價，是主力愛倒貨的對象' : '融資沒有明顯增加，散戶槓桿追價的跡象較弱',
+    });
+    if (surging) riskScore++;
+    totalChecked++;
+  }
+
+  const verdict = totalChecked === 0
+    ? { text: '資料不足，無法判斷', color: '#64748B', bg: '#F1F5F9' }
+    : riskScore >= 2
+      ? { text: '⚠️ 偏向誘多出貨嫌疑', color: '#991B1B', bg: '#FEE2E2' }
+      : riskScore === 0
+        ? { text: '✅ 偏向真實吃貨', color: '#065F46', bg: '#D1FAE5' }
+        : { text: '🔵 訊號不明確，建議觀察', color: '#1E40AF', bg: '#DBEAFE' };
+
+  const info = STOCK_DB[stockId] || { name: stockId };
+  const cluesHtml = clues.map(cl => `
+    <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.66rem;">
+      <div style="color:var(--fg3);flex:0 0 auto;">${cl.warn ? '⚠️' : '✓'} ${cl.label}</div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;color:${cl.warn?'#DC2626':'var(--fg)'};">${cl.val}</div>
+        <div style="color:var(--fg3);font-size:0.6rem;">${cl.desc}</div>
+      </div>
+    </div>`).join('');
+
+  const _cBtn = '<button class="scqp-close-btn" onclick="_scQuickClose(\'' + stockId + '\')">&#x2715;</button>';
+  panel.innerHTML = `<div class="scqp-inner">
+    <div class="scqp-title">🔥 爆量健檢（${todayDate.slice(5)}）${_cBtn}</div>
+    <div style="font-size:0.6rem;color:var(--fg3);margin-bottom:4px;">當天量比視窗均量放大，判斷是真吃貨還是誘多出貨——三個線索當天收盤後就能查，不用等隔天/隔週。</div>
+    ${cluesHtml}
+    <div style="margin-top:8px;padding:6px 8px;border-radius:8px;background:${verdict.bg};color:${verdict.color};font-weight:700;font-size:0.7rem;text-align:center;">${verdict.text}</div>
+    <button class="scqp-goto-btn" onclick="quickSearchScroll('${stockId}','csCard')">&#x1F50D; 進入 ${info.name} 完整籌碼分析 ↓</button>
+  </div>`;
 }
 
 // ── 排序切換 ──
