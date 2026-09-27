@@ -80511,8 +80511,41 @@ function _teachCandleSvg(opens, closes, highs, lows, volumes) {
   }
   return `<svg viewBox="0 0 ${W} ${KH+GAP+VH}" width="100%" height="76" style="display:block;background:#f0fdf4;border-radius:6px;">${parts.join('')}</svg>`;
 }
+// 猜答案按鈕被點選：同組其他按鈕恢復預設樣式，這顆變成「已選取」樣式，
+// 並把選到的值記在該群組容器的 dataset.selected 上，供 _teachRevealGuess 讀取比對。
+function _teachSelect(btn, groupId) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  group.querySelectorAll('button').forEach(b=>{ b.style.background='var(--card-bg)'; b.style.color='var(--fg2)'; b.style.borderColor='var(--border)'; });
+  btn.style.background='#ea580c'; btn.style.color='#fff'; btn.style.borderColor='#ea580c';
+  group.dataset.selected = btn.dataset.val;
+}
+// 對答案：逐一比對位階/顏色/影線三組猜測 vs data-correct 正確答案，
+// 選對的按鈕標綠、選錯的標紅（同時標出綠色的正確答案），再展開下方完整解讀。
+function _teachRevealGuess(uid) {
+  let allCorrect = true, answeredAny = false;
+  ['pos','color','wick'].forEach(g=>{
+    const el = document.getElementById(`${uid}_${g}`);
+    if (!el) return;
+    const correct = el.dataset.correct, selected = el.dataset.selected;
+    if (selected) answeredAny = true; else allCorrect = false;
+    el.querySelectorAll('button').forEach(b=>{
+      if (b.dataset.val === correct) { b.style.background='#16a34a'; b.style.color='#fff'; b.style.borderColor='#16a34a'; }
+      else if (b.dataset.val === selected) { b.style.background='#dc2626'; b.style.color='#fff'; b.style.borderColor='#dc2626'; }
+      b.disabled = true; b.style.cursor='default';
+    });
+    if (selected !== correct) allCorrect = false;
+  });
+  const scoreEl = document.getElementById(`${uid}_score`);
+  if (scoreEl) scoreEl.textContent = !answeredAny ? '⚠️ 先選好再對答案喔' : (allCorrect ? '🎉 全對！' : '👀 對照下面解讀學一下');
+  if (!answeredAny) return;
+  const notePanel = document.getElementById(uid);
+  if (notePanel) notePanel.style.display = 'block';
+  const btn = document.getElementById(`${uid}_revealBtn`);
+  if (btn) btn.style.display = 'none';
+}
 // s=股票資訊, raw=完整OHLC資料(dates夠長), dayIdx=這題要考的那一天在raw裡的index，
-// targetKey=今天輪到要練習的型態(用來在標題顯示「今天練的是XX」，答案仍照實際算出來的為準)
+// targetKey=今天輪到要練習的型態(僅用來排題，不會顯示在題目上洩題，答案要猜完才揭曉)
 function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
   const uid = `tcandle_${idx}_${s.id}`;
   if (!raw || !raw.closes || raw.closes.length < 5) {
@@ -80528,8 +80561,18 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
   const simBadge = isSim ? `<span style="font-size:0.6rem;color:#f59e0b;">（模擬數據）</span>` : '';
   const verdictColor = info.risk>0?'#dc2626':info.risk<0?'#16a34a':'#1E40AF';
   const verdictText  = info.risk>0?'⚠️ 偏空警訊':info.risk<0?'✅ 偏多訊號':'🔵 中性觀察';
-  const targetLabel = _teachShapeKeyLabel(targetKey);
   const dateTxt = raw.dates?.[dayIdx] || '';
+
+  const colorCorrect = info.shape==='doji' ? '十字' : (info.color==='red' ? '紅K' : '綠K');
+  const wickCorrect = info.shape==='doji' ? null : (info.shape.endsWith('-upper') ? '上影線' : info.shape.endsWith('-lower') ? '下影線' : '無明顯影線');
+  const guessBtnStyle = 'flex:1;min-width:60px;padding:6px 4px;font-size:0.66rem;font-weight:700;border:1.5px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--fg2);cursor:pointer;';
+  const mkBtns = (groupId, options) => options.map(o=>
+    `<button data-val="${o}" onclick="_teachSelect(this,'${groupId}')" style="${guessBtnStyle}">${o}</button>`
+  ).join('');
+  const posGroup   = `<div id="${uid}_pos" data-correct="${info.posLabel}" style="display:flex;gap:5px;">${mkBtns(`${uid}_pos`, ['高檔','中段','低檔'])}</div>`;
+  const colorGroup = `<div id="${uid}_color" data-correct="${colorCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_color`, ['紅K','綠K','十字'])}</div>`;
+  const wickGroup  = wickCorrect ? `<div id="${uid}_wick" data-correct="${wickCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_wick`, ['上影線','下影線','無明顯影線'])}</div>` : '';
+
   return `
   <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);">
     <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;flex-wrap:wrap;">
@@ -80537,12 +80580,18 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
       <span style="font-size:0.63rem;color:var(--fg3);background:var(--tag-bg,rgba(128,128,128,0.1));padding:1px 6px;border-radius:10px;">${s.id}</span>
       ${dateTxt?`<span style="font-size:0.62rem;color:var(--fg3);">${dateTxt}</span>`:''}
       ${simBadge}
-      <span style="margin-left:auto;font-size:0.62rem;font-weight:700;color:#ea580c;background:rgba(234,88,12,0.1);border-radius:10px;padding:2px 8px;">今日練習：${targetLabel}</span>
+      <span style="margin-left:auto;font-size:0.62rem;font-weight:700;color:#ea580c;background:rgba(234,88,12,0.1);border-radius:10px;padding:2px 8px;">🎯 猜猜看</span>
     </div>
     ${svg}
-    <div style="text-align:center;margin:8px 0 4px;">
-      <button onclick="const p=document.getElementById('${uid}');const b=this;if(p.style.display==='none'){p.style.display='block';b.textContent='🙈 收起解答';}else{p.style.display='none';b.textContent='🔍 查看解答';}"
-        style="font-size:0.68rem;font-weight:700;color:#ea580c;background:rgba(234,88,12,0.08);border:1px solid rgba(234,88,12,0.3);border-radius:16px;padding:4px 14px;cursor:pointer;">🔍 查看解答</button>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
+      <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">📍 位階</div>${posGroup}</div>
+      <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">🎨 顏色</div>${colorGroup}</div>
+      ${wickCorrect?`<div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">📏 影線</div>${wickGroup}</div>`:''}
+    </div>
+    <div style="text-align:center;margin:10px 0 4px;">
+      <button id="${uid}_revealBtn" onclick="_teachRevealGuess('${uid}')"
+        style="font-size:0.68rem;font-weight:700;color:#ea580c;background:rgba(234,88,12,0.08);border:1px solid rgba(234,88,12,0.3);border-radius:16px;padding:4px 14px;cursor:pointer;">✅ 對答案</button>
+      <span id="${uid}_score" style="margin-left:8px;font-size:0.68rem;font-weight:700;"></span>
     </div>
     <div id="${uid}" style="display:none;background:rgba(234,88,12,0.06);border-radius:8px;padding:10px 12px;font-size:0.68rem;">
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
