@@ -64758,7 +64758,10 @@ async function _scQuickBlowoff(stockId, triggerEl) {
   const todayDate = dates[idx];
   const range = (h - l) || 1;
   const upperWick = h - Math.max(o, c);
+  const lowerWick = Math.min(o, c) - l;
   const upperWickPct = Math.max(0, upperWick / range * 100);
+  const lowerWickPct = Math.max(0, lowerWick / range * 100);
+  const bodyPct = Math.max(0, Math.abs(c - o) / range * 100);
   const color = c > o ? 'red' : (c < o ? 'green' : 'flat');
 
   // v9.x 位階：用整個可視窗口（近15日）的高低點，抓「今天收盤落在這段區間的哪個位置」——
@@ -64767,6 +64770,37 @@ async function _scQuickBlowoff(stockId, triggerEl) {
   const windowHigh = Math.max(...highs), windowLow = Math.min(...lows);
   const posPct = windowHigh > windowLow ? (c - windowLow) / (windowHigh - windowLow) * 100 : 50;
   const posLabel = posPct >= 70 ? '高檔' : posPct <= 30 ? '低檔' : '中段';
+
+  // v9.x 13型態分類：doji / 紅或綠 × 實柱/上影/下影，跟位階交叉查表得出白話解讀＋風險分。
+  // 風險分：-1＝偏多不算風險、0＝中性觀察、+1＝算風險，最後跟法人/融資線索加總判斷。
+  const shape = bodyPct < 10
+    ? 'doji'
+    : (upperWickPct >= lowerWickPct * 1.5 && upperWickPct >= 30) ? `${color}-upper`
+    : (lowerWickPct >= upperWickPct * 1.5 && lowerWickPct >= 30) ? `${color}-lower`
+    : `${color}-solid`;
+
+  const SHAPE_TABLE = {
+    '高檔|red-solid':  { risk: 0,  note: '買方全面掌控，衝高仍收在高點附近，追價買盤強、賣壓被吸收，續漲機率高（留意乖離過大）' },
+    '高檔|red-upper':  { risk: 1,  note: '盤中買方一度壓制，尾盤賣方悄悄出現，追高的人被套在最高點——典型「誘多出貨」' },
+    '高檔|red-lower':  { risk: -1, note: '盤中一度殺低甚至製造恐慌，買盤強力接手拉回收紅——主力刻意甩轎清浮額，控盤力道極強' },
+    '高檔|green-solid':{ risk: 1,  note: '賣壓從頭到尾主導，收在當天最低附近——主力全面撤退，最明確的出貨訊號' },
+    '高檔|green-upper':{ risk: 1,  note: '盤中仍有人追高，很快被打下來、收盤更弱——追高買盤薄弱，出貨嫌疑濃厚' },
+    '高檔|green-lower':{ risk: 0,  note: '賣壓一度兇猛創新低，尾盤有人接手拉回（仍收黑）——空方力竭、多方反攻的早期跡象' },
+    '低檔|red-solid':  { risk: -1, note: '買盤在低檔全面進場、收在最高附近——實質買進、共振訊號最乾淨，最像真正落底起漲點' },
+    '低檔|red-upper':  { risk: 0,  note: '買盤積極推升，但追高賣壓把最高點打下——雖收紅，上方仍有套牢賣壓，反彈力道可能有限' },
+    '低檔|red-lower':  { risk: -1, note: '開低殺出新低，隨即被強力買盤逆轉收紅——恐慌盤洗完浮額後強力進場，最強落底反轉訊號之一' },
+    '低檔|green-solid':{ risk: 0,  note: '賣壓在低檔繼續加碼、收在當天最低——竭盡性賣壓候選，但當下還沒真正止穩，不能急著認定落底' },
+    '低檔|green-upper':{ risk: 1,  note: '低檔出現反彈，但力道不足又被壓回——空方仍占優勢，可能還要再探一次底，是「假反彈」' },
+    '低檔|green-lower':{ risk: 0,  note: '開低殺出新低，尾盤有承接拉回但仍收黑——低點已有買盤護盤，止跌前兆，隔天觀察是否轉紅' },
+    'doji':            { risk: 0,  note: '開盤收盤幾乎相同、多空拉鋸打成平手——趨勢猶豫/轉折訊號，需隔天確認方向' },
+  };
+  const shapeKey = shape === 'doji' ? 'doji' : `${posLabel === '中段' ? (color === 'green' ? '高檔' : '低檔') : posLabel}|${shape}`;
+  // 中段：沒有明確的高低檔語境可查表，退而求其次比照「收黑偏空、收紅中性」的簡化規則
+  const shapeInfo = SHAPE_TABLE[shapeKey] || { risk: color === 'green' ? 1 : 0, note: '中段爆量，位階不明確，僅供參考' };
+  const SHAPE_LABEL = {
+    'red-solid': '紅實柱', 'red-upper': '紅上影線', 'red-lower': '紅下影線',
+    'green-solid': '綠實柱', 'green-upper': '綠上影線', 'green-lower': '綠下影線', 'doji': '十字',
+  };
 
   // ① 三大法人：優先用卡片已快取的 _instRaw，省一次API
   let instFNet = null, instTNet = null;
@@ -64793,44 +64827,18 @@ async function _scQuickBlowoff(stockId, triggerEl) {
     }
   } catch (e) { /* 查不到就不納入判斷，不影響其他兩項 */ }
 
-  // ── 綜合判斷：每個線索各算一分風險分 ──
-  let riskScore = 0, totalChecked = 0;
+  // ── 綜合判斷：K棒型態(-1~+1，權重x2，因為價格資料永遠有、是主要判斷依據)
+  // + 法人/融資(各0或+1，當輔助佐證) 加總算風險分──
+  let riskScore = shapeInfo.risk * 2;
+  let totalChecked = 1;
   const clues = [];
 
-  // 上影線：收紅時才是重點（收盤守不守得住當天高點）；收綠當天本來就是跌，
-  // 上影線長短意義不大，改由下面「位階」那條線索來承擔判斷。
-  if (color === 'red') {
-    clues.push({
-      label: '上影線比例',
-      val: `${upperWickPct.toFixed(0)}%`,
-      warn: upperWickPct >= 30,
-      desc: upperWickPct >= 30 ? '收盤離當天高點很遠，高點有被賣壓打下來的痕跡' : '收盤貼近當天高點，買方守得住',
-    });
-    if (upperWickPct >= 30) riskScore++;
-    totalChecked++;
-  }
-
-  // 位階＋顏色：同樣收黑，高檔爆量像真出貨（上面沒人接）；低檔爆量常是竭盡性賣壓
-  // 出盡、後面反而容易反彈，不能只看顏色。收紅則相反：低檔爆量收紅=買進籌碼共振，
-  // 高檔爆量收紅又帶長上影線=追高風險最大。
-  let posWarn = false, posDesc = '';
-  if (color === 'green') {
-    if (posPct >= 70)      { posWarn = true;  posDesc = '高檔爆量收黑，上面籌碼浮動，較像真出貨'; }
-    else if (posPct <= 30) { posWarn = false; posDesc = '低檔爆量收黑，較像竭盡性賣壓出盡/洗盤，不是續跌保證'; }
-    else                   { posWarn = true;  posDesc = '中段爆量收黑，方向未明但偏空'; }
-  } else if (color === 'red') {
-    if (posPct <= 30)                            { posWarn = false; posDesc = '低檔爆量收紅，買進籌碼共振，訊號較乾淨'; }
-    else if (posPct >= 70 && upperWickPct >= 30)  { posWarn = true;  posDesc = '高檔爆量收紅又有長上影線，追高風險大'; }
-    else                                          { posWarn = false; posDesc = ''; }
-  }
   clues.push({
-    label: `位階（${posLabel}）`,
-    val: `${posPct.toFixed(0)}%`,
-    warn: posWarn,
-    desc: posDesc || '近15日高低區間中的相對位置（0%＝最低、100%＝最高）',
+    label: `K棒型態（${posLabel}・${SHAPE_LABEL[shape] || shape}）`,
+    val: `上影${upperWickPct.toFixed(0)}% ／ 下影${lowerWickPct.toFixed(0)}%`,
+    warn: shapeInfo.risk > 0,
+    desc: shapeInfo.note,
   });
-  if (posWarn) riskScore++;
-  totalChecked++;
 
   if (instFNet !== null && instTNet !== null) {
     const bothSell = instFNet < 0 && instTNet < 0;
@@ -64860,7 +64868,7 @@ async function _scQuickBlowoff(stockId, triggerEl) {
     ? { text: '資料不足，無法判斷', color: '#64748B', bg: '#F1F5F9' }
     : riskScore >= 2
       ? { text: '⚠️ 偏向誘多出貨嫌疑', color: '#991B1B', bg: '#FEE2E2' }
-      : riskScore === 0
+      : riskScore <= -2
         ? { text: '✅ 偏向真實吃貨', color: '#065F46', bg: '#D1FAE5' }
         : { text: '🔵 訊號不明確，建議觀察', color: '#1E40AF', bg: '#DBEAFE' };
 
