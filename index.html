@@ -79719,7 +79719,7 @@ async function _tFetch(id, token) {
     marginStreak=_tStreakN(mSeries);
   }
 
-  return {closes:rows.map(r=>+r.close),opens:rows.map(r=>+(r.open||r.close)),highs:rows.map(r=>+r.max),lows:rows.map(r=>+r.min),dates:rows.map(r=>r.date),lc:+rows[rows.length-1].close,fStreak,tStreak,mStreak,marginStreak};
+  return {closes:rows.map(r=>+r.close),opens:rows.map(r=>+(r.open||r.close)),highs:rows.map(r=>+r.max),lows:rows.map(r=>+r.min),volumes:rows.map(r=>+r.Trading_Volume||0),dates:rows.map(r=>r.date),lc:+rows[rows.length-1].close,fStreak,tStreak,mStreak,marginStreak};
 }
 
 // ─── 單檔分析 ───
@@ -80485,16 +80485,26 @@ function _teachClassifyCandle(opens, closes, highs, lows, atIndex) {
   const info = _TEACH_SHAPE_TABLE[key] || { risk: color==='green'?1:0, note:'中段，位階不明確，僅供參考' };
   return { posPct, posLabel, upperPct, lowerPct, shape, shapeLabel:_TEACH_SHAPE_LABEL[shape]||shape, color, risk:info.risk, note:info.note, matchKey:key, atIndex:i };
 }
-function _teachCandleSvg(opens, closes, highs, lows) {
+function _teachCandleSvg(opens, closes, highs, lows, volumes) {
   const n=opens.length, W=300, KH=64, GAP=3, VH=34;
   const hi=Math.max(...highs), lo=Math.min(...lows), rng=(hi-lo)||1;
   const w=W/n, bw=w*0.62;
+  const vols = volumes && volumes.length===n ? volumes : null;
+  const vMax = vols ? Math.max(...vols,1) : 1;
   const parts=[`<line x1="0" y1="${KH+GAP}" x2="${W}" y2="${KH+GAP}" stroke="#e2e8f0" stroke-width="1"/>`];
   for(let i=0;i<n;i++){
     const o=opens[i],c=closes[i],h=highs[i],l=lows[i];
     const cx=i*w+w/2, isUp=c>=o, color=isUp?'#E8343A':'#16A34A';
     const yHi=KH-(h-lo)/rng*KH, yLo=KH-(l-lo)/rng*KH, yO=KH-(o-lo)/rng*KH, yC=KH-(c-lo)/rng*KH;
     const bTop=Math.min(yO,yC), bH=Math.max(1.2,Math.abs(yC-yO));
+    if (vols) {
+      // 量能柱：最後一天(今天)強制橘色標記；量縮(<近5日均量*0.6)用灰色；其餘用淡紅/淡綠襯色
+      const avg5 = vols.slice(Math.max(0,i-5), i).reduce((a,v)=>a+v,0) / Math.max(1, Math.min(5,i));
+      const isShrink = i>0 && avg5>0 && vols[i] < avg5*0.6;
+      const vColor = i===n-1 ? '#F97316' : isShrink ? '#94A3B8' : (isUp?'#FCA5A5':'#86EFAC');
+      const vh = Math.max(1.5, vols[i]/vMax*VH);
+      parts.push(`<rect x="${(cx-bw/2).toFixed(1)}" y="${(KH+GAP+VH-vh).toFixed(1)}" width="${bw.toFixed(1)}" height="${vh.toFixed(1)}" fill="${vColor}" rx="1"/>`);
+    }
     parts.push(`<line x1="${cx.toFixed(1)}" y1="${yHi.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yLo.toFixed(1)}" stroke="${color}" stroke-width="1.4"/>`);
     parts.push(`<rect x="${(cx-bw/2).toFixed(1)}" y="${bTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${bH.toFixed(1)}" fill="${color}" rx="1"/>`);
     if(i===n-1){ parts.push(`<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${KH+GAP+VH}" stroke="#f5c451" stroke-width="1" stroke-dasharray="2 2"/>`); }
@@ -80510,10 +80520,11 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
   }
   const winStart = Math.max(0, dayIdx - 14);
   const opens=raw.opens.slice(winStart, dayIdx+1), closes=raw.closes.slice(winStart, dayIdx+1),
-        highs=raw.highs.slice(winStart, dayIdx+1), lows=raw.lows.slice(winStart, dayIdx+1);
+        highs=raw.highs.slice(winStart, dayIdx+1), lows=raw.lows.slice(winStart, dayIdx+1),
+        volumes=(raw.volumes||[]).slice(winStart, dayIdx+1);
   const info = _teachClassifyCandle(opens, closes, highs, lows); // 視窗最後一天＝dayIdx
   const trend = _teachTrendLabel(closes);
-  const svg = _teachCandleSvg(opens, closes, highs, lows);
+  const svg = _teachCandleSvg(opens, closes, highs, lows, volumes);
   const simBadge = isSim ? `<span style="font-size:0.6rem;color:#f59e0b;">（模擬數據）</span>` : '';
   const verdictColor = info.risk>0?'#dc2626':info.risk<0?'#16a34a':'#1E40AF';
   const verdictText  = info.risk>0?'⚠️ 偏空警訊':info.risk<0?'✅ 偏多訊號':'🔵 中性觀察';
@@ -80740,19 +80751,26 @@ async function _openTeachPanel(mode='select') {
 // 無token時退化成用種子刻意「造」出符合目標型態的假K棒，至少能練習判讀邏輯。
 function _teachForceCandle(key, sr, price) {
   const n = 15;
-  const opens=[], closes=[], highs=[], lows=[];
+  const opens=[], closes=[], highs=[], lows=[], vols=[];
   let p = price;
+  const baseVol = 3000 + sr()*8000;
+  // 前14天：隨機漫步造出有漲有跌、力道不一的走勢，混入幾天較大波動，
+  // 避免每天都用同一個小振幅、看起來像機械式階梯狀假資料。
   for (let j=0;j<n-1;j++){
-    const chg=(sr()-0.5)*0.025;
+    const isBigMove = sr() < 0.25;
+    const chg = (sr()-0.5) * (isBigMove ? 0.045 : 0.016);
     const o=p, c=p*(1+chg);
-    const hi=Math.max(o,c)*(1+sr()*0.01), lo=Math.min(o,c)*(1-sr()*0.01);
+    const wick = (isBigMove ? 0.018 : 0.008);
+    const hi=Math.max(o,c)*(1+sr()*wick), lo=Math.min(o,c)*(1-sr()*wick);
     opens.push(o); closes.push(c); highs.push(hi); lows.push(lo); p=c;
+    const isShrinkDay = sr() < 0.3;
+    vols.push(Math.round(baseVol * (isShrinkDay ? (0.3+sr()*0.25) : (0.7+sr()*0.9))));
   }
   const wh=Math.max(...highs), wl=Math.min(...lows);
   const isDoji = key === 'doji';
   const [posLabel, shape] = isDoji ? ['中段','doji'] : key.split('|');
   const color = isDoji ? (sr()>0.5?'red':'green') : shape.split('-')[0];
-  const closeTarget = posLabel==='高檔' ? wh*0.99 : posLabel==='低檔' ? wl*1.01 : (wh+wl)/2;
+  const closeTarget = posLabel==='高檔' ? wh*(0.97+sr()*0.03) : posLabel==='低檔' ? wl*(1+sr()*0.03) : (wh+wl)/2*(0.98+sr()*0.04);
   const range = Math.max(wh-wl, closeTarget*0.02);
   let o,c,h,l;
   if (isDoji) {
@@ -80760,14 +80778,16 @@ function _teachForceCandle(key, sr, price) {
     h = Math.max(o,c) + range*0.35; l = Math.min(o,c) - range*0.35;
   } else {
     const shapeType = shape.split('-')[1];
-    const body = shapeType==='solid' ? range*0.7 : range*0.25;
+    const body = shapeType==='solid' ? range*(0.55+sr()*0.25) : range*(0.15+sr()*0.15);
     if (color==='red'){ o=closeTarget-body; c=closeTarget; } else { o=closeTarget+body; c=closeTarget; }
-    if (shapeType==='upper')      { h=Math.max(o,c)+range*0.45; l=Math.min(o,c)-range*0.05; }
-    else if (shapeType==='lower') { l=Math.min(o,c)-range*0.45; h=Math.max(o,c)+range*0.05; }
+    if (shapeType==='upper')      { h=Math.max(o,c)+range*(0.35+sr()*0.15); l=Math.min(o,c)-range*0.05; }
+    else if (shapeType==='lower') { l=Math.min(o,c)-range*(0.35+sr()*0.15); h=Math.max(o,c)+range*0.05; }
     else                          { h=Math.max(o,c)+range*0.05; l=Math.min(o,c)-range*0.05; }
   }
   opens.push(o); closes.push(c); highs.push(h); lows.push(l);
-  return {opens,closes,highs,lows,dates:opens.map((_,j)=>`模擬${j+1}`)};
+  // 觸發日(今天)：爆量，明顯高於前面幾天，才符合「今日練習」這根本來就該是顯眼的一根
+  vols.push(Math.round(baseVol * (1.8+sr()*1.2)));
+  return {opens,closes,highs,lows,volumes:vols,dates:opens.map((_,j)=>`模擬${j+1}`)};
 }
 
 async function _teachRunCandleQuiz(pool, targets, token, seed) {
