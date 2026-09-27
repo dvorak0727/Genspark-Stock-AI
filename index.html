@@ -80524,7 +80524,7 @@ function _teachSelect(btn, groupId) {
 // 選對的按鈕標綠、選錯的標紅（同時標出綠色的正確答案），再展開下方完整解讀。
 function _teachRevealGuess(uid) {
   let allCorrect = true, answeredAny = false;
-  ['pos','color','wick'].forEach(g=>{
+  ['pos','color','wick','action'].forEach(g=>{
     const el = document.getElementById(`${uid}_${g}`);
     if (!el) return;
     const correct = el.dataset.correct, selected = el.dataset.selected;
@@ -80565,13 +80565,15 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
 
   const colorCorrect = info.shape==='doji' ? '十字' : (info.color==='red' ? '紅K' : '綠K');
   const wickCorrect = info.shape==='doji' ? null : (info.shape.endsWith('-upper') ? '上影線' : info.shape.endsWith('-lower') ? '下影線' : '無明顯影線');
+  const actionCorrect = info.risk>0 ? '出脫' : info.risk<0 ? '試單買進' : '觀望';
   const guessBtnStyle = 'flex:1;min-width:60px;padding:6px 4px;font-size:0.66rem;font-weight:700;border:1.5px solid var(--border);border-radius:8px;background:var(--card-bg);color:var(--fg2);cursor:pointer;';
   const mkBtns = (groupId, options) => options.map(o=>
     `<button data-val="${o}" onclick="_teachSelect(this,'${groupId}')" style="${guessBtnStyle}">${o}</button>`
   ).join('');
-  const posGroup   = `<div id="${uid}_pos" data-correct="${info.posLabel}" style="display:flex;gap:5px;">${mkBtns(`${uid}_pos`, ['高檔','中段','低檔'])}</div>`;
-  const colorGroup = `<div id="${uid}_color" data-correct="${colorCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_color`, ['紅K','綠K','十字'])}</div>`;
-  const wickGroup  = wickCorrect ? `<div id="${uid}_wick" data-correct="${wickCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_wick`, ['上影線','下影線','無明顯影線'])}</div>` : '';
+  const posGroup    = `<div id="${uid}_pos" data-correct="${info.posLabel}" style="display:flex;gap:5px;">${mkBtns(`${uid}_pos`, ['高檔','中段','低檔'])}</div>`;
+  const colorGroup  = `<div id="${uid}_color" data-correct="${colorCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_color`, ['紅K','綠K','十字'])}</div>`;
+  const wickGroup   = wickCorrect ? `<div id="${uid}_wick" data-correct="${wickCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_wick`, ['上影線','下影線','無明顯影線'])}</div>` : '';
+  const actionGroup = `<div id="${uid}_action" data-correct="${actionCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_action`, ['出脫','觀望','試單買進'])}</div>`;
 
   return `
   <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);">
@@ -80587,6 +80589,7 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
       <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">📍 位階</div>${posGroup}</div>
       <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">🎨 顏色</div>${colorGroup}</div>
       ${wickCorrect?`<div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">📏 影線</div>${wickGroup}</div>`:''}
+      <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">🧭 操作建議</div>${actionGroup}</div>
     </div>
     <div style="text-align:center;margin:10px 0 4px;">
       <button id="${uid}_revealBtn" onclick="_teachRevealGuess('${uid}')"
