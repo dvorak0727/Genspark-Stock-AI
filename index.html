@@ -80530,7 +80530,7 @@ function _teachSelect(btn, groupId) {
 // 選對的按鈕標綠、選錯的標紅（同時標出綠色的正確答案），再展開下方完整解讀。
 function _teachRevealGuess(uid) {
   let allCorrect = true, answeredAny = false;
-  ['pos','color','wick','action','vp'].forEach(g=>{
+  ['pos','color','wick','action','vp','gap'].forEach(g=>{
     const el = document.getElementById(`${uid}_${g}`);
     if (!el) return;
     const correct = el.dataset.correct, selected = el.dataset.selected;
@@ -80549,6 +80549,16 @@ function _teachRevealGuess(uid) {
   if (notePanel) notePanel.style.display = 'block';
   const btn = document.getElementById(`${uid}_revealBtn`);
   if (btn) btn.style.display = 'none';
+}
+// 跳空：今天開盤價 vs 昨天的高低區間，中間完全沒有成交紀錄的空隙才算跳空
+// （向上跳空=今天開盤>昨天最高；向下跳空=今天開盤<昨天最低），純粹比較兩天資料，
+// 不需要往後看未來走勢，所以跟量價關係一樣可以直接套在dayIdx這一天上出題。
+function _teachGapLabel(opens, highs, lows, dayIdx) {
+  if (dayIdx < 1) return '無跳空';
+  const prevHigh = highs[dayIdx-1], prevLow = lows[dayIdx-1], todayOpen = opens[dayIdx];
+  if (todayOpen > prevHigh) return '向上跳空';
+  if (todayOpen < prevLow) return '向下跳空';
+  return '無跳空';
 }
 // 量價齊揚/齊跌確認：跟海選模組_checkVolPriceConfirm同一套定義(量縮：當日量<5日均量*0.6；
 // 隔天有量：量增>昨日量*1.2；且兩天顏色要同色才算數)，套在dayIdx這一天vs前一天上，
@@ -80600,6 +80610,8 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
   const actionGroup = `<div id="${uid}_action" data-correct="${actionCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_action`, ['出脫','觀望','試單買進'])}</div>`;
   const vpCorrect = _teachVolPriceLabel(raw.opens, raw.closes, raw.volumes, dayIdx);
   const vpGroup = `<div id="${uid}_vp" data-correct="${vpCorrect}" style="display:flex;gap:5px;flex-wrap:wrap;">${mkBtns(`${uid}_vp`, ['量價齊揚(確認)','量價齊跌(確認)','沒有明顯確認訊號'])}</div>`;
+  const gapCorrect = _teachGapLabel(raw.opens, raw.highs, raw.lows, dayIdx);
+  const gapGroup = `<div id="${uid}_gap" data-correct="${gapCorrect}" style="display:flex;gap:5px;">${mkBtns(`${uid}_gap`, ['向上跳空','向下跳空','無跳空'])}</div>`;
 
   return `
   <div style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--card-bg);">
@@ -80617,6 +80629,7 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
       ${wickCorrect?`<div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">📏 影線</div>${wickGroup}</div>`:''}
       <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">🧭 操作建議</div>${actionGroup}</div>
       <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">🔥 量價關係（跟昨天比）</div>${vpGroup}</div>
+      <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">🕳️ 跳空（跟昨天比）</div>${gapGroup}</div>
     </div>
     <div style="text-align:center;margin:10px 0 4px;">
       <button id="${uid}_revealBtn" onclick="_teachRevealGuess('${uid}')"
@@ -80633,6 +80646,7 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
       </div>
       <div style="color:var(--fg2);line-height:1.6;margin-bottom:6px;">${info.note}</div>
       ${vpCorrect!=='沒有明顯確認訊號'?`<div style="color:${vpCorrect.includes('齊揚')?'#dc2626':'#16a34a'};margin-bottom:6px;">🔥 ${vpCorrect}：昨天量縮，今天量增且同色——回測65檔候選股(2024-09~2026-09)顯示，量價齊揚隔天上漲機率69.7%(平均+2.79%)；量價齊跌隔天下跌機率64.4%(平均-1.60%)。</div>`:''}
+      ${gapCorrect!=='無跳空'?`<div style="color:${gapCorrect==='向上跳空'?'#dc2626':'#16a34a'};margin-bottom:6px;">🕳️ ${gapCorrect}：今天開盤價跟昨天的高低區間中間完全沒有成交紀錄——代表法人/大戶收到消息的速度比散戶快，等你看盤才發現價格已經跳過去了。留意隔天是否把缺口回補：回補通常代表這次跳空只是情緒性的，沒回補才是真趨勢。</div>`:''}
       <div style="font-weight:800;color:${verdictColor};">${verdictText}</div>
     </div>
   </div>`;
