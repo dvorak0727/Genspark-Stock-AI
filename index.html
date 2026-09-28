@@ -64286,6 +64286,18 @@ function _checkVolPriceConfirm(candles) {
   return null;
 }
 
+// ── v9.x 跳空：今天開盤價 vs 昨天的高低區間，中間完全沒有成交紀錄才算跳空
+// （向上跳空=今天開盤>昨天最高；向下跳空=今天開盤<昨天最低），
+// 跟K棒走勢教學第6題(_teachGapLabel)同一套定義。
+function _checkGap(candles) {
+  const { opens, highs, lows } = candles || {};
+  if (!opens || opens.length < 2) return null;
+  const n = opens.length, yIdx = n - 2, tIdx = n - 1;
+  if (opens[tIdx] > highs[yIdx]) return 'up';
+  if (opens[tIdx] < lows[yIdx]) return 'down';
+  return null;
+}
+
 // ── v9.x 爆量健檢：今天是否為爆量日（跟 buildMiniCandles 畫橘色量柱同一套門檻：
 // 當日量 ≥ 這15天視覺區間平均量的1.8倍），用來決定要不要顯示「🔥爆量健檢」按鈕。
 function _isTodayBlowoff(candles) {
@@ -64473,6 +64485,14 @@ function renderScreenerCards(showStats=false) {
       ? `<span class="sc-inst-badge strong sc-quick-btn" style="background:#FFEDD5;color:#9A3412;border-color:#FDBA74;" onclick="_scQuickBlowoff('${r.stockId}', this)" title="點擊健檢：今天爆量，是真吃貨還是誘多出貨？">🔥 爆量健檢 ▾</span>`
       : '';
 
+    // ── v9.x 跳空 badge——今天開盤價跳過昨天的高低區間，中間完全沒有成交紀錄 ──
+    const gapDir = r.candles ? _checkGap(r.candles) : null;
+    const gapBadgeHtml = gapDir === 'up'
+      ? `<span class="sc-inst-badge strong" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5;" title="今天開盤價高於昨天最高價，中間完全沒有成交紀錄——留意隔天是否回補缺口">🕳️ 向上跳空</span>`
+      : gapDir === 'down'
+        ? `<span class="sc-inst-badge strong" style="background:#DBEAFE;color:#1E40AF;border-color:#93C5FD;" title="今天開盤價低於昨天最低價，中間完全沒有成交紀錄——留意隔天是否回補缺口">🕳️ 向下跳空</span>`
+        : '';
+
     // 預設 locked（指標隱藏）；解鎖後 JS 移除 locked class
     const lockedCls = _scDetailsUnlocked ? '' : 'locked';
 
@@ -64494,7 +64514,7 @@ function renderScreenerCards(showStats=false) {
             &nbsp;
             <span class="sc-chg" data-rt-chg="${r.stockId}" style="color:${up?'var(--up)':'var(--down)'};">${up?'▲':'▼'}${Math.abs(r.chgPct).toFixed(1)}%</span>
           </div>
-          <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}${volPriceBadgeHtml}${blowoffBadgeHtml}</div>
+          <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}${volPriceBadgeHtml}${blowoffBadgeHtml}${gapBadgeHtml}</div>
           <div class="sc-industry">${info.industry}</div>
         </div>
       </div>
