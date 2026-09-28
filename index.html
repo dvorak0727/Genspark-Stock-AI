@@ -64522,12 +64522,16 @@ function renderScreenerCards(showStats=false) {
       ? `<span class="sc-inst-badge strong sc-quick-btn" style="background:#FFEDD5;color:#9A3412;border-color:#FDBA74;" onclick="_scQuickBlowoff('${r.stockId}', this)" title="點擊健檢：今天爆量，是真吃貨還是誘多出貨？">🔥 爆量健檢 ▾</span>`
       : '';
 
-    // ── v9.x 跳空 badge——今天開盤價跳過昨天的高低區間，中間完全沒有成交紀錄 ──
+    // ── v9.x 跳空 badge——今天開盤價跳過昨天的高低區間，中間完全沒有成交紀錄。
+    // 點擊直接開Google新聞查該股當天消息，跳空一定有原因，讓使用者不用自己另外搜，
+    // 明天要追還是要逃，先查新聞比純看線圖準。
     const gapDir = r.candles ? _checkGap(r.candles) : null;
+    const gapNewsQ = encodeURIComponent(`${info.name} ${r.stockId} 跳空`);
+    const gapNewsUrl = `https://news.google.com/search?q=${gapNewsQ}&hl=zh-TW&gl=TW`;
     const gapBadgeHtml = gapDir === 'up'
-      ? `<span class="sc-inst-badge strong" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5;" title="今天開盤價高於昨天最高價，中間完全沒有成交紀錄——留意隔天是否回補缺口">🕳️ 向上跳空</span>`
+      ? `<a class="sc-inst-badge strong" href="${gapNewsUrl}" target="_blank" rel="noopener" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5;text-decoration:none;" onclick="event.stopPropagation();" title="今天開盤價高於昨天最高價，中間完全沒有成交紀錄——點擊查新聞找原因，留意隔天是否回補缺口">🕳️ 向上跳空 📰</a>`
       : gapDir === 'down'
-        ? `<span class="sc-inst-badge strong" style="background:#DBEAFE;color:#1E40AF;border-color:#93C5FD;" title="今天開盤價低於昨天最低價，中間完全沒有成交紀錄——留意隔天是否回補缺口">🕳️ 向下跳空</span>`
+        ? `<a class="sc-inst-badge strong" href="${gapNewsUrl}" target="_blank" rel="noopener" style="background:#DBEAFE;color:#1E40AF;border-color:#93C5FD;text-decoration:none;" onclick="event.stopPropagation();" title="今天開盤價低於昨天最低價，中間完全沒有成交紀錄——點擊查新聞找原因，留意隔天是否回補缺口">🕳️ 向下跳空 📰</a>`
         : '';
 
     // 預設 locked（指標隱藏）；解鎖後 JS 移除 locked class
