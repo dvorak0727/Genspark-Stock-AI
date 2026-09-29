@@ -57427,7 +57427,7 @@ const _idxBorderColHeaderHtml = `
     <span style="flex:0 0 auto;width:60px;text-align:right;">板塊</span>
     <span style="flex:0 0 auto;width:18px;text-align:center;">大戶</span>
     <span style="flex:0 0 auto;width:48px;text-align:right;">月營收</span>
-    <span style="flex:0 0 auto;width:104px;text-align:right;">報價</span>
+    <span style="flex:0 0 auto;width:88px;text-align:right;">報價</span>
     <span style="flex:0 0 auto;width:80px;text-align:right;">分點</span>
   </div>`;
 
@@ -57445,7 +57445,7 @@ function renderIndexBorderList(list) {
       <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
       <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
-      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:52px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:88px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
 
@@ -57476,8 +57476,7 @@ const _idxBorderLegendHtml = `
       <div style="margin-bottom:3px;">🐋 千張大戶＝最新一週籌碼趨勢</div>
       <div style="margin-bottom:3px;">📊 月營收YoY＝真實基本面數字，紅字成長綠字衰退，跟排名位置無關（51~65是想擠進50大，不代表體質差）</div>
       <div style="margin-bottom:3px;">🧠🖥️🚢🛢️⛏️✈️🔶💰💻🤖🔋🧬🔬📡🌡️🧵 報價偵測＝記憶體股/伺服器筆電組裝股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌、航空股比對油價(燃油成本，方向跟塑化股相反)、PCB股比對國際銅價漲跌、金融股比對黃金+美10年債殖利率、半導體股(不含記憶體)比對SOX指數+NVDA/SMCI、機器人相關股比對ROBO ETF、汽車股比對LIT鋰電池ETF、生技股比對NBI生技指數、CPO矽光子股比對COHR股價、電信股比對美10年債殖利率(方向跟金融股相反)、散熱/機殼/滑軌/被動元件等AI伺服器供應鏈股比對NVDA/SMCI(需求端領先指標)、紡織股比對棉花期貨(上游原料成本)。產業領先指標，比股價更早反映景氣；水泥查無合理公開指標，暫不做。</div>
-      <div style="margin-bottom:3px;">報價徽章右邊會直接自動標<span style="display:inline-block;background:#16a34a;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">✅有利</span>／<span style="display:inline-block;background:#dc2626;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">⚠️不利</span>，不用再自己判斷方向；沒有標籤代表這個指標對該股的影響方向本來就因股而異（例如金融股同時受金價+利率雙重影響），不強行下定論。</div>
-      <div style="margin-bottom:3px;">徽章本身的實心色塊是報價「類型」：<span style="display:inline-block;background:#ea580c;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">橘</span>成本端／<span style="display:inline-block;background:#2563eb;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">藍</span>需求端／<span style="display:inline-block;background:#0d9488;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">青</span>營收端／<span style="display:inline-block;background:#9333ea;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">紫</span>估值端，箭頭▲/▼是原始報價本身的漲跌，不是對該股的好壞（好壞看旁邊的有利/不利標籤）。</div>
+      <div style="margin-bottom:3px;">報價數字後面會直接標文字「有利／不利／無影響」，不用再自己判斷這個報價對該股是好是壞；「無影響」代表這個指標對該股的方向本來就因股而異（例如金融股同時受金價+利率雙重影響），不強行下定論。</div>
       <div style="margin-bottom:3px;">🏦 分點＝點擊才查、最近一個交易日量最大分點買賣超</div>
       <div>板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。</div>
     </div>`;
@@ -57493,7 +57492,7 @@ function renderIndexBorderPage1(page1) {
       <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
       <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
-      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:52px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:88px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
   const mid = Math.ceil(page1.length / 2);
@@ -58097,47 +58096,14 @@ function _isTextileSector(stockId) {
   return !!(info && /^紡織$/.test(info.industry || ''));
 }
 
-// v9.x：報價偵測徽章的「類型底色」——使用者反映光看🧠🖥️等icon+漲跌%
-// 沒辦法馬上判斷這是成本端(原料漲=對該股不利)還是需求端(下游訂單/自身
-// 售價漲=對該股有利)還是估值端(利率/資金面，方向因股而異)。
-// v9.x第二版：原本用淡底色+紅綠文字，使用者反映色差太不明顯還是要猜。
-// 改成實心飽和色塊(類型)+白字，方向改由▲/▼箭頭本身傳達，不再靠文字
-// 紅綠(那個訊息量疊在淡底色上太難辨識)。
-// cost=橘(原料成本，通常漲=對該股不利)／revenue=青(自己賣的東西漲=
-// 對該股有利)／demand=藍(下游訂單能見度領先指標，漲=對該股通常有利，
-// 但非直接成本/營收)／valuation=紫(利率/資金面，方向因股而異)。
-const _PR_TYPE_BG = {
-  cost:      '#ea580c',
-  revenue:   '#0d9488',
-  demand:    '#2563eb',
-  valuation: '#9333ea',
-};
-function _prApplyType(el, type) {
-  el.style.background = _PR_TYPE_BG[type] || '';
-  el.style.color = '#fff';
-  el.style.borderRadius = '3px';
-  el.style.padding = '0 3px';
-  el.style.fontWeight = '800';
-}
-
-// v9.x第三版：使用者反映「類型色塊」還是要花腦筋轉換(橘=成本→不好)，
-// 希望更直覺——直接在報價徽章右邊，用紅綠+文字自動標「有利／不利」，
-// 不用再看顏色猜。favorable=true(綠✅有利)／false(紅⚠️不利)／
-// null(不標，通常是方向本來就因股而異、不適合下定論的valuation類，
-// 例如金融股的黃金+殖利率複合影響)。用獨立的sibling span呈現，
-// 用固定id避免annotatePriceRadar重跑時疊加出重複標籤。
-function _prAppendFavor(id, favorable) {
-  const mainEl = document.getElementById(`priceRadar-${id}`);
-  if (!mainEl) return;
-  let span = document.getElementById(`priceRadarFavor-${id}`);
-  if (favorable === null || favorable === undefined) { if (span) span.remove(); return; }
-  if (!span) {
-    span = document.createElement('span');
-    span.id = `priceRadarFavor-${id}`;
-    mainEl.insertAdjacentElement('afterend', span);
-  }
-  span.textContent = favorable ? '✅有利' : '⚠️不利';
-  span.style.cssText = `flex:0 0 auto;margin-left:3px;font-weight:800;font-size:0.56rem;padding:0 3px;border-radius:3px;color:#fff;white-space:nowrap;background:${favorable ? '#16a34a' : '#dc2626'};`;
+// v9.x第四版：前兩版(淡底色→實心色塊)使用者都反映還要花腦筋轉換、
+// 版面也變複雜。改回最單純的做法——徽章維持原本純數字+紅綠色（不加
+// 任何底色/色塊），旁邊直接加一個純文字「有利／不利／無影響」，不用
+// icon不用色塊，版面不會跑掉。favorable=true(有利)／false(不利)／
+// null或undefined(無影響，通常是方向本來就因股而異、不適合下定論，
+// 例如金融股同時受金價+利率雙重影響)。
+function _prFavorLabel(favorable) {
+  return favorable === true ? '有利' : favorable === false ? '不利' : '無影響';
 }
 
 function _panelAvgMomPct(data) {
@@ -58174,13 +58140,12 @@ async function annotatePriceRadar(list) {
     memRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (dramAvg === null) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (dramAvg === null) { el.textContent = ''; return; }
       const arrow = dramAvg > 0 ? '▲' : dramAvg < 0 ? '▼' : '—';
       const isDownstream = isDownstreamId.has(x.id);
-      el.textContent = `🧠${arrow}${Math.abs(dramAvg).toFixed(1)}%`;
+      const fav = dramAvg === 0 ? null : (isDownstream ? dramAvg < 0 : dramAvg > 0);
+      el.textContent = `🧠${arrow}${Math.abs(dramAvg).toFixed(1)}% ${_prFavorLabel(fav)}`;
       el.style.color = dramAvg > 0 ? '#dc2626' : dramAvg < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, isDownstream ? 'cost' : 'revenue');
-      _prAppendFavor(x.id, dramAvg === 0 ? null : (isDownstream ? dramAvg < 0 : dramAvg > 0));
       el.title = isDownstreamId.has(x.id)
         ? `DRAM現貨均價本期漲跌${dramAvg.toFixed(2)}%（資料源：TrendForce，最後更新${(data.dram||{}).last_update||'-'}）——伺服器/筆電組裝股的DRAM料號成本占比高，記憶體報價是「成本+備貨周期」領先指標，跟記憶體原廠(漲跌直接反映在毛利)邏輯不同`
         : `DRAM現貨均價本期漲跌${dramAvg.toFixed(2)}%（資料源：TrendForce，最後更新${(data.dram||{}).last_update||'-'}）——記憶體報價是產業領先指標，比股價本身更早反映景氣`;
@@ -58193,12 +58158,10 @@ async function annotatePriceRadar(list) {
     panelRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (momAvg === null) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (momAvg === null) { el.textContent = ''; return; }
       const arrow = momAvg > 0 ? '▲' : momAvg < 0 ? '▼' : '—';
-      el.textContent = `🖥️${arrow}${Math.abs(momAvg).toFixed(1)}%`;
+      el.textContent = `🖥️${arrow}${Math.abs(momAvg).toFixed(1)}% ${_prFavorLabel(momAvg === 0 ? null : momAvg > 0)}`;
       el.style.color = momAvg > 0 ? '#dc2626' : momAvg < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'revenue');
-      _prAppendFavor(x.id, momAvg === 0 ? null : momAvg > 0);
       el.title = `面板均價月增${momAvg.toFixed(2)}%（TV/Monitor/NB平均，資料源：TrendForce，最後更新${(data.large||{}).last_update||'-'}，每月更新一次）——面板報價是產業領先指標，比股價本身更早反映景氣`;
     });
   }
@@ -58209,12 +58172,10 @@ async function annotatePriceRadar(list) {
     shipRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!scfi) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!scfi) { el.textContent = ''; return; }
       const arrow = scfi.change_pct > 0 ? '▲' : scfi.change_pct < 0 ? '▼' : '—';
-      el.textContent = `🚢${arrow}${Math.abs(scfi.change_pct).toFixed(1)}%`;
+      el.textContent = `🚢${arrow}${Math.abs(scfi.change_pct).toFixed(1)}% ${_prFavorLabel(scfi.change_pct === 0 ? null : scfi.change_pct > 0)}`;
       el.style.color = scfi.change_pct > 0 ? '#dc2626' : scfi.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'revenue');
-      _prAppendFavor(x.id, scfi.change_pct === 0 ? null : scfi.change_pct > 0);
       el.title = `SCFI綜合指數${scfi.curr_date}週漲跌${scfi.change_pct>0?'+':''}${scfi.change_pct}%（${scfi.prev_index}→${scfi.curr_index}點，資料源：上海航交所，每週五公布）——運價是航運股的產業領先指標，比股價本身更早反映景氣`;
     });
   }
@@ -58225,12 +58186,10 @@ async function annotatePriceRadar(list) {
     petroRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (oilAvg === null) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (oilAvg === null) { el.textContent = ''; return; }
       const arrow = oilAvg > 0 ? '▲' : oilAvg < 0 ? '▼' : '—';
-      el.textContent = `🛢️${arrow}${Math.abs(oilAvg).toFixed(1)}%`;
+      el.textContent = `🛢️${arrow}${Math.abs(oilAvg).toFixed(1)}% ${_prFavorLabel(oilAvg === 0 ? null : oilAvg < 0)}`;
       el.style.color = oilAvg > 0 ? '#dc2626' : oilAvg < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'cost');
-      _prAppendFavor(x.id, oilAvg === 0 ? null : oilAvg < 0);
       const wti = data.wti, brent = data.brent;
       el.title = `國際油價(WTI+Brent平均)漲跌${oilAvg.toFixed(2)}%（WTI $${wti?.price??'-'} ${wti?.change_pct>0?'+':''}${wti?.change_pct??'-'}%／Brent $${brent?.price??'-'} ${brent?.change_pct>0?'+':''}${brent?.change_pct??'-'}%，資料源：Yahoo Finance）——原油是塑化股的核心領先指標(原油→輕油→乙烯/丙烯)`;
     });
@@ -58242,12 +58201,10 @@ async function annotatePriceRadar(list) {
     steelRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!ore) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!ore) { el.textContent = ''; return; }
       const arrow = ore.change_pct > 0 ? '▲' : ore.change_pct < 0 ? '▼' : '—';
-      el.textContent = `⛏️${arrow}${Math.abs(ore.change_pct).toFixed(1)}%`;
+      el.textContent = `⛏️${arrow}${Math.abs(ore.change_pct).toFixed(1)}% ${_prFavorLabel(ore.change_pct === 0 ? null : ore.change_pct < 0)}`;
       el.style.color = ore.change_pct > 0 ? '#dc2626' : ore.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'cost');
-      _prAppendFavor(x.id, ore.change_pct === 0 ? null : ore.change_pct < 0);
       el.title = `鐵礦砂期貨(62%Fe CFR China)${ore.date}漲跌${ore.change_pct>0?'+':''}${ore.change_pct}%（$${ore.prev_close}→$${ore.price}/噸，資料源：Yahoo Finance）——鐵礦砂是鋼鐵股的核心原料領先指標`;
     });
   }
@@ -58260,14 +58217,12 @@ async function annotatePriceRadar(list) {
     aviationRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (oilAvg === null) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (oilAvg === null) { el.textContent = ''; return; }
       const arrow = oilAvg > 0 ? '▲' : oilAvg < 0 ? '▼' : '—';
       // 顏色刻意跟塑化股相反：油價漲(紅)對航空股是成本壓力(用紅字警示同樣合理，
       // 但語意是「壞消息」)，油價跌(綠)對航空股是燃油成本降低的利多。
-      el.textContent = `✈️${arrow}${Math.abs(oilAvg).toFixed(1)}%`;
+      el.textContent = `✈️${arrow}${Math.abs(oilAvg).toFixed(1)}% ${_prFavorLabel(oilAvg === 0 ? null : oilAvg < 0)}`;
       el.style.color = oilAvg > 0 ? '#dc2626' : oilAvg < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'cost');
-      _prAppendFavor(x.id, oilAvg === 0 ? null : oilAvg < 0);
       const wti = data.wti, brent = data.brent;
       el.title = `國際油價(WTI+Brent平均)漲跌${oilAvg.toFixed(2)}%（WTI $${wti?.price??'-'}／Brent $${brent?.price??'-'}，資料源：Yahoo Finance）——燃油是航空股最大成本項，油價漲＝成本上升(利空)，油價跌＝成本下降(利多)，方向跟塑化股相反`;
     });
@@ -58279,12 +58234,10 @@ async function annotatePriceRadar(list) {
     pcbRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!copper) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!copper) { el.textContent = ''; return; }
       const arrow = copper.change_pct > 0 ? '▲' : copper.change_pct < 0 ? '▼' : '—';
-      el.textContent = `🔶${arrow}${Math.abs(copper.change_pct).toFixed(1)}%`;
+      el.textContent = `🔶${arrow}${Math.abs(copper.change_pct).toFixed(1)}% ${_prFavorLabel(copper.change_pct === 0 ? null : copper.change_pct < 0)}`;
       el.style.color = copper.change_pct > 0 ? '#dc2626' : copper.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'cost');
-      _prAppendFavor(x.id, copper.change_pct === 0 ? null : copper.change_pct < 0);
       el.title = `國際銅期貨(COMEX)${copper.date}漲跌${copper.change_pct>0?'+':''}${copper.change_pct}%（$${copper.prev_close}→$${copper.price}/磅，資料源：Yahoo Finance）——銅是PCB導電線路+銅箔基板(CCL)的核心原料，銅價是PCB廠成本的領先指標`;
     });
   }
@@ -58295,12 +58248,11 @@ async function annotatePriceRadar(list) {
     financeRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!gold) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!gold) { el.textContent = ''; return; }
       const arrow = gold.change_pct > 0 ? '▲' : gold.change_pct < 0 ? '▼' : '—';
-      el.textContent = `💰${arrow}${Math.abs(gold.change_pct).toFixed(1)}%`;
+      // 金控/保險受金價+利率雙重影響，方向不一定同向，不強行下定論(標「無影響」)
+      el.textContent = `💰${arrow}${Math.abs(gold.change_pct).toFixed(1)}% ${_prFavorLabel(null)}`;
       el.style.color = gold.change_pct > 0 ? '#dc2626' : gold.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'valuation');
-      _prAppendFavor(x.id, null); // 金控/保險受金價+利率雙重影響，方向不一定同向，不強行下定論
       const rateNote = us10y ? `；美10年債殖利率${us10y.rate.toFixed(3)}%(${us10y.change_pct>0?'+':''}${us10y.change_pct}%)` : '';
       el.title = `黃金期貨(GC=F)${gold.date}漲跌${gold.change_pct>0?'+':''}${gold.change_pct}%（$${gold.prev_close}→$${gold.price}/盎司${rateNote}，資料源：Yahoo Finance）——金控/保險受利率環境與黃金部位雙重影響：金漲保險部位增值；升息銀行利差擴大但保險債券部位承壓，兩個方向不一定同向`;
     });
@@ -58312,12 +58264,10 @@ async function annotatePriceRadar(list) {
     semiRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!sox) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!sox) { el.textContent = ''; return; }
       const arrow = sox.change_pct > 0 ? '▲' : sox.change_pct < 0 ? '▼' : '—';
-      el.textContent = `💻${arrow}${Math.abs(sox.change_pct).toFixed(1)}%`;
+      el.textContent = `💻${arrow}${Math.abs(sox.change_pct).toFixed(1)}% ${_prFavorLabel(sox.change_pct === 0 ? null : sox.change_pct > 0)}`;
       el.style.color = sox.change_pct > 0 ? '#dc2626' : sox.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'demand');
-      _prAppendFavor(x.id, sox.change_pct === 0 ? null : sox.change_pct > 0);
       const nvda = data.nvda, smci = data.smci;
       const extra = [
         nvda ? `NVDA ${nvda.change_pct>0?'+':''}${nvda.change_pct}%` : null,
@@ -58333,12 +58283,10 @@ async function annotatePriceRadar(list) {
     robotRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!robo) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!robo) { el.textContent = ''; return; }
       const arrow = robo.change_pct > 0 ? '▲' : robo.change_pct < 0 ? '▼' : '—';
-      el.textContent = `🤖${arrow}${Math.abs(robo.change_pct).toFixed(1)}%`;
+      el.textContent = `🤖${arrow}${Math.abs(robo.change_pct).toFixed(1)}% ${_prFavorLabel(robo.change_pct === 0 ? null : robo.change_pct > 0)}`;
       el.style.color = robo.change_pct > 0 ? '#dc2626' : robo.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'demand');
-      _prAppendFavor(x.id, robo.change_pct === 0 ? null : robo.change_pct > 0);
       el.title = `ROBO全球機器人與自動化ETF${robo.date}漲跌${robo.change_pct>0?'+':''}${robo.change_pct}%（$${robo.prev_close}→$${robo.price}，資料源：Yahoo Finance）——追蹤全球機器人/自動化成分股，是這個產業景氣的代理指標`;
     });
   }
@@ -58349,12 +58297,10 @@ async function annotatePriceRadar(list) {
     evRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!lit) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!lit) { el.textContent = ''; return; }
       const arrow = lit.change_pct > 0 ? '▲' : lit.change_pct < 0 ? '▼' : '—';
-      el.textContent = `🔋${arrow}${Math.abs(lit.change_pct).toFixed(1)}%`;
+      el.textContent = `🔋${arrow}${Math.abs(lit.change_pct).toFixed(1)}% ${_prFavorLabel(lit.change_pct === 0 ? null : lit.change_pct > 0)}`;
       el.style.color = lit.change_pct > 0 ? '#dc2626' : lit.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'demand');
-      _prAppendFavor(x.id, lit.change_pct === 0 ? null : lit.change_pct > 0);
       el.title = `LIT鋰電池ETF${lit.date}漲跌${lit.change_pct>0?'+':''}${lit.change_pct}%（$${lit.prev_close}→$${lit.price}，資料源：Yahoo Finance）——追蹤全球鋰電池供應鏈成分股，電動車產業景氣高度連動電池/鋰料供需`;
     });
   }
@@ -58365,12 +58311,10 @@ async function annotatePriceRadar(list) {
     biotechRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!nbi) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!nbi) { el.textContent = ''; return; }
       const arrow = nbi.change_pct > 0 ? '▲' : nbi.change_pct < 0 ? '▼' : '—';
-      el.textContent = `🧬${arrow}${Math.abs(nbi.change_pct).toFixed(1)}%`;
+      el.textContent = `🧬${arrow}${Math.abs(nbi.change_pct).toFixed(1)}% ${_prFavorLabel(nbi.change_pct === 0 ? null : nbi.change_pct > 0)}`;
       el.style.color = nbi.change_pct > 0 ? '#dc2626' : nbi.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'valuation');
-      _prAppendFavor(x.id, nbi.change_pct === 0 ? null : nbi.change_pct > 0);
       el.title = `那斯達克生技指數(NBI)${nbi.date}漲跌${nbi.change_pct>0?'+':''}${nbi.change_pct}%（${nbi.prev_close}→${nbi.price}點，資料源：Yahoo Finance）——全球生技股最重要指標指數之一，台灣生技股常跟隨國際生技類股景氣連動`;
     });
   }
@@ -58381,12 +58325,10 @@ async function annotatePriceRadar(list) {
     cpoRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!cohr) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!cohr) { el.textContent = ''; return; }
       const arrow = cohr.change_pct > 0 ? '▲' : cohr.change_pct < 0 ? '▼' : '—';
-      el.textContent = `🔬${arrow}${Math.abs(cohr.change_pct).toFixed(1)}%`;
+      el.textContent = `🔬${arrow}${Math.abs(cohr.change_pct).toFixed(1)}% ${_prFavorLabel(cohr.change_pct === 0 ? null : cohr.change_pct > 0)}`;
       el.style.color = cohr.change_pct > 0 ? '#dc2626' : cohr.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'demand');
-      _prAppendFavor(x.id, cohr.change_pct === 0 ? null : cohr.change_pct > 0);
       el.title = `Coherent Corp(COHR)${cohr.date}漲跌${cohr.change_pct>0?'+':''}${cohr.change_pct}%（$${cohr.prev_close}→$${cohr.price}，資料源：Yahoo Finance）——全球矽光子/光學元件龍頭廠，客戶涵蓋資料中心光通訊模組供應鏈，股價是CPO矽光子產業景氣的代理指標`;
     });
   }
@@ -58399,13 +58341,11 @@ async function annotatePriceRadar(list) {
     telecomRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!us10y) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!us10y) { el.textContent = ''; return; }
       const arrow = us10y.change_pct > 0 ? '▲' : us10y.change_pct < 0 ? '▼' : '—';
       // 利率跟電信估值反向：利率跌(綠字，通常代表利多防禦股)，利率漲(紅字，通常代表利空)
-      el.textContent = `📡${arrow}${Math.abs(us10y.change_pct).toFixed(1)}%`;
+      el.textContent = `📡${arrow}${Math.abs(us10y.change_pct).toFixed(1)}% ${_prFavorLabel(us10y.change_pct === 0 ? null : us10y.change_pct < 0)}`;
       el.style.color = us10y.change_pct > 0 ? '#16a34a' : us10y.change_pct < 0 ? '#dc2626' : 'var(--fg3)';
-      _prApplyType(el, 'valuation');
-      _prAppendFavor(x.id, us10y.change_pct === 0 ? null : us10y.change_pct < 0);
       el.title = `美10年期公債殖利率${us10y.date}漲跌${us10y.change_pct>0?'+':''}${us10y.change_pct}%（${us10y.prev_rate.toFixed(3)}%→${us10y.rate.toFixed(3)}%，資料源：Yahoo Finance）——電信股是高股息防禦型，利率下行通常是估值利多(股息殖利率相對變吸引人)，利率上行是估值利空，顏色方向刻意跟其他板塊相反`;
     });
   }
@@ -58419,12 +58359,10 @@ async function annotatePriceRadar(list) {
     aiServerDemandRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!nvda) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!nvda) { el.textContent = ''; return; }
       const arrow = nvda.change_pct > 0 ? '▲' : nvda.change_pct < 0 ? '▼' : '—';
-      el.textContent = `🌡️${arrow}${Math.abs(nvda.change_pct).toFixed(1)}%`;
+      el.textContent = `🌡️${arrow}${Math.abs(nvda.change_pct).toFixed(1)}% ${_prFavorLabel(nvda.change_pct === 0 ? null : nvda.change_pct > 0)}`;
       el.style.color = nvda.change_pct > 0 ? '#dc2626' : nvda.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'demand');
-      _prAppendFavor(x.id, nvda.change_pct === 0 ? null : nvda.change_pct > 0);
       const smci = data.smci;
       const smciNote = smci ? `；SMCI ${smci.change_pct>0?'+':''}${smci.change_pct}%` : '';
       el.title = `AI伺服器需求代理：NVDA(${nvda.date})漲跌${nvda.change_pct>0?'+':''}${nvda.change_pct}%（$${nvda.prev_close}→$${nvda.price}${smciNote}，資料源：Yahoo Finance）——NVDA GPU出貨量直接決定散熱模組/機殼/滑軌/被動元件這類台廠伺服器供應鏈的訂單能見度，是需求端(非原料成本)領先指標`;
@@ -58437,12 +58375,10 @@ async function annotatePriceRadar(list) {
     textileRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!cotton) { el.textContent = ''; _prAppendFavor(x.id, null); return; }
+      if (!cotton) { el.textContent = ''; return; }
       const arrow = cotton.change_pct > 0 ? '▲' : cotton.change_pct < 0 ? '▼' : '—';
-      el.textContent = `🧵${arrow}${Math.abs(cotton.change_pct).toFixed(1)}%`;
+      el.textContent = `🧵${arrow}${Math.abs(cotton.change_pct).toFixed(1)}% ${_prFavorLabel(cotton.change_pct === 0 ? null : cotton.change_pct < 0)}`;
       el.style.color = cotton.change_pct > 0 ? '#dc2626' : cotton.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
-      _prApplyType(el, 'cost');
-      _prAppendFavor(x.id, cotton.change_pct === 0 ? null : cotton.change_pct < 0);
       el.title = `棉花期貨(${cotton.date})漲跌${cotton.change_pct>0?'+':''}${cotton.change_pct}%（$${cotton.prev_close}→$${cotton.price}，資料源：Yahoo Finance）——棉花是化纖/紡織業上游原料成本之一，期貨報價是紡織股毛利率的領先指標`;
     });
   }
