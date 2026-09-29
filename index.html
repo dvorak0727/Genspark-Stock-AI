@@ -57427,7 +57427,7 @@ const _idxBorderColHeaderHtml = `
     <span style="flex:0 0 auto;width:60px;text-align:right;">板塊</span>
     <span style="flex:0 0 auto;width:18px;text-align:center;">大戶</span>
     <span style="flex:0 0 auto;width:48px;text-align:right;">月營收</span>
-    <span style="flex:0 0 auto;width:88px;text-align:right;">報價</span>
+    <span style="flex:0 0 auto;width:58px;text-align:right;">報價</span>
     <span style="flex:0 0 auto;width:80px;text-align:right;">分點</span>
   </div>`;
 
@@ -57445,7 +57445,7 @@ function renderIndexBorderList(list) {
       <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
       <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
-      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:88px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:58px;text-align:right;white-space:normal;line-height:1.2;"></span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
 
@@ -57492,7 +57492,7 @@ function renderIndexBorderPage1(page1) {
       <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
       <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
-      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:88px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
+      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:58px;text-align:right;white-space:normal;line-height:1.2;"></span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
   const mid = Math.ceil(page1.length / 2);
@@ -58140,7 +58140,7 @@ async function annotatePriceRadar(list) {
     memRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (dramAvg === null) { el.textContent = ''; return; }
+      if (dramAvg === null) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = dramAvg > 0 ? '▲' : dramAvg < 0 ? '▼' : '—';
       const isDownstream = isDownstreamId.has(x.id);
       const fav = dramAvg === 0 ? null : (isDownstream ? dramAvg < 0 : dramAvg > 0);
@@ -58158,7 +58158,7 @@ async function annotatePriceRadar(list) {
     panelRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (momAvg === null) { el.textContent = ''; return; }
+      if (momAvg === null) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = momAvg > 0 ? '▲' : momAvg < 0 ? '▼' : '—';
       el.textContent = `🖥️${arrow}${Math.abs(momAvg).toFixed(1)}% ${_prFavorLabel(momAvg === 0 ? null : momAvg > 0)}`;
       el.style.color = momAvg > 0 ? '#dc2626' : momAvg < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58172,7 +58172,7 @@ async function annotatePriceRadar(list) {
     shipRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!scfi) { el.textContent = ''; return; }
+      if (!scfi) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = scfi.change_pct > 0 ? '▲' : scfi.change_pct < 0 ? '▼' : '—';
       el.textContent = `🚢${arrow}${Math.abs(scfi.change_pct).toFixed(1)}% ${_prFavorLabel(scfi.change_pct === 0 ? null : scfi.change_pct > 0)}`;
       el.style.color = scfi.change_pct > 0 ? '#dc2626' : scfi.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58186,7 +58186,7 @@ async function annotatePriceRadar(list) {
     petroRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (oilAvg === null) { el.textContent = ''; return; }
+      if (oilAvg === null) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = oilAvg > 0 ? '▲' : oilAvg < 0 ? '▼' : '—';
       el.textContent = `🛢️${arrow}${Math.abs(oilAvg).toFixed(1)}% ${_prFavorLabel(oilAvg === 0 ? null : oilAvg < 0)}`;
       el.style.color = oilAvg > 0 ? '#dc2626' : oilAvg < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58201,7 +58201,7 @@ async function annotatePriceRadar(list) {
     steelRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!ore) { el.textContent = ''; return; }
+      if (!ore) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = ore.change_pct > 0 ? '▲' : ore.change_pct < 0 ? '▼' : '—';
       el.textContent = `⛏️${arrow}${Math.abs(ore.change_pct).toFixed(1)}% ${_prFavorLabel(ore.change_pct === 0 ? null : ore.change_pct < 0)}`;
       el.style.color = ore.change_pct > 0 ? '#dc2626' : ore.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58217,7 +58217,7 @@ async function annotatePriceRadar(list) {
     aviationRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (oilAvg === null) { el.textContent = ''; return; }
+      if (oilAvg === null) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = oilAvg > 0 ? '▲' : oilAvg < 0 ? '▼' : '—';
       // 顏色刻意跟塑化股相反：油價漲(紅)對航空股是成本壓力(用紅字警示同樣合理，
       // 但語意是「壞消息」)，油價跌(綠)對航空股是燃油成本降低的利多。
@@ -58234,7 +58234,7 @@ async function annotatePriceRadar(list) {
     pcbRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!copper) { el.textContent = ''; return; }
+      if (!copper) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = copper.change_pct > 0 ? '▲' : copper.change_pct < 0 ? '▼' : '—';
       el.textContent = `🔶${arrow}${Math.abs(copper.change_pct).toFixed(1)}% ${_prFavorLabel(copper.change_pct === 0 ? null : copper.change_pct < 0)}`;
       el.style.color = copper.change_pct > 0 ? '#dc2626' : copper.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58248,7 +58248,7 @@ async function annotatePriceRadar(list) {
     financeRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!gold) { el.textContent = ''; return; }
+      if (!gold) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = gold.change_pct > 0 ? '▲' : gold.change_pct < 0 ? '▼' : '—';
       // 金控/保險受金價+利率雙重影響，方向不一定同向，不強行下定論(標「無影響」)
       el.textContent = `💰${arrow}${Math.abs(gold.change_pct).toFixed(1)}% ${_prFavorLabel(null)}`;
@@ -58264,7 +58264,7 @@ async function annotatePriceRadar(list) {
     semiRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!sox) { el.textContent = ''; return; }
+      if (!sox) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = sox.change_pct > 0 ? '▲' : sox.change_pct < 0 ? '▼' : '—';
       el.textContent = `💻${arrow}${Math.abs(sox.change_pct).toFixed(1)}% ${_prFavorLabel(sox.change_pct === 0 ? null : sox.change_pct > 0)}`;
       el.style.color = sox.change_pct > 0 ? '#dc2626' : sox.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58283,7 +58283,7 @@ async function annotatePriceRadar(list) {
     robotRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!robo) { el.textContent = ''; return; }
+      if (!robo) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = robo.change_pct > 0 ? '▲' : robo.change_pct < 0 ? '▼' : '—';
       el.textContent = `🤖${arrow}${Math.abs(robo.change_pct).toFixed(1)}% ${_prFavorLabel(robo.change_pct === 0 ? null : robo.change_pct > 0)}`;
       el.style.color = robo.change_pct > 0 ? '#dc2626' : robo.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58297,7 +58297,7 @@ async function annotatePriceRadar(list) {
     evRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!lit) { el.textContent = ''; return; }
+      if (!lit) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = lit.change_pct > 0 ? '▲' : lit.change_pct < 0 ? '▼' : '—';
       el.textContent = `🔋${arrow}${Math.abs(lit.change_pct).toFixed(1)}% ${_prFavorLabel(lit.change_pct === 0 ? null : lit.change_pct > 0)}`;
       el.style.color = lit.change_pct > 0 ? '#dc2626' : lit.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58311,7 +58311,7 @@ async function annotatePriceRadar(list) {
     biotechRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!nbi) { el.textContent = ''; return; }
+      if (!nbi) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = nbi.change_pct > 0 ? '▲' : nbi.change_pct < 0 ? '▼' : '—';
       el.textContent = `🧬${arrow}${Math.abs(nbi.change_pct).toFixed(1)}% ${_prFavorLabel(nbi.change_pct === 0 ? null : nbi.change_pct > 0)}`;
       el.style.color = nbi.change_pct > 0 ? '#dc2626' : nbi.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58325,7 +58325,7 @@ async function annotatePriceRadar(list) {
     cpoRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!cohr) { el.textContent = ''; return; }
+      if (!cohr) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = cohr.change_pct > 0 ? '▲' : cohr.change_pct < 0 ? '▼' : '—';
       el.textContent = `🔬${arrow}${Math.abs(cohr.change_pct).toFixed(1)}% ${_prFavorLabel(cohr.change_pct === 0 ? null : cohr.change_pct > 0)}`;
       el.style.color = cohr.change_pct > 0 ? '#dc2626' : cohr.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58341,7 +58341,7 @@ async function annotatePriceRadar(list) {
     telecomRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!us10y) { el.textContent = ''; return; }
+      if (!us10y) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = us10y.change_pct > 0 ? '▲' : us10y.change_pct < 0 ? '▼' : '—';
       // 利率跟電信估值反向：利率跌(綠字，通常代表利多防禦股)，利率漲(紅字，通常代表利空)
       el.textContent = `📡${arrow}${Math.abs(us10y.change_pct).toFixed(1)}% ${_prFavorLabel(us10y.change_pct === 0 ? null : us10y.change_pct < 0)}`;
@@ -58359,7 +58359,7 @@ async function annotatePriceRadar(list) {
     aiServerDemandRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!nvda) { el.textContent = ''; return; }
+      if (!nvda) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = nvda.change_pct > 0 ? '▲' : nvda.change_pct < 0 ? '▼' : '—';
       el.textContent = `🌡️${arrow}${Math.abs(nvda.change_pct).toFixed(1)}% ${_prFavorLabel(nvda.change_pct === 0 ? null : nvda.change_pct > 0)}`;
       el.style.color = nvda.change_pct > 0 ? '#dc2626' : nvda.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58375,7 +58375,7 @@ async function annotatePriceRadar(list) {
     textileRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!cotton) { el.textContent = ''; return; }
+      if (!cotton) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
       const arrow = cotton.change_pct > 0 ? '▲' : cotton.change_pct < 0 ? '▼' : '—';
       el.textContent = `🧵${arrow}${Math.abs(cotton.change_pct).toFixed(1)}% ${_prFavorLabel(cotton.change_pct === 0 ? null : cotton.change_pct < 0)}`;
       el.style.color = cotton.change_pct > 0 ? '#dc2626' : cotton.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
