@@ -57412,6 +57412,22 @@ async function fetchIndexBorderCandidates() {
   return { list, page1 };
 }
 
+// v9.x 使用者反映：只有icon、沒有欄位名，新使用者看到「0.3%」不知道是什麼——
+// 補一列Excel式欄位標題，寬度要跟rowHtml每一欄完全對齊，兩個renderXxx函式共用。
+const _idxBorderColHeaderHtml = `
+  <div style="display:flex;align-items:center;gap:5px;padding:2px 8px 4px;font-size:0.58rem;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);white-space:nowrap;">
+    <span style="flex:0 0 auto;width:22px;">排名</span>
+    <span style="flex:1;min-width:56px;">股票</span>
+    <span style="flex:0 0 auto;width:42px;text-align:right;">漲跌</span>
+    <span style="flex:0 0 auto;width:40px;text-align:center;">走勢</span>
+    <span style="flex:0 0 auto;width:20px;text-align:center;">籌碼</span>
+    <span style="flex:0 0 auto;width:60px;text-align:right;">板塊</span>
+    <span style="flex:0 0 auto;width:18px;text-align:center;">大戶</span>
+    <span style="flex:0 0 auto;width:48px;text-align:right;">月營收</span>
+    <span style="flex:0 0 auto;width:52px;text-align:right;">報價</span>
+    <span style="flex:0 0 auto;width:80px;text-align:right;">分點</span>
+  </div>`;
+
 function renderIndexBorderList(list) {
   const outGroup = list.filter(x => x.direction === 'out').sort((a,b) => a.rank - b.rank); // 排名42~50，越接近50風險越高
   const inGroup  = list.filter(x => x.direction === 'in').sort((a,b) => a.rank - b.rank);  // 排名51~59，越接近51機會越大
@@ -57434,10 +57450,12 @@ function renderIndexBorderList(list) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div>
         <div style="font-weight:800;font-size:0.75rem;color:#dc2626;margin-bottom:4px;">🔴 潛在出指候選（排名${IDX_BORDER_LO}~50，接近墊底）</div>
+        ${_idxBorderColHeaderHtml}
         ${outGroup.length ? outGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
       </div>
       <div>
         <div style="font-weight:800;font-size:0.75rem;color:#16a34a;margin-bottom:4px;">🟢 潛在入指候選（排名51~${IDX_BORDER_HI}，接近門檻）</div>
+        ${_idxBorderColHeaderHtml}
         ${inGroup.length ? inGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
       </div>
     </div>
@@ -57467,10 +57485,12 @@ function renderIndexBorderPage1(page1) {
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
       <div>
         <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名1~${colA.length ? colA[colA.length-1].rank : ''}）</div>
+        ${_idxBorderColHeaderHtml}
         ${colA.length ? colA.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
       </div>
       <div>
         <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名${colB.length ? colB[0].rank : ''}~${IDX_BORDER_LO - 1}）</div>
+        ${_idxBorderColHeaderHtml}
         ${colB.length ? colB.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
       </div>
     </div>
