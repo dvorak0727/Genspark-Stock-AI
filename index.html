@@ -18163,9 +18163,10 @@ a.module-nav-item.acc-active {
           </select>
           <span style="font-size:0.6rem;color:var(--text-muted);" id="idxBorderUpdated"></span>
         </div>
-        <div id="idxBorderPageTabs" style="display:none;gap:6px;margin-bottom:8px;">
+        <div id="idxBorderPageTabs" style="display:none;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
           <button onclick="switchIndexBorderPage(1)" id="idxBorderTab1" class="etfcal-add-btn" style="padding:4px 12px;font-size:0.68rem;">第一頁・現有50大（1~34名）</button>
           <button onclick="switchIndexBorderPage(2)" id="idxBorderTab2" class="etfcal-add-btn" style="padding:4px 12px;font-size:0.68rem;">第二頁・門檻觀察區（35~65名）</button>
+          <span style="margin-left:auto;font-size:0.6rem;color:var(--text-muted);white-space:nowrap;">籌碼：⚪未到低檔　🟢近底量縮　🟠低檔量仍大　🎯雙重確認(量縮+大戶週增)</span>
         </div>
         <div id="idxBorderBody">
           <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">按「載入候選名單」開始（資料源同「市值前50大（即時計算）」那組API，抓排名35~65名）</div>
@@ -57420,10 +57421,11 @@ function renderIndexBorderList(list) {
       <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:56px;color:var(--accent);text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
       <span style="flex:0 0 auto;font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:42px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
       <canvas id="mini-${x.id}" width="40" height="20" onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="近15日K線，點擊看完整門檻觀察區走勢" style="flex:0 0 auto;cursor:pointer;"></canvas>
-      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.64rem;font-weight:700;color:var(--fg3);width:78px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⏳</span>
+      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.72rem;font-weight:700;color:var(--fg3);width:20px;text-align:center;">⏳</span>
       <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
       <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
+      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:52px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
 
@@ -57439,7 +57441,7 @@ function renderIndexBorderList(list) {
       </div>
     </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
-      複合訊號說明：📈走勢／籌碼標籤=近20日是否貼近低點+量縮／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
+      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠報價偵測=記憶體股專屬，比對TrendForce DRAM現貨均價漲跌(產業領先指標，比股價更早反映景氣，目前只有記憶體股，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
     </div>`;
 }
 
@@ -57450,10 +57452,11 @@ function renderIndexBorderPage1(page1) {
       <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:56px;color:var(--accent);text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
       <span style="flex:0 0 auto;font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:42px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
       <canvas id="mini-${x.id}" width="40" height="20" onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="近15日K線，點擊看完整門檻觀察區走勢" style="flex:0 0 auto;cursor:pointer;"></canvas>
-      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.64rem;font-weight:700;color:var(--fg3);width:78px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">⏳</span>
+      <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.72rem;font-weight:700;color:var(--fg3);width:20px;text-align:center;">⏳</span>
       <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
       <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
+      <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:52px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
   const mid = Math.ceil(page1.length / 2);
@@ -57497,9 +57500,9 @@ async function _computeChipBottomSignal(stockId) {
   const vol15 = vols.slice(0, -5).reduce((a,b) => a+b, 0) / Math.max(1, vols.length - 5);
   const shrinking = vol15 > 0 && vol5 < vol15 * 0.7; // 近5日均量比前段縮超過30%
 
-  if (nearLow && shrinking)  return { label: '🟢籌碼近底量縮', color: '#16a34a' };
-  if (nearLow && !shrinking) return { label: '🟠低檔量仍大', color: '#d97706' };
-  return { label: '⚪未到低檔', color: 'var(--fg3)' };
+  if (nearLow && shrinking)  return { icon: '🟢', label: '🟢籌碼近底量縮', color: '#16a34a' };
+  if (nearLow && !shrinking) return { icon: '🟠', label: '🟠低檔量仍大', color: '#d97706' };
+  return { icon: '⚪', label: '⚪未到低檔', color: 'var(--fg3)' };
 }
 
 // v9.x 複合訊號⑤：量價籌碼雙重確認——chipSig(純技術面：近底+量縮)跟
@@ -57514,7 +57517,7 @@ function _tryComboSignal(stockId) {
   if (!cache || !cache.chipBottom || !cache.whaleAccum) return;
   const el = document.getElementById(`chipSig-${stockId}`);
   if (!el) return;
-  el.textContent = '🎯雙重確認';
+  el.textContent = '🎯';
   el.style.color = '#b45309';
   el.style.fontWeight = '800';
   el.title = `量價籌碼雙重確認：技術面近底量縮（${cache.chipDetail || ''}）＋ 基本面千張大戶佔比週增（${cache.whaleDetail || ''}），兩套獨立資料互相印證`;
@@ -57531,7 +57534,8 @@ async function annotateChipSignals(list) {
       if (!el) continue;
       try {
         const sig = await _computeChipBottomSignal(x.id);
-        el.textContent = sig.label;
+        el.textContent = sig.icon;
+        el.title = sig.label; // 圖示縮排版面，完整文字留在title滑過看
         el.style.color = sig.color;
         _idxComboSignalCache[x.id] = {
           ..._idxComboSignalCache[x.id],
@@ -57540,7 +57544,8 @@ async function annotateChipSignals(list) {
         };
         _tryComboSignal(x.id);
       } catch (e) {
-        el.textContent = '－查無資料';
+        el.textContent = '－';
+        el.title = '查無資料';
       }
     }
   }
@@ -57771,6 +57776,46 @@ function switchIndexBorderPage(n) {
   annotateWhaleSignals(n === 1 ? _idxBorderData.page1 : _idxBorderData.list); // 複合訊號②：千張大戶（兩頁都有這個欄位）
   annotateMiniCharts(n === 1 ? _idxBorderData.page1 : _idxBorderData.list); // 小K線縮圖，一眼看走勢不用點開
   annotateRevenueYoY(n === 1 ? _idxBorderData.page1 : _idxBorderData.list); // 月營收YoY，跟排名無關的真實基本面數字
+  annotatePriceRadar(n === 1 ? _idxBorderData.page1 : _idxBorderData.list); // v9.x 報價偵測：記憶體股比對TrendForce DRAM現貨均價
+}
+
+// v9.x 報價偵測——法人研究員每週固定盯SCFI/集邦報價這類產業領先指標，
+// 散戶資訊落後不是看不到，是沒人固定去查。fetch_memory_price.py排程抓的
+// TrendForce DRAM現貨報價，只對STOCK_DB.industry含「記憶體」的個股顯示，
+// 其餘股票留空、不佔視覺注意力（之後SCFI抓穩了可以比照擴充航運股）。
+let _memoryPriceCache = null, _memoryPriceLoading = null;
+function _loadMemoryPriceOnce() {
+  if (_memoryPriceCache) return Promise.resolve(_memoryPriceCache);
+  if (_memoryPriceLoading) return _memoryPriceLoading;
+  _memoryPriceLoading = fetch('memory_price.json').then(r => r.json())
+    .then(data => { _memoryPriceCache = data; return data; })
+    .catch(() => ({ dram: { items: [] }, nand: { items: [] } }));
+  return _memoryPriceLoading;
+}
+function _isMemorySector(stockId) {
+  const info = STOCK_DB[stockId];
+  return !!(info && /記憶體|DRAM/i.test(info.industry || ''));
+}
+function _memoryAvgChangePct(data, type) {
+  const items = (data[type] || {}).items || [];
+  const vals = items.map(it => it.change_pct).filter(v => typeof v === 'number');
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+async function annotatePriceRadar(list) {
+  const relevant = list.filter(x => _isMemorySector(x.id));
+  if (!relevant.length) return;
+  const data = await _loadMemoryPriceOnce();
+  const dramAvg = _memoryAvgChangePct(data, 'dram');
+  relevant.forEach(x => {
+    const el = document.getElementById(`priceRadar-${x.id}`);
+    if (!el) return;
+    if (dramAvg === null) { el.textContent = ''; return; }
+    const arrow = dramAvg > 0 ? '▲' : dramAvg < 0 ? '▼' : '—';
+    el.textContent = `🧠${arrow}${Math.abs(dramAvg).toFixed(1)}%`;
+    el.style.color = dramAvg > 0 ? '#dc2626' : dramAvg < 0 ? '#16a34a' : 'var(--fg3)';
+    el.title = `DRAM現貨均價本期漲跌${dramAvg.toFixed(2)}%（資料源：TrendForce，最後更新${(data.dram||{}).last_update||'-'}）——記憶體報價是產業領先指標，比股價本身更早反映景氣`;
+  });
 }
 
 // v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
