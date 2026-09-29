@@ -34786,7 +34786,7 @@ async function fetchHoldingShares(stockId) {
       const d = wk.date || '';
       const weekKey = d.length >= 10 ? d.slice(5).replace('-','/') : d;
       return { date: wk.date, weekKey, people, unit, 張: Math.round(unit/1000),
-               unitPct: +(unit/tot*100).toFixed(1) };
+               unitPct: +(unit/tot*100).toFixed(1), unitPctRaw: unit/tot*100 };
     });
 
     // ── v7.43A 散戶週趨勢（HoldingLevel 1~3）──
@@ -34796,7 +34796,7 @@ async function fetchHoldingShares(stockId) {
       const tot    = wk.rows.reduce((s,r) => s + (+r.unit||0), 0) || 1;
       const d = wk.date || '';
       const weekKey = d.length >= 10 ? d.slice(5).replace('-','/') : d;
-      return { date: wk.date, weekKey, unit, unitPct: +(unit/tot*100).toFixed(1) };
+      return { date: wk.date, weekKey, unit, unitPct: +(unit/tot*100).toFixed(1), unitPctRaw: unit/tot*100 };
     });
 
     // 千張大戶信號：最新 vs 前一週
@@ -34805,7 +34805,11 @@ async function fetchHoldingShares(stockId) {
       const cur  = whaleTrend.at(-1);
       const prev = whaleTrend.at(-2);
       const pplUp  = cur.people  > prev.people;
-      const unitUp = cur.unitPct > prev.unitPct;
+      // v9.x修復：原本用四捨五入到小數點後1位的unitPct比較，遇到像+0.08這種
+      // 真實存在但被捨去的小幅增加，會誤判成「持平」進而觸發「大戶撤退」——
+      // 2026-09-29台塑化案例：人數-1但佔比實際+0.08%，卻被標成撤退。改用
+      // 未四捨五入的unitPctRaw做判斷，unitPct(四捨五入版)只留給畫面顯示用。
+      const unitUp = cur.unitPctRaw > prev.unitPctRaw;
       if (pplUp  && unitUp)  whaleSignal = 'strong';   // 🐋 人數+佔比雙增
       else if (unitUp)       whaleSignal = 'accum';    // 📈 既有大戶加碼
       else if (!pplUp && !unitUp) whaleSignal = 'exit'; // ⚠️ 大戶撤退
@@ -60655,7 +60659,10 @@ async function calcWhaleIncreaseScore(stockId) {
     if (!whaleTrend || whaleTrend.length < 2) return EMPTY;
 
     const cur = whaleTrend.at(-1), prev = whaleTrend.at(-2);
-    const delta = +(cur.unitPct - prev.unitPct).toFixed(2);
+    // v9.x修復：跟whaleSignal同一個bug——用四捨五入到小數點後1位的unitPct算delta，
+    // 真實的小幅增加(例如+0.08%)會被捨去變成0，導致真的有增加卻被判定delta<=0
+    // 而跳過。改用unitPctRaw(未四捨五入)算delta，四捨五入只留給畫面顯示用的字串。
+    const delta = +(cur.unitPctRaw - prev.unitPctRaw).toFixed(2);
     if (delta <= 0) return EMPTY; // 只列「增」的，沒增就跳過，不算掃描失敗
 
     // ⚠️ 這裡量的是「持股比例」（千張大戶總持股佔全體流通股比例）增加，
@@ -60668,19 +60675,19 @@ async function calcWhaleIncreaseScore(stockId) {
     let twoWeekUp = false;
     if (whaleTrend.length >= 3) {
       const prev2 = whaleTrend.at(-3);
-      twoWeekUp = (prev.unitPct - prev2.unitPct) > 0;
+      twoWeekUp = (prev.unitPctRaw - prev2.unitPctRaw) > 0;
     }
     let retailDown = false;
     if (retailTrend && retailTrend.length >= 2) {
       const rCur = retailTrend.at(-1), rPrev = retailTrend.at(-2);
-      retailDown = (rCur.unitPct - rPrev.unitPct) < 0;
+      retailDown = (rCur.unitPctRaw - rPrev.unitPctRaw) < 0;
     }
 
     const c1 = true; // 已經在上面篩過 delta>0，能走到這裡一定成立
     const c2 = delta >= 0.5;
     const c3 = twoWeekUp;
     const c4 = retailDown;
-    const c5 = cur.unitPct >= 50;
+    const c5 = cur.unitPctRaw >= 50;
 
     const checks = [
       { label:'C1 千張大戶持股比例週增', hit:c1, val:`佔比${delta>=0?'+':''}${delta}%（人數${peopleDelta>=0?'+':''}${peopleDelta}人）` },
