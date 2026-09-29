@@ -1,0 +1,29 @@
+name: 更新SCFI運價指數（上海航交所）
+
+on:
+  schedule:
+    # SCFI每週五公布，週五+週一各跑一次(UTC 09:00=台灣17:00)，避免抓到還沒更新的舊資料
+    - cron: '0 9 * * 1,5'
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便第一次測試
+
+jobs:
+  update-scfi-price:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 requests
+        run: pip install requests
+
+      - name: 執行抓取腳本
+        run: python fetch_scfi_price.py
+
+      - name: 自動 commit 更新後的 scfi_price.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新SCFI運價指數 (上海航交所)"
+          file_pattern: scfi_price.json

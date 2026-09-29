@@ -57442,7 +57442,7 @@ function renderIndexBorderList(list) {
       </div>
     </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
-      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️報價偵測=記憶體股比對DRAM現貨均價、面板股比對面板均價月增(TrendForce，產業領先指標，比股價更早反映景氣，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
+      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️🚢報價偵測=記憶體股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌(產業領先指標，比股價更早反映景氣，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
     </div>`;
 }
 
@@ -57819,6 +57819,23 @@ function _isPanelSector(stockId) {
   const info = STOCK_DB[stockId];
   return !!(info && /面板/.test(info.industry || ''));
 }
+
+// v9.x 報價偵測第3棒：SCFI運價指數（上海航交所），只對STOCK_DB.industry
+// ='海運'的個股顯示（長榮、陽明、萬海等）。SCFI是綜合指數(不分航線)，
+// 每週五公布，用change_pct直接判斷漲跌方向。
+let _scfiPriceCache = null, _scfiPriceLoading = null;
+function _loadScfiPriceOnce() {
+  if (_scfiPriceCache) return Promise.resolve(_scfiPriceCache);
+  if (_scfiPriceLoading) return _scfiPriceLoading;
+  _scfiPriceLoading = fetch('scfi_price.json').then(r => r.json())
+    .then(data => { _scfiPriceCache = data; return data; })
+    .catch(() => ({ scfi: null }));
+  return _scfiPriceLoading;
+}
+function _isShippingSector(stockId) {
+  const info = STOCK_DB[stockId];
+  return !!(info && /海運/.test(info.industry || ''));
+}
 function _panelAvgMomPct(data) {
   const items = (data.large || {}).items || [];
   const vals = items.map(it => it.mom_pct).filter(v => typeof v === 'number');
@@ -57829,6 +57846,7 @@ function _panelAvgMomPct(data) {
 async function annotatePriceRadar(list) {
   const memRelevant = list.filter(x => _isMemorySector(x.id));
   const panelRelevant = list.filter(x => _isPanelSector(x.id));
+  const shipRelevant = list.filter(x => _isShippingSector(x.id));
 
   if (memRelevant.length) {
     const data = await _loadMemoryPriceOnce();
@@ -57855,6 +57873,20 @@ async function annotatePriceRadar(list) {
       el.textContent = `🖥️${arrow}${Math.abs(momAvg).toFixed(1)}%`;
       el.style.color = momAvg > 0 ? '#dc2626' : momAvg < 0 ? '#16a34a' : 'var(--fg3)';
       el.title = `面板均價月增${momAvg.toFixed(2)}%（TV/Monitor/NB平均，資料源：TrendForce，最後更新${(data.large||{}).last_update||'-'}，每月更新一次）——面板報價是產業領先指標，比股價本身更早反映景氣`;
+    });
+  }
+
+  if (shipRelevant.length) {
+    const data = await _loadScfiPriceOnce();
+    const scfi = data.scfi;
+    shipRelevant.forEach(x => {
+      const el = document.getElementById(`priceRadar-${x.id}`);
+      if (!el) return;
+      if (!scfi) { el.textContent = ''; return; }
+      const arrow = scfi.change_pct > 0 ? '▲' : scfi.change_pct < 0 ? '▼' : '—';
+      el.textContent = `🚢${arrow}${Math.abs(scfi.change_pct).toFixed(1)}%`;
+      el.style.color = scfi.change_pct > 0 ? '#dc2626' : scfi.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
+      el.title = `SCFI綜合指數${scfi.curr_date}週漲跌${scfi.change_pct>0?'+':''}${scfi.change_pct}%（${scfi.prev_index}→${scfi.curr_index}點，資料源：上海航交所，每週五公布）——運價是航運股的產業領先指標，比股價本身更早反映景氣`;
     });
   }
 }
