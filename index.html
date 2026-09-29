@@ -57460,7 +57460,7 @@ function renderIndexBorderList(list) {
       </div>
     </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
-      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️🚢報價偵測=記憶體股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌(產業領先指標，比股價更早反映景氣，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
+      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️🚢🛢️報價偵測=記憶體股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌(產業領先指標，比股價更早反映景氣，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
     </div>`;
 }
 
@@ -57856,6 +57856,30 @@ function _isShippingSector(stockId) {
   const info = STOCK_DB[stockId];
   return !!(info && /海運/.test(info.industry || ''));
 }
+
+// v9.x 報價偵測第4棒：國際原油期貨（Yahoo Finance WTI+Brent），只對
+// STOCK_DB.industry符合塑化相關的個股顯示（台塑/南亞='塑膠化工'、
+// 台塑化='石化'、台化='化工'，台塑集團四大天王分散在3種不同industry
+// 標籤，這裡用正則一次涵蓋）。原油→輕油→乙烯/丙烯基礎石化原料，
+// 是塑化股的核心領先指標。用WTI+Brent平均漲跌%代表整體油價方向。
+let _oilPriceCache = null, _oilPriceLoading = null;
+function _loadOilPriceOnce() {
+  if (_oilPriceCache) return Promise.resolve(_oilPriceCache);
+  if (_oilPriceLoading) return _oilPriceLoading;
+  _oilPriceLoading = fetch('oil_price.json', {cache:'no-store'}).then(r => r.json())
+    .then(data => { _oilPriceCache = data; return data; })
+    .catch(() => ({ wti: null, brent: null }));
+  return _oilPriceLoading;
+}
+function _isPetroSector(stockId) {
+  const info = STOCK_DB[stockId];
+  return !!(info && /塑膠化工|石化|^化工$/.test(info.industry || ''));
+}
+function _oilAvgChangePct(data) {
+  const vals = [data.wti, data.brent].filter(Boolean).map(x => x.change_pct).filter(v => typeof v === 'number');
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
 function _panelAvgMomPct(data) {
   const items = (data.large || {}).items || [];
   const vals = items.map(it => it.mom_pct).filter(v => typeof v === 'number');
@@ -57867,6 +57891,7 @@ async function annotatePriceRadar(list) {
   const memRelevant = list.filter(x => _isMemorySector(x.id));
   const panelRelevant = list.filter(x => _isPanelSector(x.id));
   const shipRelevant = list.filter(x => _isShippingSector(x.id));
+  const petroRelevant = list.filter(x => _isPetroSector(x.id));
 
   if (memRelevant.length) {
     const data = await _loadMemoryPriceOnce();
@@ -57909,6 +57934,21 @@ async function annotatePriceRadar(list) {
       el.title = `SCFI綜合指數${scfi.curr_date}週漲跌${scfi.change_pct>0?'+':''}${scfi.change_pct}%（${scfi.prev_index}→${scfi.curr_index}點，資料源：上海航交所，每週五公布）——運價是航運股的產業領先指標，比股價本身更早反映景氣`;
     });
   }
+
+  if (petroRelevant.length) {
+    const data = await _loadOilPriceOnce();
+    const oilAvg = _oilAvgChangePct(data);
+    petroRelevant.forEach(x => {
+      const el = document.getElementById(`priceRadar-${x.id}`);
+      if (!el) return;
+      if (oilAvg === null) { el.textContent = ''; return; }
+      const arrow = oilAvg > 0 ? '▲' : oilAvg < 0 ? '▼' : '—';
+      el.textContent = `🛢️${arrow}${Math.abs(oilAvg).toFixed(1)}%`;
+      el.style.color = oilAvg > 0 ? '#dc2626' : oilAvg < 0 ? '#16a34a' : 'var(--fg3)';
+      const wti = data.wti, brent = data.brent;
+      el.title = `國際油價(WTI+Brent平均)漲跌${oilAvg.toFixed(2)}%（WTI $${wti?.price??'-'} ${wti?.change_pct>0?'+':''}${wti?.change_pct??'-'}%／Brent $${brent?.price??'-'} ${brent?.change_pct>0?'+':''}${brent?.change_pct??'-'}%，資料源：Yahoo Finance）——原油是塑化股的核心領先指標(原油→輕油→乙烯/丙烯)`;
+    });
+  }
 }
 
 // v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
@@ -57921,11 +57961,12 @@ function forceRefreshIndexBorder() {
     Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => localStorage.removeItem(k));
     Object.keys(_fmCache).filter(k => k.startsWith(prefix)).forEach(k => delete _fmCache[k]);
   });
-  // v9.x：強制刷新順便把報價偵測(記憶體/面板/SCFI)也一起重抓，不要留著舊快取，
-  // 這三個JSON本身是排程每天/每週更新的靜態檔，清快取+no-store才能真的拿到最新版本。
+  // v9.x：強制刷新順便把報價偵測(記憶體/面板/SCFI/油價)也一起重抓，不要留著舊快取，
+  // 這幾個JSON本身是排程每天/每週更新的靜態檔，清快取+no-store才能真的拿到最新版本。
   _memoryPriceCache = null; _memoryPriceLoading = null;
   _panelPriceCache = null; _panelPriceLoading = null;
   _scfiPriceCache = null; _scfiPriceLoading = null;
+  _oilPriceCache = null; _oilPriceLoading = null;
   loadIndexBorderCandidates(true);
 }
 
@@ -58074,7 +58115,7 @@ async function loadIndexBorderCandidates(isForceRefresh) {
     // 不是只有股價——switchIndexBorderPage本來就會把chip/whale/月營收/報價偵測全部
     // annotate一輪，這裡只是把「已更新哪些東西」講清楚，不是額外多做事。
     document.getElementById('idxBorderUpdated').textContent = isForceRefresh
-      ? `${dateTxt}　✅ 已更新：股價、籌碼訊號、千張大戶、月營收、報價偵測(🧠記憶體/🖥️面板/🚢SCFI)`
+      ? `${dateTxt}　✅ 已更新：股價、籌碼訊號、千張大戶、月營收、報價偵測(🧠記憶體/🖥️面板/🚢SCFI/🛢️油價)`
       : dateTxt;
   } catch (e) {
     body.innerHTML = `<div style="text-align:center;padding:20px;color:#dc2626;font-size:0.8rem;">❌ ${e.message}</div>`;

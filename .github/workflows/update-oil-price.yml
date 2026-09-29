@@ -1,0 +1,30 @@
+name: 更新國際油價（Yahoo Finance）
+
+on:
+  schedule:
+    # 台灣時間平日早上7點(UTC 23:00前一天)，抓美股前一交易日收盤價，
+    # 剛好趕在台股9點開盤前更新完成
+    - cron: '0 23 * * 0-4'
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便第一次測試
+
+jobs:
+  update-oil-price:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 requests
+        run: pip install requests
+
+      - name: 執行抓取腳本
+        run: python fetch_oil_price.py
+
+      - name: 自動 commit 更新後的 oil_price.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新國際油價 (Yahoo Finance)"
+          file_pattern: oil_price.json
