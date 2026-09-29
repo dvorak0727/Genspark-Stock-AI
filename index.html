@@ -57446,7 +57446,7 @@ function renderIndexBorderList(list) {
       <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.72rem;font-weight:700;color:var(--fg3);width:20px;text-align:center;">⏳</span>
       <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
-      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
+      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:normal;line-height:1.2;">⏳</span>
       <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:58px;text-align:right;white-space:normal;line-height:1.2;"></span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
@@ -57493,7 +57493,7 @@ function renderIndexBorderPage1(page1) {
       <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.72rem;font-weight:700;color:var(--fg3);width:20px;text-align:center;">⏳</span>
       <span id="sectorSig-${x.id}" style="flex:0 0 auto;font-size:0.7rem;width:60px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_idxBorderSectorBadge(x.id)}</span>
       <span id="whaleSig-${x.id}" title="千張大戶籌碼趨勢（需FinMind贊助Token）" style="flex:0 0 auto;font-size:0.7rem;width:18px;text-align:center;">⏳</span>
-      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:nowrap;">⏳</span>
+      <span id="revYoy-${x.id}" title="月營收YoY（跟排名無關，是真實的營收成長/衰退，非排名暗示）" style="flex:0 0 auto;font-size:0.62rem;width:48px;text-align:right;white-space:normal;line-height:1.2;">⏳</span>
       <span id="priceRadar-${x.id}" title="記憶體股專屬：DRAM現貨均價漲跌（資料源TrendForce）" style="flex:0 0 auto;font-size:0.6rem;font-weight:700;width:58px;text-align:right;white-space:normal;line-height:1.2;"></span>
       <span id="brokerSig-${x.id}" onclick="checkIndexBorderBrokerConcen('${x.id}','${x.name}')" title="點擊查最近一個交易日量最大的分點是誰、買超還是賣超（需FinMind贊助Token，點了才會查）" style="flex:0 0 auto;cursor:pointer;font-size:0.62rem;color:var(--fg3);width:80px;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🏦查分點</span>
     </div>`;
@@ -57741,8 +57741,9 @@ async function annotateRevenueYoY(list) {
         el.style.color = yoy >= 0 ? '#dc2626' : '#16a34a';
         el.title = `${ym} 月營收YoY ${r>=0?'+':''}${r}%（跟排名無關，是真實的營收成長/衰退）`;
       } catch (e) {
-        el.textContent = '📊—';
-        el.title = e.message || '查無月營收資料';
+        el.textContent = '📊無資料';
+        el.style.color = 'var(--fg3)';
+        el.title = e.message || '查無月營收資料（可能是新上市股，FinMind歷史資料還不夠算YoY）';
       }
     }
   }
