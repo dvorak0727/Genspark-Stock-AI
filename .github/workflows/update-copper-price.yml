@@ -1,0 +1,29 @@
+name: 更新國際銅期貨價格（Yahoo Finance）
+
+on:
+  schedule:
+    # 跟油價/鐵礦砂排程同步：台灣時間平日早上7點(UTC 23:00前一天)
+    - cron: '0 23 * * 0-4'
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便第一次測試
+
+jobs:
+  update-copper-price:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 requests
+        run: pip install requests
+
+      - name: 執行抓取腳本
+        run: python fetch_copper_price.py
+
+      - name: 自動 commit 更新後的 copper_price.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新國際銅期貨價格 (Yahoo Finance)"
+          file_pattern: copper_price.json
