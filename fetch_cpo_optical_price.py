@@ -1,0 +1,70 @@
+"""
+每日排程腳本：從 Yahoo Finance 公開圖表API抓「Coherent Corp (COHR)」股價，
+輸出 cpo_optical_price.json 放在repo根目錄，讓index.html在「報價偵測」
+欄位對CPO矽光子/光學股顯示。
+
+COHR (Coherent Corp) 是全球雷射/光學元件與矽光子模組龍頭廠，客戶涵蓋
+資料中心光通訊模組供應鏈，股價走勢是CPO矽光子產業景氣的代理指標。
+
+抓的頁面：
+  - https://query1.finance.yahoo.com/v8/finance/chart/COHR
+
+執行方式（本機測試）：
+    pip install requests
+    python fetch_cpo_optical_price.py
+
+正式排程：見 .github/workflows/update-cpo-optical-price.yml。
+
+輸出格式：
+{
+  "generated_at": "2026-09-29T09:00:00Z",
+  "cohr": {"price": 282.45, "prev_close": 321.52, "change_pct": -12.15, "date": "2026-09-29"}
+}
+"""
+
+import json
+import sys
+from datetime import datetime, timezone
+
+import requests
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+SYMBOL = "COHR"
+OUTPUT_PATH = "cpo_optical_price.json"
+
+
+def fetch_cohr():
+    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{SYMBOL}?range=5d&interval=1d"
+    resp = requests.get(url, headers=HEADERS, timeout=20)
+    resp.raise_for_status()
+    data = resp.json()
+    result = data.get("chart", {}).get("result")
+    if not result:
+        print("[警告] 沒有回傳資料", file=sys.stderr)
+        return None
+    meta = result[0]["meta"]
+    price, prev_close = meta.get("regularMarketPrice"), meta.get("chartPreviousClose")
+    if price is None or prev_close is None:
+        return None
+    change_pct = round((price - prev_close) / prev_close * 100, 4) if prev_close else None
+    date = datetime.fromtimestamp(meta.get("regularMarketTime", 0), tz=timezone.utc).strftime("%Y-%m-%d")
+    return {"price": price, "prev_close": prev_close, "change_pct": change_pct, "date": date}
+
+
+def main():
+    result = {"generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    print(f"抓取 cohr（{SYMBOL}）")
+    cohr = fetch_cohr()
+    result["cohr"] = cohr
+    print(f"  → {cohr}" if cohr else "  → 抓取失敗")
+
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+    print(f"已寫入 {OUTPUT_PATH}")
+
+
+if __name__ == "__main__":
+    main()
