@@ -57463,7 +57463,7 @@ function renderIndexBorderList(list) {
       </div>
     </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
-      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️🚢🛢️⛏️✈️🔶💰💻🤖🔋🧬🔬📡報價偵測=記憶體股/伺服器筆電組裝股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌、航空股比對油價(燃油成本，方向跟塑化股相反)、PCB股比對國際銅價漲跌、金融股比對黃金+美10年債殖利率、半導體股(不含記憶體)比對SOX指數+NVDA/SMCI、機器人相關股比對ROBO ETF、汽車股比對LIT鋰電池ETF、生技股比對NBI生技指數、CPO矽光子股比對COHR股價、電信股比對美10年債殖利率(方向跟金融股相反)(產業領先指標，比股價更早反映景氣；水泥/被動元件查無合理公開指標，暫不做)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
+      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️🚢🛢️⛏️✈️🔶💰💻🤖🔋🧬🔬📡報價偵測=記憶體股/伺服器筆電組裝股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌、航空股比對油價(燃油成本，方向跟塑化股相反)、PCB股比對國際銅價漲跌、金融股比對黃金+美10年債殖利率、半導體股(不含記憶體)比對SOX指數+NVDA/SMCI、機器人相關股比對ROBO ETF、汽車股比對LIT鋰電池ETF、生技股比對NBI生技指數、CPO矽光子股比對COHR股價、電信股比對美10年債殖利率(方向跟金融股相反)、散熱/機殼/滑軌/被動元件等AI伺服器供應鏈股比對NVDA/SMCI(需求端領先指標，非原料成本)(產業領先指標，比股價更早反映景氣；水泥查無合理公開指標，暫不做)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
     </div>`;
 }
 
@@ -58050,6 +58050,21 @@ function _isTelecomSector(stockId) {
   return !!(info && /^電信$/.test(info.industry || ''));
 }
 
+// v9.x 報價偵測第15棒：AI伺服器需求（NVDA+SMCI），對應散熱模組/機殼/
+// 工業機構(滑軌)/被動元件/電源供應器/主機板/工業電腦這類伺服器供應鏈
+// 下游硬體股（川湖/奇鋐/國巨等）——直接沿用_loadSemiIndexOnce()已經
+// 抓好的nvda/smci欄位，不另開爬蟲。跟被動元件先前判斷「沒有原料報價」
+// 不衝突：這裡是「需求端」領先指標(NVDA GPU出貨量決定訂單能見度)，
+// 邏輯跟「原料成本」完全不同，兩種判斷互不矛盾。
+// ⚠️「被動元件」用^被動元件$嚴格比對，避免誤吃「CPO矽光子光被動元件」
+// (已經被_isCpoOpticalSector吸收，不要重複顯示)。
+function _isAiServerDemandSector(stockId) {
+  const info = STOCK_DB[stockId];
+  const ind = info?.industry || '';
+  if (_isCpoOpticalSector(stockId)) return false; // CPO矽光子光被動元件已經歸CPO板塊
+  return !!(info && /散熱|機殼|工業機構|滑軌|^被動元件$|電源供應器|主機板|工業電腦/.test(ind));
+}
+
 function _panelAvgMomPct(data) {
   const items = (data.large || {}).items || [];
   const vals = items.map(it => it.mom_pct).filter(v => typeof v === 'number');
@@ -58074,6 +58089,7 @@ async function annotatePriceRadar(list) {
   const biotechRelevant = list.filter(x => _isBiotechSector(x.id));
   const cpoRelevant = list.filter(x => _isCpoOpticalSector(x.id));
   const telecomRelevant = list.filter(x => _isTelecomSector(x.id));
+  const aiServerDemandRelevant = list.filter(x => _isAiServerDemandSector(x.id));
 
   if (memRelevant.length) {
     const data = await _loadMemoryPriceOnce();
@@ -58288,6 +58304,25 @@ async function annotatePriceRadar(list) {
       el.title = `美10年期公債殖利率${us10y.date}漲跌${us10y.change_pct>0?'+':''}${us10y.change_pct}%（${us10y.prev_rate.toFixed(3)}%→${us10y.rate.toFixed(3)}%，資料源：Yahoo Finance）——電信股是高股息防禦型，利率下行通常是估值利多(股息殖利率相對變吸引人)，利率上行是估值利空，顏色方向刻意跟其他板塊相反`;
     });
   }
+
+  if (aiServerDemandRelevant.length) {
+    // 沿用SOX那份資料裡的nvda/smci欄位，不另開爬蟲——NVDA GPU出貨量
+    // 直接決定散熱模組/機殼/滑軌/被動元件這類台廠伺服器供應鏈的訂單
+    // 能見度，是「需求端」領先指標。
+    const data = await _loadSemiIndexOnce();
+    const nvda = data.nvda;
+    aiServerDemandRelevant.forEach(x => {
+      const el = document.getElementById(`priceRadar-${x.id}`);
+      if (!el) return;
+      if (!nvda) { el.textContent = ''; return; }
+      const arrow = nvda.change_pct > 0 ? '▲' : nvda.change_pct < 0 ? '▼' : '—';
+      el.textContent = `🌡️${arrow}${Math.abs(nvda.change_pct).toFixed(1)}%`;
+      el.style.color = nvda.change_pct > 0 ? '#dc2626' : nvda.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
+      const smci = data.smci;
+      const smciNote = smci ? `；SMCI ${smci.change_pct>0?'+':''}${smci.change_pct}%` : '';
+      el.title = `AI伺服器需求代理：NVDA(${nvda.date})漲跌${nvda.change_pct>0?'+':''}${nvda.change_pct}%（$${nvda.prev_close}→$${nvda.price}${smciNote}，資料源：Yahoo Finance）——NVDA GPU出貨量直接決定散熱模組/機殼/滑軌/被動元件這類台廠伺服器供應鏈的訂單能見度，是需求端(非原料成本)領先指標`;
+    });
+  }
 }
 
 // v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
@@ -58462,7 +58497,7 @@ async function loadIndexBorderCandidates(isForceRefresh) {
     // 不是只有股價——switchIndexBorderPage本來就會把chip/whale/月營收/報價偵測全部
     // annotate一輪，這裡只是把「已更新哪些東西」講清楚，不是額外多做事。
     document.getElementById('idxBorderUpdated').textContent = isForceRefresh
-      ? `${dateTxt}　✅ 已更新：股價、籌碼訊號、千張大戶、月營收、報價偵測(🧠記憶體/🖥️面板/🚢SCFI/🛢️油價/⛏️鐵礦砂/✈️燃油/🔶銅價/💰黃金/💻SOX/🤖機器人/🔋鋰電池/🧬生技/🔬CPO光學/📡電信利率)`
+      ? `${dateTxt}　✅ 已更新：股價、籌碼訊號、千張大戶、月營收、報價偵測(🧠記憶體/🖥️面板/🚢SCFI/🛢️油價/⛏️鐵礦砂/✈️燃油/🔶銅價/💰黃金/💻SOX/🤖機器人/🔋鋰電池/🧬生技/🔬CPO光學/📡電信利率/🌡️AI伺服器需求)`
       : dateTxt;
   } catch (e) {
     body.innerHTML = `<div style="text-align:center;padding:20px;color:#dc2626;font-size:0.8rem;">❌ ${e.message}</div>`;
