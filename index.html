@@ -33774,6 +33774,8 @@ const STOCK_DB = {
   '6488': { name:'環球晶',      industry:'矽晶圓' }, // 全球第三大矽晶圓廠，客戶涵蓋台積電/三星/英特爾等晶圓代工廠
   '5483': { name:'中美晶',      industry:'矽晶圓' }, // 環球晶母公司，太陽能矽晶圓+半導體矽晶圓雙主業
   '3532': { name:'台勝科',      industry:'矽晶圓' }, // 環球晶集團成員，專注8吋以下矽晶圓
+  '3044': { name:'健鼎',        industry:'PCB' }, // 多層板/HDI板大廠，跟景碩/欣興同業，銅價是原料成本領先指標
+  '3036': { name:'文曄',        industry:'半導體通路' }, // IC元件代理商，賺的是通路價差非製造毛利，跟上游晶圓代工/IC設計邏輯不同，暫無合適的報價領先指標
   // v7.60：海選市值前50大掃描出現、STOCK_DB原本沒有的股票，名稱已對照證交所
   // t187ap03_L（上市公司基本資料）「公司簡稱」欄位核實，不是用猜的
   '2368': { name:'金像電',      industry:'PCB' },
@@ -57476,7 +57478,7 @@ const _idxBorderLegendHtml = `
       <div style="margin-bottom:3px;">🐋 千張大戶＝最新一週籌碼趨勢</div>
       <div style="margin-bottom:3px;">📊 月營收YoY＝真實基本面數字，紅字成長綠字衰退，跟排名位置無關（51~65是想擠進50大，不代表體質差）</div>
       <div style="margin-bottom:3px;">🧠🖥️🚢🛢️⛏️✈️🔶💰💻🤖🔋🧬🔬📡🌡️🧵 報價偵測＝記憶體股/伺服器筆電組裝股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌、航空股比對油價(燃油成本，方向跟塑化股相反)、PCB股比對國際銅價漲跌、金融股比對黃金+美10年債殖利率、半導體股(不含記憶體)比對SOX指數+NVDA/SMCI、機器人相關股比對ROBO ETF、汽車股比對LIT鋰電池ETF、生技股比對NBI生技指數、CPO矽光子股比對COHR股價、電信股比對美10年債殖利率(方向跟金融股相反)、散熱/機殼/滑軌/被動元件等AI伺服器供應鏈股比對NVDA/SMCI(需求端領先指標)、紡織股比對棉花期貨(上游原料成本)。產業領先指標，比股價更早反映景氣；水泥查無合理公開指標，暫不做。</div>
-      <div style="margin-bottom:3px;">報價數字後面會直接標文字「有利／不利／無影響」，不用再自己判斷這個報價對該股是好是壞；「無影響」代表這個指標對該股的方向本來就因股而異（例如金融股同時受金價+利率雙重影響），不強行下定論。</div>
+      <div style="margin-bottom:3px;">報價數字後面會直接標文字「有利／不利／無影響」，不用再自己判斷這個報價對該股是好是壞；「無影響」代表這個指標對該股的方向本來就因股而異（例如金融股同時受金價+利率雙重影響），不強行下定論。查不到資料或這類股沒有對應指標時，一律誠實標「無資料」，不留空白。</div>
       <div style="margin-bottom:3px;">🏦 分點＝點擊才查、最近一個交易日量最大分點買賣超</div>
       <div>板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。</div>
     </div>`;
@@ -58132,6 +58134,15 @@ async function annotatePriceRadar(list) {
   const telecomRelevant = list.filter(x => _isTelecomSector(x.id));
   const aiServerDemandRelevant = list.filter(x => _isAiServerDemandSector(x.id));
   const textileRelevant = list.filter(x => _isTextileSector(x.id));
+  // v9.x：使用者反映沒對應板塊的股票報價欄位空著會讓人以為是bug。用聯集算出
+  // 這16個板塊都不吃的股票，統一補一個「－」灰字，title說明「這類股目前沒有
+  // 對應的報價領先指標」，跟fetch失敗的「無法查」區分開來。
+  const _prCoveredIds = new Set([
+    ...memRelevant, ...panelRelevant, ...shipRelevant, ...petroRelevant, ...steelRelevant,
+    ...aviationRelevant, ...pcbRelevant, ...financeRelevant, ...semiRelevant, ...robotRelevant,
+    ...evRelevant, ...biotechRelevant, ...cpoRelevant, ...telecomRelevant,
+    ...aiServerDemandRelevant, ...textileRelevant,
+  ].map(x => x.id));
 
   if (memRelevant.length) {
     const data = await _loadMemoryPriceOnce();
@@ -58140,7 +58151,7 @@ async function annotatePriceRadar(list) {
     memRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (dramAvg === null) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (dramAvg === null) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = dramAvg > 0 ? '▲' : dramAvg < 0 ? '▼' : '—';
       const isDownstream = isDownstreamId.has(x.id);
       const fav = dramAvg === 0 ? null : (isDownstream ? dramAvg < 0 : dramAvg > 0);
@@ -58158,7 +58169,7 @@ async function annotatePriceRadar(list) {
     panelRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (momAvg === null) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (momAvg === null) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = momAvg > 0 ? '▲' : momAvg < 0 ? '▼' : '—';
       el.textContent = `🖥️${arrow}${Math.abs(momAvg).toFixed(1)}% ${_prFavorLabel(momAvg === 0 ? null : momAvg > 0)}`;
       el.style.color = momAvg > 0 ? '#dc2626' : momAvg < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58172,7 +58183,7 @@ async function annotatePriceRadar(list) {
     shipRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!scfi) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!scfi) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = scfi.change_pct > 0 ? '▲' : scfi.change_pct < 0 ? '▼' : '—';
       el.textContent = `🚢${arrow}${Math.abs(scfi.change_pct).toFixed(1)}% ${_prFavorLabel(scfi.change_pct === 0 ? null : scfi.change_pct > 0)}`;
       el.style.color = scfi.change_pct > 0 ? '#dc2626' : scfi.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58186,7 +58197,7 @@ async function annotatePriceRadar(list) {
     petroRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (oilAvg === null) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (oilAvg === null) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = oilAvg > 0 ? '▲' : oilAvg < 0 ? '▼' : '—';
       el.textContent = `🛢️${arrow}${Math.abs(oilAvg).toFixed(1)}% ${_prFavorLabel(oilAvg === 0 ? null : oilAvg < 0)}`;
       el.style.color = oilAvg > 0 ? '#dc2626' : oilAvg < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58201,7 +58212,7 @@ async function annotatePriceRadar(list) {
     steelRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!ore) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!ore) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = ore.change_pct > 0 ? '▲' : ore.change_pct < 0 ? '▼' : '—';
       el.textContent = `⛏️${arrow}${Math.abs(ore.change_pct).toFixed(1)}% ${_prFavorLabel(ore.change_pct === 0 ? null : ore.change_pct < 0)}`;
       el.style.color = ore.change_pct > 0 ? '#dc2626' : ore.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58217,7 +58228,7 @@ async function annotatePriceRadar(list) {
     aviationRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (oilAvg === null) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (oilAvg === null) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = oilAvg > 0 ? '▲' : oilAvg < 0 ? '▼' : '—';
       // 顏色刻意跟塑化股相反：油價漲(紅)對航空股是成本壓力(用紅字警示同樣合理，
       // 但語意是「壞消息」)，油價跌(綠)對航空股是燃油成本降低的利多。
@@ -58234,7 +58245,7 @@ async function annotatePriceRadar(list) {
     pcbRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!copper) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!copper) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = copper.change_pct > 0 ? '▲' : copper.change_pct < 0 ? '▼' : '—';
       el.textContent = `🔶${arrow}${Math.abs(copper.change_pct).toFixed(1)}% ${_prFavorLabel(copper.change_pct === 0 ? null : copper.change_pct < 0)}`;
       el.style.color = copper.change_pct > 0 ? '#dc2626' : copper.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58248,7 +58259,7 @@ async function annotatePriceRadar(list) {
     financeRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!gold) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!gold) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = gold.change_pct > 0 ? '▲' : gold.change_pct < 0 ? '▼' : '—';
       // 金控/保險受金價+利率雙重影響，方向不一定同向，不強行下定論(標「無影響」)
       el.textContent = `💰${arrow}${Math.abs(gold.change_pct).toFixed(1)}% ${_prFavorLabel(null)}`;
@@ -58264,7 +58275,7 @@ async function annotatePriceRadar(list) {
     semiRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!sox) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!sox) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = sox.change_pct > 0 ? '▲' : sox.change_pct < 0 ? '▼' : '—';
       el.textContent = `💻${arrow}${Math.abs(sox.change_pct).toFixed(1)}% ${_prFavorLabel(sox.change_pct === 0 ? null : sox.change_pct > 0)}`;
       el.style.color = sox.change_pct > 0 ? '#dc2626' : sox.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58283,7 +58294,7 @@ async function annotatePriceRadar(list) {
     robotRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!robo) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!robo) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = robo.change_pct > 0 ? '▲' : robo.change_pct < 0 ? '▼' : '—';
       el.textContent = `🤖${arrow}${Math.abs(robo.change_pct).toFixed(1)}% ${_prFavorLabel(robo.change_pct === 0 ? null : robo.change_pct > 0)}`;
       el.style.color = robo.change_pct > 0 ? '#dc2626' : robo.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58297,7 +58308,7 @@ async function annotatePriceRadar(list) {
     evRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!lit) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!lit) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = lit.change_pct > 0 ? '▲' : lit.change_pct < 0 ? '▼' : '—';
       el.textContent = `🔋${arrow}${Math.abs(lit.change_pct).toFixed(1)}% ${_prFavorLabel(lit.change_pct === 0 ? null : lit.change_pct > 0)}`;
       el.style.color = lit.change_pct > 0 ? '#dc2626' : lit.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58311,7 +58322,7 @@ async function annotatePriceRadar(list) {
     biotechRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!nbi) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!nbi) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = nbi.change_pct > 0 ? '▲' : nbi.change_pct < 0 ? '▼' : '—';
       el.textContent = `🧬${arrow}${Math.abs(nbi.change_pct).toFixed(1)}% ${_prFavorLabel(nbi.change_pct === 0 ? null : nbi.change_pct > 0)}`;
       el.style.color = nbi.change_pct > 0 ? '#dc2626' : nbi.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58325,7 +58336,7 @@ async function annotatePriceRadar(list) {
     cpoRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!cohr) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!cohr) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = cohr.change_pct > 0 ? '▲' : cohr.change_pct < 0 ? '▼' : '—';
       el.textContent = `🔬${arrow}${Math.abs(cohr.change_pct).toFixed(1)}% ${_prFavorLabel(cohr.change_pct === 0 ? null : cohr.change_pct > 0)}`;
       el.style.color = cohr.change_pct > 0 ? '#dc2626' : cohr.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58341,7 +58352,7 @@ async function annotatePriceRadar(list) {
     telecomRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!us10y) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!us10y) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = us10y.change_pct > 0 ? '▲' : us10y.change_pct < 0 ? '▼' : '—';
       // 利率跟電信估值反向：利率跌(綠字，通常代表利多防禦股)，利率漲(紅字，通常代表利空)
       el.textContent = `📡${arrow}${Math.abs(us10y.change_pct).toFixed(1)}% ${_prFavorLabel(us10y.change_pct === 0 ? null : us10y.change_pct < 0)}`;
@@ -58359,7 +58370,7 @@ async function annotatePriceRadar(list) {
     aiServerDemandRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!nvda) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!nvda) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = nvda.change_pct > 0 ? '▲' : nvda.change_pct < 0 ? '▼' : '—';
       el.textContent = `🌡️${arrow}${Math.abs(nvda.change_pct).toFixed(1)}% ${_prFavorLabel(nvda.change_pct === 0 ? null : nvda.change_pct > 0)}`;
       el.style.color = nvda.change_pct > 0 ? '#dc2626' : nvda.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
@@ -58375,13 +58386,22 @@ async function annotatePriceRadar(list) {
     textileRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
-      if (!cotton) { el.textContent = '無法查'; el.style.color = 'var(--fg3)'; return; }
+      if (!cotton) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = cotton.change_pct > 0 ? '▲' : cotton.change_pct < 0 ? '▼' : '—';
       el.textContent = `🧵${arrow}${Math.abs(cotton.change_pct).toFixed(1)}% ${_prFavorLabel(cotton.change_pct === 0 ? null : cotton.change_pct < 0)}`;
       el.style.color = cotton.change_pct > 0 ? '#dc2626' : cotton.change_pct < 0 ? '#16a34a' : 'var(--fg3)';
       el.title = `棉花期貨(${cotton.date})漲跌${cotton.change_pct>0?'+':''}${cotton.change_pct}%（$${cotton.prev_close}→$${cotton.price}，資料源：Yahoo Finance）——棉花是化纖/紡織業上游原料成本之一，期貨報價是紡織股毛利率的領先指標`;
     });
   }
+
+  list.forEach(x => {
+    if (_prCoveredIds.has(x.id)) return;
+    const el = document.getElementById(`priceRadar-${x.id}`);
+    if (!el) return;
+    el.textContent = '無資料';
+    el.style.color = 'var(--fg3)';
+    el.title = '這類股目前沒有查到合適的公開報價領先指標（例如通路商賺價差、食品內需股等，沒有單一原料/報價可以代表），不是系統故障';
+  });
 }
 
 // v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
