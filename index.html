@@ -57460,7 +57460,7 @@ function renderIndexBorderList(list) {
       </div>
     </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
-      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️🚢🛢️⛏️報價偵測=記憶體股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌(產業領先指標，比股價更早反映景氣，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
+      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️🚢🛢️⛏️報價偵測=記憶體股/伺服器筆電組裝股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌(產業領先指標，比股價更早反映景氣，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
     </div>`;
 }
 
@@ -57817,6 +57817,14 @@ function _isMemorySector(stockId) {
   const info = STOCK_DB[stockId];
   return !!(info && /記憶體|DRAM/i.test(info.industry || ''));
 }
+// v9.x：伺服器/筆電代工這類下游組裝股，DRAM/NAND常佔料號成本一大塊，
+// 記憶體報價對它們是「成本+備貨周期」領先指標，跟記憶體原廠(漲跌直接
+// 反映在毛利)邏輯不同，所以另外分函式、tooltip文字也不一樣，兩者
+// 一起餵進annotatePriceRadar的memRelevant清單，同樣顯示🧠但文字有差異。
+function _isMemoryDownstream(stockId) {
+  const info = STOCK_DB[stockId];
+  return !!(info && /伺服器代工|雲端伺服器|電腦硬體|筆電代工|電子代工|EMS代工/.test(info.industry || ''));
+}
 function _memoryAvgChangePct(data, type) {
   const items = (data[type] || {}).items || [];
   const vals = items.map(it => it.change_pct).filter(v => typeof v === 'number');
@@ -57907,7 +57915,9 @@ function _panelAvgMomPct(data) {
 }
 
 async function annotatePriceRadar(list) {
-  const memRelevant = list.filter(x => _isMemorySector(x.id));
+  const memMakerRelevant = list.filter(x => _isMemorySector(x.id));
+  const memDownstreamRelevant = list.filter(x => _isMemoryDownstream(x.id));
+  const memRelevant = [...memMakerRelevant, ...memDownstreamRelevant];
   const panelRelevant = list.filter(x => _isPanelSector(x.id));
   const shipRelevant = list.filter(x => _isShippingSector(x.id));
   const petroRelevant = list.filter(x => _isPetroSector(x.id));
@@ -57916,6 +57926,7 @@ async function annotatePriceRadar(list) {
   if (memRelevant.length) {
     const data = await _loadMemoryPriceOnce();
     const dramAvg = _memoryAvgChangePct(data, 'dram');
+    const isDownstreamId = new Set(memDownstreamRelevant.map(x => x.id));
     memRelevant.forEach(x => {
       const el = document.getElementById(`priceRadar-${x.id}`);
       if (!el) return;
@@ -57923,7 +57934,9 @@ async function annotatePriceRadar(list) {
       const arrow = dramAvg > 0 ? '▲' : dramAvg < 0 ? '▼' : '—';
       el.textContent = `🧠${arrow}${Math.abs(dramAvg).toFixed(1)}%`;
       el.style.color = dramAvg > 0 ? '#dc2626' : dramAvg < 0 ? '#16a34a' : 'var(--fg3)';
-      el.title = `DRAM現貨均價本期漲跌${dramAvg.toFixed(2)}%（資料源：TrendForce，最後更新${(data.dram||{}).last_update||'-'}）——記憶體報價是產業領先指標，比股價本身更早反映景氣`;
+      el.title = isDownstreamId.has(x.id)
+        ? `DRAM現貨均價本期漲跌${dramAvg.toFixed(2)}%（資料源：TrendForce，最後更新${(data.dram||{}).last_update||'-'}）——伺服器/筆電組裝股的DRAM料號成本占比高，記憶體報價是「成本+備貨周期」領先指標，跟記憶體原廠(漲跌直接反映在毛利)邏輯不同`
+        : `DRAM現貨均價本期漲跌${dramAvg.toFixed(2)}%（資料源：TrendForce，最後更新${(data.dram||{}).last_update||'-'}）——記憶體報價是產業領先指標，比股價本身更早反映景氣`;
     });
   }
 
