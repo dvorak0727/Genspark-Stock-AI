@@ -57788,7 +57788,7 @@ let _memoryPriceCache = null, _memoryPriceLoading = null;
 function _loadMemoryPriceOnce() {
   if (_memoryPriceCache) return Promise.resolve(_memoryPriceCache);
   if (_memoryPriceLoading) return _memoryPriceLoading;
-  _memoryPriceLoading = fetch('memory_price.json').then(r => r.json())
+  _memoryPriceLoading = fetch('memory_price.json', {cache:'no-store'}).then(r => r.json())
     .then(data => { _memoryPriceCache = data; return data; })
     .catch(() => ({ dram: { items: [] }, nand: { items: [] } }));
   return _memoryPriceLoading;
@@ -57810,7 +57810,7 @@ let _panelPriceCache = null, _panelPriceLoading = null;
 function _loadPanelPriceOnce() {
   if (_panelPriceCache) return Promise.resolve(_panelPriceCache);
   if (_panelPriceLoading) return _panelPriceLoading;
-  _panelPriceLoading = fetch('panel_price.json').then(r => r.json())
+  _panelPriceLoading = fetch('panel_price.json', {cache:'no-store'}).then(r => r.json())
     .then(data => { _panelPriceCache = data; return data; })
     .catch(() => ({ large: { items: [] } }));
   return _panelPriceLoading;
@@ -57827,7 +57827,7 @@ let _scfiPriceCache = null, _scfiPriceLoading = null;
 function _loadScfiPriceOnce() {
   if (_scfiPriceCache) return Promise.resolve(_scfiPriceCache);
   if (_scfiPriceLoading) return _scfiPriceLoading;
-  _scfiPriceLoading = fetch('scfi_price.json').then(r => r.json())
+  _scfiPriceLoading = fetch('scfi_price.json', {cache:'no-store'}).then(r => r.json())
     .then(data => { _scfiPriceCache = data; return data; })
     .catch(() => ({ scfi: null }));
   return _scfiPriceLoading;
@@ -57901,7 +57901,12 @@ function forceRefreshIndexBorder() {
     Object.keys(localStorage).filter(k => k.startsWith(prefix)).forEach(k => localStorage.removeItem(k));
     Object.keys(_fmCache).filter(k => k.startsWith(prefix)).forEach(k => delete _fmCache[k]);
   });
-  loadIndexBorderCandidates();
+  // v9.x：強制刷新順便把報價偵測(記憶體/面板/SCFI)也一起重抓，不要留著舊快取，
+  // 這三個JSON本身是排程每天/每週更新的靜態檔，清快取+no-store才能真的拿到最新版本。
+  _memoryPriceCache = null; _memoryPriceLoading = null;
+  _panelPriceCache = null; _panelPriceLoading = null;
+  _scfiPriceCache = null; _scfiPriceLoading = null;
+  loadIndexBorderCandidates(true);
 }
 
 // v7.9x：每日排程存下來的門檻觀察區歷史快照（見 fetch_index_border_history.py +
@@ -58032,7 +58037,7 @@ function closeIndexBorderTrend() {
   document.getElementById('idxBorderTrendModal').classList.remove('open');
 }
 
-async function loadIndexBorderCandidates() {
+async function loadIndexBorderCandidates(isForceRefresh) {
   const btn = document.getElementById('idxBorderLoadBtn');
   const body = document.getElementById('idxBorderBody');
   const tabs = document.getElementById('idxBorderPageTabs');
@@ -58044,7 +58049,13 @@ async function loadIndexBorderCandidates() {
     _idxBorderData = { list, page1 };
     tabs.style.display = 'flex';
     switchIndexBorderPage(2);
-    document.getElementById('idxBorderUpdated').textContent = `資料日期：${new Date().toISOString().slice(0,10)}（第一頁1~${IDX_BORDER_LO - 1}名／第二頁${IDX_BORDER_LO}~${IDX_BORDER_HI}名）`;
+    const dateTxt = `資料日期：${new Date().toISOString().slice(0,10)}（第一頁1~${IDX_BORDER_LO - 1}名／第二頁${IDX_BORDER_LO}~${IDX_BORDER_HI}名）`;
+    // v9.x：強制刷新時多提示一句，讓使用者知道報價偵測(記憶體/面板/SCFI)也一起重抓了，
+    // 不是只有股價——switchIndexBorderPage本來就會把chip/whale/月營收/報價偵測全部
+    // annotate一輪，這裡只是把「已更新哪些東西」講清楚，不是額外多做事。
+    document.getElementById('idxBorderUpdated').textContent = isForceRefresh
+      ? `${dateTxt}　✅ 已更新：股價、籌碼訊號、千張大戶、月營收、報價偵測(🧠記憶體/🖥️面板/🚢SCFI)`
+      : dateTxt;
   } catch (e) {
     body.innerHTML = `<div style="text-align:center;padding:20px;color:#dc2626;font-size:0.8rem;">❌ ${e.message}</div>`;
   } finally {
