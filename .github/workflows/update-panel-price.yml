@@ -1,0 +1,29 @@
+name: 更新面板報價（TrendForce）
+
+on:
+  schedule:
+    # 面板報價每月更新一次，不用天天抓；平日下午跑一次確保有抓到最新月報
+    - cron: '30 7 * * 1-5'
+  workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便第一次測試
+
+jobs:
+  update-panel-price:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 requests
+        run: pip install requests
+
+      - name: 執行抓取腳本
+        run: python fetch_panel_price.py
+
+      - name: 自動 commit 更新後的 panel_price.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新面板報價 (TrendForce)"
+          file_pattern: panel_price.json

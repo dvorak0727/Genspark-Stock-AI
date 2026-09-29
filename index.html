@@ -18166,7 +18166,8 @@ a.module-nav-item.acc-active {
         <div id="idxBorderPageTabs" style="display:none;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
           <button onclick="switchIndexBorderPage(1)" id="idxBorderTab1" class="etfcal-add-btn" style="padding:4px 12px;font-size:0.68rem;">第一頁・現有50大（1~34名）</button>
           <button onclick="switchIndexBorderPage(2)" id="idxBorderTab2" class="etfcal-add-btn" style="padding:4px 12px;font-size:0.68rem;">第二頁・門檻觀察區（35~65名）</button>
-          <span style="margin-left:auto;font-size:0.6rem;color:var(--text-muted);white-space:nowrap;">籌碼：⚪未到低檔　🟢近底量縮　🟠低檔量仍大　🎯雙重確認(量縮+大戶週增)</span>
+          <span style="margin-left:12px;font-size:0.6rem;color:var(--text-muted);white-space:nowrap;">籌碼：⚪未到低檔　🟢近底量縮　🟠低檔量仍大　🎯雙重確認(量縮+大戶週增)</span>
+          <span style="font-size:0.6rem;color:var(--text-muted);white-space:nowrap;">大戶：🐋鯨魚悄入　📈籌碼集中　⚠️大戶撤退　—觀察中</span>
         </div>
         <div id="idxBorderBody">
           <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">按「載入候選名單」開始（資料源同「市值前50大（即時計算）」那組API，抓排名35~65名）</div>
@@ -57441,7 +57442,7 @@ function renderIndexBorderList(list) {
       </div>
     </div>
     <div style="margin-top:8px;font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
-      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠報價偵測=記憶體股專屬，比對TrendForce DRAM現貨均價漲跌(產業領先指標，比股價更早反映景氣，目前只有記憶體股，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
+      複合訊號說明：📈走勢／籌碼圖示=近20日是否貼近低點+量縮(圖示說明見上方頁籤列)／🌍板塊=該股所屬板塊今日代表股平均漲跌幅(非資金流向，要先去「板塊」分頁載入過一次)／🐋千張大戶=最新一週籌碼趨勢／📊月營收YoY=真實基本面數字，紅字成長綠字衰退，跟排名位置無關(51~65是想擠進50大，不代表體質差)／🧠🖥️報價偵測=記憶體股比對DRAM現貨均價、面板股比對面板均價月增(TrendForce，產業領先指標，比股價更早反映景氣，其他板塊陸續補)／🏦分點=點擊才查、最近一個交易日量最大分點買賣超。板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。
     </div>`;
 }
 
@@ -57802,20 +57803,60 @@ function _memoryAvgChangePct(data, type) {
   if (!vals.length) return null;
   return vals.reduce((a, b) => a + b, 0) / vals.length;
 }
+// v9.x 報價偵測第2棒：面板報價（TrendForce大尺寸面板：TV/Monitor/NB），
+// 只對STOCK_DB.industry='面板'的個股顯示（群創、友達等）。面板報價每月才
+// 更新一次，跟記憶體現貨每天報價不同頻率，這裡沿用同一套顯示邏輯即可。
+let _panelPriceCache = null, _panelPriceLoading = null;
+function _loadPanelPriceOnce() {
+  if (_panelPriceCache) return Promise.resolve(_panelPriceCache);
+  if (_panelPriceLoading) return _panelPriceLoading;
+  _panelPriceLoading = fetch('panel_price.json').then(r => r.json())
+    .then(data => { _panelPriceCache = data; return data; })
+    .catch(() => ({ large: { items: [] } }));
+  return _panelPriceLoading;
+}
+function _isPanelSector(stockId) {
+  const info = STOCK_DB[stockId];
+  return !!(info && /面板/.test(info.industry || ''));
+}
+function _panelAvgMomPct(data) {
+  const items = (data.large || {}).items || [];
+  const vals = items.map(it => it.mom_pct).filter(v => typeof v === 'number');
+  if (!vals.length) return null;
+  return vals.reduce((a, b) => a + b, 0) / vals.length;
+}
+
 async function annotatePriceRadar(list) {
-  const relevant = list.filter(x => _isMemorySector(x.id));
-  if (!relevant.length) return;
-  const data = await _loadMemoryPriceOnce();
-  const dramAvg = _memoryAvgChangePct(data, 'dram');
-  relevant.forEach(x => {
-    const el = document.getElementById(`priceRadar-${x.id}`);
-    if (!el) return;
-    if (dramAvg === null) { el.textContent = ''; return; }
-    const arrow = dramAvg > 0 ? '▲' : dramAvg < 0 ? '▼' : '—';
-    el.textContent = `🧠${arrow}${Math.abs(dramAvg).toFixed(1)}%`;
-    el.style.color = dramAvg > 0 ? '#dc2626' : dramAvg < 0 ? '#16a34a' : 'var(--fg3)';
-    el.title = `DRAM現貨均價本期漲跌${dramAvg.toFixed(2)}%（資料源：TrendForce，最後更新${(data.dram||{}).last_update||'-'}）——記憶體報價是產業領先指標，比股價本身更早反映景氣`;
-  });
+  const memRelevant = list.filter(x => _isMemorySector(x.id));
+  const panelRelevant = list.filter(x => _isPanelSector(x.id));
+
+  if (memRelevant.length) {
+    const data = await _loadMemoryPriceOnce();
+    const dramAvg = _memoryAvgChangePct(data, 'dram');
+    memRelevant.forEach(x => {
+      const el = document.getElementById(`priceRadar-${x.id}`);
+      if (!el) return;
+      if (dramAvg === null) { el.textContent = ''; return; }
+      const arrow = dramAvg > 0 ? '▲' : dramAvg < 0 ? '▼' : '—';
+      el.textContent = `🧠${arrow}${Math.abs(dramAvg).toFixed(1)}%`;
+      el.style.color = dramAvg > 0 ? '#dc2626' : dramAvg < 0 ? '#16a34a' : 'var(--fg3)';
+      el.title = `DRAM現貨均價本期漲跌${dramAvg.toFixed(2)}%（資料源：TrendForce，最後更新${(data.dram||{}).last_update||'-'}）——記憶體報價是產業領先指標，比股價本身更早反映景氣`;
+    });
+  }
+
+  if (panelRelevant.length) {
+    const data = await _loadPanelPriceOnce();
+    const momAvg = _panelAvgMomPct(data);
+    panelRelevant.forEach(x => {
+      const el = document.getElementById(`priceRadar-${x.id}`);
+      if (!el) return;
+      if (momAvg === null) { el.textContent = ''; return; }
+      const arrow = momAvg > 0 ? '▲' : momAvg < 0 ? '▼' : '—';
+      el.textContent = `🖥️${arrow}${Math.abs(momAvg).toFixed(1)}%`;
+      el.style.color = momAvg > 0 ? '#dc2626' : momAvg < 0 ? '#16a34a' : 'var(--fg3)';
+      el.title = `面板均價月增${momAvg.toFixed(2)}%（TV/Monitor/NB平均，資料源：TrendForce，最後更新${(data.large||{}).last_update||'-'}，每月更新一次）——面板報價是產業領先指標，比股價本身更早反映景氣`;
+    });
+  }
 }
 
 // v7.73：強制刷新——清掉候選名單快取＋每檔股票的FinMind股價快取（記憶體+localStorage），
