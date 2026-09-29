@@ -57476,11 +57476,11 @@ const _idxBorderLegendHtml = `
       <div style="margin-bottom:3px;">🐋 千張大戶＝最新一週籌碼趨勢</div>
       <div style="margin-bottom:3px;">📊 月營收YoY＝真實基本面數字，紅字成長綠字衰退，跟排名位置無關（51~65是想擠進50大，不代表體質差）</div>
       <div style="margin-bottom:3px;">🧠🖥️🚢🛢️⛏️✈️🔶💰💻🤖🔋🧬🔬📡🌡️🧵 報價偵測＝記憶體股/伺服器筆電組裝股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌、航空股比對油價(燃油成本，方向跟塑化股相反)、PCB股比對國際銅價漲跌、金融股比對黃金+美10年債殖利率、半導體股(不含記憶體)比對SOX指數+NVDA/SMCI、機器人相關股比對ROBO ETF、汽車股比對LIT鋰電池ETF、生技股比對NBI生技指數、CPO矽光子股比對COHR股價、電信股比對美10年債殖利率(方向跟金融股相反)、散熱/機殼/滑軌/被動元件等AI伺服器供應鏈股比對NVDA/SMCI(需求端領先指標)、紡織股比對棉花期貨(上游原料成本)。產業領先指標，比股價更早反映景氣；水泥查無合理公開指標，暫不做。</div>
-      <div style="margin-bottom:3px;">徽章底色＝報價類型，不用點進去才知道好壞：<br>
-        🟧 橘底＝成本端（原料漲通常對該股不利）<br>
-        🟦 藍底＝需求端（下游訂單/同業景氣領先指標，漲通常對該股有利，但非直接營收）<br>
-        🟩 青底＝營收端（自己賣的東西漲＝對該股直接有利，如記憶體/面板/海運）<br>
-        🟪 紫底＝估值端（利率/資金面，方向因股而異，非成本或需求邏輯）
+      <div style="margin-bottom:3px;">報價偵測徽章的實心色塊＝類型，箭頭▲/▼才是漲跌方向，不用點進去才知道好壞：<br>
+        <span style="display:inline-block;background:#ea580c;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">橘</span>＝成本端（原料漲通常對該股不利）<br>
+        <span style="display:inline-block;background:#2563eb;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">藍</span>＝需求端（下游訂單/同業景氣領先指標，漲通常對該股有利，但非直接營收）<br>
+        <span style="display:inline-block;background:#0d9488;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">青</span>＝營收端（自己賣的東西漲＝對該股直接有利，如記憶體/面板/海運）<br>
+        <span style="display:inline-block;background:#9333ea;color:#fff;font-weight:800;border-radius:3px;padding:0 4px;">紫</span>＝估值端（利率/資金面，方向因股而異，非成本或需求邏輯）
       </div>
       <div style="margin-bottom:3px;">🏦 分點＝點擊才查、最近一個交易日量最大分點買賣超</div>
       <div>板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。</div>
@@ -58103,22 +58103,25 @@ function _isTextileSector(stockId) {
 
 // v9.x：報價偵測徽章的「類型底色」——使用者反映光看🧠🖥️等icon+漲跌%
 // 沒辦法馬上判斷這是成本端(原料漲=對該股不利)還是需求端(下游訂單/自身
-// 售價漲=對該股有利)還是估值端(利率/資金面，方向因股而異)，所以額外
-// 疊一層淡底色做視覺分類，不用每個都點進tooltip才知道。
-// cost=橘底(原料成本，通常漲=對該股不利)／revenue=青底(自己賣的東西
-// 漲=對該股有利)／demand=藍底(下游訂單能見度領先指標，漲=對該股通常
-// 有利，但非直接成本/營收)／valuation=紫底(利率/資金面，方向因股而異，
-// 不是單純成本或需求邏輯)。
+// 售價漲=對該股有利)還是估值端(利率/資金面，方向因股而異)。
+// v9.x第二版：原本用淡底色+紅綠文字，使用者反映色差太不明顯還是要猜。
+// 改成實心飽和色塊(類型)+白字，方向改由▲/▼箭頭本身傳達，不再靠文字
+// 紅綠(那個訊息量疊在淡底色上太難辨識)。
+// cost=橘(原料成本，通常漲=對該股不利)／revenue=青(自己賣的東西漲=
+// 對該股有利)／demand=藍(下游訂單能見度領先指標，漲=對該股通常有利，
+// 但非直接成本/營收)／valuation=紫(利率/資金面，方向因股而異)。
 const _PR_TYPE_BG = {
-  cost:      'rgba(234,88,12,0.16)',
-  revenue:   'rgba(13,148,136,0.16)',
-  demand:    'rgba(37,99,235,0.16)',
-  valuation: 'rgba(147,51,234,0.16)',
+  cost:      '#ea580c',
+  revenue:   '#0d9488',
+  demand:    '#2563eb',
+  valuation: '#9333ea',
 };
 function _prApplyType(el, type) {
   el.style.background = _PR_TYPE_BG[type] || '';
+  el.style.color = '#fff';
   el.style.borderRadius = '3px';
-  el.style.padding = '0 2px';
+  el.style.padding = '0 3px';
+  el.style.fontWeight = '800';
 }
 
 function _panelAvgMomPct(data) {
