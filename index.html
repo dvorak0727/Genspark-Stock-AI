@@ -65198,9 +65198,9 @@ function renderScreenerCards(showStats=false) {
     const gapNewsQ = encodeURIComponent(`${info.name} ${r.stockId} 跳空`);
     const gapNewsUrl = `https://news.google.com/search?q=${gapNewsQ}&hl=zh-TW&gl=TW`;
     const gapBadgeHtml = gapDir === 'up'
-      ? `<a class="sc-inst-badge strong" href="${gapNewsUrl}" target="_blank" rel="noopener" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5;text-decoration:none;" onclick="event.stopPropagation();" title="今天開盤價高於昨天最高價，中間完全沒有成交紀錄——點擊查新聞找原因，留意隔天是否回補缺口">🕳️ 向上跳空 📰</a>`
+      ? `<a class="sc-inst-badge strong" href="${gapNewsUrl}" target="_blank" rel="noopener" style="background:#FEE2E2;color:#991B1B;border-color:#FCA5A5;text-decoration:none;" onclick="event.stopPropagation();" title="今天開盤價高於昨天最高價，中間完全沒有成交紀錄——判斷的是「開盤那一瞬間」有沒有跳空，不是看一整天K棒範圍有沒有重疊；如果盤中拉回、今天K棒範圍蓋過昨天，視覺上兩根棒子會看起來重疊，但開盤跳空本身依然成立，只是當天就被填掉了。點擊查新聞找原因，留意隔天是否再度回補缺口">🕳️ 向上跳空 📰</a>`
       : gapDir === 'down'
-        ? `<a class="sc-inst-badge strong" href="${gapNewsUrl}" target="_blank" rel="noopener" style="background:#DBEAFE;color:#1E40AF;border-color:#93C5FD;text-decoration:none;" onclick="event.stopPropagation();" title="今天開盤價低於昨天最低價，中間完全沒有成交紀錄——點擊查新聞找原因，留意隔天是否回補缺口">🕳️ 向下跳空 📰</a>`
+        ? `<a class="sc-inst-badge strong" href="${gapNewsUrl}" target="_blank" rel="noopener" style="background:#DBEAFE;color:#1E40AF;border-color:#93C5FD;text-decoration:none;" onclick="event.stopPropagation();" title="今天開盤價低於昨天最低價，中間完全沒有成交紀錄——判斷的是「開盤那一瞬間」有沒有跳空，不是看一整天K棒範圍有沒有重疊；如果盤中拉回、今天K棒範圍蓋過昨天，視覺上兩根棒子會看起來重疊，但開盤跳空本身依然成立，只是當天就被填掉了。點擊查新聞找原因，留意隔天是否再度回補缺口">🕳️ 向下跳空 📰</a>`
         : '';
 
     // 預設 locked（指標隱藏）；解鎖後 JS 移除 locked class
@@ -81444,7 +81444,7 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
       </div>
       <div style="color:var(--fg2);line-height:1.6;margin-bottom:6px;">${info.note}</div>
       ${vpCorrect!=='沒有明顯確認訊號'?`<div style="color:${vpCorrect.includes('齊揚')?'#dc2626':'#16a34a'};margin-bottom:6px;">🔥 ${vpCorrect}：昨天量縮，今天量增且同色——回測65檔候選股(2024-09~2026-09)顯示，量價齊揚隔天上漲機率69.7%(平均+2.79%)；量價齊跌隔天下跌機率64.4%(平均-1.60%)。</div>`:''}
-      ${gapCorrect!=='無跳空'?`<div style="color:${gapCorrect==='向上跳空'?'#dc2626':'#16a34a'};margin-bottom:6px;">🕳️ ${gapCorrect}：今天開盤價跟昨天的高低區間中間完全沒有成交紀錄——代表法人/大戶收到消息的速度比散戶快，等你看盤才發現價格已經跳過去了。留意隔天是否把缺口回補：回補通常代表這次跳空只是情緒性的，沒回補才是真趨勢。</div>`:''}
+      ${gapCorrect!=='無跳空'?`<div style="color:${gapCorrect==='向上跳空'?'#dc2626':'#16a34a'};margin-bottom:6px;">🕳️ ${gapCorrect}：今天開盤價跟昨天的高低區間中間完全沒有成交紀錄——代表法人/大戶收到消息的速度比散戶快，等你看盤才發現價格已經跳過去了。判斷的是「開盤那一瞬間」有沒有跳空，不是看一整天K棒範圍有沒有重疊；如果盤中拉回、今天K棒範圍蓋過昨天，兩根棒子視覺上會看起來重疊，但開盤跳空本身依然成立，只是當天就被填掉了。留意隔天是否把缺口回補：回補通常代表這次跳空只是情緒性的，沒回補才是真趨勢。</div>`:''}
       <div style="font-weight:800;color:${verdictColor};">${verdictText}</div>
     </div>
   </div>`;
