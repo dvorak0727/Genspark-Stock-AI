@@ -58200,10 +58200,15 @@ async function annotatePriceRadar(list) {
       if (!el) return;
       if (oilAvg === null) { el.textContent = '無資料'; el.style.color = 'var(--fg3)'; return; }
       const arrow = oilAvg > 0 ? '▲' : oilAvg < 0 ? '▼' : '—';
-      el.textContent = `🛢️${arrow}${Math.abs(oilAvg).toFixed(1)}% ${_prFavorLabel(oilAvg === 0 ? null : oilAvg < 0)}`;
+      // v9.x：原本假設油價漲=塑化股成本上升=不利，2026-09-29台塑化實際案例
+      // 打臉——地緣政治(美伊/荷姆茲海峽)推升油價，台塑化當天股價反而大漲8%+，
+      // 因為上下游一貫化煉油廠(原油→煉油→石化品)短期反而受惠於煉油利差擴大+
+      // 庫存增值，不是單純下游塑膠加工廠「原料成本上升」的邏輯。塑化股裡有
+      // 上游整合廠(如台塑化)也有純下游加工廠，方向會相反，不強行下定論。
+      el.textContent = `🛢️${arrow}${Math.abs(oilAvg).toFixed(1)}% ${_prFavorLabel(null)}`;
       el.style.color = oilAvg > 0 ? '#dc2626' : oilAvg < 0 ? '#16a34a' : 'var(--fg3)';
       const wti = data.wti, brent = data.brent;
-      el.title = `國際油價(WTI+Brent平均)漲跌${oilAvg.toFixed(2)}%（WTI $${wti?.price??'-'} ${wti?.change_pct>0?'+':''}${wti?.change_pct??'-'}%／Brent $${brent?.price??'-'} ${brent?.change_pct>0?'+':''}${brent?.change_pct??'-'}%，資料源：Yahoo Finance）——原油是塑化股的核心領先指標(原油→輕油→乙烯/丙烯)`;
+      el.title = `國際油價(WTI+Brent平均)漲跌${oilAvg.toFixed(2)}%（WTI $${wti?.price??'-'} ${wti?.change_pct>0?'+':''}${wti?.change_pct??'-'}%／Brent $${brent?.price??'-'} ${brent?.change_pct>0?'+':''}${brent?.change_pct??'-'}%，資料源：Yahoo Finance）——原油是塑化股的核心領先指標(原油→輕油→乙烯/丙烯)。方向不一定：上游整合煉油廠(如台塑化)油價漲反而可能受惠於煉油利差擴大，純下游加工廠則是原料成本壓力，兩者相反，不強行下定論`;
     });
   }
 
