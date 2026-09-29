@@ -47765,25 +47765,28 @@ function renderEntryTracker(hist, close) {
   const fullBull = (s1Green && s2Green && s3Green);
   const partBull = ((s1Green || s2Green) && !s2Red);
 
+  // v7.07修正：這幾行原本用低透明度rgba疊在淺色底上，文字色又跟底色同色系
+  // （例如紅底配淺紅字），實測幾乎讀不出來。改用跟上面「出場紀律追蹤卡」
+  // 同一套純色組合（深色文字配淺色實底），對比度才夠，兩張卡片視覺也統一。
   if (s2Red) {
     // KD 超買 → 不管其他，不追進
     overallIcon = '🔴'; overallText = '高檔超買 · 不追進，等拉回';
-    overallBg = 'rgba(220,38,38,0.30)'; overallColor = '#fca5a5'; overallBorder = 'rgba(220,38,38,0.65)';
+    overallBg = '#FEE2E2'; overallColor = '#991B1B'; overallBorder = '#FCA5A5';
   } else if (fullBull) {
     overallIcon = '🟢'; overallText = '三策略共振 · 強力進場訊號，可積極進場';
-    overallBg = 'rgba(16,185,129,0.30)'; overallColor = '#6ee7b7'; overallBorder = 'rgba(16,185,129,0.65)';
+    overallBg = '#D1FAE5'; overallColor = '#065F46'; overallBorder = '#6EE7B7';
   } else if (s1State === 'green2red' || s2State === 'golden_cross') {
     overallIcon = '🟢'; overallText = '關鍵翻轉訊號 · 金叉/翻紅確認，可試單進場';
-    overallBg = 'rgba(16,185,129,0.28)'; overallColor = '#6ee7b7'; overallBorder = 'rgba(16,185,129,0.60)';
+    overallBg = '#D1FAE5'; overallColor = '#065F46'; overallBorder = '#6EE7B7';
   } else if (partBull) {
     overallIcon = '🟡'; overallText = '部分訊號確認 · 可輕倉試探，等三策略共振';
-    overallBg = 'rgba(245,158,11,0.22)'; overallColor = '#92400e'; overallBorder = 'rgba(245,158,11,0.60)';
+    overallBg = '#FEF3C7'; overallColor = '#92400E'; overallBorder = '#F59E0B';
   } else if (s1Yellow || s1State === 'green_contract') {
     overallIcon = '🟡'; overallText = '訊號醞釀中 · 綠柱收縮，等候金叉確認';
-    overallBg = 'rgba(245,158,11,0.18)'; overallColor = '#92400e'; overallBorder = 'rgba(245,158,11,0.50)';
+    overallBg = '#FEF3C7'; overallColor = '#92400E'; overallBorder = '#F59E0B';
   } else {
     overallIcon = '⚪'; overallText = '尚無進場訊號 · 觀望等待';
-    overallBg = 'rgba(100,116,139,0.18)'; overallColor = '#94a3b8'; overallBorder = 'rgba(100,116,139,0.40)';
+    overallBg = 'var(--surface2)'; overallColor = 'var(--fg2)'; overallBorder = 'var(--border)';
   }
 
   // ══════════════════════════════════════
