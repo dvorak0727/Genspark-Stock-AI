@@ -1,0 +1,24 @@
+name: 更新SOX半導體指數+NVDA+SMCI（Yahoo Finance）
+
+on:
+  schedule:
+    - cron: '0 23 * * 0-4'
+  workflow_dispatch: {}
+
+jobs:
+  update-semi-index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: 安裝 requests
+        run: pip install requests
+      - name: 執行抓取腳本
+        run: python fetch_semi_index.py
+      - name: 自動 commit 更新後的 semiconductor_index.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新SOX半導體指數+NVDA+SMCI (Yahoo Finance)"
+          file_pattern: semiconductor_index.json

@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-09-29T12:59:42Z",
+  "sox": {
+    "price": 12465.241,
+    "prev_close": 12433.17,
+    "change_pct": 0.2579,
+    "date": "2026-09-28"
+  },
+  "nvda": {
+    "price": 228.86,
+    "prev_close": 227.38,
+    "change_pct": 0.6509,
+    "date": "2026-09-28"
+  },
+  "smci": {
+    "price": 41.78,
+    "prev_close": 41.2,
+    "change_pct": 1.4078,
+    "date": "2026-09-28"
+  }
+}
