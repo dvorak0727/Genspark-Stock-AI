@@ -57897,7 +57897,7 @@ function _oilAvgChangePct(data) {
 // 都要反過來標示，不能直接沿用塑化股那組🛢️邏輯。
 function _isAviationSector(stockId) {
   const info = STOCK_DB[stockId];
-  return !!(info && /^航空$/.test(info.industry || ''));
+  return !!(info && /^航空$|航空器維修|航太維修|航太製造/.test(info.industry || ''));
 }
 
 // v9.x 報價偵測第5棒：國際鐵礦砂期貨（Yahoo Finance TIO=F），只對
@@ -57933,7 +57933,10 @@ function _loadCopperPriceOnce() {
 }
 function _isPcbSector(stockId) {
   const info = STOCK_DB[stockId];
-  return !!(info && /PCB/i.test(info.industry || ''));
+  // v9.x擴大範圍：原本只比對「PCB」漏掉高頻CCL(台光電)這種同樣重銅成本
+  // 的關聯產業，銅價對PCB/ABF載板/IC載板/軟板/電線電纜/連接器都是核心
+  // 原料成本，一起併入銅價雷達。
+  return !!(info && /PCB|ABF載板|IC載板|軟板|電線電纜|連接器|線材|高頻CCL/.test(info.industry || ''));
 }
 function _panelAvgMomPct(data) {
   const items = (data.large || {}).items || [];
