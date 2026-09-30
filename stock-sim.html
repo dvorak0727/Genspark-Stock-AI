@@ -183,11 +183,17 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .rsi-bar{height:3px;background:#1e3a5f;border-radius:2px;overflow:hidden;}
 .rsi-fill{height:100%;border-radius:2px;transition:width .4s;}
 .rsi-num{font-size:.52rem;color:#475569;margin-top:1px;}
+.chip-line{margin-top:3px;font-size:.54rem;display:flex;align-items:center;justify-content:center;gap:3px;cursor:help;}
+.chip-line .chip-dot{width:5px;height:5px;border-radius:50%;display:inline-block;}
+.chip-line.chip-all-buy{color:#f87171;}
+.chip-line.chip-all-sell{color:#34d399;}
+.chip-line.chip-mixed{color:#94a3b8;}
 
 /* Indicator panel */
 .ind-panel{background:linear-gradient(145deg,#0f1e33,#0a1525);border:1px solid #1e3a5f;border-radius:10px;padding:12px;}
 .ind-title{font-size:.63rem;color:#60a5fa;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.ind-row{display:grid;grid-template-columns:50px 64px 1fr 26px;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,58,95,.4);}
+.ind-row{display:grid;grid-template-columns:50px 64px 1fr 26px 34px;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,58,95,.4);}
+.ind-chip{font-size:.55rem;text-align:right;white-space:nowrap;cursor:help;}
 .ind-row:last-child{border-bottom:none;}
 .ind-name{font-size:.68rem;font-weight:700;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ind-held{color:#fcd34d;}
@@ -771,7 +777,25 @@ function initGame(year) {
       const vrand = seededRand(year * 2000 + si * 13 + i);
       return 0.5 + vrand() * 1.5;
     });
-    return { ...s, prices, volumes, annualReturn };
+
+    // v9.x：每日三大法人籌碼（外資/投信/自營），跟「先看籌碼」的教學理念呼應——
+    // 法人動向要比散戶更早知道。刻意用「明天的漲跌」去偏移「今天的籌碼方向」
+    // (leadWeight 0.6)，模擬法人籌碼領先價格的現象，不是單純今天漲籌碼就買。
+    // 外資部位最大、跟趨勢相關性最高；投信次之；自營商部位小、雜訊最多，
+    // 三者不一定同向，這也是真實市場的樣子（教學卡片會標出三方是否一致）。
+    const chips = Array.from({length:DAYS+1}, (_,d) => {
+      if (d === 0) return { foreign:0, trust:0, dealer:0 };
+      const todayDr = (prices[d] - prices[d-1]) / prices[d-1];
+      const nextDr  = d < DAYS ? (prices[d+1] - prices[d]) / prices[d] : todayDr;
+      const leadDr  = todayDr * 0.4 + nextDr * 0.6;
+      const crand = seededRand(year * 4000 + si * 47 + d);
+      const foreign = Math.round(leadDr * 3200 + gauss(crand) * 380);
+      const trust   = Math.round(leadDr * 1100 + gauss(crand) * 300);
+      const dealer  = Math.round(leadDr * 300  + gauss(crand) * 220);
+      return { foreign, trust, dealer };
+    });
+
+    return { ...s, prices, volumes, chips, annualReturn };
   });
 
   // Trading days (Mon-Fri approximation)
@@ -1010,6 +1034,10 @@ function renderIndicatorPanel() {
     const heldMark = isHeld ? ' ●' : '';
     const phaseColors = { 1:'#60a5fa', 2:'#fbbf24', 3:'#22d3ee', 4:'#34d399', 5:'#f87171', '-1':'#64748b' };
     const fc = phaseColors[ind.phaseNum] || '#64748b';
+    const chip = s.chips[d] || { foreign:0, trust:0, dealer:0 };
+    const chipTotal = chip.foreign + chip.trust + chip.dealer;
+    const chipCls = chipTotal > 0 ? 'up' : chipTotal < 0 ? 'dn' : 'flat';
+    const chipTitle = `外資 ${chip.foreign>=0?'+':''}${chip.foreign}張／投信 ${chip.trust>=0?'+':''}${chip.trust}張／自營 ${chip.dealer>=0?'+':''}${chip.dealer}張`;
     return `<div class="ind-row">
       <div class="${nameClass}">${s.name}${heldMark}</div>
       <span class="phase-badge phase-${ind.phaseNum}">${ind.phase}</span>
@@ -1017,6 +1045,7 @@ function renderIndicatorPanel() {
         <div class="ind-mini-bar"><div class="ind-mini-fill" style="width:${ind.rsi}%;background:${ind.rsiColor}"></div></div>
       </div>
       <div class="ind-rsi-num" style="color:${ind.rsiColor}">${ind.rsi}</div>
+      <div class="ind-chip ${chipCls}" title="今日三大法人籌碼：${chipTitle}">${chipTotal>=0?'+':''}${chipTotal}</div>
     </div>`;
   }).join('');
   document.getElementById('indRows').innerHTML = rows;
@@ -1119,6 +1148,14 @@ function renderTradingDay() {
     const hasSell = holding && holding.qty > 0;
     const sector = SECTORS.find(x => x.id === s.sector);
     const ind = calcStockIndicators(si, d);
+    const chip = s.chips[d] || { foreign:0, trust:0, dealer:0 };
+    const chipTotal = chip.foreign + chip.trust + chip.dealer;
+    const chipSignCls = c => c > 0 ? 'up' : c < 0 ? 'dn' : 'flat';
+    const allSameSign = (chip.foreign===0||chip.trust===0||(chip.foreign>0)===(chip.trust>0))
+                      && (chip.dealer===0||chip.trust===0||(chip.dealer>0)===(chip.trust>0));
+    const chipRowCls = chipTotal === 0 ? 'chip-mixed' : !allSameSign ? 'chip-mixed' : chipTotal > 0 ? 'chip-all-buy' : 'chip-all-sell';
+    const chipIcon = chipTotal > 0 ? '🏦' : chipTotal < 0 ? '📤' : '➖';
+    const chipTitle = `外資 ${chip.foreign>=0?'+':''}${chip.foreign}張／投信 ${chip.trust>=0?'+':''}${chip.trust}張／自營 ${chip.dealer>=0?'+':''}${chip.dealer}張`;
     return `<div class="stock-row" id="row_${s.id}">
       <span class="st-code">${s.id}</span>
       <div>
@@ -1136,6 +1173,7 @@ function renderTradingDay() {
           <div class="rsi-bar"><div class="rsi-fill" style="width:${ind.rsi}%;background:${ind.rsiColor}"></div></div>
           <div class="rsi-num" style="color:${ind.rsiColor}">動能 ${ind.rsi}</div>
         </div>
+        <div class="chip-line ${chipRowCls}" title="今日三大法人籌碼：${chipTitle}">${chipIcon} ${chipTotal>=0?'+':''}${chipTotal}張</div>
       </div>
       <div class="st-action">
         <button class="btn-buy" onclick="openModal('${s.id}','buy')">買入</button>
