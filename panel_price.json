@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-29T08:49:55Z",
+  "generated_at": "2026-09-30T13:59:16Z",
   "large": {
-    "last_update": "2026-08-20",
+    "last_update": "2026-09-29",
     "items": [
       {
         "app": "LCD TV",
@@ -9,13 +9,13 @@
         "low": 116.0,
         "high": 126.0,
         "average": 123.0,
-        "last_avg": 124.0,
-        "hoh_change": -1.0,
-        "hoh_pct": -0.8,
-        "hoh_trend": "fall",
+        "last_avg": 123.0,
+        "hoh_change": 0.0,
+        "hoh_pct": 0.0,
+        "hoh_trend": "flat",
         "mom_change": 0.0,
-        "mom_pct": -0.8,
-        "mom_trend": "fall"
+        "mom_pct": 0.0,
+        "mom_trend": "flat"
       },
       {
         "app": "Monitor",
