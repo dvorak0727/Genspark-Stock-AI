@@ -19175,13 +19175,20 @@ a.module-nav-item.acc-active {
           <span id="twseChartTitle" style="font-size:.65rem;font-weight:800;color:var(--fg);">—</span>
           <button onclick="twseToggleChart(null)" style="font-size:.58rem;background:none;border:none;cursor:pointer;color:var(--fg3);">✕ 關閉</button>
         </div>
+        <!-- v9.x：只有「大盤法人籌碼」圖表會顯示，讓使用者自己選要看幾週的三大法人買賣趨勢 -->
+        <style>.twse-inst-range-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;}</style>
+        <div id="twseInstRangeRow" style="display:none;gap:4px;margin-bottom:6px;">
+          <button class="twse-inst-range-btn active" data-days="5"  onclick="_twseSetInstDays(5,event)"  style="font-size:.58rem;padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--fg2);cursor:pointer;">1週</button>
+          <button class="twse-inst-range-btn"        data-days="10" onclick="_twseSetInstDays(10,event)" style="font-size:.58rem;padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--fg2);cursor:pointer;">2週</button>
+          <button class="twse-inst-range-btn"        data-days="15" onclick="_twseSetInstDays(15,event)" style="font-size:.58rem;padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--fg2);cursor:pointer;">3週</button>
+        </div>
         <canvas id="twseChart" height="120" style="width:100%;display:block;"></canvas>
       </div>
 
       <!-- 法人籌碼（台積電代理）-->
       <div style="background:var(--bg2);border-radius:10px;padding:8px 12px;margin-bottom:8px;cursor:pointer;" onclick="twseToggleChart('inst')" title="點擊查看法人籌碼圖">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
-          <span style="font-size:.62rem;color:var(--fg3);font-weight:700;">🏦 大盤法人籌碼（近5日）<span style="font-size:.5rem;opacity:.6;">▼ 點擊看圖</span></span>
+          <span style="font-size:.62rem;color:var(--fg3);font-weight:700;"><span id="twseInstRangeLabel">🏦 大盤法人籌碼（近1週）</span><span style="font-size:.5rem;opacity:.6;"> ▼ 點擊看圖</span></span>
           <span style="font-size:.55rem;padding:2px 6px;background:rgba(16,185,129,.12);color:#059669;border-radius:10px;border:1px solid rgba(16,185,129,.3);">✅ 全市場真實買賣金額（TWSE三大法人統計表）</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:.68rem;text-align:center;">
@@ -71941,10 +71948,13 @@ async function fetchTwseInstOneDay(dayDateStr) {
 }
 
 // 往回找到最近 5 個「有資料」的交易日（最多回溯12天，涵蓋連假）
-async function fetchTwseInst5d() {
+async function fetchTwseInst5d(days = 5) {
+  // v9.x：改成可指定天數，供「1週/2週/3週」切換用。往回找的日曆天數上限
+  // 抓 days*3（含週末+連假緩衝），確保抓得到足夠的「有資料」交易日。
   const results = [];
   const today = new Date();
-  for (let i = 0; i < 12 && results.length < 5; i++) {
+  const lookback = Math.max(12, days * 3);
+  for (let i = 0; i < lookback && results.length < days; i++) {
     const dt = new Date(today); dt.setDate(today.getDate() - i);
     const ds = dt.toISOString().slice(0, 10).replace(/-/g, '');
     try {
@@ -72091,21 +72101,10 @@ async function fetchTWSEIndex() {
 
     // v7.55：全市場真實三大法人買賣金額（TWSE BFI82U，免token、無CORS限制）
     // 取代原本用台積電(2330)買賣超代理全市場的估算法——這支是官方逐日
-    // 「三大法人買賣金額統計表」，抓近5個「有資料」的交易日（自動跳過假日）加總。
+    // 「三大法人買賣金額統計表」，抓近N個「有資料」的交易日（自動跳過假日）加總。
+    // v9.x：抓取+更新卡片這段抽成_loadTwseInstSummary()，供1週/2週/3週切換按鈕重複呼叫。
     try {
-      const rows5 = await fetchTwseInst5d();
-      _twseInstRows = rows5;
-      const sumField = f => rows5.reduce((s,r)=>s+r[f], 0);
-      const fNet = sumField('foreign');
-      const tNet = sumField('trust');
-      const dNet = sumField('dealer');
-      const fmt3 = v => (v>=0?'+':'') + Math.round(Math.abs(v)/1e8) + '億';
-      const fColor = fNet>=0?'#dc2626':'#059669';
-      const tColor = tNet>=0?'#dc2626':'#059669';
-      const dColor = dNet>=0?'#dc2626':'#059669';
-      setHtml('twseForeign5', `<span style="color:${fColor};font-weight:900;">${fmt3(fNet)}</span>`);
-      setHtml('twseTrust5',   `<span style="color:${tColor};font-weight:900;">${fmt3(tNet)}</span>`);
-      setHtml('twseDealer5',  `<span style="color:${dColor};font-weight:900;">${fmt3(dNet)}</span>`);
+      await _loadTwseInstSummary(_twseInstDays);
     } catch(e) { console.warn('[大盤法人籌碼]', e.message); }
 
   } catch(e) {
@@ -72690,11 +72689,44 @@ async function fetchFuturesModule() {
 
 let _twseCurrentChart = null;
 let _twseInstRows = [];
+let _twseInstDays = 5; // v9.x：預設1週（5個交易日），可切換2週(10)/3週(15)
+
+// v9.x：抓取「近N個交易日」三大法人買賣金額，更新卡片數字＋（若圖表已展開）
+// 同步重繪，供_loadTwseIndex初次載入跟1週/2週/3週按鈕共用。
+async function _loadTwseInstSummary(days) {
+  const setHtml = (id, v) => { const e = document.getElementById(id); if(e) e.innerHTML = v; };
+  const rows = await fetchTwseInst5d(days);
+  _twseInstRows = rows;
+  const sumField = f => rows.reduce((s,r)=>s+r[f], 0);
+  const fNet = sumField('foreign');
+  const tNet = sumField('trust');
+  const dNet = sumField('dealer');
+  const fmt3 = v => (v>=0?'+':'') + Math.round(Math.abs(v)/1e8) + '億';
+  const fColor = fNet>=0?'#dc2626':'#059669';
+  const tColor = tNet>=0?'#dc2626':'#059669';
+  const dColor = dNet>=0?'#dc2626':'#059669';
+  setHtml('twseForeign5', `<span style="color:${fColor};font-weight:900;">${fmt3(fNet)}</span>`);
+  setHtml('twseTrust5',   `<span style="color:${tColor};font-weight:900;">${fmt3(tNet)}</span>`);
+  setHtml('twseDealer5',  `<span style="color:${dColor};font-weight:900;">${fmt3(dNet)}</span>`);
+  const rangeLabel = days <= 5 ? '近1週' : days <= 10 ? '近2週' : '近3週';
+  const labelEl = document.getElementById('twseInstRangeLabel');
+  if (labelEl) labelEl.textContent = `🏦 大盤法人籌碼（${rangeLabel}）`;
+  // 若圖表已經展開在看，切換天數後直接重繪，不用使用者再點一次
+  if (_twseCurrentChart === 'inst') _twseDrawChart('inst');
+}
+
+function _twseSetInstDays(days, ev) {
+  if (ev) ev.stopPropagation(); // 按鈕在可點擊的卡片裡，不要一起觸發twseToggleChart
+  _twseInstDays = days;
+  document.querySelectorAll('.twse-inst-range-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.days === days);
+  });
+  _loadTwseInstSummary(days).catch(e => console.warn('[大盤法人籌碼]', e.message));
+}
 
 function twseToggleChart(type) {
   const area = document.getElementById('twseChartArea');
   const canvas = document.getElementById('twseChart');
-  const title = document.getElementById('twseChartTitle');
   if (!area || !canvas) return;
 
   if (!type || _twseCurrentChart === type) {
@@ -72704,6 +72736,19 @@ function twseToggleChart(type) {
   }
   _twseCurrentChart = type;
   area.style.display = 'block';
+  _twseDrawChart(type);
+}
+
+// v9.x：把實際畫圖的邏輯從twseToggleChart()拆出來，單純負責「畫」，
+// 不處理開關狀態——這樣1週/2週/3週按鈕重新抓資料後可以直接重繪，
+// 不會呼叫到toggle邏輯而把圖表關掉。
+function _twseDrawChart(type) {
+  const canvas = document.getElementById('twseChart');
+  const title = document.getElementById('twseChartTitle');
+  if (!canvas) return;
+
+  const rangeRow = document.getElementById('twseInstRangeRow');
+  if (rangeRow) rangeRow.style.display = type === 'inst' ? 'flex' : 'none';
 
   const d = window._twseChartData;
   if (!d) { title.textContent = '請先按更新載入資料'; return; }
@@ -72779,28 +72824,40 @@ function twseToggleChart(type) {
     ctx.fillStyle = '#3b82f6'; ctx.fillText('D', W-30, 22);
 
   } else if (type === 'inst') {
-    title.textContent = '全市場三大法人買賣金額（近5日）';
+    // v9.x重畫：原本外資/投信各自「買=一種色、賣=另一種色」湊出4種顏色，
+    // 使用者反映看不懂。改成「一個法人固定一種顏色」，買賣方向改用長條
+    // 往上/往下（零軸為界）表示，顏色只代表「是誰」，不再混雜方向資訊。
+    // 外資=橘、投信=藍、自營=紫，三條一起畫，自營原本完全沒畫進圖裡
+    // （只有卡片數字有），這次補上。
+    const rangeLabel = _twseInstDays <= 5 ? '近1週' : _twseInstDays <= 10 ? '近2週' : '近3週';
+    title.textContent = `全市場三大法人買賣金額（${rangeLabel}）`;
     const rows = (_twseInstRows || []).slice().sort((a,b) => a.date.localeCompare(b.date));
     if (!rows.length) { title.textContent += '（無資料）'; return; }
     const dates = rows.map(r => r.date);
     const fArr = rows.map(r => r.foreign / 1e8); // 換算成億元，跟卡片上的顯示單位一致
     const tArr = rows.map(r => r.trust / 1e8);
-    const max = Math.max(...[...fArr,...tArr].map(Math.abs), 1);
-    const pad = 8, bw = (W - pad*2) / dates.length / 2;
+    const dArr = rows.map(r => r.dealer / 1e8);
+    const COLORS = { f:'#f97316', t:'#3b82f6', d:'#a855f7' }; // 外資/投信/自營固定色
+    const max = Math.max(...[...fArr,...tArr,...dArr].map(Math.abs), 1);
+    const pad = 8, groupGap = 3, bw = (W - pad*2) / dates.length / 3 - groupGap/3;
     const mid = H / 2;
     ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(pad, mid); ctx.lineTo(W-pad, mid); ctx.stroke();
+    const groupW = (W - pad*2) / dates.length;
     dates.forEach((date, i) => {
-      const x = pad + i * (bw*2 + 2);
-      [fArr[i], tArr[i]].forEach((v, j) => {
+      const x0 = pad + i * groupW;
+      [[fArr[i],COLORS.f], [tArr[i],COLORS.t], [dArr[i],COLORS.d]].forEach(([v,color], j) => {
         const h = Math.abs(v) / max * (H/2 - 6);
-        ctx.fillStyle = j===0 ? (v>=0?'#dc2626':'#059669') : (v>=0?'#f97316':'#06b6d4');
-        ctx.fillRect(x + j*(bw+1), v>=0 ? mid-h : mid, bw, h);
+        ctx.fillStyle = color;
+        ctx.fillRect(x0 + j*(bw+1), v>=0 ? mid-h : mid, bw, h);
       });
     });
     ctx.font = '9px sans-serif';
-    ctx.fillStyle = '#dc2626'; ctx.fillText('外資（億元）', W-70, 12);
-    ctx.fillStyle = '#f97316'; ctx.fillText('投信（億元）', W-70, 22);
+    const legendY = 12;
+    ctx.fillStyle = COLORS.f; ctx.fillText('●外資', pad, legendY);
+    ctx.fillStyle = COLORS.t; ctx.fillText('●投信', pad+42, legendY);
+    ctx.fillStyle = COLORS.d; ctx.fillText('●自營', pad+84, legendY);
+    ctx.fillStyle = fgColor;  ctx.fillText('（億元／往上買超・往下賣超）', pad+126, legendY);
   }
 }
 
