@@ -65948,13 +65948,17 @@ async function _scQuickBlowoff(stockId, triggerEl) {
         : { text: '🔵 訊號不明確，建議觀察', color: '#1E40AF', bg: '#DBEAFE' };
 
   const info = STOCK_DB[stockId] || { name: stockId };
+  // v9.x：原本label跟val/desc左右並排(justify-between)，desc那段常常要換好幾行，
+  // 右側欄位又窄，每行右對齊擠成鋸齒狀、左邊留一大片空白，使用者反映太浪費空間。
+  // 改成上下堆疊：第一行「label + val」同一行(val靠右但緊貼文字，不留死欄位)，
+  // desc單獨一行滿版靠左，換行也不會產生鋸齒空白。
   const cluesHtml = clues.map(cl => `
-    <div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:0.66rem;">
-      <div style="color:var(--fg3);flex:0 0 auto;">${cl.warn ? '⚠️' : '✓'} ${cl.label}</div>
-      <div style="text-align:right;">
-        <div style="font-weight:700;color:${cl.warn?'#DC2626':'var(--fg)'};">${cl.val}</div>
-        <div style="color:var(--fg3);font-size:0.6rem;">${cl.desc}</div>
+    <div style="padding:5px 0;border-bottom:1px solid var(--border);font-size:0.66rem;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+        <div style="color:var(--fg3);">${cl.warn ? '⚠️' : '✓'} ${cl.label}</div>
+        <div style="font-weight:700;color:${cl.warn?'#DC2626':'var(--fg)'};white-space:nowrap;">${cl.val}</div>
       </div>
+      <div style="color:var(--fg3);font-size:0.6rem;margin-top:2px;">${cl.desc}</div>
     </div>`).join('');
 
   const _cBtn = '<button class="scqp-close-btn" onclick="_scQuickClose(\'' + stockId + '\')">&#x2715;</button>';
