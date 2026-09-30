@@ -65231,8 +65231,12 @@ function renderScreenerCards(showStats=false) {
     // 沒有東西可以展開，點了只會看到誤導性的「資料不足」，直接不給點；
     // v8.x：etfFlow 現在也補抓了三大法人籌碼(見掃描迴圈)，移出不給點名單，
     // 讓使用者可以直接點開驗證「ETF在買的同時，法人籌碼是否真的同步增加」；
+    // v9.x：squeeze(軋空體質掃描)也是同樣的問題——calcSqueezeScore只走
+    // 融資融券dataset，完全沒抓_instRaw，跟whale一樣點了只會看到誤導性的
+    // 「資料不足」，原本漏掉沒加進不給點名單，使用者點了強訊號badge才發現
+    // 是死路，補進來。
     // 其他模式強訊號(≥_th3)：點擊展開法人籌碼面板
-    const _noInstMode = (_curMode === 'whale');
+    const _noInstMode = (_curMode === 'whale' || _curMode === 'squeeze');
     const verdictClickable = (r.score >= _th3 && !_noInstMode)
       ? ` sc-quick-btn${_curMode === 'macdmatrix' ? ' sc-verdict-macd' : _curMode === 'broker' ? ' sc-verdict-broker' : ''}` : '';
     const verdictTitle = (r.score >= _th3 && !_noInstMode)
