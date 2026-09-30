@@ -59311,6 +59311,35 @@ async function startScreener() {
             const _n = Math.min(15, priceRaw.length), _p = priceRaw.slice(-_n);
             result.candles = { closes:_p.map(d=>+d.close), opens:_p.map(d=>+(d.open||d.close)), highs:_p.map(d=>+d.max), lows:_p.map(d=>+d.min), dates:_p.map(d=>d.date||''), vols:_p.map(d=>+d.Trading_Volume||0) };
           }
+          // v9.x：使用者反映「燃料已堆好」的候選裡，有些指標還深陷空方、
+          // 離翻多很遠，不代表快要軋了——C1~C5只看融資融券，完全沒有動能
+          // 資訊，讓人誤以為隨時要軋。補算KD+MACD，直接在卡片標出還要等
+          // 多久，不用另外點開查。使用者實測驗證過的順序：KD最快先翻，
+          // 是必要條件——KD都還沒翻多，MACD再怎麼接近0軸都沒意義，
+          // 所以KD沒過就直接標「條件未成立」，不看MACD距離多遠。
+          const highs = (priceRaw || []).map(d => +d.max).filter(v => v > 0);
+          const lows  = (priceRaw || []).map(d => +d.min).filter(v => v > 0);
+          if (closes.length >= 26 && highs.length >= 9 && lows.length >= 9) {
+            const kd = _calcKDForSqueeze(highs, lows, closes, 9);
+            const kdBullish = kd.length >= 2 && kd.at(-1).k > kd.at(-1).d;
+
+            const emaFast = ema(closes, 12), emaSlow = ema(closes, 26);
+            const dif = emaFast.map((v,i) => v - emaSlow[i]);
+            const dea = ema(dif, 9);
+            const lastDif = dif.at(-1), lastDea = dea.at(-1);
+            const macdBullish = lastDif > lastDea;
+            // 用DIF距離0軸的百分比(相對股價)粗估還有多遠，越接近0代表越快翻多
+            const distPct = result.lc ? Math.abs(lastDif) / result.lc * 100 : null;
+
+            result._macdStatus = {
+              kdBullish, k: kd.length ? kd.at(-1).k : null, d: kd.length ? kd.at(-1).d : null,
+              macdBullish, dif: lastDif, dea: lastDea, aboveZero: lastDif > 0,
+              // KD是必要條件：KD還沒翻多，MACD距離0軸再近都不算數
+              distLabel: !kdBullish
+                ? 'KD尚未翻多，必要條件未成立'
+                : (distPct == null ? '' : distPct < 0.3 ? 'KD已過、MACD接近翻轉' : distPct < 1 ? 'KD已過、MACD還有一段距離' : 'KD已過、MACD離翻轉還很遠'),
+            };
+          }
         } catch(e) { /* 抓不到現價不影響軋空體質判斷，維持lc=0 */ }
 
       } else {
@@ -65227,6 +65256,24 @@ function renderScreenerCards(showStats=false) {
     const verdictFinal = isETF && r.score >= _th3
       ? '📊 大盤底部訊號（非個股）'
       : verdict;
+
+    // v9.x：軋空體質掃描專屬——C1~C5只看融資融券，沒有動能資訊，容易誤以為
+    // 「燃料已堆好」就快要軋了。這裡直接標出KD/MACD還要多久，KD是必要條件
+    // (使用者實測驗證：KD最快先翻，KD沒過MACD再接近0軸都沒意義)。
+    const squeezeMomentumNote = (_curMode === 'squeeze' && r._macdStatus)
+      ? (() => {
+          const m = r._macdStatus;
+          const ok = m.kdBullish;
+          const bg = ok ? 'rgba(217,119,6,.10)' : 'rgba(100,116,139,.10)';
+          const bd = ok ? '#D97706' : '#64748B';
+          const cl = ok ? '#92400E' : '#475569';
+          return `<div class="sc-etf-note" style="background:${bg};border-color:${bd};color:${cl};">
+            📐 <b>動能檢查</b>：KD（K${m.k?.toFixed(1)}／D${m.d?.toFixed(1)}）${m.kdBullish?'已翻多':'尚未翻多'}
+            ・MACD（DIF${m.dif?.toFixed(3)}／DEA${m.dea?.toFixed(3)}）${m.macdBullish?'已金叉':'仍空方'}
+            → <b>${m.distLabel}</b>。KD是必要條件，KD沒過，MACD再接近0軸都不算數。
+          </div>`;
+        })()
+      : '';
     // MACD 矩陣：點擊展開 MACD 圖；broker：點擊展開券商熱力圖；whale：不抓法人買賣資料，
     // 沒有東西可以展開，點了只會看到誤導性的「資料不足」，直接不給點；
     // v8.x：etfFlow 現在也補抓了三大法人籌碼(見掃描迴圈)，移出不給點名單，
@@ -65372,6 +65419,7 @@ function renderScreenerCards(showStats=false) {
       <!-- ↓ 指標明細：預設隱藏，解鎖後才顯示 -->
       <div class="sc-checks">${checksHtml}</div>
       ${etfNote}
+      ${squeezeMomentumNote}
       ${distCautionNote}
       <div class="sc-verdict ${verdictCls}${verdictClickable}"${verdictTitle}${verdictClick}>${verdictFinal}${_macdDirTag}</div>
       <div class="sc-click-hint">▶ 點擊分數圈查看完整分析</div>
