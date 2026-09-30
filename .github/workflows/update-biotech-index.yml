@@ -2,7 +2,7 @@ name: 更新NBI生技指數（Yahoo Finance）
 
 on:
   schedule:
-    - cron: '0 23 * * 0-4'
+    - cron: '2 23 * * 0-4' # v9.x：跟其他報價爬蟲錯開觸發分鐘，避免同時git push互搶失敗
   workflow_dispatch: {}
 
 jobs:

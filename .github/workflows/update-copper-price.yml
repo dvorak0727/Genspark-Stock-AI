@@ -3,7 +3,8 @@ name: 更新國際銅期貨價格（Yahoo Finance）
 on:
   schedule:
     # 跟油價/鐵礦砂排程同步：台灣時間平日早上7點(UTC 23:00前一天)
-    - cron: '0 23 * * 0-4'
+    # v9.x：跟其他報價爬蟲錯開觸發分鐘，避免同時git push互搶失敗
+    - cron: '4 23 * * 0-4'
   workflow_dispatch: {}   # 允許在 GitHub 網頁上手動觸發，方便第一次測試
 
 jobs:
