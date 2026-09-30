@@ -59548,7 +59548,7 @@ function _patchSqueezeBadge(stockId, sq) {
 
   const span = document.createElement('span');
   span.className = 'sc-squeeze-badge';
-  span.title = `KD黃金交叉(K${sq.k}／D${sq.d})＋站上MA5(${sq.ma5})／MA20(${sq.ma20})，MACD${sq.macdJustCrossed?'今天剛穿越':'尚未穿越'}(DIF${sq.dif}／DEA${sq.dea})，但千張大戶籌碼還在撤退——快指標已翻多、慢的籌碼還沒跟上的窗口期，基本面通常沒問題，是籌碼還沒鬆手。`;
+  span.title = `KD黃金交叉(K${sq.k}／D${sq.d})＋站上MA5(${sq.ma5})／MA20(${sq.ma20})，MACD${sq.macdJustCrossed?'今天剛穿越':'尚未穿越'}(DIF${sq.dif}／DEA${sq.dea})，但千張大戶籌碼還在撤退——快指標已翻多、慢的籌碼還沒跟上的窗口期，基本面通常沒問題，是籌碼還沒鬆手。窒息量到KD翻多只隔了${sq.grayGapDays}天（回測驗證：隔1~2天中位數報酬+2.29%勝率67.6%，隔越久訊號品質越差，超過5天就不算數了），這次是乾淨訊號。`;
   span.style.cssText = `display:inline-flex;align-items:center;gap:2px;font-size:0.62rem;
     font-weight:700;padding:2px 7px;border-radius:5px;
     background:#EDE9FE;color:#5B21B6;border:1px solid #C4B5FD;`;
@@ -65127,6 +65127,7 @@ async function _checkSqueezeWindow(stockId) {
   const closes = rows.map(r => +r.close).filter(v => v > 0);
   const highs  = rows.map(r => +r.max).filter(v => v > 0);
   const lows   = rows.map(r => +r.min).filter(v => v > 0);
+  const vols   = rows.map(r => +r.Trading_Volume || 0).filter((v,i) => +rows[i].close > 0);
   if (closes.length < 30) return null;
 
   // ① KD：找最近一次K上穿D，是否落在最後2根K棒內
@@ -65138,6 +65139,24 @@ async function _checkSqueezeWindow(stockId) {
   }
   const kdRecent = kdCrossIdx >= 0 && kdCrossIdx >= kd.length - 2;
   if (!kdRecent) return null;
+
+  // v9.x：回測驗證過(backtest_gray_candle_squeeze.py，246檔股票1.48萬筆事件)
+  // ——KD翻多前，離最近一次窒息量(灰棒，量比≤0.7)隔了幾天，決定這次交叉
+  // 訊號品質。隔1~2天中位數+2.29%勝率67.6%，隔3~5天仍正報酬，但隔6天以上
+  // 轉負、隔11~20天中位數-1.67%勝率只剩41%——盤整拖越久代表方向越不明，
+  // 不是籌碼洗得越乾淨。所以KD翻多前找不到「5天內的窒息量」就不算數，
+  // 這是過濾「已發生的交叉值不值得相信」，不是預測盤整會拖多久。
+  const kdCrossPriceIdx = closes.length - (kd.length - kdCrossIdx); // 換算回closes/vols的index
+  let grayGapDays = null;
+  for (let back = 1; back <= 20; back++) {
+    const gi = kdCrossPriceIdx - back;
+    if (gi < 15) break;
+    const window = vols.slice(gi - 15, gi);
+    const avgVol = window.reduce((a,b)=>a+b,0) / window.length;
+    if (avgVol > 0 && vols[gi] > 0 && vols[gi] / avgVol <= 0.7) { grayGapDays = back; break; }
+  }
+  const grayGapOk = grayGapDays !== null && grayGapDays <= 5;
+  if (!grayGapOk) return null;
 
   // ② 收盤站上MA20（用實際案例(中鋼2002)校正過：原本要求MA5>MA20，但
   // 反轉當天MA5往往還沒來得及穿越MA20——那正是這個訊號最有意義的時刻，
@@ -65165,6 +65184,7 @@ async function _checkSqueezeWindow(stockId) {
     ma5: ma5.toFixed(2), ma20: ma20.toFixed(2),
     macdJustCrossed: macdCrossIdx === dif.length - 1,
     dif: dif.at(-1).toFixed(3), dea: dea.at(-1).toFixed(3),
+    grayGapDays,
   };
 }
 
