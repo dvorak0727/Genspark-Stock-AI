@@ -184,6 +184,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .rsi-fill{height:100%;border-radius:2px;transition:width .4s;}
 .rsi-num{font-size:.52rem;color:#475569;margin-top:1px;}
 .chip-line{margin-top:3px;font-size:.54rem;display:flex;align-items:center;justify-content:center;gap:3px;cursor:help;}
+.sig-line{margin-top:2px;font-size:.52rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px;cursor:help;}
 .chip-line .chip-dot{width:5px;height:5px;border-radius:50%;display:inline-block;}
 .chip-line.chip-all-buy{color:#f87171;}
 .chip-line.chip-all-sell{color:#34d399;}
@@ -974,6 +975,94 @@ function _chipSum(s, d, n) {
   return { foreign, trust, dealer, total: foreign + trust + dealer };
 }
 
+// v9.x：文字版訊號列——KD金叉/死叉、MACD翻紅/翻黑、外資/投信各自連續
+// 買賣天數。原本考慮畫三張迷你圖(KD/MACD/均線)，但25檔同時攤開會太滿、
+// 拖慢20秒限時操盤的掃描速度，改成一行緊湊文字，跟遊戲的快節奏比較搭。
+function _calcKDSeries(highs, lows, closes, period = 9) {
+  const res = [];
+  let k = 50, d = 50;
+  for (let i = 0; i < closes.length; i++) {
+    if (i < period - 1) { res.push(null); continue; }
+    const hi = Math.max(...highs.slice(i - period + 1, i + 1));
+    const lo = Math.min(...lows.slice(i - period + 1, i + 1));
+    const rsv = hi === lo ? 50 : (closes[i] - lo) / (hi - lo) * 100;
+    k = (2/3) * k + (1/3) * rsv;
+    d = (2/3) * d + (1/3) * k;
+    res.push({ k, d });
+  }
+  return res;
+}
+function _ema(arr, period) {
+  const kf = 2 / (period + 1);
+  let e = arr[0];
+  const res = [e];
+  for (let i = 1; i < arr.length; i++) { e = arr[i] * kf + e * (1 - kf); res.push(e); }
+  return res;
+}
+function _calcMACDSeries(closes) {
+  const emaFast = _ema(closes, 12), emaSlow = _ema(closes, 26);
+  const dif = emaFast.map((v,i) => v - emaSlow[i]);
+  const dea = _ema(dif, 9);
+  return { dif, dea };
+}
+// 外資/投信各自的「連續同方向」天數，算到day d為止（含當天）。
+function _chipStreak(s, d, field) {
+  let days = 0, sign = 0;
+  for (let i = d; i >= 0; i--) {
+    const v = s.chips[i]?.[field] ?? 0;
+    const s2 = v > 0 ? 1 : v < 0 ? -1 : 0;
+    if (i === d) { sign = s2; if (sign === 0) return { days: 0, sign: 0 }; days = 1; continue; }
+    if (s2 !== sign) break;
+    days++;
+  }
+  return { days, sign };
+}
+// 組出一行緊湊文字：KD金叉/死叉(或偏多/偏空) · MACD翻紅/翻黑(或多方/空方) ·
+// 外資連X買/賣 · 投信連Y買/賣。回傳{html, text}，html帶顏色方便塞進卡片。
+function _buildSignalLine(si, d) {
+  const s = G.stocks[si];
+  const closes = s.prices.slice(0, d + 1);
+  const highs = closes, lows = closes; // 這個遊戲沒存每日高低，用收盤價近似足夠教學用
+  if (closes.length < 27) return { html: '', text: '' };
+  const kd = _calcKDSeries(highs, lows, closes, 9);
+  const { dif, dea } = _calcMACDSeries(closes);
+  // v9.x：欄位只有84px寬，原本「KD金叉」「MACD翻紅」這種全字標籤塞不下，
+  // 改成「K金/K死/K多/K空」「M紅/M黑/M多/M空」這種極短寫法，完整說明
+  // 留到title滑鼠提示裡才有。
+  const cur = kd[d], prev = kd[d-1];
+  let kdLabel, kdFull, kdUp;
+  if (cur && prev) {
+    if (prev.k <= prev.d && cur.k > cur.d) { kdLabel = 'K金'; kdFull = 'KD金叉'; kdUp = true; }
+    else if (prev.k >= prev.d && cur.k < cur.d) { kdLabel = 'K死'; kdFull = 'KD死叉'; kdUp = false; }
+    else { kdUp = cur.k > cur.d; kdLabel = kdUp ? 'K多' : 'K空'; kdFull = kdUp ? 'KD偏多' : 'KD偏空'; }
+  } else { kdLabel = ''; kdFull = ''; kdUp = null; }
+
+  let macdLabel, macdFull, macdUp;
+  const difCur = dif[d], deaCur = dea[d], difPrev = dif[d-1], deaPrev = dea[d-1];
+  if (difPrev <= deaPrev && difCur > deaCur) { macdLabel = 'M紅'; macdFull = 'MACD翻紅'; macdUp = true; }
+  else if (difPrev >= deaPrev && difCur < deaCur) { macdLabel = 'M黑'; macdFull = 'MACD翻黑'; macdUp = false; }
+  else { macdUp = difCur > deaCur; macdLabel = macdUp ? 'M多' : 'M空'; macdFull = macdUp ? 'MACD多方' : 'MACD空方'; }
+
+  const fStreak = _chipStreak(s, d, 'foreign');
+  const tStreak = _chipStreak(s, d, 'trust');
+  const streakPart = (label, st) => {
+    if (!st.days) return '';
+    const cls = st.sign > 0 ? 'up' : 'dn';
+    return `<span class="${cls}">${label}${st.days}${st.sign>0?'買':'賣'}</span>`;
+  };
+  const parts = [
+    kdLabel ? `<span class="${kdUp?'up':'dn'}">${kdLabel}</span>` : '',
+    `<span class="${macdUp?'up':'dn'}">${macdLabel}</span>`,
+    streakPart('外', fStreak),
+    streakPart('投', tStreak),
+  ].filter(Boolean);
+  const fullParts = [kdFull, macdFull,
+    fStreak.days ? `外資連${fStreak.days}${fStreak.sign>0?'買':'賣'}` : '',
+    tStreak.days ? `投信連${tStreak.days}${tStreak.sign>0?'買':'賣'}` : '',
+  ].filter(Boolean);
+  return { html: parts.join(' '), text: fullParts.join(' · ') };
+}
+
 function calcStockIndicators(si, d) {
   const s = G.stocks[si];
   const look20 = Math.min(d, 20);
@@ -1178,6 +1267,7 @@ function renderTradingDay() {
     const chipTitle = `今日：外資 ${chip.foreign>=0?'+':''}${chip.foreign}張／投信 ${chip.trust>=0?'+':''}${chip.trust}張／自營 ${chip.dealer>=0?'+':''}${chip.dealer}張　` +
       `｜5日累計：外資${sum5.foreign>=0?'+':''}${sum5.foreign}／投信${sum5.trust>=0?'+':''}${sum5.trust}／自營${sum5.dealer>=0?'+':''}${sum5.dealer}（合計${sum5.total>=0?'+':''}${sum5.total}張）　` +
       `｜10日累計：外資${sum10.foreign>=0?'+':''}${sum10.foreign}／投信${sum10.trust>=0?'+':''}${sum10.trust}／自營${sum10.dealer>=0?'+':''}${sum10.dealer}（合計${sum10.total>=0?'+':''}${sum10.total}張）`;
+    const sig = _buildSignalLine(si, d);
     return `<div class="stock-row" id="row_${s.id}">
       <span class="st-code">${s.id}</span>
       <div>
@@ -1196,6 +1286,7 @@ function renderTradingDay() {
           <div class="rsi-num" style="color:${ind.rsiColor}">動能 ${ind.rsi}</div>
         </div>
         <div class="chip-line ${chipRowCls}" title="${chipTitle}">${chipIcon} ${chipTotal>=0?'+':''}${chipTotal}張　5日${trendArrow(sum5.total)}</div>
+        ${sig.html ? `<div class="sig-line" title="${sig.text}">${sig.html}</div>` : ''}
       </div>
       <div class="st-action">
         <button class="btn-buy" onclick="openModal('${s.id}','buy')">買入</button>
