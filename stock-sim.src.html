@@ -38,6 +38,14 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .data-mode-btn.active{border-color:#f59e0b;color:#fcd34d;background:#1c2b45;}
 .data-mode-btn.active .dm-sub{color:#cbab6a;}
 .data-mode-btn:disabled{opacity:.4;cursor:not-allowed;}
+.dm-help-btn{width:16px;height:16px;border-radius:50%;background:#1e3a5f;color:#94a3b8;font-size:.6rem;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;}
+.dm-help-btn:hover{background:#2563eb;color:#fff;}
+.dm-help-box{width:100%;max-width:460px;background:linear-gradient(145deg,#0f1e33,#0a1525);border:1px solid #1e3a5f;border-radius:12px;padding:12px;margin-bottom:10px;}
+.dm-help-table{width:100%;border-collapse:collapse;font-size:.62rem;}
+.dm-help-table th{text-align:left;padding:4px 6px;color:#fcd34d;border-bottom:1px solid #1e3a5f;font-size:.64rem;}
+.dm-help-table td{padding:5px 6px;color:#94a3b8;vertical-align:top;border-bottom:1px solid #16263d;line-height:1.5;}
+.dm-help-table td:first-child{color:#60a5fa;font-weight:700;white-space:nowrap;}
+.dm-help-note{font-size:.64rem;color:#64748b;line-height:1.7;margin-top:8px;padding-top:8px;border-top:1px solid #1e3a5f;}
 
 /* ── MULTIPLAYER (PeerJS) ── */
 .multi-card{background:linear-gradient(145deg,#0f1e33,#0a1525);border:1px solid #1e3a5f;border-radius:14px;padding:24px;width:100%;max-width:420px;text-align:center;}
@@ -273,6 +281,20 @@ button{cursor:pointer;border:none;font-family:inherit;}
     <div class="rule-item">⚡ 每個交易日壓縮為 <b>20秒</b> 決策</div>
     <div class="rule-item">📊 可交易 <b>30檔</b> 指標股，每次 1-10 張</div>
     <div class="rule-item">🏆 先到 1000萬 者勝（多人模式）</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:6px;width:100%;max-width:460px;margin-bottom:6px;">
+    <span style="font-size:.66rem;color:#64748b;">資料模式</span>
+    <button class="dm-help-btn" onclick="toggleDmHelp()" id="dmHelpBtn">？</button>
+  </div>
+  <div class="dm-help-box" id="dmHelpBox" style="display:none;">
+    <table class="dm-help-table">
+      <tr><th></th><th>🎲 隨機模擬</th><th>📜 真實重現</th></tr>
+      <tr><td>股價/籌碼來源</td><td>用年度報酬率當種子，電腦亂數生成（參考真實產業背景，但數字是虛構的）</td><td>真的從FinMind抓回來的26年歷史資料（2000-2025），股價、三大法人買賣都跟當年實際發生的一樣</td></tr>
+      <tr><td>每次玩</td><td>同一年份每次抽到結果都不同（因為是亂數）</td><td>同一年份每次抽到的走勢完全一樣（因為是真實history）</td></tr>
+      <tr><td>公平性</td><td>多人比賽不適合——各自亂數生成，難度不一樣</td><td>多人比賽適合——同一年大家看到的走勢一模一樣，天生公平</td></tr>
+      <tr><td>適合情境</td><td>想每次都有新鮮感、不想猜到「這年是不是要大跌了」</td><td>想真實重現某一年發生過的事、或拿來跟朋友公平對戰</td></tr>
+    </table>
+    <div class="dm-help-note">簡單說：模擬版是「電腦編的故事」，真實版是「歷史真的發生過的事」。多人比賽建議選真實重現，單人想多玩幾次換口味就選隨機模擬。</div>
   </div>
   <div class="data-mode-row">
     <button class="data-mode-btn active" id="dmSimBtn" onclick="setDataMode('sim')">🎲 隨機模擬<span class="dm-sub">亂數生成年份，每次不同</span></button>
@@ -846,6 +868,11 @@ async function trackSimVisit() {
   } catch (e) { /* 計數失敗不影響遊戲，安靜忽略 */ }
 }
 trackSimVisit();
+
+function toggleDmHelp() {
+  const box = document.getElementById('dmHelpBox');
+  box.style.display = box.style.display === 'none' ? '' : 'none';
+}
 
 function setDataMode(mode) {
   if (mode === 'real' && (!REAL_MANIFEST || !REAL_MANIFEST.years || !REAL_MANIFEST.years.length)) return;
