@@ -70,6 +70,28 @@ td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle
   </div>
 </div>
 
+<!-- 改到期日／續約浮層 -->
+<div id="expiryEditWall" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:98;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:14px;padding:28px;width:320px;">
+    <h2 style="color:#f8fafc;font-size:1rem;margin-bottom:4px;">📅 修改到期日 / 續約</h2>
+    <p style="color:#64748b;font-size:0.8rem;margin-bottom:16px;">授權碼不變，只改到期日，用戶不用重新輸入。</p>
+    <div style="font-family:monospace;font-size:0.8rem;color:#93c5fd;margin-bottom:14px;" id="expiryEditKeyLabel"></div>
+    <label>快速續約（從原到期日往後延，過期的從今天算）</label>
+    <div style="display:flex;gap:6px;margin-bottom:4px;">
+      <button class="btn-sm" style="flex:1;" onclick="quickExtend(1)">+1個月</button>
+      <button class="btn-sm" style="flex:1;" onclick="quickExtend(3)">+3個月</button>
+      <button class="btn-sm" style="flex:1;" onclick="quickExtend(12)">+1年</button>
+    </div>
+    <label>或直接指定新的到期日</label>
+    <input id="expiryEditInput" type="date" />
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn-sm" style="flex:1;" onclick="closeExpiryEditor()">取消</button>
+      <button class="btn-primary" style="flex:1;margin-top:0;" onclick="saveExpiryEdit()">儲存</button>
+    </div>
+    <div id="expiryEditMsg" style="font-size:0.8rem;margin-top:10px;min-height:18px;"></div>
+  </div>
+</div>
+
 <!-- 登入牆 -->
 <div id="loginWall">
   <div id="loginBox">
@@ -248,6 +270,7 @@ async function loadKeys() {
       <td>${k.tier === 'admin' ? '永久' : (k.expiry || '—')}</td>
       <td>${badge}</td>
       <td style="white-space:nowrap;">
+        ${rank !== 2 && k.tier !== 'admin' ? `<button class="btn-sm" onclick="openExpiryEditor('${k.key}','${k.expiry||''}')">改到期日</button>` : ''}
         ${rank !== 2 ? `<button class="btn-sm" onclick="openTierEditor('${k.key}','${k.tier}')">改等級</button>` : ''}
         ${rank !== 2 ? `<button class="btn-danger" onclick="revokeKey('${k.key}')">撤銷</button>` : ''}
         <button class="btn-danger" style="background:#7f1d1d;" onclick="deleteKey('${k.key}')">刪除</button>
@@ -296,6 +319,52 @@ async function saveTierEdit() {
     const j = await r.json();
     if (j.ok) {
       closeTierEditor();
+      loadKeys();
+    } else {
+      msg.style.color = '#f87171';
+      msg.textContent = '儲存失敗：' + (j.msg || j.error || JSON.stringify(j));
+    }
+  } catch (e) {
+    msg.style.color = '#f87171';
+    msg.textContent = '連線失敗：' + e.message;
+  }
+}
+
+// ── 改到期日／續約（不重新產生授權碼，就地修改，沿用/admin/update的expiry參數）──
+let _expiryEditKey = null;
+let _expiryEditBaseDate = null; // 快速續約的計算基準：原到期日跟今天比較晚的那個
+function openExpiryEditor(key, currentExpiry) {
+  _expiryEditKey = key;
+  document.getElementById('expiryEditKeyLabel').textContent = key;
+  const today = new Date().toISOString().slice(0,10);
+  // 已過期的續約要從「今天」開始算，還沒過期的從「原到期日」開始算，
+  // 不然會變成往過去的日期加月份，續約完還是過期的，沒意義。
+  _expiryEditBaseDate = (currentExpiry && currentExpiry > today) ? currentExpiry : today;
+  document.getElementById('expiryEditInput').value = currentExpiry || today;
+  document.getElementById('expiryEditMsg').textContent = '';
+  document.getElementById('expiryEditWall').style.display = 'flex';
+}
+function closeExpiryEditor() {
+  document.getElementById('expiryEditWall').style.display = 'none';
+  _expiryEditKey = null;
+}
+function quickExtend(months) {
+  const base = new Date(_expiryEditBaseDate + 'T00:00:00');
+  base.setMonth(base.getMonth() + months);
+  document.getElementById('expiryEditInput').value = base.toISOString().slice(0,10);
+}
+async function saveExpiryEdit() {
+  if (!_expiryEditKey) return;
+  const newExpiry = document.getElementById('expiryEditInput').value;
+  const msg = document.getElementById('expiryEditMsg');
+  if (!newExpiry) { msg.style.color = '#f87171'; msg.textContent = '請選擇日期'; return; }
+  msg.style.color = '#94a3b8';
+  msg.textContent = '儲存中…';
+  try {
+    const r = await fetch(`${API}/admin/update?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&key=${encodeURIComponent(_expiryEditKey)}&expiry=${newExpiry}`);
+    const j = await r.json();
+    if (j.ok) {
+      closeExpiryEditor();
       loadKeys();
     } else {
       msg.style.color = '#f87171';
