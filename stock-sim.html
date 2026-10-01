@@ -98,7 +98,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .stock-table-hdr-half:last-child{border-left:1px solid #1e3a5f;}
 #stockRows{display:grid;grid-template-columns:1fr 1fr;}
 .stock-col-r{border-left:1px solid #1e3a5f;}
-.stock-row{display:grid;grid-template-columns:50px 1fr 62px 52px 84px 68px;gap:4px;padding:8px 8px;border-bottom:1px solid #1e3a5f;align-items:center;transition:background .15s;}
+.stock-row{display:grid;grid-template-columns:50px 92px 62px 52px minmax(0,1fr) 68px;gap:4px;padding:8px 8px;border-bottom:1px solid #1e3a5f;align-items:center;transition:background .15s;}
 .stock-row:last-child{border-bottom:none;}
 .stock-row:hover{background:rgba(30,58,95,.3);}
 .stock-row.selected{background:rgba(29,78,216,.15);border-left:3px solid #1d4ed8;}
@@ -107,7 +107,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .st-sector{font-size:.58rem;padding:1px 5px;border-radius:10px;display:inline-block;margin-top:2px;}
 .st-price{font-size:.88rem;font-weight:800;text-align:right;}
 .st-chg{font-size:.75rem;font-weight:700;text-align:right;}
-.st-vol{font-size:.62rem;color:#64748b;text-align:center;}
+.st-vol{font-size:.62rem;color:#64748b;text-align:left;}
 .st-vol-bar{height:3px;border-radius:2px;background:#1e3a5f;margin-top:2px;overflow:hidden;}
 .st-vol-fill{height:100%;border-radius:2px;background:#60a5fa;}
 .st-action{display:flex;gap:4px;justify-content:flex-end;}
@@ -183,8 +183,8 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .rsi-bar{height:3px;background:#1e3a5f;border-radius:2px;overflow:hidden;}
 .rsi-fill{height:100%;border-radius:2px;transition:width .4s;}
 .rsi-num{font-size:.52rem;color:#475569;margin-top:1px;}
-.chip-line{margin-top:3px;font-size:.54rem;display:flex;align-items:center;justify-content:center;gap:3px;cursor:help;}
-.sig-line{margin-top:2px;font-size:.52rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:4px;cursor:help;}
+.chip-line{margin-top:3px;font-size:.54rem;display:flex;align-items:center;justify-content:flex-start;gap:3px;cursor:help;}
+.sig-line{margin-top:2px;font-size:.52rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:4px;cursor:help;}
 .chip-line .chip-dot{width:5px;height:5px;border-radius:50%;display:inline-block;}
 .chip-line.chip-all-buy{color:#f87171;}
 .chip-line.chip-all-sell{color:#34d399;}
@@ -217,7 +217,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
   #stockRows{grid-template-columns:1fr;}
   .stock-col-r{border-left:none;border-top:1px solid #1e3a5f;}
   .stock-table-hdr-half:last-child{display:none;}
-  .stock-table-hdr-half,.stock-row{grid-template-columns:50px 1fr 62px 52px 84px 68px;}
+  .stock-table-hdr-half,.stock-row{grid-template-columns:50px 92px 62px 52px minmax(0,1fr) 68px;}
   .sector-hint,.sector-heatmap{grid-template-columns:repeat(3,1fr);}
   .wave-row{grid-template-columns:1fr 1fr;}
 }
