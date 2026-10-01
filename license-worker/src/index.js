@@ -344,6 +344,28 @@ export default {
       return json({ ok: true, ids: next });
     }
 
+    // ══════════════════════════════════════════════════
+    //  stock-sim.html 瀏覽計數（2026-10-01新增）
+    //  模擬器是完全獨立分享出去的頁面（無授權碼驗證），想知道大概有多少人
+    //  玩過，用LICENSE_KV存一個簡單的全域累加數字即可，不做個別使用者追
+    //  蹤、不存IP/裝置指紋，純粹計數。前端用localStorage做「同一瀏覽器同
+    //  一天只算一次」的去重，避免重複整理頁面灌水。
+    // ══════════════════════════════════════════════════
+    const SIM_VISIT_KEY = "stocksim_visit_count";
+
+    // GET /stocksim-visit → 只讀取目前累計數字，不累加
+    if (request.method === "GET" && url.pathname === "/stocksim-visit") {
+      const count = (await env.LICENSE_KV.get(SIM_VISIT_KEY, { type: "json" })) || 0;
+      return json({ count });
+    }
+
+    // POST /stocksim-visit → 累加一次
+    if (request.method === "POST" && url.pathname === "/stocksim-visit") {
+      const count = ((await env.LICENSE_KV.get(SIM_VISIT_KEY, { type: "json" })) || 0) + 1;
+      await env.LICENSE_KV.put(SIM_VISIT_KEY, JSON.stringify(count));
+      return json({ count });
+    }
+
     // GET /twse-exdiv → 代理 TWSE 除息預告表（解決瀏覽器 CORS 限制）
     if (url.pathname === "/twse-exdiv") {
       try {

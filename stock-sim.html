@@ -238,6 +238,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
   </a>
   <div class="logo">台股操盤模擬器</div>
   <div class="logo-sub">歷史重現版 · 2000–2025</div>
+  <div id="simVisitCount" style="font-size:.64rem;color:#475569;margin-bottom:10px;"></div>
   <div class="start-card">
     <h3>📋 遊戲規則</h3>
     <div class="rule-item">💰 每人起始資金 <b>100萬</b>，目標衝到 <b>1000萬</b></div>
@@ -762,6 +763,26 @@ async function loadRealManifest() {
   }
 }
 loadRealManifest();
+
+// v10.x：簡單瀏覽計數——這個頁面是完全獨立分享出去的（無授權碼驗證），
+// 想知道大概有多少人玩過。不存IP/裝置指紋，純粹用license-worker的KV累加
+// 一個數字。用localStorage做「同一瀏覽器同一天只累加一次」的去重，避免
+// 玩家重新整理頁面就灌水；非去重的那天只讀數字不累加。失敗了安靜忽略，
+// 不影響遊戲本身。
+const SIM_VISIT_API = 'https://license-worker.dvorak0727.workers.dev/stocksim-visit';
+async function trackSimVisit() {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const lastDate = localStorage.getItem('simVisitDate');
+    const isNewVisit = lastDate !== today;
+    const res = await fetch(SIM_VISIT_API, { method: isNewVisit ? 'POST' : 'GET' });
+    if (isNewVisit) localStorage.setItem('simVisitDate', today);
+    const data = await res.json();
+    const el = document.getElementById('simVisitCount');
+    if (el && data.count) el.textContent = `👀 累計 ${data.count.toLocaleString()} 人次玩過`;
+  } catch (e) { /* 計數失敗不影響遊戲，安靜忽略 */ }
+}
+trackSimVisit();
 
 function setDataMode(mode) {
   if (mode === 'real' && (!REAL_MANIFEST || !REAL_MANIFEST.years || !REAL_MANIFEST.years.length)) return;
