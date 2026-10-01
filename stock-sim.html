@@ -25,6 +25,12 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .mode-btn.solo:hover{transform:translateY(-2px);box-shadow:0 8px 28px #1d4ed860;}
 .mode-btn.multi{background:linear-gradient(135deg,#065f46,#047857);color:#fff;box-shadow:0 4px 20px #05966940;}
 .mode-btn.multi:hover{transform:translateY(-2px);}
+.data-mode-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:460px;margin-bottom:14px;}
+.data-mode-btn{padding:10px;border-radius:10px;font-size:.74rem;font-weight:700;border:2px solid transparent;color:#94a3b8;background:#0f1d33;cursor:pointer;transition:all .15s;}
+.data-mode-btn .dm-sub{display:block;font-size:.6rem;font-weight:400;color:#64748b;margin-top:2px;}
+.data-mode-btn.active{border-color:#f59e0b;color:#fcd34d;background:#1c2b45;}
+.data-mode-btn.active .dm-sub{color:#cbab6a;}
+.data-mode-btn:disabled{opacity:.4;cursor:not-allowed;}
 
 /* ── YEAR DRAW ── */
 #s-draw{align-items:center;justify-content:center;background:#08101e;padding:20px;}
@@ -238,8 +244,12 @@ button{cursor:pointer;border:none;font-family:inherit;}
     <div class="rule-item">🎲 電腦隨機抽取 <b>2000–2025</b> 某一年</div>
     <div class="rule-item">📖 先看 <b>10分鐘</b> 年代背景（重點產業提示）</div>
     <div class="rule-item">⚡ 每個交易日壓縮為 <b>20秒</b> 決策</div>
-    <div class="rule-item">📊 可交易 <b>15檔</b> 指標股，每次 1-10 張</div>
+    <div class="rule-item">📊 可交易 <b>30檔</b> 指標股，每次 1-10 張</div>
     <div class="rule-item">🏆 先到 1000萬 者勝（多人模式）</div>
+  </div>
+  <div class="data-mode-row">
+    <button class="data-mode-btn active" id="dmSimBtn" onclick="setDataMode('sim')">🎲 隨機模擬<span class="dm-sub">亂數生成年份，每次不同</span></button>
+    <button class="data-mode-btn" id="dmRealBtn" onclick="setDataMode('real')">📜 真實重現<span class="dm-sub" id="dmRealSub">讀取可用年份中…</span></button>
   </div>
   <div class="mode-btns">
     <button class="mode-btn solo" onclick="startGame('solo')">🎯 個人練習</button>
@@ -300,6 +310,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
 <div id="s-trade" class="screen">
   <div class="trade-header">
     <div class="th-date" id="thDate">2000/01/02</div>
+    <span id="thDataModeBadge" style="font-size:.6rem;padding:2px 7px;border-radius:5px;background:#1c2b45;color:#fcd34d;font-weight:700;"></span>
     <div class="th-taiex">大盤 <b id="thTaiex">10000</b> <span class="th-taiex chg" id="thTaiexChg">0.00%</span></div>
     <div class="th-cash">現金 <b id="thCash">$1,000,000</b></div>
     <div class="th-nav">淨值 <b id="thNav">$1,000,000</b> <span id="thNavChg"></span></div>
@@ -722,6 +733,123 @@ const STOCK_START_PRICE = {
 // ══════════════════════════════════════════
 let G = {}; // game state
 
+// v10.x：真實模式——用FinMind抓下來、打包成靜態JSON的真實歷史資料
+// （data/real/{year}.json），取代原本的亂數生成。manifest.json記錄哪些
+// 年份真的有抓到資料（不是2000-2025全部都有，某些年可能漏抓或股票還沒
+// 上市），開場畫面先讀manifest，只讓玩家抽到真的有資料的年份。
+let DATA_MODE = 'sim'; // 'sim' | 'real'
+let REAL_MANIFEST = null; // { years: [2000, 2001, ...] }
+
+async function loadRealManifest() {
+  try {
+    const res = await fetch('data/real/manifest.json');
+    if (!res.ok) throw new Error('no manifest');
+    REAL_MANIFEST = await res.json();
+    const sub = document.getElementById('dmRealSub');
+    const btn = document.getElementById('dmRealBtn');
+    if (REAL_MANIFEST.years && REAL_MANIFEST.years.length) {
+      sub.textContent = `${REAL_MANIFEST.years.length}個年份可選`;
+      btn.disabled = false;
+    } else {
+      sub.textContent = '資料準備中，暫不可用';
+      btn.disabled = true;
+    }
+  } catch (e) {
+    const sub = document.getElementById('dmRealSub');
+    const btn = document.getElementById('dmRealBtn');
+    sub.textContent = '資料準備中，暫不可用';
+    btn.disabled = true;
+  }
+}
+loadRealManifest();
+
+function setDataMode(mode) {
+  if (mode === 'real' && (!REAL_MANIFEST || !REAL_MANIFEST.years || !REAL_MANIFEST.years.length)) return;
+  DATA_MODE = mode;
+  document.getElementById('dmSimBtn').classList.toggle('active', mode === 'sim');
+  document.getElementById('dmRealBtn').classList.toggle('active', mode === 'real');
+}
+
+async function loadRealYearData(year) {
+  const res = await fetch(`data/real/${year}.json`);
+  if (!res.ok) throw new Error('no real data for ' + year);
+  return res.json();
+}
+
+// 把FinMind抓回來的真實資料轉成跟initGame()輸出一樣的形狀（stocks[].prices/
+// volumes/chips），這樣下面所有畫面渲染/交易邏輯完全不用改，只是資料來源
+// 換成真實歷史。不同股票上市時間不同（比如力積電2021年才上市），用「最長
+// 的那檔股票的日期」當作這一年的共同日曆，比它早上市之前的股票一律跳過
+// （不在這一年可選名單內），比它晚上市的股票用上市前「平盤、量0、籌碼0」
+// 補到日曆開頭對齊，所有股票陣列長度保持一致，交易邏輯才不會對不上索引。
+function buildRealGameStocks(yearJson) {
+  let masterDates = [];
+  for (const sid in yearJson.stocks) {
+    const ds = yearJson.stocks[sid].dates;
+    if (ds.length > masterDates.length) masterDates = ds;
+  }
+  const DAYS = masterDates.length;
+
+  const stocks = STOCK_LIST.filter(s => yearJson.stocks[s.id]).map(s => {
+    const rd = yearJson.stocks[s.id];
+    const closeByDate = {}, volByDate = {}, fByDate = {}, tByDate = {}, dByDate = {};
+    rd.dates.forEach((d, i) => {
+      closeByDate[d] = rd.close[i];
+      volByDate[d] = rd.volume[i];
+      fByDate[d] = rd.chips.foreign[i];
+      tByDate[d] = rd.chips.trust[i];
+      dByDate[d] = rd.chips.dealer[i];
+    });
+    let lastClose = rd.close[0];
+    const prices = [lastClose];
+    const volumes = [0];
+    const chips = [{ foreign: 0, trust: 0, dealer: 0 }];
+    for (let i = 0; i < DAYS; i++) {
+      const d = masterDates[i];
+      if (closeByDate[d] != null) lastClose = closeByDate[d];
+      prices.push(lastClose);
+      volumes.push(volByDate[d] || 0);
+      chips.push({ foreign: fByDate[d] || 0, trust: tByDate[d] || 0, dealer: dByDate[d] || 0 });
+    }
+    const annualReturn = (prices[DAYS] - prices[0]) / prices[0];
+    return { ...s, prices, volumes, chips, annualReturn };
+  });
+
+  return { stocks, dates: masterDates.map(d => new Date(d)), DAYS };
+}
+
+async function initGameReal(year) {
+  const yd = YEAR_DATA[year];
+  const yearJson = await loadRealYearData(year);
+  const { stocks, dates, DAYS } = buildRealGameStocks(yearJson);
+
+  // 沒有抓真實加權指數資料，用這一年所有股票的平均報酬模擬大盤走勢，
+  // 只做為背景參考數字，不影響個股實際價格。
+  let taiexPrices = [yd.taiex];
+  for (let d = 1; d <= DAYS; d++) {
+    const rets = stocks.map(s => (s.prices[d] - s.prices[d-1]) / s.prices[d-1]).filter(v => isFinite(v));
+    const avgRet = rets.length ? rets.reduce((a,b)=>a+b,0) / rets.length : 0;
+    taiexPrices.push(Math.round(taiexPrices[d-1] * (1 + avgRet)));
+  }
+
+  G = {
+    year, yd, DAYS,
+    taiexPrices, stocks, dates,
+    day: 0,
+    cash: 1000000,
+    holdings: {},
+    navHistory: [1000000],
+    peakNav: 1000000,
+    trades: 0,
+    timer: null,
+    timeLeft: 20,
+    won: false,
+    tradeLog: [],
+    prevPhases: {},
+    isReal: true,
+  };
+}
+
 function seededRand(seed) {
   let s = seed;
   return function() {
@@ -876,7 +1004,7 @@ function startGame(mode) {
 function drawYear() {
   const btn = document.getElementById('drawBtn');
   btn.disabled = true;
-  const years = Object.keys(YEAR_DATA).map(Number);
+  const years = DATA_MODE === 'real' && REAL_MANIFEST ? REAL_MANIFEST.years.slice() : Object.keys(YEAR_DATA).map(Number);
   const reel = document.getElementById('yearReel');
   let count = 0;
   const chosen = years[Math.floor(Math.random() * years.length)];
@@ -892,8 +1020,12 @@ function drawYear() {
 }
 
 let briefTimer = null;
-function showBriefing(year) {
-  initGame(year);
+async function showBriefing(year) {
+  if (DATA_MODE === 'real') {
+    await initGameReal(year);
+  } else {
+    initGame(year);
+  }
   const yd = G.yd;
   document.getElementById('bYear').textContent = year;
   document.getElementById('bTheme').textContent = yd.theme;
@@ -1292,6 +1424,8 @@ function renderTradingDay() {
   // Header
   document.getElementById('thDate').textContent =
     `${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;
+  const dmBadge = document.getElementById('thDataModeBadge');
+  if (dmBadge) dmBadge.textContent = G.isReal ? '📜 真實重現' : '🎲 隨機模擬';
   const taiexEl = document.getElementById('thTaiex');
   taiexEl.textContent = taiex.toLocaleString();
   const chgEl = document.getElementById('thTaiexChg');
