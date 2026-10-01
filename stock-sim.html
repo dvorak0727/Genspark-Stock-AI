@@ -192,7 +192,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
 /* Indicator panel */
 .ind-panel{background:linear-gradient(145deg,#0f1e33,#0a1525);border:1px solid #1e3a5f;border-radius:10px;padding:12px;}
 .ind-title{font-size:.63rem;color:#60a5fa;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
-.ind-row{display:grid;grid-template-columns:50px 64px 1fr 26px 34px;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,58,95,.4);}
+.ind-row{display:grid;grid-template-columns:50px 64px 1fr 26px 44px;gap:4px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(30,58,95,.4);}
 .ind-chip{font-size:.55rem;text-align:right;white-space:nowrap;cursor:help;}
 .ind-row:last-child{border-bottom:none;}
 .ind-name{font-size:.68rem;font-weight:700;color:#cbd5e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -960,6 +960,20 @@ function getMonthNews(year, day) {
 }
 
 // ── INDICATOR ENGINE ──
+// v9.x：使用者反映光看「今天」的籌碼數字看不出走向，連續5天/10天加總才
+// 看得出法人是不是真的有志一同在買（或賣）。累加s.chips[d]這個已經生成好
+// 的每日籌碼陣列，不用另外產生資料。
+function _chipSum(s, d, n) {
+  const from = Math.max(0, d - n + 1);
+  let foreign = 0, trust = 0, dealer = 0;
+  for (let i = from; i <= d; i++) {
+    const c = s.chips[i];
+    if (!c) continue;
+    foreign += c.foreign; trust += c.trust; dealer += c.dealer;
+  }
+  return { foreign, trust, dealer, total: foreign + trust + dealer };
+}
+
 function calcStockIndicators(si, d) {
   const s = G.stocks[si];
   const look20 = Math.min(d, 20);
@@ -1037,7 +1051,11 @@ function renderIndicatorPanel() {
     const chip = s.chips[d] || { foreign:0, trust:0, dealer:0 };
     const chipTotal = chip.foreign + chip.trust + chip.dealer;
     const chipCls = chipTotal > 0 ? 'up' : chipTotal < 0 ? 'dn' : 'flat';
-    const chipTitle = `外資 ${chip.foreign>=0?'+':''}${chip.foreign}張／投信 ${chip.trust>=0?'+':''}${chip.trust}張／自營 ${chip.dealer>=0?'+':''}${chip.dealer}張`;
+    const sum5 = _chipSum(s, d, 5), sum10 = _chipSum(s, d, 10);
+    const chipTitle = `今日：外資 ${chip.foreign>=0?'+':''}${chip.foreign}張／投信 ${chip.trust>=0?'+':''}${chip.trust}張／自營 ${chip.dealer>=0?'+':''}${chip.dealer}張　` +
+      `｜5日累計合計${sum5.total>=0?'+':''}${sum5.total}張（外資${sum5.foreign>=0?'+':''}${sum5.foreign}／投信${sum5.trust>=0?'+':''}${sum5.trust}／自營${sum5.dealer>=0?'+':''}${sum5.dealer}）　` +
+      `｜10日累計合計${sum10.total>=0?'+':''}${sum10.total}張`;
+    const sum5Cls = sum5.total > 0 ? 'up' : sum5.total < 0 ? 'dn' : 'flat';
     return `<div class="ind-row">
       <div class="${nameClass}">${s.name}${heldMark}</div>
       <span class="phase-badge phase-${ind.phaseNum}">${ind.phase}</span>
@@ -1045,7 +1063,7 @@ function renderIndicatorPanel() {
         <div class="ind-mini-bar"><div class="ind-mini-fill" style="width:${ind.rsi}%;background:${ind.rsiColor}"></div></div>
       </div>
       <div class="ind-rsi-num" style="color:${ind.rsiColor}">${ind.rsi}</div>
-      <div class="ind-chip ${chipCls}" title="今日三大法人籌碼：${chipTitle}">${chipTotal>=0?'+':''}${chipTotal}</div>
+      <div class="ind-chip ${chipCls}" title="${chipTitle}">${chipTotal>=0?'+':''}${chipTotal}<span class="${sum5Cls}" style="margin-left:1px;">${sum5.total>0?'▲':sum5.total<0?'▼':'－'}</span></div>
     </div>`;
   }).join('');
   document.getElementById('indRows').innerHTML = rows;
@@ -1155,7 +1173,11 @@ function renderTradingDay() {
                       && (chip.dealer===0||chip.trust===0||(chip.dealer>0)===(chip.trust>0));
     const chipRowCls = chipTotal === 0 ? 'chip-mixed' : !allSameSign ? 'chip-mixed' : chipTotal > 0 ? 'chip-all-buy' : 'chip-all-sell';
     const chipIcon = chipTotal > 0 ? '🏦' : chipTotal < 0 ? '📤' : '➖';
-    const chipTitle = `外資 ${chip.foreign>=0?'+':''}${chip.foreign}張／投信 ${chip.trust>=0?'+':''}${chip.trust}張／自營 ${chip.dealer>=0?'+':''}${chip.dealer}張`;
+    const sum5 = _chipSum(s, d, 5), sum10 = _chipSum(s, d, 10);
+    const trendArrow = n => n > 0 ? `<span class="up">▲</span>` : n < 0 ? `<span class="dn">▼</span>` : `<span class="flat">－</span>`;
+    const chipTitle = `今日：外資 ${chip.foreign>=0?'+':''}${chip.foreign}張／投信 ${chip.trust>=0?'+':''}${chip.trust}張／自營 ${chip.dealer>=0?'+':''}${chip.dealer}張　` +
+      `｜5日累計：外資${sum5.foreign>=0?'+':''}${sum5.foreign}／投信${sum5.trust>=0?'+':''}${sum5.trust}／自營${sum5.dealer>=0?'+':''}${sum5.dealer}（合計${sum5.total>=0?'+':''}${sum5.total}張）　` +
+      `｜10日累計：外資${sum10.foreign>=0?'+':''}${sum10.foreign}／投信${sum10.trust>=0?'+':''}${sum10.trust}／自營${sum10.dealer>=0?'+':''}${sum10.dealer}（合計${sum10.total>=0?'+':''}${sum10.total}張）`;
     return `<div class="stock-row" id="row_${s.id}">
       <span class="st-code">${s.id}</span>
       <div>
@@ -1173,7 +1195,7 @@ function renderTradingDay() {
           <div class="rsi-bar"><div class="rsi-fill" style="width:${ind.rsi}%;background:${ind.rsiColor}"></div></div>
           <div class="rsi-num" style="color:${ind.rsiColor}">動能 ${ind.rsi}</div>
         </div>
-        <div class="chip-line ${chipRowCls}" title="今日三大法人籌碼：${chipTitle}">${chipIcon} ${chipTotal>=0?'+':''}${chipTotal}張</div>
+        <div class="chip-line ${chipRowCls}" title="${chipTitle}">${chipIcon} ${chipTotal>=0?'+':''}${chipTotal}張　5日${trendArrow(sum5.total)}</div>
       </div>
       <div class="st-action">
         <button class="btn-buy" onclick="openModal('${s.id}','buy')">買入</button>
