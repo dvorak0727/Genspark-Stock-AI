@@ -10,6 +10,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>台股操盤模擬器 · 歷史重現版</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans TC','Microsoft JhengHei',sans-serif;background:#08101e;color:#e2e8f0;min-height:100vh;overflow-x:hidden;}
@@ -37,6 +38,25 @@ button{cursor:pointer;border:none;font-family:inherit;}
 .data-mode-btn.active{border-color:#f59e0b;color:#fcd34d;background:#1c2b45;}
 .data-mode-btn.active .dm-sub{color:#cbab6a;}
 .data-mode-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ── MULTIPLAYER (PeerJS) ── */
+.multi-card{background:linear-gradient(145deg,#0f1e33,#0a1525);border:1px solid #1e3a5f;border-radius:14px;padding:24px;width:100%;max-width:420px;text-align:center;}
+.multi-choice-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.multi-choice-btn{padding:14px 10px;border-radius:10px;font-size:.82rem;font-weight:700;background:#0f1d33;color:#94a3b8;border:2px solid transparent;line-height:1.6;}
+.multi-choice-btn:hover{border-color:#334155;}
+.join-code-input{width:100%;padding:12px;font-size:1.4rem;letter-spacing:6px;text-align:center;background:#0a1525;border:1px solid #1e3a5f;border-radius:10px;color:#fcd34d;margin-bottom:10px;font-variant-numeric:tabular-nums;}
+.join-name-input{width:100%;padding:10px;font-size:.84rem;background:#0a1525;border:1px solid #1e3a5f;border-radius:8px;color:#e2e8f0;margin-bottom:10px;}
+.multi-room-code{font-size:2.6rem;font-weight:900;color:#34d399;letter-spacing:8px;margin:12px 0;font-variant-numeric:tabular-nums;}
+.multi-status{font-size:.74rem;color:#64748b;margin-bottom:12px;min-height:18px;}
+.lobby-list{text-align:left;margin:12px 0;}
+.lobby-item{padding:8px 12px;background:#0f1d33;border-radius:8px;margin-bottom:6px;font-size:.8rem;}
+.multi-start-btn{width:100%;padding:14px;background:linear-gradient(135deg,#059669,#047857);color:#fff;border-radius:10px;font-size:.92rem;font-weight:800;margin-top:10px;}
+.multi-start-btn:disabled{opacity:.4;cursor:not-allowed;}
+.multi-back{margin-top:14px;font-size:.72rem;color:#64748b;background:none;text-decoration:underline;}
+.leaderboard-panel{background:linear-gradient(145deg,#0f1e33,#0a1525);border:1px solid #1e3a5f;border-radius:12px;padding:12px;}
+.lb-title{font-size:.72rem;color:#a78bfa;letter-spacing:1px;margin-bottom:8px;font-weight:700;}
+.lb-row{display:flex;justify-content:space-between;font-size:.76rem;padding:4px 0;border-bottom:1px solid #1e2d45;}
+.lb-row.me{color:#fcd34d;font-weight:700;}
 
 /* ── YEAR DRAW ── */
 #s-draw{align-items:center;justify-content:center;background:#08101e;padding:20px;}
@@ -260,7 +280,39 @@ button{cursor:pointer;border:none;font-family:inherit;}
   </div>
   <div class="mode-btns">
     <button class="mode-btn solo" onclick="startGame('solo')">🎯 個人練習</button>
-    <button class="mode-btn multi" onclick="startGame('multi')">👥 多人比賽<br><small style="font-size:.6rem;font-weight:400;">（即將推出）</small></button>
+    <button class="mode-btn multi" onclick="openMultiLobby()">👥 多人比賽<br><small style="font-size:.6rem;font-weight:400;">2-4人・同網路</small></button>
+  </div>
+</div>
+
+<!-- ══ MULTIPLAYER LOBBY ══ -->
+<div id="s-multi" style="align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#0f2040,#08101e 70%);padding:20px;" class="screen">
+  <div class="multi-card" id="multiCardChoice">
+    <h3 style="font-size:1rem;color:#34d399;margin-bottom:16px;">👥 多人比賽（2-4人・同網路）</h3>
+    <div class="multi-choice-row">
+      <button class="multi-choice-btn" onclick="multiShowCreate()">👑 建立房間<br><small style="font-weight:400;">成為房主</small></button>
+      <button class="multi-choice-btn" onclick="multiShowJoin()">🔗 加入房間<br><small style="font-weight:400;">輸入代碼</small></button>
+    </div>
+    <button class="multi-back" onclick="backToStart()">← 返回首頁</button>
+  </div>
+
+  <div class="multi-card" id="multiCardCreate" style="display:none;">
+    <h3 style="font-size:.9rem;color:#fcd34d;margin-bottom:10px;">👑 房間代碼（分享給朋友）</h3>
+    <div class="multi-room-code" id="multiRoomCode">----</div>
+    <div class="multi-status" id="multiCreateStatus">建立連線中…</div>
+    <input class="join-name-input" id="multiHostName" placeholder="你的名字" value="房主" maxlength="10" oninput="multiRenderHostLobby()">
+    <div class="lobby-list" id="multiLobbyList"></div>
+    <button class="multi-start-btn" id="multiStartBtn" onclick="multiHostStart()" disabled>等待連線中…</button>
+    <button class="multi-back" onclick="multiCancel()">← 取消</button>
+  </div>
+
+  <div class="multi-card" id="multiCardJoin" style="display:none;">
+    <h3 style="font-size:.9rem;color:#60a5fa;margin-bottom:10px;">🔗 加入房間</h3>
+    <input class="join-code-input" id="multiJoinCode" placeholder="0000" maxlength="4" inputmode="numeric">
+    <input class="join-name-input" id="multiJoinName" placeholder="你的名字" maxlength="10">
+    <button class="multi-start-btn" onclick="multiClientJoin()">🚀 加入</button>
+    <div class="multi-status" id="multiJoinStatus"></div>
+    <div class="lobby-list" id="multiJoinLobbyList"></div>
+    <button class="multi-back" onclick="multiCancel()">← 取消</button>
   </div>
 </div>
 
@@ -352,6 +404,10 @@ button{cursor:pointer;border:none;font-family:inherit;}
       </div>
     </div>
     <div class="trade-right">
+      <div class="leaderboard-panel" id="multiLeaderboard" style="display:none;">
+        <div class="lb-title">🏁 多人賽排行榜</div>
+        <div id="lbRows"></div>
+      </div>
       <div class="panel">
         <div class="panel-title">投資組合</div>
         <div class="port-nav" id="portNav">$1,000,000</div>
@@ -878,6 +934,226 @@ async function initGameReal(year) {
   };
 }
 
+// ══════════════════════════════════════════
+//  MULTIPLAYER (PeerJS) — v10.x新增
+//  上一輪討論發現：各玩家獨立亂數生成價格會讓比賽不公平。解法不是整個
+//  遊戲狀態都同步（像桌遊那樣），而是只同步「年份＋交易日節奏」——因為
+//  股價是年份決定的固定路徑，不會被任何玩家的買賣量影響，每個人的持股/
+//  現金完全是自己的事，不需要被看到或同步。真正需要同步的只有：
+//    ①開局時房主抽的年份（＋模擬/真實模式），讓大家玩同一個年份
+//    ②交易日的步調——房主是權威，房主的20秒倒數走完才真的換下一天並
+//      廣播給所有人跟著換頁，而不是各自跑自己的計時器（累積240天後會
+//      跟房主對不起來）
+//    ③每10天互報一次淨值，房主彙整成排行榜廣播出去，讓大家知道誰領先
+// ══════════════════════════════════════════
+const NET = {
+  mode: 'solo',       // 'solo' | 'host' | 'client'
+  peer: null,
+  conns: [],           // host: [{conn, name}]
+  hostConn: null,      // client: connection to host
+  roomCode: '',
+  myName: '玩家',
+  players: {},         // name -> {nav, day}（房主聚合後的排行榜資料）
+};
+
+// 沿用splendor20260525.html驗證過可用的PeerJS設定（STUN+免費TURN中繼，
+// 確保不同網路/嚴格防火牆也能連線，不是只有同Wi-Fi才行）
+const _PEER_CFG = {
+  debug: 0,
+  config: { iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+  ]},
+};
+function netGenCode() { return String(1000 + Math.floor(Math.random() * 9000)); }
+function netPeerId(code) { return 'STOCKSIM' + code; }
+function netBroadcast(msg) { NET.conns.forEach(c => { try { c.conn.send(msg); } catch (e) {} }); }
+
+function openMultiLobby() {
+  showScreen('s-multi');
+  document.getElementById('multiCardChoice').style.display = '';
+  document.getElementById('multiCardCreate').style.display = 'none';
+  document.getElementById('multiCardJoin').style.display = 'none';
+}
+
+function multiCancel() {
+  if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
+  NET.mode = 'solo'; NET.conns = []; NET.hostConn = null; NET.players = {};
+  openMultiLobby();
+}
+
+// ── 房主 ──
+function multiShowCreate() {
+  document.getElementById('multiCardChoice').style.display = 'none';
+  document.getElementById('multiCardCreate').style.display = '';
+  const code = netGenCode();
+  NET.mode = 'host'; NET.roomCode = code; NET.conns = []; NET.players = {};
+  document.getElementById('multiRoomCode').textContent = code;
+  document.getElementById('multiCreateStatus').textContent = '建立連線中…';
+  document.getElementById('multiLobbyList').innerHTML = '';
+  document.getElementById('multiStartBtn').disabled = true;
+  document.getElementById('multiStartBtn').textContent = '等待連線中…';
+
+  NET.peer = new Peer(netPeerId(code), _PEER_CFG);
+  NET.peer.on('open', () => {
+    document.getElementById('multiCreateStatus').textContent = '房間已開啟，把代碼分享給朋友';
+    document.getElementById('multiStartBtn').disabled = false;
+    multiRenderHostLobby();
+  });
+  NET.peer.on('connection', conn => {
+    const name = conn.metadata?.name || '玩家';
+    NET.conns.push({ conn, name });
+    conn.on('open', () => { multiRenderHostLobby(); netBroadcastLobby(); });
+    conn.on('data', d => netOnHostReceive(conn, name, d));
+    conn.on('close', () => {
+      NET.conns = NET.conns.filter(x => x.conn !== conn);
+      delete NET.players[name];
+      multiRenderHostLobby(); netBroadcastLobby();
+    });
+  });
+  NET.peer.on('error', e => {
+    document.getElementById('multiCreateStatus').textContent = '連線錯誤：' + e.type + '，請確認網路後重試';
+  });
+}
+
+function multiRenderHostLobby() {
+  const hostName = document.getElementById('multiHostName').value.trim() || '房主';
+  const items = ['👑 ' + hostName + '（你）'].concat(NET.conns.map(c => '🎮 ' + c.name));
+  document.getElementById('multiLobbyList').innerHTML = items.map(x => `<div class="lobby-item">${x}</div>`).join('');
+  document.getElementById('multiStartBtn').textContent = `🚀 開始遊戲（${items.length}人）`;
+}
+
+function netBroadcastLobby() {
+  const hostName = document.getElementById('multiHostName').value.trim() || '房主';
+  const names = [hostName].concat(NET.conns.map(c => c.name));
+  netBroadcast({ t: 'lobby', names });
+}
+
+function netOnHostReceive(conn, name, msg) {
+  if (!msg || !msg.t) return;
+  if (msg.t === 'nav') {
+    NET.players[name] = { nav: msg.nav, day: msg.day };
+    multiBroadcastLeaderboard();
+  } else if (msg.t === 'win') {
+    multiEndGame(name, msg.nav);
+  }
+}
+
+function multiHostStart() {
+  NET.myName = document.getElementById('multiHostName').value.trim() || '房主';
+  document.getElementById('multiStartBtn').disabled = true;
+  const years = DATA_MODE === 'real' && REAL_MANIFEST ? REAL_MANIFEST.years.slice() : Object.keys(YEAR_DATA).map(Number);
+  const year = years[Math.floor(Math.random() * years.length)];
+  netBroadcast({ t: 'start', year, mode: DATA_MODE });
+  multiEnterBriefing(year);
+}
+
+// ── 玩家（加入房間） ──
+function multiShowJoin() {
+  document.getElementById('multiCardChoice').style.display = 'none';
+  document.getElementById('multiCardJoin').style.display = '';
+  document.getElementById('multiJoinStatus').textContent = '';
+  document.getElementById('multiJoinLobbyList').innerHTML = '';
+}
+
+function multiClientJoin() {
+  const code = document.getElementById('multiJoinCode').value.trim();
+  const name = document.getElementById('multiJoinName').value.trim() || '玩家';
+  if (!/^\d{4}$/.test(code)) { document.getElementById('multiJoinStatus').textContent = '請輸入4位數房間代碼'; return; }
+  NET.mode = 'client'; NET.roomCode = code; NET.myName = name;
+  document.getElementById('multiJoinStatus').textContent = '連線中…';
+
+  NET.peer = new Peer(undefined, _PEER_CFG);
+  NET.peer.on('open', () => {
+    NET.hostConn = NET.peer.connect(netPeerId(code), { reliable: true, serialization: 'json', metadata: { name } });
+    NET.hostConn.on('open', () => {
+      document.getElementById('multiJoinStatus').textContent = '已連線，等待房主開始遊戲…';
+    });
+    NET.hostConn.on('data', d => netOnClientReceive(d));
+    NET.hostConn.on('close', () => {
+      document.getElementById('multiJoinStatus').textContent = '連線中斷，房主可能已離開';
+    });
+  });
+  NET.peer.on('error', e => {
+    document.getElementById('multiJoinStatus').textContent = '連線錯誤：' + e.type + '，請確認代碼正確';
+  });
+}
+
+function netOnClientReceive(msg) {
+  if (!msg || !msg.t) return;
+  if (msg.t === 'lobby') {
+    document.getElementById('multiJoinLobbyList').innerHTML = msg.names.map(x =>
+      `<div class="lobby-item">🎮 ${x}${x === NET.myName ? '（你）' : ''}</div>`).join('');
+  } else if (msg.t === 'start') {
+    DATA_MODE = msg.mode;
+    multiEnterBriefing(msg.year);
+  } else if (msg.t === 'begin') {
+    startTrading();
+  } else if (msg.t === 'day') {
+    G.day = msg.day;
+    renderTradingDay();
+    G.timeLeft = 20; updateTimerUI();
+    multiReportNavIfDue();
+  } else if (msg.t === 'leaderboard') {
+    NET.players = msg.players;
+    multiRenderLeaderboard();
+  } else if (msg.t === 'gameover') {
+    multiShowGameOver(msg.winner, msg.winnerNav);
+  }
+}
+
+// ── 共用（房主+玩家都會呼叫） ──
+async function multiEnterBriefing(year) {
+  await showBriefing(year);
+  G.isMulti = true;
+}
+
+function multiReportNav() {
+  const nav = currentNav();
+  if (NET.mode === 'host') {
+    NET.players[NET.myName] = { nav, day: G.day };
+    multiBroadcastLeaderboard();
+  } else if (NET.mode === 'client' && NET.hostConn) {
+    try { NET.hostConn.send({ t: 'nav', nav, day: G.day }); } catch (e) {}
+  }
+}
+function multiReportNavIfDue() {
+  if (G.day % 10 === 0) multiReportNav();
+}
+
+function multiBroadcastLeaderboard() {
+  netBroadcast({ t: 'leaderboard', players: NET.players });
+  multiRenderLeaderboard();
+}
+
+function multiRenderLeaderboard() {
+  const panel = document.getElementById('multiLeaderboard');
+  if (!panel) return;
+  panel.style.display = '';
+  const rows = Object.entries(NET.players).sort((a, b) => (b[1].nav || 0) - (a[1].nav || 0));
+  document.getElementById('lbRows').innerHTML = rows.map(([name, p], i) =>
+    `<div class="lb-row ${name === NET.myName ? 'me' : ''}">${i + 1}. ${name}${name === NET.myName ? '（你）' : ''}<span>${fmt(p.nav || 0)}</span></div>`
+  ).join('') || '<div style="color:#64748b;font-size:.72rem;">等待第一次回報…</div>';
+}
+
+function multiEndGame(winnerName, winnerNav) {
+  if (NET.mode !== 'host') return;
+  netBroadcast({ t: 'gameover', winner: winnerName, winnerNav });
+  multiShowGameOver(winnerName, winnerNav);
+}
+
+function multiShowGameOver(winnerName, winnerNav) {
+  clearInterval(G.timer);
+  const won = winnerName === NET.myName;
+  endGame(won);
+  const sub = document.getElementById('resSub');
+  if (sub) sub.textContent = `🏆 多人賽冠軍：${winnerName}（${fmt(winnerNav)}）`;
+}
+
 function seededRand(seed) {
   let s = seed;
   return function() {
@@ -1077,6 +1353,15 @@ async function showBriefing(year) {
 
   document.getElementById('bHint').textContent = yd.hint;
 
+  const startBtn = document.querySelector('.brief-start-btn');
+  if (NET.mode === 'client') {
+    startBtn.disabled = true;
+    startBtn.textContent = '⏳ 等待房主開始...';
+  } else {
+    startBtn.disabled = false;
+    startBtn.textContent = '▶ 開始操盤';
+  }
+
   showScreen('s-brief');
 
   // 10 min timer
@@ -1095,11 +1380,19 @@ async function showBriefing(year) {
 }
 
 function startTrading() {
+  if (G.isMulti && NET.mode === 'host') netBroadcast({ t: 'begin' });
   clearInterval(briefTimer);
   showScreen('s-trade');
   G.day = 0;
   renderTradingDay();
-  startDayTimer();
+  if (G.isMulti) {
+    document.getElementById('multiLeaderboard').style.display = '';
+    multiReportNav();
+    if (NET.mode === 'host') startDayTimer();
+    else { G.timeLeft = 20; updateTimerUI(); clearInterval(G.timer); G.timer = setInterval(() => { G.timeLeft = Math.max(0, G.timeLeft - 1); updateTimerUI(); }, 1000); }
+  } else {
+    startDayTimer();
+  }
 }
 
 // ── TRADING DAY ──
@@ -1550,7 +1843,15 @@ function renderTradingDay() {
   // Check win
   if (nav >= 10000000 && !G.won) {
     G.won = true;
-    setTimeout(() => endGame(true), 500);
+    if (G.isMulti) {
+      if (NET.mode === 'host') {
+        multiEndGame(NET.myName, nav);
+      } else if (NET.hostConn) {
+        try { NET.hostConn.send({ t: 'win', nav, day: d }); } catch (e) {}
+      }
+    } else {
+      setTimeout(() => endGame(true), 500);
+    }
   }
 }
 
@@ -1600,6 +1901,7 @@ function startDayTimer() {
 }
 
 function togglePause() {
+  if (G.isMulti && NET.mode === 'client') return; // 多人賽步調由房主控制，玩家不能自己暫停
   G.paused = !G.paused;
   const btn = document.getElementById('pauseBtn');
   btn.textContent = G.paused ? '▶ 繼續' : '⏸ 暫停';
@@ -1616,6 +1918,7 @@ function updateTimerUI() {
 }
 
 function skipDay() {
+  if (G.isMulti && NET.mode === 'client') return; // 多人賽步調由房主控制，玩家不能自己跳過
   clearInterval(G.timer);
   nextDay();
 }
@@ -1623,10 +1926,21 @@ function skipDay() {
 function nextDay() {
   G.day++;
   if (G.day >= G.DAYS) {
-    endGame(false);
+    if (G.isMulti && NET.mode === 'host') {
+      multiReportNav();
+      const all = Object.assign({}, NET.players, { [NET.myName]: { nav: currentNav(), day: G.day } });
+      const ranked = Object.entries(all).sort((a, b) => (b[1].nav || 0) - (a[1].nav || 0));
+      multiEndGame(ranked[0][0], ranked[0][1].nav);
+    } else if (!G.isMulti) {
+      endGame(false);
+    }
     return;
   }
   renderTradingDay();
+  if (G.isMulti && NET.mode === 'host') {
+    netBroadcast({ t: 'day', day: G.day });
+    multiReportNavIfDue();
+  }
   startDayTimer();
 }
 
@@ -1844,6 +2158,9 @@ function renderHistory() {
 }
 
 function backToStart() {
+  if (NET.peer) { try { NET.peer.destroy(); } catch (e) {} NET.peer = null; }
+  NET.mode = 'solo'; NET.conns = []; NET.hostConn = null; NET.players = {};
+  document.getElementById('multiLeaderboard').style.display = 'none';
   showScreen('s-start');
 }
 
