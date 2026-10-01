@@ -321,7 +321,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
       <!-- Stock table -->
       <div class="stock-table-wrap">
         <div style="font-size:.56rem;color:#64748b;padding:4px 8px 2px;line-height:1.6;">
-          週期訊號：K金/K死=KD黃金/死亡交叉　K多/K空=KD方向　M紅/M黑=MACD翻紅/翻黑　M多/M空=MACD方向　外N買/賣=外資連N日買賣超　投N買/賣=投信連N日買賣超
+          週期訊號：K金/K死=KD黃金/死亡交叉　K多/K空=KD方向　M紅/M黑=MACD翻紅/翻黑　M多/M空=MACD方向　外N買/賣=外資連N日買賣超　投N買/賣=投信連N日買賣超　⚪未到低檔　🟢近底量縮　🟠低檔量仍大　🐋鯨魚悄入　📈籌碼集中　⚠️大戶撤退
         </div>
         <div class="stock-table-hdr">
           <div class="stock-table-hdr-half"><span>代號</span><span>股票</span><span>現價</span><span>漲跌</span><span>週期訊號</span><span>操作</span></div>
@@ -1022,6 +1022,42 @@ function _chipStreak(s, d, field) {
 }
 // 組出一行緊湊文字：KD金叉/死叉(或偏多/偏空) · MACD翻紅/翻黑(或多方/空方) ·
 // 外資連X買/賣 · 投信連Y買/賣。回傳{html, text}，html帶顏色方便塞進卡片。
+// v9.x：補上跟index.html同一套「籌碼近底量縮」概念——股價在20日低點
+// 附近、且近5日量比前段縮超過30%，代表浮額洗得差不多了。這款模擬器
+// 沒有存每日最高最低，用收盤價近似足夠教學用。
+function _chipBottomSignal(s, d) {
+  const n = Math.min(d, 20);
+  if (n < 10) return null;
+  const closes = s.prices.slice(d - n, d + 1).filter(v => v > 0);
+  if (closes.length < 10) return null;
+  const low = Math.min(...closes);
+  const nearLow = low > 0 && (s.prices[d] - low) / low <= 0.05;
+  const vLook5 = Math.min(5, d);
+  const vol5 = s.volumes.slice(d - vLook5 + 1, d + 1).reduce((a,b)=>a+b,0) / vLook5;
+  const restStart = Math.max(0, d - n + 1);
+  const restVols = s.volumes.slice(restStart, d - vLook5 + 1);
+  const vol15 = restVols.length ? restVols.reduce((a,b)=>a+b,0) / restVols.length : vol5;
+  const shrinking = vol15 > 0 && vol5 < vol15 * 0.7;
+  if (nearLow && shrinking) return { icon: '🟢', label: '近底量縮', color: '#34d399' };
+  if (nearLow) return { icon: '🟠', label: '低檔量仍大', color: '#fbbf24' };
+  return { icon: '⚪', label: '未到低檔', color: '#64748b' };
+}
+
+// v9.x：這款模擬器沒有真實千張大戶持股資料（那是FinMind週度資料，模擬器
+// 用的是每日隨機生成的法人籌碼），用「外資+投信近10日累計淨買超，是否比
+// 前10日更強」當代理指標，概念上對應「大戶是不是在加碼集中」，不是真正
+// 的千張大戶持股比例變化。
+function _whaleProxySignal(s, d) {
+  if (d < 20) return null;
+  const sum = (from, to) => { let t = 0; for (let i = from; i <= to; i++) { const c = s.chips[i]; if (c) t += c.foreign + c.trust; } return t; };
+  const cur10 = sum(d - 9, d);
+  const prev10 = sum(d - 19, d - 10);
+  if (cur10 > 0 && cur10 >= prev10) return { icon: '🐋', label: '鯨魚悄入', color: '#34d399' };
+  if (cur10 > 0) return { icon: '📈', label: '籌碼集中', color: '#60a5fa' };
+  if (cur10 <= 0 && cur10 < prev10) return { icon: '⚠️', label: '大戶撤退', color: '#f87171' };
+  return { icon: '－', label: '觀察中', color: '#64748b' };
+}
+
 function _buildSignalLine(si, d) {
   const s = G.stocks[si];
   const closes = s.prices.slice(0, d + 1);
@@ -1064,15 +1100,21 @@ function _buildSignalLine(si, d) {
     const cls = st.sign > 0 ? 'up' : 'dn';
     return `<span class="${cls}">${label}${st.days}${st.sign>0?'買':'賣'}</span>`;
   };
+  const chipSig = _chipBottomSignal(s, d);
+  const whaleSig = _whaleProxySignal(s, d);
   const parts = [
     kdLabel ? `<span class="${kdUp?'up':'dn'}">${kdLabel}</span>` : '',
     `<span class="${macdUp?'up':'dn'}">${macdLabel}</span>`,
     streakPart('外', fStreak),
     streakPart('投', tStreak),
+    chipSig ? `<span style="color:${chipSig.color}">${chipSig.icon}${chipSig.label}</span>` : '',
+    whaleSig ? `<span style="color:${whaleSig.color}">${whaleSig.icon}${whaleSig.label}</span>` : '',
   ].filter(Boolean);
   const fullParts = [kdFull, macdFull,
     fStreak.days ? `外資連${fStreak.days}${fStreak.sign>0?'買':'賣'}` : '',
     tStreak.days ? `投信連${tStreak.days}${tStreak.sign>0?'買':'賣'}` : '',
+    chipSig ? `籌碼${chipSig.label}` : '',
+    whaleSig ? `大戶${whaleSig.label}` : '',
   ].filter(Boolean);
   return { html: parts.join(' '), text: fullParts.join(' · ') };
 }
