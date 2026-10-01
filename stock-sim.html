@@ -321,7 +321,7 @@ button{cursor:pointer;border:none;font-family:inherit;}
       <!-- Stock table -->
       <div class="stock-table-wrap">
         <div style="font-size:.56rem;color:#64748b;padding:4px 8px 2px;line-height:1.6;">
-          週期訊號：K金/K死=KD黃金/死亡交叉　K多/K空=KD方向　M紅/M黑=MACD翻紅/翻黑　M多/M空=MACD方向　外N買/賣=外資連N日買賣超　投N買/賣=投信連N日買賣超　⚪未到低檔　🟢近底量縮　🟠低檔量仍大　🐋鯨魚悄入　📈籌碼集中　⚠️大戶撤退
+          週期訊號：K金/K死=KD黃金/死亡交叉　K多/K空=KD方向　M紅/M黑=MACD翻紅/翻黑　M多/M空=MACD方向　外N買/賣=外資連N日買賣超　投N買/賣=投信連N日買賣超　⚪未到低檔　🟢近底量縮　🟠低檔量仍大　🐋鯨魚悄入　📈籌碼集中　⚠️大戶撤退　🎯雙重確認(量縮+大戶同步)
         </div>
         <div class="stock-table-hdr">
           <div class="stock-table-hdr-half"><span>代號</span><span>股票</span><span>現價</span><span>漲跌</span><span>週期訊號</span><span>操作</span></div>
@@ -1044,12 +1044,13 @@ function _chipBottomSignal(s, d) {
 }
 
 // v9.x：這款模擬器沒有真實千張大戶持股資料（那是FinMind週度資料，模擬器
-// 用的是每日隨機生成的法人籌碼），用「外資+投信近10日累計淨買超，是否比
-// 前10日更強」當代理指標，概念上對應「大戶是不是在加碼集中」，不是真正
-// 的千張大戶持股比例變化。
+// 用的是每日隨機生成的法人籌碼），用「三大法人（外資+投信+自營）近10日
+// 累計淨買超，是否比前10日更強」當代理指標，概念上對應「大戶是不是在加碼
+// 集中」，不是真正的千張大戶持股比例變化。自營商部位小、雜訊多，原本沒
+// 算進來；三大法人同時偏多比只看外資投信更接近「全面集中」的意思。
 function _whaleProxySignal(s, d) {
   if (d < 20) return null;
-  const sum = (from, to) => { let t = 0; for (let i = from; i <= to; i++) { const c = s.chips[i]; if (c) t += c.foreign + c.trust; } return t; };
+  const sum = (from, to) => { let t = 0; for (let i = from; i <= to; i++) { const c = s.chips[i]; if (c) t += c.foreign + c.trust + c.dealer; } return t; };
   const cur10 = sum(d - 9, d);
   const prev10 = sum(d - 19, d - 10);
   if (cur10 > 0 && cur10 >= prev10) return { icon: '🐋', label: '鯨魚悄入', color: '#34d399' };
@@ -1102,19 +1103,33 @@ function _buildSignalLine(si, d) {
   };
   const chipSig = _chipBottomSignal(s, d);
   const whaleSig = _whaleProxySignal(s, d);
+  // v9.x：技術面（籌碼近底量縮）+ 基本面代理指標（大戶鯨魚悄入）同時成立，
+  // 代表兩套互不相干的訊號互相印證，比分開列兩個小字更值得注意——合併成
+  // 一個醒目的🎯雙重確認標籤，對應index.html的_tryComboSignal概念。
+  const isCombo = chipSig && chipSig.icon === '🟢' && whaleSig && whaleSig.icon === '🐋';
+  const chipWhaleHtml = isCombo
+    ? `<span style="color:#fbbf24;font-weight:700;">🎯雙重確認</span>`
+    : [
+        chipSig ? `<span style="color:${chipSig.color}">${chipSig.icon}${chipSig.label}</span>` : '',
+        whaleSig ? `<span style="color:${whaleSig.color}">${whaleSig.icon}${whaleSig.label}</span>` : '',
+      ].filter(Boolean).join(' ');
+  const chipWhaleText = isCombo
+    ? '🎯量價籌碼雙重確認：技術面近底量縮＋三大法人近10日買超轉強，兩套獨立訊號互相印證'
+    : [
+        chipSig ? `籌碼${chipSig.label}` : '',
+        whaleSig ? `大戶${whaleSig.label}` : '',
+      ].filter(Boolean).join(' · ');
   const parts = [
     kdLabel ? `<span class="${kdUp?'up':'dn'}">${kdLabel}</span>` : '',
     `<span class="${macdUp?'up':'dn'}">${macdLabel}</span>`,
     streakPart('外', fStreak),
     streakPart('投', tStreak),
-    chipSig ? `<span style="color:${chipSig.color}">${chipSig.icon}${chipSig.label}</span>` : '',
-    whaleSig ? `<span style="color:${whaleSig.color}">${whaleSig.icon}${whaleSig.label}</span>` : '',
+    chipWhaleHtml,
   ].filter(Boolean);
   const fullParts = [kdFull, macdFull,
     fStreak.days ? `外資連${fStreak.days}${fStreak.sign>0?'買':'賣'}` : '',
     tStreak.days ? `投信連${tStreak.days}${tStreak.sign>0?'買':'賣'}` : '',
-    chipSig ? `籌碼${chipSig.label}` : '',
-    whaleSig ? `大戶${whaleSig.label}` : '',
+    chipWhaleText,
   ].filter(Boolean);
   return { html: parts.join(' '), text: fullParts.join(' · ') };
 }
