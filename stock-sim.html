@@ -1023,7 +1023,16 @@ function _buildSignalLine(si, d) {
   const s = G.stocks[si];
   const closes = s.prices.slice(0, d + 1);
   const highs = closes, lows = closes; // 這個遊戲沒存每日高低，用收盤價近似足夠教學用
-  if (closes.length < 27) return { html: '', text: '' };
+  // v9.x：KD9+MACD12,26,9需要約27個交易日的歷史資料才能算，剛開局前幾天
+  // 一定不夠——原本直接留空白，使用者反映看起來像沒做這個功能，改成顯示
+  // 「資料累積中(目前天數/27)」，讓玩家知道是資料還沒夠，不是壞掉。
+  if (closes.length < 27) {
+    const pct = Math.round(closes.length / 27 * 100);
+    return {
+      html: `<span style="color:#475569;">📊 資料累積中 ${closes.length}/27天</span>`,
+      text: `KD/MACD需要27個交易日歷史資料才能計算，目前第${closes.length}天（${pct}%）`,
+    };
+  }
   const kd = _calcKDSeries(highs, lows, closes, 9);
   const { dif, dea } = _calcMACDSeries(closes);
   // v9.x：欄位只有84px寬，原本「KD金叉」「MACD翻紅」這種全字標籤塞不下，
