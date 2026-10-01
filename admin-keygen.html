@@ -92,6 +92,24 @@ td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle
   </div>
 </div>
 
+<!-- 改姓名／Email浮層 -->
+<div id="contactEditWall" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:98;align-items:center;justify-content:center;">
+  <div style="background:#1e293b;border:1px solid #334155;border-radius:14px;padding:28px;width:320px;">
+    <h2 style="color:#f8fafc;font-size:1rem;margin-bottom:4px;">👤 修改姓名 / Email</h2>
+    <p style="color:#64748b;font-size:0.8rem;margin-bottom:16px;">授權碼不變，用戶不用重新輸入。Email只是方便你聯繫，不影響登入驗證。</p>
+    <div style="font-family:monospace;font-size:0.8rem;color:#93c5fd;margin-bottom:14px;" id="contactEditKeyLabel"></div>
+    <label>用戶姓名 / 備註</label>
+    <input id="contactEditUser" type="text" placeholder="例：王小明" />
+    <label>Email</label>
+    <input id="contactEditEmail" type="email" placeholder="例：example@mail.com" />
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn-sm" style="flex:1;" onclick="closeContactEditor()">取消</button>
+      <button class="btn-primary" style="flex:1;margin-top:0;" onclick="saveContactEdit()">儲存</button>
+    </div>
+    <div id="contactEditMsg" style="font-size:0.8rem;margin-top:10px;min-height:18px;"></div>
+  </div>
+</div>
+
 <!-- 登入牆 -->
 <div id="loginWall">
   <div id="loginBox">
@@ -120,6 +138,8 @@ td { padding: 8px 10px; border-bottom: 1px solid #1e293b; vertical-align: middle
       <input id="genExpiry" type="date" />
     </div>
   </div>
+  <label>Email（選填，方便聯繫）</label>
+  <input id="genEmail" type="email" placeholder="例：example@mail.com" />
   <label>會員等級</label>
   <select id="genTier">
     <option value="standard">Standard（一般會員）</option>
@@ -191,6 +211,16 @@ const OLD_API = 'https://stock-api-214539875795.asia-east1.run.app'; // 只有�
 let ADMIN_SECRET = '';
 const TIER_LABEL = { standard:'Standard', vip:'VIP', premium:'尊爵', admin:'Admin' };
 
+// 用戶姓名/Email是自由輸入欄位，可能含單引號、<>等字元，列表渲染時用這兩個
+// helper分別處理「顯示在HTML裡」跟「塞進onclick='...'字串參數裡」兩種情境，
+// 避免名字裡的符號把屬性字串或畫面排版弄壞。
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function jsStr(s) {
+  return String(s ?? '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+
 function adminLogin() {
   const pw = document.getElementById('adminPwInput').value.trim();
   if (!pw) return;
@@ -219,11 +249,12 @@ document.getElementById('adminPwInput').addEventListener('keydown', e => {
 
 async function generateKey() {
   const user   = document.getElementById('genUser').value.trim() || 'user';
+  const email  = document.getElementById('genEmail').value.trim();
   const expiry = document.getElementById('genExpiry').value;
   const tier   = document.getElementById('genTier').value;
   if (!expiry) { alert('請選擇有效期限'); return; }
 
-  const r = await fetch(`${API}/admin/generate?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&user=${encodeURIComponent(user)}&expiry=${expiry}&tier=${tier}`);
+  const r = await fetch(`${API}/admin/generate?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&user=${encodeURIComponent(user)}&email=${encodeURIComponent(email)}&expiry=${expiry}&tier=${tier}`);
   const j = await r.json();
   const el = document.getElementById('genResult');
   if (j.key) {
@@ -265,11 +296,13 @@ async function loadKeys() {
     return `<tr>
       <td><input type="checkbox" class="row-check" value="${k.key}" onchange="updateBulkBar()"></td>
       <td><span class="key-val" onclick="navigator.clipboard.writeText('${k.key}');this.style.color='#86efac';setTimeout(()=>this.style.color='',800)" title="點擊複製">${k.key}</span></td>
-      <td>${k.user || '—'}</td>
+      <td>${escHtml(k.user) || '—'}</td>
+      <td>${k.email ? `<a href="mailto:${escHtml(k.email)}" style="color:#93c5fd;">${escHtml(k.email)}</a>` : '—'}</td>
       <td>${TIER_LABEL[k.tier] || k.tier || '—'}</td>
       <td>${k.tier === 'admin' ? '永久' : (k.expiry || '—')}</td>
       <td>${badge}</td>
       <td style="white-space:nowrap;">
+        <button class="btn-sm" onclick="openContactEditor('${jsStr(k.key)}','${jsStr(k.user)}','${jsStr(k.email)}')">改姓名/Email</button>
         ${rank !== 2 && k.tier !== 'admin' ? `<button class="btn-sm" onclick="openExpiryEditor('${k.key}','${k.expiry||''}')">改到期日</button>` : ''}
         ${rank !== 2 ? `<button class="btn-sm" onclick="openTierEditor('${k.key}','${k.tier}')">改等級</button>` : ''}
         ${rank !== 2 ? `<button class="btn-danger" onclick="revokeKey('${k.key}')">撤銷</button>` : ''}
@@ -280,7 +313,7 @@ async function loadKeys() {
   el.innerHTML = `<table>
     <thead><tr>
       <th><input type="checkbox" id="checkAll" onchange="toggleAllChecks(this.checked)"></th>
-      <th>授權碼</th><th>用戶</th><th>等級</th><th>到期日</th><th>狀態</th><th></th>
+      <th>授權碼</th><th>用戶</th><th>Email</th><th>等級</th><th>到期日</th><th>狀態</th><th></th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
@@ -365,6 +398,44 @@ async function saveExpiryEdit() {
     const j = await r.json();
     if (j.ok) {
       closeExpiryEditor();
+      loadKeys();
+    } else {
+      msg.style.color = '#f87171';
+      msg.textContent = '儲存失敗：' + (j.msg || j.error || JSON.stringify(j));
+    }
+  } catch (e) {
+    msg.style.color = '#f87171';
+    msg.textContent = '連線失敗：' + e.message;
+  }
+}
+
+// ── 改姓名／Email（不重新產生授權碼，就地修改，沿用/admin/update的user+email參數）──
+let _contactEditKey = null;
+function openContactEditor(key, currentUser, currentEmail) {
+  _contactEditKey = key;
+  document.getElementById('contactEditKeyLabel').textContent = key;
+  document.getElementById('contactEditUser').value = currentUser || '';
+  document.getElementById('contactEditEmail').value = currentEmail || '';
+  document.getElementById('contactEditMsg').textContent = '';
+  document.getElementById('contactEditWall').style.display = 'flex';
+}
+function closeContactEditor() {
+  document.getElementById('contactEditWall').style.display = 'none';
+  _contactEditKey = null;
+}
+async function saveContactEdit() {
+  if (!_contactEditKey) return;
+  const newUser = document.getElementById('contactEditUser').value.trim();
+  const newEmail = document.getElementById('contactEditEmail').value.trim();
+  const msg = document.getElementById('contactEditMsg');
+  if (!newUser) { msg.style.color = '#f87171'; msg.textContent = '姓名不能留空'; return; }
+  msg.style.color = '#94a3b8';
+  msg.textContent = '儲存中…';
+  try {
+    const r = await fetch(`${API}/admin/update?admin_secret=${encodeURIComponent(ADMIN_SECRET)}&key=${encodeURIComponent(_contactEditKey)}&user=${encodeURIComponent(newUser)}&email=${encodeURIComponent(newEmail)}`);
+    const j = await r.json();
+    if (j.ok) {
+      closeContactEditor();
       loadKeys();
     } else {
       msg.style.color = '#f87171';
