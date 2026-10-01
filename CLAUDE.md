@@ -15,7 +15,8 @@
 - `index.html`（7萬5千行+）——**幾乎所有邏輯都在這一個檔案**，用 `grep`/`Grep` 工具定位函式，不要嘗試整份 Read。多個獨立 `<script>` 區塊。
 - `admin-keygen.html` ——授權碼管理後台，呼叫 `license-worker` 的 `/admin/*` 路由。
 - `license-worker/src/index.js` ——所有後端路由邏輯，單一檔案。
-- `sector-detector.html` / `stock-sim.html` ——獨立測試/模擬頁面，跟主程式共用部分邏輯但沒有自動同步，改主程式時通常不用管這兩個。
+- `sector-detector.html` ——獨立測試頁面，跟主程式共用部分邏輯但沒有自動同步，改主程式時通常不用管這個。
+- `stock-sim.html` ——**這是build出來的部署檔案，不要直接改！** 真正的原始碼是 `stock-sim.src.html`（可讀版本，有完整中文註解）。這個頁面是完全獨立分享出去的靜態遊戲（連結直接分享給任何人玩，無授權碼驗證），為了不讓複製走的人直接拿到帶完整註解、清楚命名的原始碼，`<script>`內容會用`build_stock_sim.py`（呼叫`npx terser`做AST級別壓縮+區域變數改名，不動全域函式名稱所以onclick還能正常呼叫）壓縮後才輸出成`stock-sim.html`部署。**改完`stock-sim.src.html`後一定要跑`python3 build_stock_sim.py`重新產生`stock-sim.html`，兩個檔案都要commit+push。**
 
 ## 部署方式
 
