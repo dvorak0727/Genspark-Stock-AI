@@ -6972,8 +6972,14 @@
     }
     .cs-obv-title {
       font-size:0.72rem; font-weight:800; color:#0E7490;
-      display:flex; align-items:center; gap:4px;
+      display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+      /* v9.x：窄螢幕時這排有icon+股名+長標題文字+好幾個badge擠在同一個
+         flex row，裸露的文字節點被當成anonymous flex item無限壓縮寬度，
+         CJK文字在極窄寬度下會一字一行往下疊，手機版看起來像直式亂碼。
+         加flex-wrap:wrap讓擠不下的項目換行，不要被壓縮成一條窄縫。 */
+      min-width:0;
     }
+    .cs-obv-title > * { min-width:0; }
     .cs-obv-close {
       font-size:0.65rem; color:var(--fg3); cursor:pointer;
       padding:1px 5px; border-radius:4px; border:1px solid var(--border);
@@ -57463,13 +57469,13 @@ function renderIndexBorderList(list) {
     </div>`;
 
   return `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;">
+      <div style="min-width:0;">
         <div style="font-weight:800;font-size:0.75rem;color:#dc2626;margin-bottom:4px;">🔴 潛在出指候選（排名${IDX_BORDER_LO}~50，接近墊底）</div>
         ${_idxBorderColHeaderHtml}
         ${outGroup.length ? outGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
       </div>
-      <div>
+      <div style="min-width:0;">
         <div style="font-weight:800;font-size:0.75rem;color:#16a34a;margin-bottom:4px;">🟢 潛在入指候選（排名51~${IDX_BORDER_HI}，接近門檻）</div>
         ${_idxBorderColHeaderHtml}
         ${inGroup.length ? inGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
@@ -57512,13 +57518,13 @@ function renderIndexBorderPage1(page1) {
   const colA = page1.slice(0, mid);
   const colB = page1.slice(mid);
   return `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;">
+      <div style="min-width:0;">
         <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名1~${colA.length ? colA[colA.length-1].rank : ''}）</div>
         ${_idxBorderColHeaderHtml}
         ${colA.length ? colA.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
       </div>
-      <div>
+      <div style="min-width:0;">
         <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名${colB.length ? colB[0].rank : ''}~${IDX_BORDER_LO - 1}）</div>
         ${_idxBorderColHeaderHtml}
         ${colB.length ? colB.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
