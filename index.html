@@ -81556,13 +81556,18 @@ function _teachClassifyCandle(opens, closes, highs, lows, atIndex) {
   const info = _TEACH_SHAPE_TABLE[key] || { risk: color==='green'?1:0, note:'中段，位階不明確，僅供參考' };
   return { posPct, posLabel, upperPct, lowerPct, shape, shapeLabel:_TEACH_SHAPE_LABEL[shape]||shape, color, risk:info.risk, note:info.note, matchKey:key, atIndex:i };
 }
-function _teachCandleSvg(opens, closes, highs, lows, volumes) {
-  const n=opens.length, W=300, KH=64, GAP=3, VH=34;
+// big=true：放大版（🔍按鈕開的視窗用），K棒區拉高，影線才看得清楚；
+// 「今天」的虛線標記畫在最底層（K棒/影線蓋在它上面），不然虛線會把今天這根的
+// 上下影線蓋掉，小圖裡看不出有沒有影線。
+function _teachCandleSvg(opens, closes, highs, lows, volumes, big) {
+  const n=opens.length, W=300, KH=big?150:64, GAP=big?5:3, VH=big?46:34;
   const hi=Math.max(...highs), lo=Math.min(...lows), rng=(hi-lo)||1;
   const w=W/n, bw=w*0.62;
   const vols = volumes && volumes.length===n ? volumes : null;
   const vMax = vols ? Math.max(...vols,1) : 1;
   const parts=[`<line x1="0" y1="${KH+GAP}" x2="${W}" y2="${KH+GAP}" stroke="#e2e8f0" stroke-width="1"/>`];
+  const cxToday=(n-1)*w+w/2;
+  parts.push(`<line x1="${cxToday.toFixed(1)}" y1="0" x2="${cxToday.toFixed(1)}" y2="${KH+GAP+VH}" stroke="#f5c451" stroke-width="1" stroke-dasharray="2 2"/>`);
   for(let i=0;i<n;i++){
     const o=opens[i],c=closes[i],h=highs[i],l=lows[i];
     const cx=i*w+w/2, isUp=c>=o, color=isUp?'#E8343A':'#16A34A';
@@ -81578,10 +81583,35 @@ function _teachCandleSvg(opens, closes, highs, lows, volumes) {
     }
     parts.push(`<line x1="${cx.toFixed(1)}" y1="${yHi.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yLo.toFixed(1)}" stroke="${color}" stroke-width="1.4"/>`);
     parts.push(`<rect x="${(cx-bw/2).toFixed(1)}" y="${bTop.toFixed(1)}" width="${bw.toFixed(1)}" height="${bH.toFixed(1)}" fill="${color}" rx="1"/>`);
-    if(i===n-1){ parts.push(`<line x1="${cx.toFixed(1)}" y1="0" x2="${cx.toFixed(1)}" y2="${KH+GAP+VH}" stroke="#f5c451" stroke-width="1" stroke-dasharray="2 2"/>`); }
   }
+  if (big) return `<svg viewBox="0 0 ${W} ${KH+GAP+VH}" width="100%" style="display:block;background:#f0fdf4;border-radius:8px;max-height:70vh;">${parts.join('')}</svg>`;
   return `<svg viewBox="0 0 ${W} ${KH+GAP+VH}" width="100%" height="76" style="display:block;background:#f0fdf4;border-radius:6px;">${parts.join('')}</svg>`;
 }
+// 放大看K棒：小圖裡的上/下影線很細，點🔍開放大視窗（K棒區加高、影線不被虛線蓋住）。
+// 放大版SVG存在 window._teachZoomData[uid]，按鈕只傳uid，避免把整串SVG塞進onclick。
+function _teachZoom(uid) {
+  const z = window._teachZoomData && window._teachZoomData[uid];
+  if (!z) return;
+  _teachZoomClose();
+  const ov = document.createElement('div');
+  ov.id = 'teachZoomOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.onclick = function(e){ if (e.target === ov) _teachZoomClose(); };
+  ov.innerHTML = `<div style="background:var(--card-bg,#fff);color:var(--fg,#0f172a);border-radius:12px;padding:14px 16px;width:100%;max-width:640px;max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,0.4);">
+    <div style="display:flex;align-items:center;margin-bottom:8px;">
+      <span style="font-weight:800;font-size:0.9rem;">🔍 ${z.title}</span>
+      <button onclick="_teachZoomClose()" style="margin-left:auto;font-size:1rem;background:none;border:none;color:var(--fg3,#64748b);cursor:pointer;">✕</button>
+    </div>
+    ${z.svg}
+    <div style="font-size:0.62rem;color:var(--fg3,#64748b);margin-top:8px;line-height:1.6;">紅K＝收盤高於開盤，綠K＝收盤低於開盤；實體上下突出的細線就是影線。最右邊是今天，橘色量柱是今天的成交量，灰色量柱代表量縮。</div>
+  </div>`;
+  document.body.appendChild(ov);
+}
+function _teachZoomClose() {
+  const ov = document.getElementById('teachZoomOverlay');
+  if (ov) ov.remove();
+}
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') _teachZoomClose(); });
 // 猜答案按鈕被點選：同組其他按鈕恢復預設樣式，這顆變成「已選取」樣式，
 // 並把選到的值記在該群組容器的 dataset.selected 上，供 _teachRevealGuess 讀取比對。
 function _teachSelect(btn, groupId) {
@@ -81657,6 +81687,8 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
   const info = _teachClassifyCandle(opens, closes, highs, lows); // 視窗最後一天＝dayIdx
   const trend = _teachTrendLabel(closes);
   const svg = _teachCandleSvg(opens, closes, highs, lows, volumes);
+  window._teachZoomData = window._teachZoomData || {};
+  window._teachZoomData[uid] = { title: `${s.name} ${s.id}${raw.dates?.[dayIdx] ? ' ' + raw.dates[dayIdx] : ''}`, svg: _teachCandleSvg(opens, closes, highs, lows, volumes, true) };
   const simBadge = isSim ? `<span style="font-size:0.6rem;color:#f59e0b;">（模擬數據）</span>` : '';
   const verdictColor = info.risk>0?'#dc2626':info.risk<0?'#16a34a':'#1E40AF';
   const verdictText  = info.risk>0?'⚠️ 偏空警訊':info.risk<0?'✅ 偏多訊號':'🔵 中性觀察';
@@ -81687,7 +81719,7 @@ function _tRenderCandleCard(s, raw, dayIdx, targetKey, isSim, idx) {
       ${simBadge}
       <span style="margin-left:auto;font-size:0.62rem;font-weight:700;color:#ea580c;background:rgba(234,88,12,0.1);border-radius:10px;padding:2px 8px;">🎯 猜猜看</span>
     </div>
-    ${svg}
+    <div style="position:relative;">${svg}<button onclick="_teachZoom('${uid}')" title="放大看K棒（影線更清楚）" style="position:absolute;top:4px;right:4px;font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:12px;border:1px solid rgba(0,0,0,0.12);background:rgba(255,255,255,0.92);color:#334155;cursor:pointer;">🔍 放大</button></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px;">
       <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">📍 位階</div>${posGroup}</div>
       <div><div style="font-size:0.62rem;color:var(--fg3);margin-bottom:3px;">🎨 顏色</div>${colorGroup}</div>
