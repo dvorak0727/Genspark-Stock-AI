@@ -1,0 +1,383 @@
+<title>第一張分析頁</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+/* 版面：單欄講義，給在客廳用筆電、第一次接觸的大人看。字大、步驟短、
+   每個動作旁邊都有一顆「複製」鈕。配色沿用課程講義（暖白底、紅漲綠跌），
+   紅色只留給「複製」和重點，綠色用在「你應該看到」的確認區。 */
+:root{
+  --paper:#FBFAF8; --ink:#1A1614; --muted:#675F59; --faint:#948C86; --rule:#E5DFDA;
+  --panel:#F4F1ED; --rise:#C8322F; --rise-bg:#FAEDEC; --fall:#1E7A55; --fall-bg:#E9F3EE; --blue:#2563EB;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#151211; --ink:#EDE8E4; --muted:#B4ABA4; --faint:#8A817B; --rule:#2E2825;
+    --panel:#1E1A18; --rise:#E8615C; --rise-bg:#2A1918; --fall:#4FB489; --fall-bg:#16251F; --blue:#7FA3FF;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#151211; --ink:#EDE8E4; --muted:#B4ABA4; --faint:#8A817B; --rule:#2E2825;
+  --panel:#1E1A18; --rise:#E8615C; --rise-bg:#2A1918; --fall:#4FB489; --fall-bg:#16251F; --blue:#7FA3FF;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;font-size:17px;line-height:1.9;padding-inline:18px;padding-block:44px 90px}
+.wrap{max-width:760px;margin:0 auto}
+h1,h2,h3{font-family:"Noto Serif TC","Songti TC",serif;line-height:1.35;text-wrap:balance}
+h1{font-size:clamp(1.9rem,6vw,2.5rem);margin:0 0 12px}
+.kicker{font-size:.8rem;letter-spacing:.14em;color:var(--rise);font-weight:700;margin-bottom:10px}
+.lede{color:var(--muted);margin:0 0 22px}
+a{color:var(--rise)}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+
+.btn-link{display:inline-block;background:var(--ink);color:var(--paper);text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px;margin:2px 0 6px}
+.btn-link.alt{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+
+.result{background:var(--fall-bg);border-left:4px solid var(--fall);padding:16px 20px;border-radius:0 8px 8px 0;margin:0 0 28px}
+.result b{color:var(--fall)}
+
+.tl{overflow-x:auto;margin:0 0 8px}
+.tl table{border-collapse:collapse;width:100%;min-width:480px;font-size:.92rem}
+.tl th{font-size:.74rem;letter-spacing:.1em;color:var(--faint);text-align:left;padding:0 10px 8px 0;border-bottom:2px solid var(--ink)}
+.tl td{padding:9px 10px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.tl td:first-child{white-space:nowrap;font-weight:700;color:var(--rise)}
+
+section.step{margin-top:54px;padding-top:26px;border-top:1px solid var(--rule)}
+.step-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.badge{font-weight:700;color:var(--paper);background:var(--ink);padding:3px 12px;border-radius:5px;font-size:.9rem;letter-spacing:.06em}
+.mins{font-size:.82rem;color:var(--faint);border:1px solid var(--rule);padding:2px 10px;border-radius:99px}
+h2{font-size:1.5rem;margin:0}
+h3{font-size:1.1rem;margin:26px 0 8px}
+p{margin:0 0 14px}
+ol.how{padding-left:1.4em;margin:0 0 16px}
+ol.how li{margin-bottom:8px}
+.key{background:var(--panel);padding:1px 8px;border-radius:4px;font-weight:700;white-space:nowrap}
+
+.chk{display:flex;gap:12px;align-items:flex-start;margin:0 0 9px;cursor:pointer}
+.chk input{width:22px;height:22px;margin-top:5px;flex-shrink:0;accent-color:var(--fall)}
+.chk span{flex:1}
+.chk input:checked + span{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--faint)}
+
+.prompt{background:var(--panel);border-left:4px solid var(--rise);border-radius:0 8px 8px 0;padding:14px 18px;margin:0 0 14px}
+.prompt-label{font-size:.72rem;letter-spacing:.14em;color:var(--rise);font-weight:700;margin-bottom:8px}
+.prompt pre{margin:0;white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,"SF Mono",Consolas,"Noto Sans TC",monospace;font-size:.88rem;line-height:1.75;color:var(--ink)}
+.copy{display:block;width:100%;margin:14px 0 0;font:inherit;font-size:1.05rem;font-weight:700;color:#fff;background:var(--rise);border:0;border-radius:8px;padding:14px 18px;cursor:pointer}
+.copy:hover{filter:brightness(1.07)}
+.copy:active{transform:translateY(1px)}
+.copy.done{background:var(--fall)}
+.copy.alt{background:transparent;color:var(--rise);border:2px solid var(--rise)}
+.copy.alt.done{background:var(--fall);color:#fff;border-color:var(--fall)}
+.autonote{font-size:.84rem;color:var(--muted);margin:8px 0 0}
+
+.see{background:var(--fall-bg);border-left:4px solid var(--fall);padding:14px 20px;border-radius:0 8px 8px 0;margin:0 0 16px}
+.see-t{font-size:.72rem;letter-spacing:.14em;color:var(--fall);font-weight:700;margin-bottom:6px}
+.warn{background:var(--rise-bg);border-left:4px solid var(--rise);padding:14px 20px;border-radius:0 8px 8px 0;margin:0 0 16px}
+.warn-t{font-weight:700;color:var(--rise);margin-bottom:4px}
+
+.tw{overflow-x:auto;margin:0 0 16px}
+table.g{border-collapse:collapse;width:100%;min-width:480px;font-size:.95rem}
+table.g th{font-size:.74rem;letter-spacing:.1em;color:var(--faint);text-align:left;padding:0 12px 8px 0;border-bottom:2px solid var(--ink)}
+table.g td{padding:11px 12px 11px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+table.g td:first-child{font-weight:700;white-space:nowrap}
+
+details{border:1px solid var(--rule);border-radius:8px;padding:12px 18px;margin:0 0 12px}
+summary{cursor:pointer;font-weight:700}
+details[open] summary{margin-bottom:10px}
+details p:last-child,details ol:last-child{margin-bottom:0}
+.up{color:var(--rise);font-weight:700} .dn{color:var(--fall);font-weight:700}
+
+#fb{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:18px}
+#fb[hidden]{display:none}
+#fb .box{background:var(--paper);border-radius:12px;padding:18px;width:100%;max-width:640px}
+#fb textarea{width:100%;height:220px;font:inherit;font-size:.82rem;font-family:ui-monospace,Consolas,monospace;background:var(--panel);color:var(--ink);border:1px solid var(--rule);border-radius:8px;padding:10px}
+#fb .row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}
+#fb button{font:inherit;font-weight:700;padding:8px 16px;border-radius:8px;border:2px solid var(--ink);background:transparent;color:var(--ink);cursor:pointer}
+
+footer{margin-top:60px;padding-top:20px;border-top:2px solid var(--ink);font-size:.82rem;color:var(--faint)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<div class="kicker">志工媽媽班 ・ 第 1 次 ・ 90 分鐘</div>
+<h1>步驟一　做出你的第一張股票分析頁</h1>
+<p class="lede">整堂課只做三件事：複製、貼上、核對。不用打字。每一個動作旁邊都有一顆紅色的「複製」鈕，按它就好。</p>
+
+<div class="result">
+  <b>今天做完，你會有一張自己的網頁：</b>選一檔股票，看它最近 60 天的 K 線，再看外資、投信、自營商這幾天是在買還是在賣。<br>
+  <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp1.html" target="_blank" rel="noopener">先看看成品長什麼樣（開新分頁）</a>
+</div>
+
+<div class="tl">
+<table>
+  <thead><tr><th>時間</th><th>做什麼</th></tr></thead>
+  <tbody>
+    <tr><td>10 分鐘</td><td>步驟 1-1　看看「起點」長什麼樣</td></tr>
+    <tr><td>25 分鐘</td><td>步驟 1-2　請 AI 加上「三大法人」卡片</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 1-3　核對：數字是真的嗎？</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 1-4　用白話看懂這張卡片</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 1-5　加料（二選一）</td></tr>
+    <tr><td>10 分鐘</td><td>收尾與回家作業</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3>開始前先確認</h3>
+<label class="chk"><input type="checkbox" data-k="pre1"><span>筆電打開，使用 Chrome 或 Edge 瀏覽器</span></label>
+<label class="chk"><input type="checkbox" data-k="pre2"><span>登入一個 AI 聊天網站（ChatGPT、Claude、Gemini 任選一個，免費版就可以）</span></label>
+<label class="chk"><input type="checkbox" data-k="pre3"><span>開兩個分頁：一個放這份講義，一個放 AI 聊天，方便來回切換</span></label>
+
+
+<!-- ═══ 1-1 ═══ -->
+<section class="step" id="s11">
+  <div class="step-head"><span class="badge">1-1</span><span class="mins">10 分鐘</span></div>
+  <h2>先看看「起點」長什麼樣</h2>
+  <p>這是我們今天要改造的起點。它只有股價和 K 線，還沒有任何法人資料。</p>
+  <a class="btn-link" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-start.html" target="_blank" rel="noopener">打開起點頁（開新分頁）</a>
+  <h3>請做這三件事</h3>
+  <label class="chk"><input type="checkbox" data-k="a1"><span>點上面的股票名字（台積電、鴻海…），看畫面會跟著換</span></label>
+  <label class="chk"><input type="checkbox" data-k="a2"><span>把滑鼠移到任何一根 K 棒上，會跳出那一天的開盤、最高、最低、收盤</span></label>
+  <label class="chk"><input type="checkbox" data-k="a3"><span>選台積電，找到 <span class="key">10/02</span> 的收盤價，應該是 <span class="key">2500.00</span></span></label>
+  <div class="see">
+    <div class="see-t">先記住一個台灣的習慣</div>
+    <span class="up">紅色代表漲</span>，<span class="dn">綠色代表跌</span>。跟美國剛好相反。
+  </div>
+  <p>這些資料是老師事先下載好的歷史資料，最後一天是 10 月 2 日，不是即時報價。這樣上課時不用連到證交所，也不會被擋。</p>
+</section>
+
+
+<!-- ═══ 1-2 ═══ -->
+<section class="step" id="s12">
+  <div class="step-head"><span class="badge">1-2</span><span class="mins">25 分鐘</span></div>
+  <h2>請 AI 加上「三大法人」卡片</h2>
+  <p>下面這顆紅色按鈕，會把「我要你做什麼」和「起點頁的程式碼」一次複製起來。你不用另外貼程式碼。</p>
+
+  <div class="prompt">
+    <div class="prompt-label">指令 1　三大法人卡片</div>
+    <pre id="p_inst">下面是我的「迷你台股分析器」網頁程式碼。請在股價圖的下面，新增一張「三大法人買賣超」卡片。
+
+規則：
+1. 資料用 f（外資）、t（投信）、s（自營商自行買賣），單位都是「張」。
+2. 用表格列出外資、投信、自營商三列，欄位是：最新一天買賣超、近 5 日累計、連續買超或賣超的天數。連續天數的算法：從最新一天往回數，同方向連續幾天，遇到 0 就中斷。
+3. 表格下面畫近 5 日長條圖，每天三根（外資、投信、自營商）。買超向上用紅色，賣超向下用綠色（台股習慣：紅漲綠跌）。
+4. 圖下面用一句白話判讀：外資和投信同時連買 3 天以上，寫「法人方向一致偏多」；同時連賣 3 天以上，寫「法人方向一致偏空，要小心」；兩邊方向不同，寫「訊號分歧，先觀察」；其他情況寫「沒有明顯的連續訊號」。
+5. 卡片最後加一行提醒：自營商只算「自行買賣」，避險不算；並請使用者到 HiStock 核對最新一天的外資買賣超。
+
+請輸出完整的 HTML 檔案，不要省略任何部分。資料區（const DATA）請原樣保留，不要修改。</pre>
+    <button class="copy" data-src="p_inst" data-attach="starter">複製「指令＋起點程式碼」</button>
+    <p class="autonote">按下去之後，這段指令後面會自動接上起點頁的完整程式碼。</p>
+  </div>
+
+  <h3>然後這樣做</h3>
+  <ol class="how">
+    <li>切到 AI 聊天分頁，點一下下面的輸入框。</li>
+    <li>按 <span class="key">Ctrl + V</span> 貼上（Mac 按 <span class="key">⌘ + V</span>）。貼上後會有一長串程式碼，這是正常的，不用看。</li>
+    <li>按送出，等 AI 寫完，大約 1 分鐘。</li>
+    <li>如果 AI 的畫面有「預覽」（右邊或下方），點它就能看到成果。沒有的話，往下看「沒有預覽怎麼辦」。</li>
+  </ol>
+
+  <div class="see">
+    <div class="see-t">你應該看到</div>
+    <label class="chk"><input type="checkbox" data-k="b1"><span>K 線圖下面多了一張「三大法人買賣超」卡片</span></label>
+    <label class="chk"><input type="checkbox" data-k="b2"><span>表格有外資、投信、自營商三列，右邊有「連買 N 天」或「連賣 N 天」的小標籤</span></label>
+    <label class="chk"><input type="checkbox" data-k="b3"><span>下面有長條圖，買超的長條是紅色向上，賣超是綠色向下</span></label>
+    <label class="chk"><input type="checkbox" data-k="b4"><span>最下面有一句白話判讀</span></label>
+  </div>
+  <p>每個人 AI 做出來的樣子會有一點不一樣，這很正常。只要上面四件事都有就算成功。</p>
+
+  <details>
+    <summary>沒有預覽怎麼辦（存成網頁檔）</summary>
+    <ol class="how">
+      <li>在 AI 回覆的程式碼區塊右上角，按「複製」。</li>
+      <li>在 Windows 開「記事本」，按 <span class="key">Ctrl + V</span> 貼上。</li>
+      <li>按「檔案」→「另存新檔」，檔名打 <span class="key">我的分析頁.html</span>，下面「存檔類型」選「所有檔案」，按存檔。</li>
+      <li>在資料夾裡對這個檔案連按兩下，瀏覽器就會打開它。</li>
+    </ol>
+    <p>用 Mac 的話請舉手，老師會幫你。</p>
+  </details>
+
+  <details>
+    <summary>卡住了（AI 回得很短、畫面空白、跟不上）</summary>
+    <p><b>AI 只回了一小段、不是完整程式碼</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_full">你剛剛沒有輸出完整的檔案。請重新輸出完整的 HTML 檔案，從頭到尾不要省略任何部分，資料區（const DATA）也要完整保留。</pre>
+      <button class="copy alt" data-src="p_full">複製這句</button>
+    </div>
+    <p><b>畫面一片空白或壞掉</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_fix">我打開你給的網頁，畫面是空白的（或有地方壞掉）。請檢查程式碼找出原因，修好之後輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留。</pre>
+      <button class="copy alt" data-src="p_fix">複製這句</button>
+    </div>
+    <p><b>完全跟不上</b>：不用緊張，這裡有一份做好的「存檔點 1」。下一次上課也是從它開始。</p>
+    <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp1.html" target="_blank" rel="noopener">打開存檔點 1（成品）</a>
+    <button class="copy alt" data-attach-only="cp1">複製存檔點 1 的完整程式碼</button>
+  </details>
+</section>
+
+
+<!-- ═══ 1-3 ═══ -->
+<section class="step" id="s13">
+  <div class="step-head"><span class="badge">1-3</span><span class="mins">10 分鐘</span></div>
+  <h2>核對：數字是真的嗎？</h2>
+  <p>AI 寫的程式會出錯，而且錯得很安靜。畫面一樣漂亮，數字卻全是錯的。所以我們養成一個習慣：<b>做完一個功能，就拿外面的網站對一次答案。</b></p>
+
+  <ol class="how">
+    <li>打開 <a href="https://histock.tw/stock/chips.aspx?no=2330" target="_blank" rel="noopener">HiStock 台積電的籌碼頁</a>，找標題寫「近三十日三大法人買賣超」的表格。</li>
+    <li>找到 <span class="key">2026/10/02</span> 那一列。表格的欄位是：日期、外資、投信、自營(自買)、自營(避險)、總計。</li>
+    <li>回到你自己的頁面，對照表格裡的「最新一天」：外資應該是 <span class="key">−5,914</span>，投信 <span class="key">254</span>，自營商（自行買賣）<span class="key">146</span>。</li>
+  </ol>
+  <label class="chk"><input type="checkbox" data-k="c1"><span>外資的數字兩邊一樣（最多差 1 張，是四捨五入的關係）</span></label>
+  <label class="chk"><input type="checkbox" data-k="c2"><span>投信、自營商也各對一次。HiStock 的「自營(避險)」那一欄我們不用，不用對</span></label>
+
+  <div class="warn">
+    <div class="warn-t">對不上怎麼辦？</div>
+    把你的頁面和 HiStock 各截一張圖，貼給 AI，再貼下面這句。不用打任何數字。
+  </div>
+  <div class="prompt">
+    <div class="prompt-label">指令 2　請 AI 幫忙核對</div>
+    <pre id="p_check">我附上兩張截圖：一張是我做的網頁，一張是 HiStock 的三大法人表格。請逐項比對外資、投信、自營商的買賣超數字，告訴我哪裡不一樣、可能是什麼原因。先不要改程式碼，只告訴我差在哪。</pre>
+    <button class="copy alt" data-src="p_check">複製這句</button>
+  </div>
+</section>
+
+
+<!-- ═══ 1-4 ═══ -->
+<section class="step" id="s14">
+  <div class="step-head"><span class="badge">1-4</span><span class="mins">15 分鐘</span></div>
+  <h2>用白話看懂這張卡片</h2>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>名詞</th><th>白話</th></tr></thead>
+    <tbody>
+      <tr><td>三大法人</td><td>外資、投信、自營商。三種「大戶」的合稱。</td></tr>
+      <tr><td>外資</td><td>外國的大型投資機構。錢最多，通常決定大方向。</td></tr>
+      <tr><td>投信</td><td>國內的基金公司，也就是幫大家管基金的人。</td></tr>
+      <tr><td>自營商</td><td>券商拿自己的錢買賣股票。我們只看「自行買賣」那一部分，「避險」不算，因為避險只是在對沖，不代表看多或看空。</td></tr>
+      <tr><td>買賣超</td><td>今天買進的比賣出的多多少。多就是「買超」，少就是「賣超」。</td></tr>
+      <tr><td>張</td><td>台股的單位，1 張 ＝ 1000 股。</td></tr>
+      <tr><td>連買／連賣</td><td>從最新一天往回數，連續幾天都是買超（或都是賣超）。</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><b>為什麼看「連續」，不看單日？</b>單日買賣超可能只是偶然。連續好幾天朝同一個方向，比較像是有計畫的動作。</p>
+
+  <h3>練習：看台積電 10/02 的畫面，回答三個問題</h3>
+  <label class="chk"><input type="checkbox" data-k="d1"><span>外資這一天是買超還是賣超？</span></label>
+  <label class="chk"><input type="checkbox" data-k="d2"><span>投信已經連買幾天？</span></label>
+  <label class="chk"><input type="checkbox" data-k="d3"><span>外資和投信的方向一樣嗎？頁面最下面那句話怎麼說？</span></label>
+  <details>
+    <summary>看答案</summary>
+    <p>外資賣超 5,914 張（綠色）。投信連買 4 天。兩邊方向不同，所以頁面說「訊號分歧，先觀察」。自營商（自行買賣）連買 3 天。</p>
+    <p>這代表：外資今天出了一大批，但投信連續 4 天在買。誰對誰錯現在還不知道，所以不要急著下結論。</p>
+  </details>
+</section>
+
+
+<!-- ═══ 1-5 ═══ -->
+<section class="step" id="s15">
+  <div class="step-head"><span class="badge">1-5</span><span class="mins">10 分鐘</span></div>
+  <h2>加料（二選一）</h2>
+  <p>接在剛剛同一個 AI 對話裡，直接貼就好，不用再貼程式碼。</p>
+
+  <div class="prompt">
+    <div class="prompt-label">加料 A　字放大，看得更清楚</div>
+    <pre id="p_big">請把剛剛那個網頁的字體整體放大約 20%，表格和按鈕也一起放大，讓年長的人也看得清楚。請輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留。</pre>
+    <button class="copy alt" data-src="p_big">複製加料 A</button>
+  </div>
+  <div class="prompt">
+    <div class="prompt-label">加料 B　K 線圖加一條 20 日均線</div>
+    <pre id="p_ma">請在剛剛那個網頁的 K 線圖上，加一條 20 日均線（最近 20 天收盤價的平均），用橘色細線畫，並在圖的下方加一行說明「橘線＝20 日均線，股價在線上方代表近期偏強」。前面不足 20 天的地方不要畫。請輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留。</pre>
+    <button class="copy alt" data-src="p_ma">複製加料 B</button>
+  </div>
+  <p>做完之後別忘了回到 1-3 的習慣：看看新加的東西對不對。均線的話，可以拿 Yahoo 股市的 20 日均線對一下。</p>
+</section>
+
+
+<!-- ═══ 收尾 ═══ -->
+<section class="step" id="s16">
+  <div class="step-head"><span class="badge">收尾</span><span class="mins">10 分鐘</span></div>
+  <h2>今天學到的，和回家作業</h2>
+  <ul>
+    <li>用「複製、貼上」就能請 AI 把網頁改成你要的樣子。</li>
+    <li>AI 會錯，而且錯得很安靜。做完一個功能就拿外面的網站核對一次。</li>
+    <li>三大法人要看「連續」，不要只看單日。</li>
+  </ul>
+  <h3>回家作業（每天 3 分鐘）</h3>
+  <label class="chk"><input type="checkbox" data-k="h1"><span>挑一檔你有興趣的股票，打開 HiStock 看它的三大法人表格。</span></label>
+  <label class="chk"><input type="checkbox" data-k="h2"><span>數一數外資最近是連買還是連賣、連續幾天，寫在紙上。下次帶來。</span></label>
+  <p>下一次上課，我們會從「存檔點 1」接著做，加上融資融券和「現在是哪一個階段」的判讀。</p>
+</section>
+
+<footer>
+  資料為預先下載的歷史資料（來源：FinMind、證交所），最後一天是 2026-10-02，不是即時報價。價格單位是元，買賣超與成交量單位是張。本講義是教學用途，不構成任何投資建議。
+</footer>
+</div>
+
+<div id="fb" hidden>
+  <div class="box">
+    <div class="row"><b>電腦不讓網頁自動複製。請在下面的框裡按 Ctrl + C（Mac：⌘ + C）。</b><button type="button" id="fbClose">關閉</button></div>
+    <textarea id="fbText" readonly></textarea>
+  </div>
+</div>
+
+<!-- 起點程式碼與存檔點1：用隱藏的文字框收著，複製鈕從這裡取 -->
+<textarea id="src_starter" hidden readonly>__STARTER__</textarea>
+<textarea id="src_cp1" hidden readonly>__CP1__</textarea>
+
+<script>
+(function () {
+  var ATTACH_HEAD = '\n\n===== 我的網頁程式碼（資料區請原樣保留）=====\n';
+  function byId(id) { return document.getElementById(id); }
+
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  }
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { return true; },
+        function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  }
+  function showFallback(text) {
+    var fb = byId('fb'), t = byId('fbText');
+    t.value = text; fb.hidden = false; t.focus(); t.select();
+  }
+  byId('fbClose').addEventListener('click', function () { byId('fb').hidden = true; });
+  byId('fb').addEventListener('click', function (e) { if (e.target === this) this.hidden = true; });
+
+  document.querySelectorAll('button.copy').forEach(function (btn) {
+    var label = btn.textContent, timer = null;
+    btn.addEventListener('click', function () {
+      var text = '';
+      if (btn.dataset.src) text = byId(btn.dataset.src).textContent;
+      if (btn.dataset.attach) text += ATTACH_HEAD + byId('src_' + btn.dataset.attach).value;
+      if (btn.dataset.attachOnly) text = byId('src_' + btn.dataset.attachOnly).value;
+      copyText(text).then(function (ok) {
+        if (!ok) { showFallback(text); return; }
+        clearTimeout(timer);
+        btn.classList.add('done'); btn.textContent = '已複製 ✓ 可以去貼上了';
+        timer = setTimeout(function () { btn.classList.remove('done'); btn.textContent = label; }, 2600);
+      });
+    });
+  });
+
+  // 勾選記憶：只是方便，讀寫失敗就當沒有
+  var KEY = 'volmom-step1:';
+  document.querySelectorAll('input[type=checkbox][data-k]').forEach(function (c) {
+    try { if (localStorage.getItem(KEY + c.dataset.k) === '1') c.checked = true; } catch (e) {}
+    c.addEventListener('change', function () {
+      try { localStorage.setItem(KEY + c.dataset.k, c.checked ? '1' : '0'); } catch (e) {}
+    });
+  });
+})();
+</script>

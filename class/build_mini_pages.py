@@ -94,7 +94,7 @@ function renderInst() {
     <p class="verdict">${msg}</p>
     <div class="hint">
       <b>自營商只算「自行買賣」</b>，避險部位不算——避險是為了對沖權證，不代表看多看空。<br>
-      <b>核對一下：</b>打開 <a href="https://histock.tw/stock/${cur}" target="_blank" rel="noopener">HiStock ${cur}</a>，
+      <b>核對一下：</b>打開 <a href="https://histock.tw/stock/chips.aspx?no=${cur}" target="_blank" rel="noopener">HiStock ${cur} 籌碼頁</a>，
       找 ${s.d[i]} 那天的外資買賣超，應該和上表「今日外資」一樣（單位都是張）。對不上就是哪裡算錯了。
     </div>`;
 }
