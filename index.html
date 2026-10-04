@@ -40039,7 +40039,9 @@ function _drawBrokerUI(result, days) {
     const dStr = useDates.length > 0 ? `${useDates[useDates.length-1]} ~ ${useDates[0]}` : '';
     const _tk  = (typeof getToken === 'function' ? getToken() : '') ||
                   localStorage.getItem('tsai_finmind_token') || '';
-    const tierStr = _tk ? '🎉 Sponsor Token' : '⚠️ 無Token（公開額度）';
+    // 不要只因為有填 token 就寫成「Sponsor」：免費層級的 token 也是「有 token」，但查不到分點。
+    const tierStr = result.fromArchive ? '📦 每日存檔（收盤後更新，買+賣不到 20 張的小券商未收錄）'
+                  : _tk ? '🔑 已設定 Token' : '⚠️ 無Token（公開額度）';
     nt.textContent = `資料：FinMind TaiwanStockTradingDailyReport · ${dStr} · 共${useDates.length}交易日 · 單位：張 · ${tierStr}`;
     nt.style.display = '';
   }
