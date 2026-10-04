@@ -12,6 +12,7 @@ Token 只從環境變數 FINMIND_TOKEN 讀（GitHub Secrets），不會印出來
 不寫任何半套資料，也不會改成逐檔狂打（逐檔要 3000 多次請求，會耗光額度）。
 """
 import json, os, re, sys, urllib.parse, urllib.request
+from datetime import datetime, timedelta
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fetch_tdcc import OUT, KEEP_WEEKS, WANT   # 同一份設定
 
@@ -92,15 +93,24 @@ def main():
     db = json.load(open(OUT, encoding="utf-8"))
     new_weeks = {}
     for iso in dates:
-        try:
-            rows = fetch_day(token, iso)
-        except Exception as e:
-            sys.exit(f"{iso} 抓取失敗：{str(e).replace(token, '***')}。整批不寫入。")
-        groups = to_groups(rows)
-        print(f"{iso}：原始 {len(rows)} 列 → {len(groups)} 檔")
+        # 遇到國定假日（例如中秋節 2026-09-25）當天沒有資料：往前找最近 3 天內有資料的那一天
+        groups, used = {}, None
+        for back in range(4):
+            day = (datetime.strptime(iso, "%Y-%m-%d") - timedelta(days=back)).strftime("%Y-%m-%d")
+            try:
+                rows = fetch_day(token, day)
+            except Exception as e:
+                sys.exit(f"{day} 抓取失敗：{str(e).replace(token, '***')}。整批不寫入。")
+            print(f"{day}：原始 {len(rows)} 列" + ("" if rows else "（沒有資料，往前一天找）"))
+            if rows:
+                groups, used = to_groups(rows), day
+                break
+        if used is None:
+            sys.exit(f"{iso} 往前 3 天都沒有資料，也許 token 沒有全市場權限。整批不寫入。")
         if len(groups) < 500:
-            sys.exit(f"{iso} 只有 {len(groups)} 檔，不像是全市場資料（也許那天不是公布日，或 token 沒有全市場權限）。整批不寫入。")
-        new_weeks[iso] = groups
+            sys.exit(f"{used} 只有 {len(groups)} 檔，不像是全市場資料。整批不寫入。")
+        print(f"  → 採用 {used}：{len(groups)} 檔" + ("" if used == iso else f"（{iso} 沒有資料，改用 {used}）"))
+        new_weeks[used] = groups
     db, added = merge(db, new_weeks)
     if not added:
         print("這些週別都已經在檔案裡了，沒有變動。")
