@@ -1,0 +1,34 @@
+name: 更新券商分點資料（FinLab）
+
+on:
+  # ⚠️ 排程先關著：fetch_broker_data.py 裡記錄過 FinLab 的 broker_transactions 回傳
+  # 「only for VIP」（2026-09-16，連 SponsorYear 帳號也一樣）。先手動觸發一次確認
+  # 真的抓得到、欄位對得上，再把下面兩行的 # 拿掉開啟每日排程，免得每個平日都失敗寄通知信。
+  # schedule:
+  #   # 台灣時間下午5點收盤+分點結算後（UTC+8 → UTC 09:00）
+  #   - cron: '0 9 * * 1-5'
+  workflow_dispatch: {}   # 在 GitHub 網頁上手動觸發
+
+jobs:
+  update-broker-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝 FinLab
+        run: pip install finlab
+
+      - name: 執行抓取腳本
+        env:
+          FINLAB_API_KEY: ${{ secrets.FINLAB_API_KEY }}
+        run: python fetch_broker_data.py
+
+      - name: 自動 commit 更新後的 broker_data.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "自動更新券商分點資料 (FinLab)"
+          file_pattern: broker_data.json
