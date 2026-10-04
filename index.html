@@ -18693,6 +18693,9 @@ a.module-nav-item.acc-active {
         <div class="phase-badge unk" id="phaseBadge">診斷中</div>
       </div>
 
+      <!-- 低分「看不出」與強勢超買提示 -->
+      <div id="phaseNotes"></div>
+
       <!-- 五階段進度尺 -->
       <div class="phase-ruler" id="phaseRuler">
         <div class="phase-ruler-step p1 inactive" id="phaseStep1" data-tip="吸籌期">
@@ -50420,20 +50423,25 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
   const range   = todayH - todayL || 0.01;
   const upperW  = (todayH - Math.max(todayC,todayO)) / range;
   const highBias= lc > lMA20 ? (lc-lMA20)/lMA20*100 : 0;  // 正乖離
+  // v7.9x 修正：RSI>70 / KD>80 / 乖離>12% 三項「超買」不再計入出貨分數。
+  //   回測（30檔大型股，2022~2026，2022為空頭）：這三項出現之後 10 日報酬在三個時期都偏強（超額 +0.34~+0.51%），
+  //   是「強勢延續」而不是出貨；放在出貨分數裡，會把強勢股誤判成出貨（2023 年出貨期之後 10 日反而超額 +0.67%）。
+  //   改成獨立的「強勢超買」旗標顯示（見下方 overbought）。出貨只留爆量、上影線、法人賣這類轉弱特徵。
+  const overbought = { rsi: lRSI > 70, kd: lK > 80, bias: highBias > 12 };
   let s5 = 0;
-  if (lRSI > 70)               s5 += 20;  // RSI超買
   if (upperW > 0.35)           s5 += 20;  // 長上影線
   if (instNet5 < -1)           s5 += 25;  // 法人近5日賣超
   if (volRatio > 1.5 && upperW>0.25) s5 += 15; // 爆量留上影
-  if (highBias > 12)           s5 += 10;  // 正乖離過大
-  if (lK > 80)                 s5 += 10;  // KD超買
 
   // ── C. 決定當前階段 ──
   const scores = [s1, s2, s3, s4, s5];
   const maxScore = Math.max(...scores);
   const phaseIdx = scores.indexOf(maxScore) + 1;  // 1~5
   // 橋接給下單清單 AI 判斷用
-  window._teachData = Object.assign(window._teachData || {}, { phaseIdx, phaseScores: scores });
+  // 最高分低於 45（回測：約 9% 的日子）＝五個階段都不突出，介面要老實標示「看不出」；
+  // phaseIdx 仍保留分數最高的那個，避免動到下游（教學操盤、條件單模板、AI建言）的既有流程。
+  const PHASE_LOW = 45, phaseLow = maxScore < PHASE_LOW;
+  window._teachData = Object.assign(window._teachData || {}, { phaseIdx, phaseScores: scores, phaseLow });
 
   // ── D. 上衝信心分數（Phase 3 最核心）──
   // 核心邏輯：籌碼乾淨度 × 洗盤完成度 × 技術確認
@@ -50698,7 +50706,28 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
 
   // 徽章
   const badgeEl = document.getElementById('phaseBadge');
-  if (badgeEl) { badgeEl.className=`phase-badge ${ph.badge}`; badgeEl.textContent=ph.label; }
+  if (badgeEl) { badgeEl.className=`phase-badge ${phaseLow ? 'unk' : ph.badge}`; badgeEl.textContent = phaseLow ? '看不出明確階段' : ph.label; }
+
+  // 提示列：低分老實說「看不出」＋強勢超買旗標（獨立於階段分數）
+  const notesEl = document.getElementById('phaseNotes');
+  if (notesEl) {
+    let nh = '';
+    if (phaseLow) {
+      nh += `<div style="font-size:0.72rem;line-height:1.6;background:rgba(148,163,184,0.14);border:1px dashed var(--border);border-radius:8px;padding:6px 9px;margin-bottom:6px;color:var(--fg2);">`
+          + `⚠️ <b>看不出明確階段</b>：五個階段的最高分只有 ${maxScore} 分（低於 ${PHASE_LOW} 分），沒有哪一個階段特別突出。`
+          + `下面標示的「${ph.label}」只是分數最高的那個，請當成很弱的參考。</div>`;
+    }
+    const obList = [];
+    if (overbought.rsi)  obList.push(`RSI ${lRSI.toFixed(0)}`);
+    if (overbought.kd)   obList.push(`KD ${lK.toFixed(0)}`);
+    if (overbought.bias) obList.push(`乖離月線 +${highBias.toFixed(1)}%`);
+    if (obList.length) {
+      nh += `<div style="font-size:0.72rem;line-height:1.6;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:6px 9px;margin-bottom:6px;color:var(--fg2);">`
+          + `🔥 <b>強勢超買</b>：${obList.join('、')}。回測 30 檔大型股（2022～2026，含空頭）：這類狀況之後 10 日的報酬平均相對偏強，`
+          + `<b>不能當出貨訊號</b>，只代表已經漲了一段。</div>`;
+    }
+    notesEl.innerHTML = nh;
+  }
 
   // 進度尺
   for (let i=1; i<=5; i++) {
