@@ -39094,6 +39094,31 @@ function _setBrokerLoading(isLoading) {
   if (upd)  upd.textContent  = ''; // 換股票查詢時，先清掉舊時間，避免誤以為是新股票的資料
 }
 
+// 把每日存檔轉成 FinMind 原始資料的樣子（buy/sell 用「股」，後面統一 ÷1000），取最近 days 個「有資料的交易日」。
+// 存檔只有券商名稱，沒有券商代號，所以代號欄位也放名稱（這個面板用名稱關鍵字分類券商）。
+async function _brokerArchiveRows(stockId, days, endAnchor) {
+  const rows = await _tryLoadFinLabBrokerData(stockId, 60);
+  if (!rows) return null;
+  const upTo = endAnchor ? fmtDate(new Date(endAnchor)) : '9999-12-31';
+  const dates = [...new Set(rows.map(r => r.date))].filter(d => d <= upTo).sort().slice(-days);
+  if (!dates.length) return null;
+  const keep = new Set(dates);
+  return {
+    dates,
+    rows: rows.filter(r => keep.has(r.date)).map(r => ({
+      date: r.date, securities_trader_id: r.broker_id, securities_trader: r.broker_id,
+      buy: (+r.buy || 0) * 1000, sell: (+r.sell || 0) * 1000,
+    })),
+  };
+}
+
+// 資料來自每日存檔時，把「更新於幾點」換成實際資料日與收錄範圍（快取命中時也要套用）
+function _brokerArchiveLabel(result) {
+  if (!result || !result.fromArchive) return;
+  const upd = document.getElementById('csBrokerUpdated');
+  if (upd) upd.textContent = `📦 每日存檔，資料日 ${result.useDates[0]}（收盤後更新；買+賣不到 20 張的小券商未收錄）`;
+}
+
 async function _renderBrokerPanel(stockId, days, force, endAnchor) {
   const cacheKey = `${stockId}_${days}_${endAnchor || 'now'}`;
   const now = Date.now();
@@ -39101,6 +39126,7 @@ async function _renderBrokerPanel(stockId, days, force, endAnchor) {
   if (!force && _brokerCache[cacheKey] && now - _brokerCache[cacheKey].ts < 600000) {
     _drawBrokerUI(_brokerCache[cacheKey].data, days);
     _updateBrokerTimestamp(_brokerCache[cacheKey].ts);
+    _brokerArchiveLabel(_brokerCache[cacheKey].data);
     return;
   }
 
@@ -39175,8 +39201,16 @@ async function _renderBrokerPanel(stockId, days, force, endAnchor) {
     });
   }
 
+  // 沒有 token、或 token 等級不夠（官方回「Your level is register/free」）時，改用 GitHub Actions 每日存檔的分點資料
+  //（data/broker/<代號>.json，FinMind 贊助會員 token 在後台抓的，免費使用者也能看；追蹤清單內的股票才有）
+  let fromArchive = false;
+  if (allRows.length === 0 && (!token || /level is (register|free)/i.test(lastMsg))) {
+    const arch = await _brokerArchiveRows(stockId, days, endAnchor);
+    if (arch) { allRows.push(...arch.rows); usedDates.push(...arch.dates); fromArchive = true; lastMsg = ''; }
+  }
+
   // Step 3：若全部無資料（今日尚未收盤/無資料），往前再找最多 10 個交易日
-  if (allRows.length === 0) {
+  if (allRows.length === 0 && !(lastMsg && /level is (register|free)/i.test(lastMsg))) {
     console.log('[Broker] 主查無資料，啟動 fallback，往前最多找10個交易日...');
     const extra = validDates.slice(days, days + 10);
     for (const d of extra) {
@@ -39194,7 +39228,7 @@ async function _renderBrokerPanel(stockId, days, force, endAnchor) {
   if (allRows.length === 0) {
     // 顯示 API 原始 msg 幫助診斷（token 問題 / 無資料）
     const hint = lastMsg
-      ? `API 回應：${lastMsg.slice(0, 80)}`
+      ? `API 回應：${lastMsg.slice(0, 80)}<br>這檔不在每日存檔的追蹤清單內；查任意個股的分點需要 FinMind Sponsor Token。`
       : '今日尚未收盤或非交易日，請明天再查';
     _brokerShowEmpty(`⚠️ 查無分點資料<br><small style="color:#888">${hint}</small>`);
     return;
@@ -39242,10 +39276,11 @@ async function _renderBrokerPanel(stockId, days, force, endAnchor) {
     sell: Math.round(b.sell),
   })).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
 
-  const result = { brokers, useDates: usedDates.sort().reverse(), stockId, dailyMap, sortedDates };
+  const result = { brokers, useDates: usedDates.sort().reverse(), stockId, dailyMap, sortedDates, fromArchive };
   _brokerCache[cacheKey] = { data: result, ts: now };
   _drawBrokerUI(result, days);
   _updateBrokerTimestamp(now);
+  _brokerArchiveLabel(result);
   // 資料載入完成後：顯示差異對比按鈕（需要足夠的券商家數）
   try { _updateDiffBtnVisibility(); } catch(e) {}
 }
