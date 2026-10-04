@@ -1,0 +1,45 @@
+name: 更新券商分點存檔（FinMind）
+
+# 每個平日晚上用 FinMind 贊助會員 token，抓追蹤清單每一檔「當天所有券商分點」，存到 data/broker/<代號>.json。
+# 每次檢查最近 3 個平日，只補檔案裡還沒有的日子，所以：
+#   · 分點資料晚一點才公布也沒關係，隔天的排程會補上；
+#   · 重複執行是安全的。
+# 第一次請手動觸發並把 days 填 20，一次回補 20 個平日。
+on:
+  schedule:
+    - cron: "0 14 * * 1-5"   # 台灣時間 平日 22:00
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "要檢查最近幾個平日（日常 3；第一次回補填 20）"
+        default: "3"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 抓分點
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+          DAYS: ${{ github.event.inputs.days || '3' }}
+        run: python3 scripts/fetch_broker_finmind.py --days "$DAYS"
+      - name: 有新資料才提交
+        run: |
+          if [ -n "$(git status --porcelain data/broker)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/broker
+            git commit -m "資料：券商分點存檔更新（FinMind）"
+            git pull --rebase origin main
+            git push
+          else
+            echo "沒有新資料"
+          fi

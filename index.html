@@ -42303,24 +42303,30 @@ async function _injectBrokerEtfNote(stockId) {
   }
 }
 
-let _finlabJsonCache = null; // 一次載入、整頁共用，避免每檔股票都重新 fetch 同一個檔案
+// 每日分點存檔：GitHub Actions 每個平日晚上用 FinMind 贊助會員 token 抓追蹤清單的「當天所有券商分點」，
+// 一檔一個檔案放在 data/broker/<代號>.json（scripts/fetch_broker_finmind.py）。切到那一檔才讀那一個檔案。
+// 檔案不存在、太舊或資料太少時靜靜地 return null，讓外層繼續往下試 FinMind 逐日查詢（需要 token）。
+const _brokerFileCache = {}; // { 股票代號: rows | false }，同一檔只讀一次
 async function _tryLoadFinLabBrokerData(stockId, days) {
   try {
-    if (_finlabJsonCache === null) {
-      const r = await fetch('./broker_data.json', { cache: 'no-store' });
-      _finlabJsonCache = r.ok ? await r.json() : false; // false = 確認抓不到，之後不再重試
+    const id = String(stockId);
+    if (!(id in _brokerFileCache)) {
+      const r = await fetch(`./data/broker/${encodeURIComponent(id)}.json`, { cache: 'no-store' });
+      _brokerFileCache[id] = r.ok ? await r.json() : false; // false = 確認沒有這檔，之後不再重試
     }
-    if (!_finlabJsonCache) return null;
-    // 預期格式：{ "2330": [{date, broker_id, buy, sell}, ...], "2454": [...], ... }
-    // buy/sell 單位請在 fetch_broker_data.py 那邊就換算成「張」，這裡不再做單位轉換。
-    const rows = _finlabJsonCache[String(stockId)];
+    const rows = _brokerFileCache[id];
+    // 格式：[{date, broker_id(券商名稱), buy, sell}, ...]，buy/sell 單位是「張」（排程腳本已換算）
     if (!Array.isArray(rows) || rows.length < 5) return null;
+    // 最新一天如果距今超過 6 天（排程停了、或這檔很久沒更新），不要把舊資料當成最新分點
+    const lastDate = rows.reduce((m, r) => (r.date > m ? r.date : m), '');
+    const age = Math.floor((Date.now() - new Date(lastDate + 'T00:00:00').getTime()) / 86400000); // 以「整天」計
+    if (!(age <= 6)) return null;
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
     const cutoffStr = cutoff.toISOString().slice(0, 10);
     const recent = rows.filter(r => r.date >= cutoffStr);
     return recent.length > 5 ? recent : rows.slice(-days * 5); // 保底：日期篩完太少就退回全部尾段
   } catch (e) {
-    console.warn('[博弈矩陣] FinLab JSON 讀取失敗，改走下一順位', e.message);
+    console.warn('[博弈矩陣] 分點存檔讀取失敗，改走下一順位', e.message);
     return null;
   }
 }
@@ -42418,8 +42424,8 @@ async function _renderGameMatrix(stockId) {
   const sourceBadge = document.getElementById('gmSourceBadge');
   if (sourceBadge) {
     if (source === 'finlab') {
-      sourceBadge.textContent = '✅ FinLab 真實分點';
-      sourceBadge.title = '資料來源：FinLab broker_transactions（GitHub Actions 每日排程更新），為真實券商分點買賣超數字。';
+      sourceBadge.textContent = '✅ FinMind 分點（每日存檔）';
+      sourceBadge.title = '資料來源：FinMind TaiwanStockTradingDailyReport，GitHub Actions 每個平日晚上存檔（只留當天買+賣≥20張的券商），為真實券商分點數字。';
       sourceBadge.style.background = '#DCFCE7';
       sourceBadge.style.borderColor = '#86EFAC';
       sourceBadge.style.color = '#166534';
