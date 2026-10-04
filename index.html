@@ -34689,6 +34689,7 @@ async function fetchInstFM(id) {
 //  people: 持有人數；unit: 持股股數（÷1000 = 張）
 //  快取策略：週快取（同一週內刷新不重打）
 // ══════════════════════════════════════════════════════════════════
+const WHALE_DEAD_ZONE_PP = 0.1;  // 千張大戶占比週變動小於這個百分點數，視為「不變」
 const _holdingCache = {};  // { stockId: { fetchedWeek, rows4w, parsed, ts } }
 
 function _getWeekSlot() {
@@ -34860,20 +34861,21 @@ async function fetchHoldingShares(stockId) {
     });
 
     // 千張大戶信號：最新 vs 前一週
+    // 占比週變動不到 ±0.1 個百分點（WHALE_DEAD_ZONE_PP）一律當「不變」：
+    //   用 2026-09 起 4 組週對週、1.3 萬筆資料檢查，現行「任何變動都算」時，撤退裡有 33% 的變動小於 0.05pp、
+    //   43% 小於 0.1pp，等於雜訊（例如台積電兩週都是 84.78%、人數 1487→1485 就被判成「大戶撤退」）。
+    //   加上 ±0.1pp 死區後，增、減各約 16%，其餘 69% 算不變。
     let whaleSignal = 'neutral';
     if (whaleTrend.length >= 2) {
       const cur  = whaleTrend.at(-1);
       const prev = whaleTrend.at(-2);
       const pplUp  = cur.people  > prev.people;
-      // v9.x修復：原本用四捨五入到小數點後1位的unitPct比較，遇到像+0.08這種
-      // 真實存在但被捨去的小幅增加，會誤判成「持平」進而觸發「大戶撤退」——
-      // 2026-09-29台塑化案例：人數-1但佔比實際+0.08%，卻被標成撤退。改用
-      // 未四捨五入的unitPctRaw做判斷，unitPct(四捨五入版)只留給畫面顯示用。
-      const unitUp = cur.unitPctRaw > prev.unitPctRaw;
-      if (pplUp  && unitUp)  whaleSignal = 'strong';   // 🐋 人數+佔比雙增
-      else if (unitUp)       whaleSignal = 'accum';    // 📈 既有大戶加碼
-      else if (cur.people === prev.people && cur.unitPctRaw === prev.unitPctRaw) whaleSignal = 'flat'; // ➖ 兩週完全相同＝不變（不是撤退）
-      else if (!pplUp && !unitUp) whaleSignal = 'exit'; // ⚠️ 大戶撤退
+      // 用未四捨五入的 unitPctRaw 算變動量（unitPct 是四捨五入版，只給畫面顯示用）
+      const dPct = cur.unitPctRaw - prev.unitPctRaw;
+      if (Math.abs(dPct) < WHALE_DEAD_ZONE_PP) whaleSignal = 'flat';   // ➖ 占比變動太小＝不變
+      else if (dPct > 0) whaleSignal = pplUp ? 'strong' : 'accum';       // 🐋 人數+占比雙增 / 📈 既有大戶加碼
+      else if (!pplUp)   whaleSignal = 'exit';                           // ⚠️ 占比減少且人數沒增加＝大戶撤退
+      // 占比減少但人數增加（大戶變多、每人持股變少）：維持 neutral「觀察中」
     }
 
     const parsed = { groups, whaleTrend, retailTrend, whaleSignal,
@@ -60845,7 +60847,7 @@ async function calcWhaleIncreaseScore(stockId) {
     // 真實的小幅增加(例如+0.08%)會被捨去變成0，導致真的有增加卻被判定delta<=0
     // 而跳過。改用unitPctRaw(未四捨五入)算delta，四捨五入只留給畫面顯示用的字串。
     const delta = +(cur.unitPctRaw - prev.unitPctRaw).toFixed(2);
-    if (delta <= 0) return EMPTY; // 只列「增」的，沒增就跳過，不算掃描失敗
+    if (delta < WHALE_DEAD_ZONE_PP) return EMPTY; // 只列「明顯增加」的（至少 0.1 個百分點，與徽章同一門檻），沒增就跳過，不算掃描失敗
 
     // ⚠️ 這裡量的是「持股比例」（千張大戶總持股佔全體流通股比例）增加，
     // 不是「人數」增加——這兩件事常常是反著走的：大戶人數變少，但剩下
