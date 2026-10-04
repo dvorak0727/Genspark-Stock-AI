@@ -295,6 +295,88 @@ def build_cp3(cp2):
                        "  renderStage();\n  renderFresh();\n  renderBrief();\n  renderDays();\n  $('chartTitle').textContent = `近 ${view().d.length} 個交易日走勢`;")
     return cp3
 
+# ───────── 存檔點4：更新最新資料（頁面自己向FinMind要資料，抓不到就老實說）─────────
+CP4_CSS = """
+.refresh{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:-4px 0 12px}
+#refreshBtn{border-color:var(--brand);color:var(--brand);font-weight:700}
+#refreshBtn:disabled{opacity:.5;cursor:wait}
+.rmsg{font-size:.86rem;color:var(--muted)}
+.rmsg.ok{color:#14532d;font-weight:700}
+.rmsg.bad{color:#991b1b;font-weight:700}
+"""
+
+CP4_HTML = """
+  <div class="refresh"><button id="refreshBtn" class="chip" type="button">🔄 更新這檔的最新資料</button><span id="refreshMsg" class="rmsg"></span></div>"""
+
+CP4_JS = r"""
+/* ---- 更新最新資料：直接向 FinMind 公開介面要這一檔的資料（不需要金鑰）---- */
+const FM = 'https://api.finmindtrade.com/api/v4/data';
+const live = {};      // 更新過的股票：代號 -> 新資料（只存在這個頁面的記憶體裡，重新整理就回到預先下載的資料）
+const rmsgs = {};     // 每一檔各自的更新結果訊息
+function raw() { return live[cur] || DATA[cur]; }
+
+async function fm(dataset, id, start, end) {
+  // 最單純的 GET，不加任何標頭，瀏覽器才不會先送「預檢」被擋掉
+  const r = await fetch(`${FM}?dataset=${dataset}&data_id=${id}&start_date=${start}&end_date=${end}`);
+  const j = await r.json();
+  if (j.status !== 200) throw new Error(j.msg || '資料來源回覆錯誤');
+  return j.data;
+}
+
+async function refreshData() {
+  const id = cur, btn = $('refreshBtn');
+  btn.disabled = true;
+  rmsgs[id] = { cls: '', text: '更新中…' }; renderRefresh();
+  try {
+    const end = new Date(), start = new Date(end.getTime() - 130 * 86400000);
+    const f = d => d.toLocaleDateString('sv-SE');                       // YYYY-MM-DD（本地日期）
+    const [px, ch, mg] = await Promise.all([
+      fm('TaiwanStockPrice', id, f(start), f(end)),
+      fm('TaiwanStockInstitutionalInvestorsBuySell', id, f(start), f(end)),
+      fm('TaiwanStockMarginPurchaseShortSale', id, f(start), f(end))]);
+    const net = { Foreign_Investor: {}, Investment_Trust: {}, Dealer_self: {} };   // 只要這三種，避險(Dealer_Hedging)不要
+    ch.forEach(r => { if (net[r.name]) net[r.name][r.date] = (r.buy || 0) - (r.sell || 0); });
+    const mgd = {}; mg.forEach(r => { mgd[r.date] = r; });
+    const priced = px.filter(r => +r.close > 0).sort((a, b) => a.date < b.date ? -1 : 1);
+    // 只用「股價、三大法人、融資融券三種都有」的日子，避免把還沒公布的資料當成 0
+    const rows = priced.filter(r => r.date in net.Foreign_Investor && r.date in net.Investment_Trust && r.date in net.Dealer_self && r.date in mgd).slice(-60);
+    if (rows.length < 16) throw new Error('回傳的資料太少');
+    const dates = rows.map(r => r.date), k = x => Math.round(x / 1000);          // 股 → 張
+    const fresh = { name: DATA[id].name, d: dates,
+      o: rows.map(r => r.open), h: rows.map(r => r.max), l: rows.map(r => r.min), c: rows.map(r => r.close),
+      v: rows.map(r => k(r.Trading_Volume)),
+      f: dates.map(d => k(net.Foreign_Investor[d])), t: dates.map(d => k(net.Investment_Trust[d])), s: dates.map(d => k(net.Dealer_self[d])),
+      m: dates.map(d => +mgd[d].MarginPurchaseTodayBalance || 0), sh: dates.map(d => +mgd[d].ShortSaleTodayBalance || 0) };
+    const before = raw().d.at(-1), latestPrice = priced.at(-1).date, last = dates.at(-1);
+    live[id] = fresh;
+    let text = last === before ? `已經是最新（最近一個交易日：${last}）` : `已更新：最新資料日期 ${last}（共 ${rows.length} 個交易日）`;
+    if (latestPrice !== last) text += `。股價已經有 ${latestPrice}，但三大法人或融資券還沒公布，所以先用 ${last}`;
+    rmsgs[id] = { cls: 'ok', text };
+  } catch (e) {
+    // 失敗：原本的資料完全不動，也絕不用編造的數字頂替
+    rmsgs[id] = { cls: 'bad', text: `⚠️ 抓不到最新資料（${e.message || e}）。目前仍使用 ${raw().d.at(-1)} 的資料。` };
+  }
+  renderAll();
+  setTimeout(() => { btn.disabled = false; }, 5000);                    // 停用5秒，避免連續狂按用光次數
+}
+
+function renderRefresh() {
+  const m = rmsgs[cur] || { cls: '', text: `目前使用：預先下載的資料（最後一天 ${DATA[cur].d.at(-1)}）` };
+  $('refreshMsg').className = 'rmsg ' + m.cls; $('refreshMsg').textContent = m.text;
+}
+$('refreshBtn').onclick = refreshData;
+"""
+
+def build_cp4(cp3):
+    cp4 = cp3.replace("DATA[cur]", "raw()")                         # view() 與 renderFresh() 改讀「更新過的資料」
+    assert cp4.count("raw()") == 2, "cp3裡DATA[cur]的數量變了，請檢查"
+    cp4 = must_replace(cp4, "存檔點3</title>", "存檔點4</title>")
+    cp4 = must_replace(cp4, '  <div id="daysPick" class="chips"></div>', '  <div id="daysPick" class="chips"></div>' + CP4_HTML)
+    cp4 = must_replace(cp4, "</style>", CP4_CSS + "</style>")
+    cp4 = must_replace(cp4, "function renderAll() {", CP4_JS + "\nfunction renderAll() {")
+    cp4 = must_replace(cp4, "  renderDays();", "  renderDays();\n  renderRefresh();")
+    return cp4
+
 def build():
     tpl = rd("mini_start.template.html")
     data = rd("mini_data.js").strip()
@@ -317,9 +399,11 @@ def build():
     cp2 = must_replace(cp2, "  renderInst();", "  renderInst();\n  renderMargin();\n  renderPos();\n  renderStage();")
     wr("mini-cp2.html", cp2)
 
-    wr("mini-cp3.html", build_cp3(cp2))
+    cp3 = build_cp3(cp2)
+    wr("mini-cp3.html", cp3)
+    wr("mini-cp4.html", build_cp4(cp3))
 
-    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html"):
+    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html", "mini-cp4.html"):
         print(n, os.path.getsize(os.path.join(HERE, n)) // 1024, "KB")
 
 if __name__ == "__main__":

@@ -6,7 +6,8 @@
   python3 build_handout.py step1 輸出檔.html     第1次講義（模板 handout_step1.template.html）
   python3 build_handout.py step2 輸出檔.html     第2次講義（沿用第1次的外觀與複製鈕程式，內容取自 handout_step2.body.html）
   python3 build_handout.py step3 輸出檔.html     第3次講義（同上，內容取自 handout_step3.body.html）
-  在最後面加 standalone：包成完整網頁，直接放GitHub Pages（step1.html、step2.html、step3.html）；
+  python3 build_handout.py step4 輸出檔.html     第4次講義（同上，內容取自 handout_step4.body.html）
+  在最後面加 standalone：包成完整網頁，直接放GitHub Pages（step1.html ~ step4.html）；
   不加就是Artifact發布用的版本（平台會自動補外殼）。
 嵌入時做HTML跳脫（& < >），放進隱藏的textarea，複製鈕讀 .value 會還原成原始程式碼。
 每一次講義有兩個隱藏文字框：這次上課的「起點」和「下課存檔點」（見 STEPS）。
@@ -20,8 +21,10 @@ def rd(n): return open(os.path.join(HERE, n), encoding="utf-8").read()
 STEPS = {
     "step2": dict(body="handout_step2.body.html", title="散戶與位階", boxes=("cp1", "cp2")),
     "step3": dict(body="handout_step3.body.html", title="老實說的頁面", boxes=("cp2", "cp3")),
+    "step4": dict(body="handout_step4.body.html", title="會自己更新的頁面", boxes=("cp3", "cp4")),
 }
-FILES = {"__STARTER__": "mini-start.html", "__CP1__": "mini-cp1.html", "__CP2__": "mini-cp2.html", "__CP3__": "mini-cp3.html"}
+FILES = {"__STARTER__": "mini-start.html", "__CP1__": "mini-cp1.html", "__CP2__": "mini-cp2.html",
+         "__CP3__": "mini-cp3.html", "__CP4__": "mini-cp4.html"}
 
 def compose(step):
     cfg = STEPS[step]

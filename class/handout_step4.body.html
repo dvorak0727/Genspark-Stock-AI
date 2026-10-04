@@ -1,0 +1,226 @@
+<div class="wrap">
+
+<div class="kicker">志工媽媽班 ・ 進階 ・ 90 分鐘</div>
+<h1>步驟四　讓頁面自己去抓最新資料</h1>
+<p class="lede">前三次，頁面用的都是老師事先下載好的資料。今天我們要在頁面上加一顆「更新最新資料」按鈕，讓它自己去資料庫拿。重點不是技術，是兩條規矩：抓得到就用，抓不到就老實說，絕對不編數字。一樣只做複製、貼上、核對。</p>
+
+<div class="result">
+  <b>今天做完，你的頁面會多一顆按鈕：</b>按下去，頁面自己去 FinMind 抓這一檔股票最新的資料，所有卡片跟著重算。網路不通或抓不到的時候，它會用紅字告訴你，而且原本的資料一個字都不動。<br>
+  <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp4.html" target="_blank" rel="noopener">先看看成品長什麼樣（開新分頁，可以按按看）</a>
+</div>
+
+<div class="tl">
+<table>
+  <thead><tr><th>時間</th><th>做什麼</th></tr></thead>
+  <tbody>
+    <tr><td>10 分鐘</td><td>步驟 4-0　交作業，開新的 AI 對話</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 4-1　先聽白話：資料從哪裡來</td></tr>
+    <tr><td>30 分鐘</td><td>步驟 4-2　請 AI 加「更新最新資料」按鈕，並存成網頁檔測試</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 4-3　故意斷網，測試它會不會老實說</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 4-4　用得安全：次數限制</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 4-5　結業與下一步</td></tr>
+  </tbody>
+</table>
+</div>
+
+
+<!-- ═══ 4-0 ═══ -->
+<section class="step" id="s40">
+  <div class="step-head"><span class="badge">4-0</span><span class="mins">10 分鐘</span></div>
+  <h2>交作業，開新的 AI 對話</h2>
+  <label class="chk"><input type="checkbox" data-k="p1"><span>輪流念出你的「一句話總結」，再說一個你覺得「這個提示我不會直接相信」的地方</span></label>
+  <label class="chk"><input type="checkbox" data-k="p2"><span>在 AI 聊天網站按「新對話」，開兩個分頁：一個放這份講義，一個放 AI 聊天</span></label>
+  <p>今天的起點是「存檔點 3」（有顯示天數、資料不足提示、資料新鮮度、一句話總結）。4-2 的紅色按鈕會自動把它帶進去。</p>
+</section>
+
+
+<!-- ═══ 4-1 ═══ -->
+<section class="step" id="s41">
+  <div class="step-head"><span class="badge">4-1</span><span class="mins">15 分鐘</span></div>
+  <h2>先聽白話：資料從哪裡來</h2>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>名詞</th><th>白話</th></tr></thead>
+    <tbody>
+      <tr><td>FinMind</td><td>一個免費的台股資料庫，把證交所的資料整理好放在網路上。我們前三次用的資料，就是老師從這裡事先下載的。</td></tr>
+      <tr><td>API</td><td>資料庫對外的「自動販賣機」。你的網頁按一下，它就把資料吐出來給你。</td></tr>
+      <tr><td>次數限制</td><td>販賣機每小時只讓你按有限的次數。不登入的話，每小時大約 300 次。按太多就暫時買不到。</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>為什麼前三次不讓你們直接抓？</h3>
+  <p>因為教室裡同時很多人去按，容易被擋，課就上不下去。預先下載的資料很穩定，大家看到的完全一樣，才方便對答案。今天只有一個人按一次的量，風險就小很多。</p>
+
+  <h3>今天的三條規矩</h3>
+  <div class="warn">
+    <div class="warn-t">寫在最前面，後面都會用到</div>
+    <p><b>一、抓不到就老實說。</b>不能用假的、模擬的數字頂替。</p>
+    <p><b>二、不要狂按。</b>每按一次，要抓三份資料，就用掉 3 次額度。</p>
+    <p><b>三、只用「資料都齊全」的日子。</b>三大法人和融資融券是收盤後才陸續公布，通常傍晚以後才有。如果股價已經是今天，但法人資料還沒出來，我們就先用昨天，不能把「還沒公布」當成「0」。</p>
+  </div>
+  <p>最後這一點很重要：如果把還沒公布的資料當成 0，頁面會說「外資持平」，但真實情況是「還不知道」。這兩句話意思完全不同。</p>
+</section>
+
+
+<!-- ═══ 4-2 ═══ -->
+<section class="step" id="s42">
+  <div class="step-head"><span class="badge">4-2</span><span class="mins">30 分鐘</span></div>
+  <h2>請 AI 加「更新最新資料」按鈕</h2>
+
+  <div class="prompt">
+    <div class="prompt-label">指令 10　更新最新資料按鈕</div>
+    <pre id="p_refresh">下面是我的「迷你台股分析器」網頁程式碼。請新增一個「更新這檔的最新資料」按鈕，放在「顯示天數」按鈕的下面。按下去之後，網頁要自己向 FinMind 公開介面抓「目前選到的這一檔股票」最近的資料，換掉頁面上這一檔原本預先下載的資料，然後所有卡片重新計算、重新顯示。
+
+做法與規則：
+1. 用瀏覽器的 fetch，網址格式：https://api.finmindtrade.com/api/v4/data?dataset=資料集名稱&data_id=股票代號&start_date=開始日&end_date=結束日。開始日是今天往前 130 天，結束日是今天，日期格式 YYYY-MM-DD。請用最單純的 GET，不要加任何自訂標頭（header），也不需要任何金鑰。
+2. 要抓三個資料集：
+   ・TaiwanStockPrice（日股價：欄位 date、open、max、min、close、Trading_Volume，成交量單位是股）
+   ・TaiwanStockInstitutionalInvestorsBuySell（三大法人：每一天每一種法人各一筆，欄位 date、name、buy、sell，單位是股。只需要 name 為 Foreign_Investor、Investment_Trust、Dealer_self 三種，買賣超＝buy－sell。Dealer_Hedging 不要）
+   ・TaiwanStockMarginPurchaseShortSale（融資融券：MarginPurchaseTodayBalance 是融資餘額、ShortSaleTodayBalance 是融券餘額，單位已經是張）
+3. 單位要換成「張」：成交量和三大法人買賣超都要除以 1000 再四捨五入。
+4. 轉成跟現有 DATA 一樣的格式（d 日期、o 開、h 高、l 低、c 收、v 成交量、f 外資、t 投信、s 自營商自行買賣、m 融資餘額、sh 融券餘額，陣列由舊到新），只保留最近 60 天。
+5. 只使用「三種資料（股價、三大法人、融資融券）都有的日期」。如果最新一天的三大法人或融資融券還沒公布，就用三種都齊全的最新一天，並在按鈕旁提醒使用者。不可以把還沒公布的資料當成 0。
+6. 成功：按鈕旁用綠色字顯示「已更新：最新資料日期 YYYY-MM-DD（共 N 個交易日）」。如果最新日期跟原本一樣，就顯示「已經是最新（最近一個交易日：YYYY-MM-DD）」。
+7. 失敗（連不上網、回傳錯誤、資料太少）：不要清空、不要換資料，也絕對不可以用模擬或編造的數字頂替。保持原本的資料，在按鈕旁用紅色粗體顯示「⚠️ 抓不到最新資料（原因）。目前仍使用 YYYY-MM-DD 的資料。」
+8. 每按一次只抓目前這一檔。按下去之後，按鈕要暫時停用 5 秒，避免連續狂按。
+9. 資料新鮮度提示條，要根據更新後的資料重新計算。
+
+請輸出完整的 HTML 檔案，不要省略任何部分。其他部分不要改動，原本的資料區（const DATA）請原樣保留。</pre>
+    <button class="copy" data-src="p_refresh" data-attach="cp3">複製「指令＋存檔點 3 程式碼」</button>
+    <p class="autonote">按下去之後，這段指令後面會自動接上存檔點 3 的完整程式碼。</p>
+  </div>
+
+  <ol class="how">
+    <li>切到 AI 聊天的<b>新對話</b>，點輸入框，按 <span class="key">Ctrl + V</span> 貼上（Mac 按 <span class="key">⌘ + V</span>），按送出。</li>
+    <li>等 AI 寫完。先在預覽裡按一下新按鈕，看看會發生什麼事。</li>
+  </ol>
+
+  <div class="warn">
+    <div class="warn-t">預覽裡按了顯示「抓不到」，是正常的</div>
+    <p>很多 AI 的預覽視窗為了安全，不讓網頁連到外面的網站，所以按下去會失敗。這時候頁面如果用紅字告訴你「抓不到最新資料，目前仍使用 … 的資料」，反而是<b>做對了</b>：它在老實說。</p>
+    <p>要真的更新，請把程式碼存成網頁檔再打開。做法在 <a href="step1.html#s12" target="_blank" rel="noopener">步驟一講義</a>的「沒有預覽怎麼辦」，檔名打 <span class="key">我的分析頁.html</span>，連按兩下打開，再按「更新」。</p>
+  </div>
+
+  <h3>驗收</h3>
+  <label class="chk"><input type="checkbox" data-k="u1"><span>頁面還有股票按鈕、顯示天數按鈕、K 線和所有卡片（不是只剩一顆按鈕）</span></label>
+  <label class="chk"><input type="checkbox" data-k="u2"><span>在網頁檔裡按「更新」，按鈕旁出現綠色字：「已更新：最新資料日期 …」或「已經是最新（最近一個交易日：…）」</span></label>
+  <label class="chk"><input type="checkbox" data-k="u3"><span>按完之後，頁面最上面的資料新鮮度提示條，日期跟綠色字寫的一樣</span></label>
+  <label class="chk"><input type="checkbox" data-k="u4"><span>按鈕按下去後，有大約 5 秒不能再按</span></label>
+
+  <h3>核對：新資料是真的嗎？</h3>
+  <ol class="how">
+    <li>在你的頁面選「台積電」，更新後看卡片裡的「最新一天」日期和外資買賣超。</li>
+    <li>打開 <a href="https://histock.tw/stock/chips.aspx?no=2330" target="_blank" rel="noopener">HiStock 台積電的籌碼頁</a>，找「近三十日三大法人買賣超」表格裡<b>同一天</b>那一列。</li>
+    <li>外資、投信、自營(自買) 三個數字，應該和你頁面上一樣（最多差 1 張，是四捨五入）。</li>
+  </ol>
+  <label class="chk"><input type="checkbox" data-k="u5"><span>兩邊同一天的外資、投信、自營（自行買賣）一樣</span></label>
+  <p>對不上的話，把兩邊的畫面各截一張圖貼給 AI，問它差在哪，先不要改程式。</p>
+
+  <h3>AI 的作法和我們不一樣，怎麼辦？</h3>
+  <p>每個人的 AI 寫出來的程式都會有一點不同，這很正常。只要驗收那四項成立就算過關。如果最後那個頁面變得很簡陋，或數字特別整齊（例如成交量剛好 12,500），代表 AI 自己重做了一個新頁面，數字是編的。複製下面這句貼給它：</p>
+  <div class="prompt">
+    <div class="prompt-label">指令　AI 重做了新頁面時用</div>
+    <pre id="p_redo">你剛剛做的是一個全新的頁面，而且數字是你自己編的。我要的是在「前面那份有股票按鈕、顯示天數按鈕、價格、K 線和所有卡片的完整網頁」上新增功能，資料只能用那份網頁裡的 const DATA，或是從 FinMind 抓回來的真實資料。請以那份 HTML 為基礎重新輸出完整檔案。如果你找不到那份 HTML，請直接回答「找不到」，不要編數字。</pre>
+    <button class="copy alt" data-src="p_redo">複製這句</button>
+  </div>
+
+  <details>
+    <summary>卡住了（AI 回得很短、畫面空白、跟不上）</summary>
+    <p><b>AI 只回了一小段、不是完整程式碼</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_full">你剛剛沒有輸出完整的檔案。請重新輸出完整的 HTML 檔案，從頭到尾不要省略任何部分，資料區（const DATA）也要完整保留。</pre>
+      <button class="copy alt" data-src="p_full">複製這句</button>
+    </div>
+    <p><b>畫面一片空白或壞掉</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_fix">我打開你給的網頁，畫面是空白的（或有地方壞掉）。請檢查程式碼找出原因，修好之後輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留。</pre>
+      <button class="copy alt" data-src="p_fix">複製這句</button>
+    </div>
+    <p><b>完全跟不上</b>：不用緊張，這裡有做好的「存檔點 4」，也就是今天下課時該有的樣子。</p>
+    <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp4.html" target="_blank" rel="noopener">打開存檔點 4（成品）</a>
+    <button class="copy alt" data-attach-only="cp4">複製存檔點 4 的完整程式碼</button>
+  </details>
+</section>
+
+
+<!-- ═══ 4-3 ═══ -->
+<section class="step" id="s43">
+  <div class="step-head"><span class="badge">4-3</span><span class="mins">15 分鐘</span></div>
+  <h2>故意斷網，測試它會不會老實說</h2>
+  <p>這一步是今天最重要的測試。一個好的頁面，不是「順利的時候很準」，是「出事的時候不會騙你」。</p>
+  <ol class="how">
+    <li>先在網頁檔裡按一次「更新」，確認它能成功（綠色字）。</li>
+    <li>把電腦的 Wi-Fi 關掉（或打開飛航模式）。</li>
+    <li>等按鈕恢復可以按（大約 5 秒），再按一次「更新」。</li>
+  </ol>
+  <h3>它應該做到的事</h3>
+  <label class="chk"><input type="checkbox" data-k="t1"><span>按鈕旁出現<b>紅色粗體</b>：「⚠️ 抓不到最新資料（…）。目前仍使用 YYYY-MM-DD 的資料。」</span></label>
+  <label class="chk"><input type="checkbox" data-k="t2"><span>頁面上的所有數字<b>完全沒變</b>，沒有被清空，也沒有出現奇怪的新數字</span></label>
+  <label class="chk"><input type="checkbox" data-k="t3"><span>把 Wi-Fi 打開，等 5 秒再按一次，又能成功更新</span></label>
+
+  <div class="warn">
+    <div class="warn-t">如果它沒有老實說</div>
+    <p>例如：失敗的時候畫面變空白、卡片變成 0、或是跳出一堆看起來合理的數字。這就是最危險的情況。請複製下面這句，貼在同一個對話裡。</p>
+  </div>
+  <div class="prompt">
+    <div class="prompt-label">指令 11　更新失敗要老實說</div>
+    <pre id="p_fail">請直接修改「你剛剛輸出的那份完整 HTML」，不要另外重新做一個新的頁面，資料只能用那份 HTML 裡的 const DATA 或從 FinMind 抓回來的真實資料。如果你找不到剛剛那份 HTML，請直接回答「找不到」，不要自己編。
+
+請檢查「更新這檔的最新資料」按鈕的失敗處理：只要抓取失敗（連不上網、回傳錯誤、資料太少），就不要清空資料、不要換資料，也絕對不可以用模擬或編造的數字頂替。保持原本的資料，在按鈕旁用紅色粗體顯示「⚠️ 抓不到最新資料（原因）。目前仍使用 YYYY-MM-DD 的資料。」
+
+請輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留，不要修改。</pre>
+    <button class="copy" data-src="p_fail">複製指令 11</button>
+  </div>
+</section>
+
+
+<!-- ═══ 4-4 ═══ -->
+<section class="step" id="s44">
+  <div class="step-head"><span class="badge">4-4</span><span class="mins">10 分鐘</span></div>
+  <h2>用得安全：次數限制</h2>
+  <ul>
+    <li>不登入的話，每小時大約 300 次。每按一次「更新」用 3 次，所以一個小時內按幾十次就會用完。</li>
+    <li>用完之後，紅字的括號裡會寫原因。這時候等一小時再試，不要一直按。</li>
+    <li>三大法人和融資融券是收盤後才陸續公布。如果你在上班時間按，最新一天通常是前一個交易日，這是正常的，不是壞掉。</li>
+    <li>FinMind 另外有「登入後拿金鑰（token）」的做法，額度會高一些。金鑰像密碼，<b>不要貼進你要分享給別人的網頁，也不要貼給 AI 聊天</b>。這個班不需要用到。</li>
+  </ul>
+  <label class="chk"><input type="checkbox" data-k="s1"><span>說說看：如果四個人同時狂按「更新」，會發生什麼事？</span></label>
+  <details>
+    <summary>看答案</summary>
+    <p>額度很快用完，每個人都會看到紅字「抓不到最新資料」。這也是為什麼我們前三次用預先下載的資料，今天才開放實際去抓。</p>
+  </details>
+</section>
+
+
+<!-- ═══ 4-5 ═══ -->
+<section class="step" id="s45">
+  <div class="step-head"><span class="badge">4-5</span><span class="mins">10 分鐘</span></div>
+  <h2>結業與下一步</h2>
+  <h3>今天學到的</h3>
+  <ul>
+    <li>頁面可以自己向資料庫要資料，按一下就更新。</li>
+    <li>抓得到就用，抓不到就老實說，原本的資料一個字都不動，絕不編數字。</li>
+    <li>只用「股價、三大法人、融資融券」都齊全的日子，沒公布的資料不能當成 0。</li>
+    <li>新資料也要核對：拿 HiStock 的同一天、同一個數字比一次。</li>
+  </ul>
+
+  <h3>你做出來的東西</h3>
+  <p>從第一次的一張 K 線圖，到現在一個會自己更新資料、會老實說的分析頁，都是用「複製、貼上、核對」做出來的。你不需要會寫程式，你需要的是知道要問什麼，以及怎麼確認它沒有騙你。</p>
+
+  <h3>如果還想繼續（有興趣再問老師）</h3>
+  <ul>
+    <li>讓頁面可以看「其他股票」，不只這六檔。</li>
+    <li>加更多指標，例如 KD、MACD、均線。</li>
+    <li>讓頁面自己每隔一段時間更新。</li>
+  </ul>
+  <div class="warn">
+    <div class="warn-t">最後提醒</div>
+    你做出來的是一個學習用的頁面。它的資料是收盤後的歷史資料，不是即時行情，也不會告訴你該買或該賣。投資的決定，請自己判斷、自己負責。
+  </div>
+</section>
+
+<footer>
+  資料來源：FinMind、證交所。預先下載的資料最後一天是 2026-10-02；按「更新」之後的資料，以資料來源當時提供的為準，三大法人與融資融券是收盤後才公布，不是即時報價。價格單位是元，買賣超、成交量、融資融券單位是張。本講義是教學用途，不構成任何投資建議。
+</footer>
+</div>
