@@ -1,0 +1,283 @@
+<div class="wrap">
+
+<div class="kicker">志工媽媽班 ・ 第 2 次 ・ 90 分鐘</div>
+<h1>步驟二　看懂散戶在做什麼，和現在站在哪裡</h1>
+<p class="lede">今天一樣只做複製、貼上、核對。我們要請 AI 在上次的頁面上，再加三張卡片：融資融券（散戶有多熱）、位階與量比（現在在高點還是低點）、階段參考（把數字整理成一句話）。</p>
+
+<div class="result">
+  <b>今天做完，你的頁面會多三張卡片。</b>每一張都能換不同股票看，而且每一個數字都能自己驗算。<br>
+  <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp2.html" target="_blank" rel="noopener">先看看成品長什麼樣（開新分頁）</a>
+</div>
+
+<div class="tl">
+<table>
+  <thead><tr><th>時間</th><th>做什麼</th></tr></thead>
+  <tbody>
+    <tr><td>10 分鐘</td><td>步驟 2-0　交作業，開新的 AI 對話</td></tr>
+    <tr><td>25 分鐘</td><td>步驟 2-1　加「融資融券」卡片</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 2-2　核對融資融券的數字</td></tr>
+    <tr><td>20 分鐘</td><td>步驟 2-3　加「位階與量比」卡片，用計算機驗算</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 2-4　五個階段的故事，加「階段參考」卡片</td></tr>
+    <tr><td>10 分鐘</td><td>收尾與回家作業</td></tr>
+  </tbody>
+</table>
+</div>
+
+
+<!-- ═══ 2-0 ═══ -->
+<section class="step" id="s20">
+  <div class="step-head"><span class="badge">2-0</span><span class="mins">10 分鐘</span></div>
+  <h2>交作業，開新的 AI 對話</h2>
+  <label class="chk"><input type="checkbox" data-k="p1"><span>輪流說說回家作業：你看的那一檔，外資最近連買還是連賣、幾天？</span></label>
+  <label class="chk"><input type="checkbox" data-k="p2"><span>在 AI 聊天網站按「新對話」。每次上課都從新對話開始，這樣大家的起點都一樣。</span></label>
+  <label class="chk"><input type="checkbox" data-k="p3"><span>開兩個分頁：一個放這份講義，一個放 AI 聊天</span></label>
+  <p>今天的起點是上次的「存檔點 1」（有股價圖和三大法人卡片）。下面 2-1 的紅色按鈕會自動把它帶進去，你不用找上次自己做的檔案。</p>
+</section>
+
+
+<!-- ═══ 2-1 ═══ -->
+<section class="step" id="s21">
+  <div class="step-head"><span class="badge">2-1</span><span class="mins">25 分鐘</span></div>
+  <h2>加「融資融券」卡片</h2>
+
+  <h3>先聽 5 分鐘白話</h3>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>名詞</th><th>白話</th></tr></thead>
+    <tbody>
+      <tr><td>融資</td><td>散戶向券商借錢買股票。融資餘額高，代表借錢買股票的人多，散戶很熱。</td></tr>
+      <tr><td>融券</td><td>向券商借股票先賣掉，之後一定要買回來還。所以每一張融券，都是未來的一筆買盤。</td></tr>
+      <tr><td>券資比</td><td>融券餘額 ÷ 融資餘額。比例越高，代表放空的人相對越多。</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>融資有「維持率」，股價跌太多，券商會要求補錢，補不出來就被強制賣掉（俗稱斷頭）。所以散戶用融資買股票，很容易在低點被洗出場。這也是為什麼我們要看融資的增減。</p>
+
+  <h3>三種常見組合（近 5 天）</h3>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>融資</th><th>融券</th><th>股價</th><th>白話</th></tr></thead>
+    <tbody>
+      <tr><td>減少</td><td>增加</td><td class="up">漲</td><td>散戶在賣，放空的人變多卻擋不住漲勢。放空的人有被迫買回（軋空）的風險。</td></tr>
+      <tr><td>增加</td><td>減少</td><td class="dn">跌</td><td>散戶越跌越買，放空的人在撤。籌碼比較凌亂，小心還會再跌。</td></tr>
+      <tr><td>減少</td><td>（不限）</td><td class="up">漲</td><td>散戶在賣，股價不跌反漲。股票可能正從散戶手上轉到大戶手上。</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>請 AI 加上這張卡片</h3>
+  <div class="prompt">
+    <div class="prompt-label">指令 3　融資融券卡片</div>
+    <pre id="p_margin">下面是我的「迷你台股分析器」網頁程式碼（已經有股價圖和三大法人卡片）。請在「三大法人」卡片的下面，新增一張「融資融券」卡片。
+
+規則：
+1. 資料用 m（融資餘額）、sh（融券餘額），單位都是「張」。
+2. 用表格列出三列：融資餘額、融券餘額、券資比。券資比＝融券餘額 ÷ 融資餘額 × 100%，顯示到小數點後 2 位。欄位是：最新一天的數字、近 5 日增減（最新一天減去 5 個交易日前）、連續增加或減少的天數（從最新一天往回數，每天的餘額跟前一天比，同方向連續幾天，遇到持平就中斷）。
+3. 表格下面畫融資餘額近 60 日的折線圖（藍色細線），並標出最低與最高的數字。
+4. 圖下面用一句白話判讀，用「近 5 日」比較融資、融券和股價（收盤價）的變化，依序判斷，符合第一個就停：
+   - 融資減少、融券增加、股價上漲 → 「融資減少、融券增加，股價還在漲：散戶在賣，放空的人變多卻擋不住漲勢。放空的人有被迫買回（軋空）的風險，要留意。」
+   - 融資增加、融券減少、股價下跌 → 「融資增加、融券減少，股價卻在跌：散戶越跌越買，放空的人在撤。籌碼比較凌亂，小心還會再跌。」
+   - 融資減少、股價上漲 → 「融資減少、股價不跌反漲：散戶在賣，股票可能正從散戶手上轉到大戶手上。」
+   - 其他 → 「三項沒有形成明顯的組合，先觀察，不要硬解讀。」
+5. 卡片最後加一小段說明：融資＝散戶向券商借錢買股票；融券＝向券商借股票先賣掉，之後一定要買回來還；券資比＝融券餘額 ÷ 融資餘額。並請使用者到 HiStock 核對最新一天的融資餘額與融券餘額。
+
+請輸出完整的 HTML 檔案，不要省略任何部分。資料區（const DATA）請原樣保留，不要修改。</pre>
+    <button class="copy" data-src="p_margin" data-attach="cp1">複製「指令＋存檔點 1 程式碼」</button>
+    <p class="autonote">按下去之後，這段指令後面會自動接上存檔點 1 的完整程式碼。</p>
+  </div>
+
+  <ol class="how">
+    <li>切到 AI 聊天的<b>新對話</b>，點輸入框，按 <span class="key">Ctrl + V</span> 貼上（Mac 按 <span class="key">⌘ + V</span>），按送出。</li>
+    <li>等 AI 寫完，點「預覽」看成果。（沒有預覽的話，照上次講義的「沒有預覽怎麼辦」存成網頁檔。）</li>
+  </ol>
+
+  <div class="see">
+    <div class="see-t">你應該看到</div>
+    <label class="chk"><input type="checkbox" data-k="m1"><span>三大法人卡片下面多了「融資融券」卡片</span></label>
+    <label class="chk"><input type="checkbox" data-k="m2"><span>表格有融資餘額、融券餘額、券資比三列。台積電應該是：融資 30,939、融券 18、券資比 0.06%</span></label>
+    <label class="chk"><input type="checkbox" data-k="m3"><span>有一條藍色的融資餘額折線圖</span></label>
+    <label class="chk"><input type="checkbox" data-k="m4"><span>最下面有一句白話判讀</span></label>
+  </div>
+
+  <h3>換一檔股票看看</h3>
+  <label class="chk"><input type="checkbox" data-k="m5"><span>點「鴻海 2317」，白話判讀應該變成：融資增加、融券減少，股價卻在跌，散戶越跌越買。</span></label>
+  <label class="chk"><input type="checkbox" data-k="m6"><span>點「長榮 2603」，看看它說什麼？和鴻海一樣嗎？</span></label>
+
+  <details>
+    <summary>卡住了（AI 回得很短、畫面空白、跟不上）</summary>
+    <p><b>AI 只回了一小段、不是完整程式碼</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_full">你剛剛沒有輸出完整的檔案。請重新輸出完整的 HTML 檔案，從頭到尾不要省略任何部分，資料區（const DATA）也要完整保留。</pre>
+      <button class="copy alt" data-src="p_full">複製這句</button>
+    </div>
+    <p><b>畫面一片空白或壞掉</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_fix">我打開你給的網頁，畫面是空白的（或有地方壞掉）。請檢查程式碼找出原因，修好之後輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留。</pre>
+      <button class="copy alt" data-src="p_fix">複製這句</button>
+    </div>
+    <p><b>完全跟不上</b>：不用緊張。這裡有做好的「存檔點 2」，也就是今天下課時該有的樣子。下次上課從它開始。</p>
+    <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp2.html" target="_blank" rel="noopener">打開存檔點 2（成品）</a>
+    <button class="copy alt" data-attach-only="cp2">複製存檔點 2 的完整程式碼</button>
+  </details>
+</section>
+
+
+<!-- ═══ 2-2 ═══ -->
+<section class="step" id="s22">
+  <div class="step-head"><span class="badge">2-2</span><span class="mins">10 分鐘</span></div>
+  <h2>核對融資融券的數字</h2>
+  <p>老習慣：做完一個功能，就拿外面的網站對一次答案。</p>
+  <ol class="how">
+    <li>打開 <a href="https://histock.tw/stock/chips.aspx?no=2330&amp;m=mg" target="_blank" rel="noopener">HiStock 台積電的融資融券頁</a>，找標題寫「近三十日融資融券與借券賣出」的表格。</li>
+    <li>找到 <span class="key">2026/10/02</span> 那一列，看「融資餘額」「融券餘額」「券資比」。</li>
+    <li>對照你的頁面：融資餘額 <span class="key">30,939</span>、融券餘額 <span class="key">18</span>、券資比 <span class="key">0.06%</span>。</li>
+  </ol>
+  <label class="chk"><input type="checkbox" data-k="v1"><span>融資餘額兩邊一樣</span></label>
+  <label class="chk"><input type="checkbox" data-k="v2"><span>融券餘額、券資比也一樣</span></label>
+  <div class="warn">
+    <div class="warn-t">對不上怎麼辦？</div>
+    把你的頁面和 HiStock 各截一張圖，貼給 AI，再貼下面這句。不用打任何數字。
+  </div>
+  <div class="prompt">
+    <div class="prompt-label">指令 4　請 AI 幫忙核對</div>
+    <pre id="p_check">我附上兩張截圖：一張是我做的網頁，一張是 HiStock 的融資融券表格。請逐項比對融資餘額、融券餘額、券資比，告訴我哪裡不一樣、可能是什麼原因。先不要改程式碼，只告訴我差在哪。</pre>
+    <button class="copy alt" data-src="p_check">複製這句</button>
+  </div>
+</section>
+
+
+<!-- ═══ 2-3 ═══ -->
+<section class="step" id="s23">
+  <div class="step-head"><span class="badge">2-3</span><span class="mins">20 分鐘</span></div>
+  <h2>加「位階與量比」卡片</h2>
+
+  <h3>先聽白話</h3>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>名詞</th><th>白話</th></tr></thead>
+    <tbody>
+      <tr><td>位階</td><td>今天的收盤價，站在最近 15 天高低區間的哪個位置。0% 是最低點，100% 是最高點。70% 以上叫高檔，30% 以下叫低檔，中間叫中段。</td></tr>
+      <tr><td>量比</td><td>今天的成交量，是最近平均量的幾倍。1 代表一樣。1.5 以上是突然有人進場，0.7 以下是成交量縮到很小，叫「窒息量」。</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>位階回答「現在貴不貴」，量比回答「現在熱不熱」。兩個一起看，才知道現在是什麼狀況。</p>
+
+  <h3>請 AI 加上這張卡片</h3>
+  <p>貼在同一個對話裡就好，不用再貼程式碼。</p>
+  <div class="prompt">
+    <div class="prompt-label">指令 5　位階與量比卡片</div>
+    <pre id="p_pos">請在「融資融券」卡片的下面，再新增一張「位階與量比」卡片。
+
+規則：
+1. 位階＝（最新收盤價 － 近 15 個交易日的最低價）÷（近 15 個交易日的最高價 － 近 15 個交易日的最低價）× 100%。最高價用資料裡的 h，最低價用 l，近 15 日包含最新這一天。位階 70% 以上寫「高檔」，30% 以下寫「低檔」，中間寫「中段」。
+2. 量比＝最新一天成交量 v ÷「前 15 個交易日」的平均成交量（不含最新這一天）。量比 0.7 以下標「窒息量（很安靜）」，1.5 以上標「爆量（突然有人進場）」，其他標「正常」。
+3. 用大字顯示位階（百分比和高檔／中段／低檔）與量比（數字和標籤）。
+4. 畫一條橫向的位階條：左邊 30% 用淡綠色、中間 40% 用淺灰色、右邊 30% 用淡紅色，在位階的位置放一個小小的 ▼ 當記號，條的下方標出「低檔（30% 以下）／中段／高檔（70% 以上）」。
+5. 在條的下面，把計算過程用實際數字寫出來，例如「位階 ＝（收盤 … － 近15日最低 …）÷（近15日最高 … － 近15日最低 …）× 100 ＝ …%」和「量比 ＝ 今天成交量 … 張 ÷ 前15日平均 … 張 ＝ …」，讓使用者可以拿計算機自己驗算。
+6. 卡片最後用兩行白話說明什麼是位階、什麼是量比。
+
+請輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留，不要修改。</pre>
+    <button class="copy" data-src="p_pos">複製指令 5</button>
+  </div>
+
+  <div class="see">
+    <div class="see-t">你應該看到</div>
+    <label class="chk"><input type="checkbox" data-k="n1"><span>融資融券卡片下面多了「位階與量比」卡片，有一條三色的位階條，上面有 ▼ 記號</span></label>
+    <label class="chk"><input type="checkbox" data-k="n2"><span>條的下面有用實際數字寫出來的算式</span></label>
+  </div>
+
+  <h3>拿計算機驗算（今天的重點）</h3>
+  <p>AI 把算式寫出來了，我們就不用相信它，直接驗算。手機的計算機就可以。</p>
+  <ol class="how">
+    <li>選台積電，看卡片裡的算式：收盤、近 15 日最高、近 15 日最低。</li>
+    <li>自己按一次：（收盤 － 最低）÷（最高 － 最低）× 100。</li>
+  </ol>
+  <label class="chk"><input type="checkbox" data-k="n3"><span>台積電應該是：（2500 － 2375）÷（2515 － 2375）× 100 ＝ <span class="key">89%</span>，高檔</span></label>
+  <label class="chk"><input type="checkbox" data-k="n4"><span>量比：15,792 ÷ 22,183 ＝ <span class="key">0.71</span>，正常（差一點點到 0.7，還不算窒息量）</span></label>
+  <p>你按出來的數字，應該和頁面上的一樣。不一樣的話，把兩個算式截圖給 AI，問它哪裡不同。</p>
+</section>
+
+
+<!-- ═══ 2-4 ═══ -->
+<section class="step" id="s24">
+  <div class="step-head"><span class="badge">2-4</span><span class="mins">15 分鐘</span></div>
+  <h2>五個階段的故事，加「階段參考」卡片</h2>
+
+  <h3>先聽 5 分鐘故事</h3>
+  <p>有些股票的大戶，操作會經過五個階段。這是用來整理眼前數字的框架，不是預言。</p>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>階段</th><th>在做什麼</th><th>外面看起來</th></tr></thead>
+    <tbody>
+      <tr><td>1 吸籌</td><td>偷偷買進，不想被發現</td><td>價格不動、成交量很小，沒人想理它</td></tr>
+      <tr><td>2 洗盤</td><td>嚇走不堅定的人</td><td>突然下跌、融資被斷頭，讓人想認賠</td></tr>
+      <tr><td>3 啟動</td><td>開始往上衝</td><td>成交量突然放大、價格突破，這段最短，只有 3 到 10 天</td></tr>
+      <tr><td>4 拉升</td><td>一路往上</td><td>量增價漲，大家都在談</td></tr>
+      <tr><td>5 出貨</td><td>把手上的賣出去</td><td>高檔爆量、價格漲不動，利多消息滿天飛</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><b>吸籌期耐得住，洗盤期留得住，啟動期看得準，拉升期抱得住，出貨期逃得快。</b></p>
+  <div class="warn">
+    <div class="warn-t">先講清楚</div>
+    我們這個頁面的資料有限，只能做「簡化版」的粗略判讀，不是預測。多數股票、多數時間，它都會說「看不出明確的階段」，這是正常的，不是壞掉。
+  </div>
+
+  <h3>請 AI 加上這張卡片</h3>
+  <div class="prompt">
+    <div class="prompt-label">指令 6　階段參考卡片</div>
+    <pre id="p_stage">請在「位階與量比」卡片的下面，再新增一張「現在像哪一個階段？（粗略參考）」卡片。
+
+先算出這些數字（都用目前選到的股票）：
+・位階、量比：同上一張卡片的算法
+・外資＋投信近 5 日累計＝外資 f 與投信 t 最近 5 天的買賣超加總
+・融資近 5 日增減＝最新一天的 m 減去 5 個交易日前的 m
+・股價近 5 日增減＝最新收盤價減去 5 個交易日前的收盤價
+・今天是不是紅 K＝收盤價 c 大於開盤價 o
+
+然後依下面的順序判斷，符合第一個就停：
+1. 位階 ≥ 70% 且 量比 ≥ 1.5 且 外資＋投信近 5 日累計 < 0 → 「⚠️ 高檔爆量，外資＋投信近 5 日在賣：小心可能在出貨」
+2. 量比 ≥ 1.5 且 今天是紅 K 且 位階 ≥ 50% 且 外資＋投信近 5 日累計 > 0 → 「🔥 放量上攻，外資＋投信近 5 日在買：可能是啟動或拉升中」
+3. 位階 ≤ 40% 且 融資近 5 日減少 且 股價近 5 日下跌 → 「🌀 股價下跌、融資同步減少：像是在洗掉散戶（洗盤）」
+4. 位階 ≤ 40% 且 量比 ≤ 0.7 → 「😴 低檔、成交量縮到很小：可能在吸籌，也可能只是沒人理，要再觀察」
+5. 都不符合 → 「看不出明確的階段（多數時候都是這樣，很正常）」
+
+卡片要用大字顯示判斷結果，下面用三行小字列出用到的數字（位階與量比、外資＋投信近 5 日累計、融資與股價近 5 日變化），最後加一句：「這是只用本頁資料做的簡化判讀，不是預測。完整的判斷還要看更多指標，請自己再對一次圖。」
+
+請輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留，不要修改。</pre>
+    <button class="copy" data-src="p_stage">複製指令 6</button>
+  </div>
+
+  <div class="see">
+    <div class="see-t">你應該看到</div>
+    <label class="chk"><input type="checkbox" data-k="g1"><span>台積電：「看不出明確的階段」，下面列出位階 89%、量比 0.71、外資＋投信近 5 日 −9,571 張</span></label>
+    <label class="chk"><input type="checkbox" data-k="g2"><span>把六檔股票全部點一遍，看哪一檔的結果和別人不一樣</span></label>
+  </div>
+
+  <h3>加分題：這個提示一定對嗎？</h3>
+  <p>點「元大高股息 0056」，卡片會說「高檔爆量，外資＋投信近 5 日在賣：小心可能在出貨」。請先不要相信它。</p>
+  <label class="chk"><input type="checkbox" data-k="g3"><span>到 Yahoo 股市或新聞，查 0056 這幾天有沒有「除息」或「換股」之類的消息</span></label>
+  <p>AI 的判讀只是在看數字。ETF 偶爾會因為換股、除息，出現很大的成交量，不一定是有人在出貨。查不到也沒關係，重點是養成「看到提示先查原因」的習慣。</p>
+</section>
+
+
+<!-- ═══ 收尾 ═══ -->
+<section class="step" id="s25">
+  <div class="step-head"><span class="badge">收尾</span><span class="mins">10 分鐘</span></div>
+  <h2>今天學到的，和回家作業</h2>
+  <ul>
+    <li>融資看散戶有多熱，融券是未來的買盤。看「近 5 天的組合」，不要看單一數字。</li>
+    <li>位階回答「現在貴不貴」，量比回答「現在熱不熱」。算式都寫出來了，可以自己驗算。</li>
+    <li>階段參考只是整理數字的粗略參考。看到提示，先查原因，再下結論。</li>
+  </ul>
+  <h3>回家作業（每天 3 分鐘）</h3>
+  <label class="chk"><input type="checkbox" data-k="h1"><span>從六檔裡挑一檔你有興趣的，用今天做的三張卡片，寫三句話：位階在哪、融資最近是增是減、階段參考說什麼。</span></label>
+  <label class="chk"><input type="checkbox" data-k="h2"><span>下次帶來，說給大家聽。</span></label>
+  <p>下一次上課，我們會從「存檔點 2」接著做：讓頁面在資料不足時老實說「資料不足」，再把所有卡片整理成一句話總結。</p>
+</section>
+
+<footer>
+  資料為預先下載的歷史資料（來源：FinMind、證交所），最後一天是 2026-10-02，不是即時報價。價格單位是元，買賣超、成交量、融資融券單位是張。階段參考是教學用的簡化判讀，不是預測。本講義是教學用途，不構成任何投資建議。
+</footer>
+</div>

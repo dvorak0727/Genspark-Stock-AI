@@ -100,6 +100,118 @@ function renderInst() {
 }
 """
 
+# ───────── 存檔點2：融資融券、位階與量比、階段參考 ─────────
+CP2_CSS = """
+.badge.mid{background:#e8eef9;color:#1e40af}
+.gauge{position:relative;height:16px;display:flex;margin:26px 0 6px}
+.gauge i{display:block;height:100%}
+.gauge .lo{width:30%;background:#cfe9da;border-radius:8px 0 0 8px}.gauge .md{width:40%;background:#e6ece9}.gauge .hi{width:30%;background:#f6d4d4;border-radius:0 8px 8px 0}
+.mark{position:absolute;top:-22px;transform:translateX(-50%);font-size:.8rem;font-weight:700}
+.gl{display:flex;font-size:.74rem;color:var(--muted)}
+.gl span:nth-child(1){width:30%}.gl span:nth-child(2){width:40%;text-align:center}.gl span:nth-child(3){width:30%;text-align:right}
+.nums{display:flex;gap:28px;flex-wrap:wrap;margin:14px 0 4px}
+.nums .big2{font-size:1.9rem;font-weight:800;line-height:1.1}
+.calc{font-size:.84rem;color:var(--muted);margin:6px 0 0;font-variant-numeric:tabular-nums}
+.stage-label{font-size:1.25rem;font-weight:800;margin:2px 0 8px}
+.reasons{font-size:.88rem;color:var(--muted);margin:0 0 8px;padding-left:1.2em}
+"""
+
+CP2_HTML = """
+  <section class="card" id="marginCard"></section>
+  <section class="card" id="posCard"></section>
+  <section class="card" id="stageCard"></section>"""
+
+CP2_JS = r"""
+/* ---- 共用：位階、量比等數字 ---- */
+const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+function metrics(s) {
+  const i = s.d.length - 1;
+  const H = Math.max(...s.h.slice(i - 14, i + 1)), L = Math.min(...s.l.slice(i - 14, i + 1));   // 近15日最高、最低（含今天）
+  const pos = (s.c[i] - L) / (H - L) * 100;                                                       // 位階：收盤在這個區間的哪個位置
+  const volAvg = mean(s.v.slice(i - 15, i));                                                      // 前15日平均量（不含今天）
+  return { i, H, L, pos, volAvg, vr: s.v[i] / volAvg,
+    inst5: sumLast(s.f, 5) + sumLast(s.t, 5),                                                    // 外資＋投信近5日累計
+    mChg5: s.m[i] - s.m[i - 5], shChg5: s.sh[i] - s.sh[i - 5], pChg5: s.c[i] - s.c[i - 5],
+    red: s.c[i] > s.o[i] };
+}
+
+/* ---- 融資融券 ---- */
+function chgStreak(a) { const d = []; for (let k = 1; k < a.length; k++) d.push(a[k] - a[k - 1]); return streak(d); }
+const midBadge = (st, up, down) => !st.d ? '<span class="badge flat">持平</span>'
+  : `<span class="badge mid">${st.dir > 0 ? up : down} ${st.d} 天</span>`;
+
+function renderMargin() {
+  const s = DATA[cur], i = s.d.length - 1, mt = metrics(s);
+  const ratio = s.sh[i] / s.m[i] * 100, ratio5 = s.sh[i - 5] / s.m[i - 5] * 100;
+  const sg = v => v > 0 ? 'up' : v < 0 ? 'down' : 'flat';
+  let msg;
+  if (mt.mChg5 < 0 && mt.shChg5 > 0 && mt.pChg5 > 0) msg = '融資減少、融券增加，股價還在漲：散戶在賣，放空的人變多卻擋不住漲勢。放空的人有被迫買回（軋空）的風險，要留意。';
+  else if (mt.mChg5 > 0 && mt.shChg5 < 0 && mt.pChg5 < 0) msg = '融資增加、融券減少，股價卻在跌：散戶越跌越買，放空的人在撤。籌碼比較凌亂，小心還會再跌。';
+  else if (mt.mChg5 < 0 && mt.pChg5 > 0) msg = '融資減少、股價不跌反漲：散戶在賣，股票可能正從散戶手上轉到大戶手上。';
+  else msg = '三項沒有形成明顯的組合，先觀察，不要硬解讀。';
+
+  const W = 900, H2 = 110, mn = Math.min(...s.m), mx = Math.max(...s.m), rg = (mx - mn) || 1;
+  const pts = s.m.map((v, k) => `${(10 + (W - 20) * k / (s.m.length - 1)).toFixed(1)},${(H2 - 20 - (v - mn) / rg * (H2 - 36)).toFixed(1)}`).join(' ');
+
+  $('marginCard').innerHTML = `
+    <h2>融資融券（散戶溫度計，單位：張）</h2>
+    <table class="tbl"><thead><tr><th>項目</th><th>${s.d[i].slice(5).replace('-', '/')} 最新</th><th>近 5 日增減</th><th>連續</th></tr></thead><tbody>
+      <tr><td>融資餘額</td><td>${n0(s.m[i])}</td><td class="${sg(mt.mChg5)}">${signed(mt.mChg5)}</td><td>${midBadge(chgStreak(s.m), '連增', '連減')}</td></tr>
+      <tr><td>融券餘額</td><td>${n0(s.sh[i])}</td><td class="${sg(mt.shChg5)}">${signed(mt.shChg5)}</td><td>${midBadge(chgStreak(s.sh), '連增', '連減')}</td></tr>
+      <tr><td>券資比</td><td>${ratio.toFixed(2)}%</td><td class="flat">5 日前 ${ratio5.toFixed(2)}%</td><td></td></tr>
+    </tbody></table>
+    <svg viewBox="0 0 ${W} ${H2}" role="img" aria-label="融資餘額近60日走勢" style="margin-top:10px">
+      <polyline points="${pts}" fill="none" stroke="#2563eb" stroke-width="2"/>
+      <text x="10" y="${H2 - 2}" font-size="11" fill="#6b8179">融資餘額近 60 日　最低 ${n0(mn)}　最高 ${n0(mx)}</text>
+    </svg>
+    <p class="verdict">${msg}</p>
+    <div class="hint">
+      <b>融資</b>＝散戶向券商借錢買股票。<b>融券</b>＝向券商借股票先賣掉，之後一定要買回來還。<b>券資比</b>＝融券餘額 ÷ 融資餘額。<br>
+      <b>核對一下：</b>打開 <a href="https://histock.tw/stock/chips.aspx?no=${cur}&m=mg" target="_blank" rel="noopener">HiStock ${cur} 融資融券頁</a>，
+      找 ${s.d[i]} 那天的融資餘額與融券餘額，應該和上表一樣。
+    </div>`;
+}
+
+/* ---- 位階與量比 ---- */
+function renderPos() {
+  const s = DATA[cur], mt = metrics(s), i = mt.i;
+  const posLabel = mt.pos >= 70 ? '高檔' : mt.pos <= 30 ? '低檔' : '中段';
+  const vrTag = mt.vr <= 0.7 ? '窒息量（很安靜）' : mt.vr >= 1.5 ? '爆量（突然有人進場）' : '正常';
+  $('posCard').innerHTML = `
+    <h2>位階與量比</h2>
+    <div class="nums">
+      <div><div class="sub">位階</div><div class="big2">${mt.pos.toFixed(0)}%</div><div class="sub">${posLabel}</div></div>
+      <div><div class="sub">量比</div><div class="big2">${mt.vr.toFixed(2)}</div><div class="sub">${vrTag}</div></div>
+    </div>
+    <div class="gauge"><i class="lo"></i><i class="md"></i><i class="hi"></i><span class="mark" style="left:${Math.min(99, Math.max(1, mt.pos)).toFixed(1)}%">▼</span></div>
+    <div class="gl"><span>低檔（30% 以下）</span><span>中段</span><span>高檔（70% 以上）</span></div>
+    <p class="calc">位階 ＝（收盤 ${s.c[i]} － 近15日最低 ${mt.L}）÷（近15日最高 ${mt.H} － 近15日最低 ${mt.L}）× 100 ＝ ${mt.pos.toFixed(0)}%<br>
+    量比 ＝ 今天成交量 ${n0(s.v[i])} 張 ÷ 前15日平均 ${n0(Math.round(mt.volAvg))} 張 ＝ ${mt.vr.toFixed(2)}</p>
+    <div class="hint"><b>位階</b>：今天的收盤價，站在最近 15 天高低區間的哪個位置。0% 是最低、100% 是最高。<br>
+    <b>量比</b>：今天的量是最近平均的幾倍。1 代表一樣，1.5 以上是突然有人進場，0.7 以下是成交量縮到很小。</div>`;
+}
+
+/* ---- 階段參考（教學簡化版，不是預測）---- */
+function renderStage() {
+  const s = DATA[cur], mt = metrics(s);
+  let label, cls = 'flat';
+  if (mt.pos >= 70 && mt.vr >= 1.5 && mt.inst5 < 0) { label = '⚠️ 高檔爆量，外資＋投信近 5 日在賣：小心可能在出貨'; cls = 'down'; }
+  else if (mt.vr >= 1.5 && mt.red && mt.pos >= 50 && mt.inst5 > 0) { label = '🔥 放量上攻，外資＋投信近 5 日在買：可能是啟動或拉升中'; cls = 'up'; }
+  else if (mt.pos <= 40 && mt.mChg5 < 0 && mt.pChg5 < 0) { label = '🌀 股價下跌、融資同步減少：像是在洗掉散戶（洗盤）'; }
+  else if (mt.pos <= 40 && mt.vr <= 0.7) { label = '😴 低檔、成交量縮到很小：可能在吸籌，也可能只是沒人理，要再觀察'; }
+  else label = '看不出明確的階段（多數時候都是這樣，很正常）';
+  $('stageCard').innerHTML = `
+    <h2>現在像哪一個階段？（粗略參考）</h2>
+    <div class="stage-label ${cls}">${label}</div>
+    <ul class="reasons">
+      <li>位階 ${mt.pos.toFixed(0)}%、量比 ${mt.vr.toFixed(2)}、今天${mt.red ? '收紅K' : '沒有收紅K'}</li>
+      <li>外資＋投信近 5 日累計 ${signed(mt.inst5)} 張</li>
+      <li>融資近 5 日 ${signed(mt.mChg5)} 張、股價近 5 日 ${mt.pChg5 > 0 ? '+' : ''}${mt.pChg5.toFixed(1)} 元</li>
+    </ul>
+    <div class="hint">這是只用本頁資料做的簡化判讀，<b>不是預測</b>。完整的判斷還要看更多指標。階段名稱只是幫你把眼前的數字整理成一句話，請自己再對一次圖。</div>`;
+}
+"""
+
 def build():
     tpl = rd("mini_start.template.html")
     data = rd("mini_data.js").strip()
@@ -114,7 +226,15 @@ def build():
     cp1 = must_replace(cp1, CALL_MARK, "  renderInst();")
     wr("mini-cp1.html", cp1)
 
-    for n in ("mini-start.html", "mini-cp1.html"):
+    cp2 = cp1
+    cp2 = must_replace(cp2, "存檔點1</title>", "存檔點2</title>")
+    cp2 = must_replace(cp2, CP1_HTML, CP1_HTML + CP2_HTML)
+    cp2 = must_replace(cp2, "</style>", CP2_CSS + "</style>")
+    cp2 = must_replace(cp2, "function renderAll() {", CP2_JS + "\nfunction renderAll() {")
+    cp2 = must_replace(cp2, "  renderInst();", "  renderInst();\n  renderMargin();\n  renderPos();\n  renderStage();")
+    wr("mini-cp2.html", cp2)
+
+    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html"):
         print(n, os.path.getsize(os.path.join(HERE, n)) // 1024, "KB")
 
 if __name__ == "__main__":
