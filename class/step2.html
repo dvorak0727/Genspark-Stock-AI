@@ -331,6 +331,22 @@ footer{margin-top:60px;padding-top:20px;border-top:2px solid var(--ink);font-siz
   <label class="chk"><input type="checkbox" data-k="n3"><span>台積電應該是：（2500 － 2375）÷（2515 － 2375）× 100 ＝ <span class="key">89%</span>，高檔</span></label>
   <label class="chk"><input type="checkbox" data-k="n4"><span>量比：15,792 ÷ 22,183 ＝ <span class="key">0.71</span>，正常（差一點點到 0.7，還不算窒息量）</span></label>
   <p>你按出來的數字，應該和頁面上的一樣。不一樣的話，把兩個算式截圖給 AI，問它哪裡不同。</p>
+
+  <div class="warn">
+    <div class="warn-t">你的數字和範例不一樣？先檢查這兩個地方</div>
+    <p>有些 AI 會自己改算法，數字就對不上。最常見的兩種：</p>
+    <ul>
+      <li><b>天數被改了：</b>我們用「近 <b>15</b> 天」。有的 AI 會改成「近 60 天」，卡片上會寫「近 60 日位階」。例如台積電，15 天算出來是 89%，60 天會變成 95.5%。</li>
+      <li><b>量比的分母被改了：</b>我們是「今天的量 ÷ <b>前 15 天</b>的平均（不含今天）」。有的 AI 會改成「5 日均量」。</li>
+    </ul>
+    <p>為什麼是 15 天？因為現在法人的操作週期變短了：投信大約 5 天、外資大約 10 天，最長也差不多 15 天。用 60 天看到的是一整季的大環境，已經不是法人現在在做的事。</p>
+    <p>發現被改了，複製下面這句貼給 AI：</p>
+  </div>
+  <div class="prompt">
+    <div class="prompt-label">指令　AI 改了位階或量比的算法時用</div>
+    <pre id="p_calc">位階和量比的算法跟我給的規則不一樣。請改回：位階＝（最新收盤價 － 近 15 個交易日最低價）÷（近 15 個交易日最高價 － 近 15 個交易日最低價）× 100%，最高價用 h、最低價用 l，近 15 日包含最新這一天。量比＝最新一天成交量 ÷ 前 15 個交易日的平均成交量（不含最新這一天）。卡片上的文字和算式也要跟著改成 15 日。其他部分不要改動，請輸出完整的 HTML 檔案，資料區（const DATA）原樣保留。</pre>
+    <button class="copy alt" data-src="p_calc">複製這句</button>
+  </div>
 </section>
 
 
@@ -390,8 +406,17 @@ footer{margin-top:60px;padding-top:20px;border-top:2px solid var(--ink);font-siz
     <div class="see-t">你應該看到</div>
     <label class="chk"><input type="checkbox" data-k="g0"><span>前面的卡片都還在，股票按鈕和 K 線也還在（如果只剩一張新卡片，照 2-3 的「重做了新頁面」那一格處理）</span></label>
     <label class="chk"><input type="checkbox" data-k="g1"><span>台積電：「看不出明確的階段」，下面列出位階 89%、量比 0.71、外資＋投信近 5 日 −9,571 張</span></label>
-    <label class="chk"><input type="checkbox" data-k="g2"><span>把六檔股票全部點一遍，看哪一檔的結果和別人不一樣</span></label>
+    <label class="chk"><input type="checkbox" data-k="g2"><span>把六檔股票全部點一遍：預期只有 0056 的結果和別人不一樣，其他五檔都是「看不出明確的階段」（原因在下面）</span></label>
   </div>
+
+  <h3>為什麼六檔裡大多數都「看不出明確的階段」？</h3>
+  <p>如果你把六檔都點過，會發現只有 0056 跳出提示，其他五檔都寫「看不出明確的階段」。這<b>不是壞掉</b>，是正常的，原因有三個：</p>
+  <ul>
+    <li><b>條件很嚴格：</b>前四條規則都要「量比≥1.5」或「量比≤0.7」這種極端值。平常的日子，量比大多落在 0.7 到 1.5 之間，不會觸發。</li>
+    <li><b>走勢要有足夠多的資料才看得出來：</b>階段是一段時間的故事，不是一天的照片。我們只拿最近 15 天和 5 天的數字做簡化判讀，所以只能抓到「很明顯」的情況。</li>
+    <li><b>看不出，就是誠實的答案：</b>寧可說「看不出」，也不要硬挑一個階段貼上去。五檔都被判成同一個結果，反而代表頁面沒有亂猜。</li>
+  </ul>
+  <label class="chk"><input type="checkbox" data-k="g4"><span>說說看：如果一個頁面每一檔都能告訴你「現在是出貨」或「現在是吸籌」，你會不會覺得有點可疑？為什麼？</span></label>
 
   <h3>加分題：這個提示一定對嗎？</h3>
   <p>點「元大高股息 0056」，卡片會說「高檔爆量，外資＋投信近 5 日在賣：小心可能在出貨」。請先不要相信它。</p>
