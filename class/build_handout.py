@@ -6,6 +6,8 @@
   python3 build_handout.py step1 輸出檔.html     第1次講義（模板 handout_step1.template.html）
   python3 build_handout.py step2 輸出檔.html     第2次講義（沿用第1次的外觀與複製鈕程式，
                                                  內容取自 handout_step2.body.html）
+  在最後面加 standalone：包成完整網頁，直接放GitHub Pages（step1.html、step2.html）；
+  不加就是Artifact發布用的版本（平台會自動補外殼）。
 嵌入時做HTML跳脫（& < >），放進隱藏的textarea，複製鈕讀 .value 會還原成原始程式碼。
 模板裡有 __STARTER__ / __CP1__ / __CP2__ 哪個標記，就嵌入對應的檔案。
 """
@@ -24,8 +26,17 @@ def compose_step2():
     tail = tail.replace("volmom-step1:", "volmom-step2:")
     return head + rd("handout_step2.body.html") + "\n" + tail
 
+def standalone(s):
+    """包成可以直接放在GitHub Pages的完整網頁（Artifact發布時平台會自動補這層外殼，自己放就要自己補）"""
+    i = s.index('<div class="wrap">')
+    head, body = s[:i], s[i:]
+    return ('<!doctype html>\n<html lang="zh-TW">\n<head>\n<meta charset="utf-8">\n'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
+            '<meta name="robots" content="noindex">\n' + head + '</head>\n<body>\n' + body + '\n</body>\n</html>\n')
+
 def main():
     which, out_path = sys.argv[1], sys.argv[2]
+    as_page = len(sys.argv) > 3 and sys.argv[3] == "standalone"
     s = compose_step2() if which == "step2" else rd("handout_step1.template.html")
     used = 0
     for marker, fn in (("__STARTER__", "mini-start.html"), ("__CP1__", "mini-cp1.html"), ("__CP2__", "mini-cp2.html")):
@@ -33,6 +44,8 @@ def main():
             s = s.replace(marker, html.escape(rd(fn), quote=False))
             used += 1
     assert used, "模板裡沒有任何要嵌入的標記"
+    if as_page:
+        s = standalone(s)
     open(out_path, "w", encoding="utf-8").write(s)
     print(out_path, len(s.encode()) // 1024, "KB，嵌入", used, "份程式碼")
 
