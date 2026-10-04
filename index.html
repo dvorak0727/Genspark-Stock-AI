@@ -34890,6 +34890,7 @@ async function fetchHoldingShares(stockId) {
       const unitUp = cur.unitPctRaw > prev.unitPctRaw;
       if (pplUp  && unitUp)  whaleSignal = 'strong';   // 🐋 人數+佔比雙增
       else if (unitUp)       whaleSignal = 'accum';    // 📈 既有大戶加碼
+      else if (cur.people === prev.people && cur.unitPctRaw === prev.unitPctRaw) whaleSignal = 'flat'; // ➖ 兩週完全相同＝不變（不是撤退）
       else if (!pplUp && !unitUp) whaleSignal = 'exit'; // ⚠️ 大戶撤退
     }
 
@@ -34913,6 +34914,7 @@ function _whaleSignalMeta(sig) {
   if (sig === 'strong') return { icon:'🐋', label:'鯨魚悄入', bg:'#D1FAE5', color:'#065F46', border:'#6EE7B7' };
   if (sig === 'accum')  return { icon:'📈', label:'籌碼集中', bg:'#EDE9FE', color:'#3730A3', border:'#A5B4FC' };
   if (sig === 'exit')   return { icon:'⚠️', label:'大戶撤退', bg:'#FEE2E2', color:'#991B1B', border:'#FCA5A5' };
+  if (sig === 'flat')   return { icon:'➖', label:'不變',     bg:'#F1F5F9', color:'#475569', border:'#CBD5E1' };
   return                       { icon:'—',  label:'觀察中',   bg:'#F1F5F9', color:'#475569', border:'#CBD5E1' };
 }
 

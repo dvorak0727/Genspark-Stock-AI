@@ -1,0 +1,40 @@
+name: 補抓集保歷史（一次性，手動觸發）
+
+# 集保開放資料只提供最新一週。這個流程用 repo Secrets 裡的 FINMIND_TOKEN（贊助會員），
+# 把過去幾週的全市場股權分散表補進 data/tdcc_pyramid.json。Token 不會印出來。
+# 日期預設是 2026-10-02 之前的四個週五；已經有的週別會自動跳過，重複執行是安全的。
+on:
+  workflow_dispatch:
+    inputs:
+      weeks:
+        description: "要補的資料日（空白分隔，YYYY-MM-DD）"
+        default: "2026-09-04 2026-09-11 2026-09-18 2026-09-25"
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 補抓
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+          WEEKS: ${{ github.event.inputs.weeks }}
+        run: python3 scripts/backfill_tdcc.py $WEEKS
+      - name: 有變動才提交
+        run: |
+          if [ -n "$(git status --porcelain data/tdcc_pyramid.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/tdcc_pyramid.json
+            git commit -m "資料：補抓集保股權分散表歷史"
+            git pull --rebase origin main
+            git push
+          else
+            echo "沒有變動"
+          fi
