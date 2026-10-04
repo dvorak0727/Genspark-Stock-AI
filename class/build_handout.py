@@ -8,6 +8,7 @@
   python3 build_handout.py step3 輸出檔.html     第3次講義（同上，內容取自 handout_step3.body.html）
   python3 build_handout.py step4 輸出檔.html     第4次講義（同上，內容取自 handout_step4.body.html）
   python3 build_handout.py step5 輸出檔.html     第5次講義（同上，內容取自 handout_step5.body.html）
+  python3 build_handout.py step6 輸出檔.html     第6次講義（同上，內容取自 handout_step6.body.html）
   在最後面加 standalone：包成完整網頁，直接放GitHub Pages（step1.html ~ step4.html）；
   不加就是Artifact發布用的版本（平台會自動補外殼）。
 嵌入時做HTML跳脫（& < >），放進隱藏的textarea，複製鈕讀 .value 會還原成原始程式碼。
@@ -24,9 +25,10 @@ STEPS = {
     "step3": dict(body="handout_step3.body.html", title="老實說的頁面", boxes=("cp2", "cp3")),
     "step4": dict(body="handout_step4.body.html", title="會自己更新的頁面", boxes=("cp3", "cp4")),
     "step5": dict(body="handout_step5.body.html", title="查自己的股票", boxes=("cp4", "cp5")),
+    "step6": dict(body="handout_step6.body.html", title="加均線", boxes=("cp5", "cp6")),
 }
 FILES = {"__STARTER__": "mini-start.html", "__CP1__": "mini-cp1.html", "__CP2__": "mini-cp2.html",
-         "__CP3__": "mini-cp3.html", "__CP4__": "mini-cp4.html", "__CP5__": "mini-cp5.html"}
+         "__CP3__": "mini-cp3.html", "__CP4__": "mini-cp4.html", "__CP5__": "mini-cp5.html", "__CP6__": "mini-cp6.html"}
 
 def compose(step):
     cfg = STEPS[step]

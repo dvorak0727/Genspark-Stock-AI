@@ -1,0 +1,209 @@
+<div class="wrap">
+
+<div class="kicker">志工媽媽班 ・ 進階 ・ 90 分鐘</div>
+<h1>步驟六　在 K 線圖上加均線</h1>
+<p class="lede">前面都是在加「卡片」，今天第一次動「圖」：在 K 線上疊兩條線，5 日線和 20 日線。均線是很多人愛看的東西，但今天的重點不是教你怎麼靠它買賣，而是學會三件事：怎麼算、算不出來的地方怎麼老實空著、怎麼用手算核對。一樣只做複製、貼上、核對。</p>
+
+<div class="result">
+  <b>今天做完，K 線圖上會多兩條線：</b>橘色是 5 日線、藍色是 20 日線，上面有按鈕可以開關。圖下面用白話寫出「收盤在均線之上或之下」。資料不夠算的地方，線不會硬畫，而是老實空著。<br>
+  <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp6.html" target="_blank" rel="noopener">先看看成品長什麼樣（開新分頁，可以按按看）</a>
+</div>
+
+<div class="tl">
+<table>
+  <thead><tr><th>時間</th><th>做什麼</th></tr></thead>
+  <tbody>
+    <tr><td>10 分鐘</td><td>步驟 6-0　交作業，開新的 AI 對話</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 6-1　先聽白話：均線是什麼、怎麼算</td></tr>
+    <tr><td>30 分鐘</td><td>步驟 6-2　請 AI 加均線，並存成網頁檔測試</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 6-3　拿計算機手算一次，核對頁面</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 6-4　資料不夠的時候，線為什麼不畫</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 6-5　結業與下一步</td></tr>
+  </tbody>
+</table>
+</div>
+
+
+<!-- ═══ 6-0 ═══ -->
+<section class="step" id="s60">
+  <div class="step-head"><span class="badge">6-0</span><span class="mins">10 分鐘</span></div>
+  <h2>交作業，開新的 AI 對話</h2>
+  <label class="chk"><input type="checkbox" data-k="p1"><span>輪流說說上次你查了哪一檔股票，有沒有查到「查不到」的？原因是什麼？</span></label>
+  <label class="chk"><input type="checkbox" data-k="p2"><span>在 AI 聊天網站按「新對話」，開兩個分頁：一個放這份講義，一個放 AI 聊天</span></label>
+  <p>今天的起點是「存檔點 5」（有查其他股票輸入框）。6-2 的紅色按鈕會自動把它帶進去。</p>
+</section>
+
+
+<!-- ═══ 6-1 ═══ -->
+<section class="step" id="s61">
+  <div class="step-head"><span class="badge">6-1</span><span class="mins">15 分鐘</span></div>
+  <h2>先聽白話：均線是什麼</h2>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>名詞</th><th>白話</th></tr></thead>
+    <tbody>
+      <tr><td>5 日線</td><td>最近 5 個交易日「收盤價」的平均。大約是一週的平均成本，反應快。</td></tr>
+      <tr><td>20 日線</td><td>最近 20 個交易日收盤價的平均。大約是一個月的平均成本，反應慢，但比較穩。</td></tr>
+      <tr><td>收盤在均線之上</td><td>今天的收盤價，比這段時間的平均還高，代表最近買的人平均有賺。</td></tr>
+      <tr><td>5 日線在 20 日線之上</td><td>近一週的平均，比近一個月的平均高，代表最近這陣子價格是往上走的。</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>怎麼算（今天會用計算機驗證）</h3>
+  <p>5 日線在「最新一天」的數字 ＝ 最近 5 個收盤價加起來，除以 5。20 日線同理，除以 20。每往前一天，就把最舊的那天丟掉、加進新的那天，所以叫「移動」平均。</p>
+
+  <h3>一個容易忽略的重點：前面的資料要借用</h3>
+  <p>假設畫面只顯示最近 10 天，第 1 天的 20 日線要用到「再往前 19 天」的資料。所以我們的頁面算均線時，會往前借用更早的收盤價。借得到就算，借不到（資料本身就不夠長）就<b>讓線在那裡空著</b>，不補、不猜。</p>
+
+  <div class="warn">
+    <div class="warn-t">寫在最前面</div>
+    <p>均線是「過去價格的平均」，永遠比價格慢一步。它能幫你看清楚最近的方向，但不能預測明天，更不是買賣訊號。頁面上也會寫這句話。</p>
+  </div>
+</section>
+
+
+<!-- ═══ 6-2 ═══ -->
+<section class="step" id="s62">
+  <div class="step-head"><span class="badge">6-2</span><span class="mins">30 分鐘</span></div>
+  <h2>請 AI 加均線</h2>
+
+  <div class="prompt">
+    <div class="prompt-label">指令 13　加均線</div>
+    <pre id="p_ma6">下面是我的「迷你台股分析器」網頁程式碼。請在「K 線與成交量」那張圖上，疊上 5 日線和 20 日線兩條均線。
+
+規則：
+1. 均線＝最近 N 個交易日「收盤價」的簡單平均（N 是 5 或 20）。5 日線用橘色（#f59e0b），20 日線用藍色（#2563eb），線寬約 2。
+2. 計算時要往前借用更早的資料：畫面現在顯示最近幾天，就畫那幾天的均線，但每一天的均線要用到它之前的 N 天收盤價，即使那些天沒有顯示在畫面上。
+3. 如果往前借也不夠 N 天（資料本身不夠長），那一天的均線就是「算不出來」：線在那裡中斷，不要補 0，不要用別的數字代替，也不要硬畫。
+4. 在圖的上方放兩顆開關按鈕「5 日線」「20 日線」，按一下開啟或關閉那一條線，開啟時按鈕用同一個顏色。
+5. 均線要跟著「顯示天數」按鈕、換股票、查其他股票一起更新。
+6. 在圖的下方用白話寫三句：「收盤 X 在 5 日線（數字）之上或之下」「收盤 X 在 20 日線（數字）之上或之下」「5 日線（數字）在 20 日線（數字）之上或之下」。數字取到小數第 2 位。如果某條均線算不出來，就寫「N 日線：資料不足，需要至少 N 個交易日，算不出來。」。
+7. 再加一行小字：「均線只是過去價格的平均，會比價格慢一步，不是預測，也不是買賣訊號。」
+8. 頁面上不可以出現 NaN 或 undefined。
+
+請輸出完整的 HTML 檔案，不要省略任何部分。其他部分不要改動，原本的資料區（const DATA）請原樣保留。</pre>
+    <button class="copy" data-src="p_ma6" data-attach="cp5">複製「指令＋存檔點 5 程式碼」</button>
+    <p class="autonote">按下去之後，這段指令後面會自動接上存檔點 5 的完整程式碼。</p>
+  </div>
+
+  <ol class="how">
+    <li>切到 AI 聊天的<b>新對話</b>，點輸入框，按 <span class="key">Ctrl + V</span> 貼上（Mac 按 <span class="key">⌘ + V</span>），按送出。</li>
+    <li>等 AI 寫完，在預覽裡看 K 線圖上有沒有兩條線。這一步不需要網路，預覽就能測。</li>
+  </ol>
+
+  <h3>驗收</h3>
+  <label class="chk"><input type="checkbox" data-k="u1"><span>原本的股票按鈕、顯示天數、更新按鈕、查股票輸入框、所有卡片都還在</span></label>
+  <label class="chk"><input type="checkbox" data-k="u2"><span>K 線圖上有一條橘線和一條藍線，圖上方有「5 日線」「20 日線」兩顆開關</span></label>
+  <label class="chk"><input type="checkbox" data-k="u3"><span>按「5 日線」，橘線消失；再按一次，橘線回來</span></label>
+  <label class="chk"><input type="checkbox" data-k="u4"><span>按「10 天」：兩條線都還在，而且 20 日線沒有在左邊憑空消失（因為有往前借資料）</span></label>
+  <label class="chk"><input type="checkbox" data-k="u5"><span>圖下面有「收盤 … 在 5 日線（…）之上／之下」三句白話，和那行「不是預測」的小字</span></label>
+  <label class="chk"><input type="checkbox" data-k="u6"><span>頁面上沒有 NaN、undefined</span></label>
+
+  <h3>AI 的作法和我們不一樣，怎麼辦？</h3>
+  <p>每個人的 AI 寫出來的程式都會有一點不同，這很正常。只要驗收那幾項成立就算過關。如果頁面變得很簡陋，或圖變成另一張新的，代表 AI 自己重做了一個新頁面，數字是編的。</p>
+
+  <div class="warn">
+    <div class="warn-t">AI 回答「找不到」時（有些免費 AI 會忘記上一份程式碼）</div>
+    <p>這不是你做錯，是它沒記住，而且它沒有亂編，反而是好事。照下面做：</p>
+    <ol class="how">
+      <li>找到 AI 上一次給你的完整程式碼區塊，按它<b>右上角的「複製」圖示</b>。</li>
+      <li>點聊天輸入框，先貼上這份程式碼（<span class="key">Ctrl + V</span>），換一行，再貼上本頁的指令，一起送出。</li>
+    </ol>
+    <p>找不到上一份程式碼的話，退回「存檔點」：用本頁最下面「卡住了」裡的存檔點按鈕，從存檔點重新開始。</p>
+  </div>
+
+  <div class="prompt">
+    <div class="prompt-label">指令　AI 重做了新頁面時用</div>
+    <pre id="p_redo">你剛剛做的是一個全新的頁面，而且數字是你自己編的。我要的是在「前面那份有股票按鈕、顯示天數按鈕、更新按鈕、查股票輸入框、價格、K 線和所有卡片的完整網頁」上新增功能，資料只能用那份網頁裡的 const DATA，或是從 FinMind 抓回來的真實資料。請以那份 HTML 為基礎重新輸出完整檔案。如果你找不到那份 HTML，請直接回答「找不到」，不要編數字。</pre>
+    <button class="copy alt" data-src="p_redo">複製這句</button>
+  </div>
+
+  <details>
+    <summary>卡住了（AI 回得很短、畫面空白、跟不上）</summary>
+    <p><b>AI 只回了一小段、不是完整程式碼</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_full">你剛剛沒有輸出完整的檔案。請重新輸出完整的 HTML 檔案，從頭到尾不要省略任何部分，資料區（const DATA）也要完整保留。</pre>
+      <button class="copy alt" data-src="p_full">複製這句</button>
+    </div>
+    <p><b>畫面一片空白或壞掉</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_fix">我打開你給的網頁，畫面是空白的（或有地方壞掉）。請檢查程式碼找出原因，修好之後輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留。</pre>
+      <button class="copy alt" data-src="p_fix">複製這句</button>
+    </div>
+    <p><b>完全跟不上</b>：不用緊張，這裡有做好的「存檔點 6」，也就是今天下課時該有的樣子。</p>
+    <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp6.html" target="_blank" rel="noopener">打開存檔點 6（成品）</a>
+    <button class="copy alt" data-attach-only="cp6">複製存檔點 6 的完整程式碼</button>
+  </details>
+</section>
+
+
+<!-- ═══ 6-3 ═══ -->
+<section class="step" id="s63">
+  <div class="step-head"><span class="badge">6-3</span><span class="mins">15 分鐘</span></div>
+  <h2>拿計算機手算一次，核對頁面</h2>
+  <p>今天最重要的一步。你要證明頁面算的數字是對的，不是 AI 編的。</p>
+  <ol class="how">
+    <li>在頁面選一檔股票，把滑鼠停在最右邊最後 5 根 K 線上，每根會浮出一行字，裡面有「收」開頭的數字，就是收盤價。把最近 5 天的收盤價抄在紙上。（手機沒有滑鼠停留，可以改用電腦做這一步。）</li>
+    <li>5 個數字加起來，除以 5，用計算機算。</li>
+    <li>和頁面圖下面寫的「5 日線（…）」比：應該一樣（最多差 0.01，是四捨五入）。</li>
+    <li>有興趣的話，再抄 20 天，算 20 日線。</li>
+  </ol>
+  <label class="chk"><input type="checkbox" data-k="c1"><span>我的手算結果，和頁面上的 5 日線一樣</span></label>
+  <label class="chk"><input type="checkbox" data-k="c2"><span>我說得出：為什麼均線永遠比價格慢一步？（因為它是過去幾天的平均，今天的價格只占 1/5 或 1/20）</span></label>
+  <p>對不上的話，把頁面截圖和你抄的數字一起貼給 AI，問它用的是哪幾天的收盤價，先不要改程式。</p>
+  <div class="warn">
+    <div class="warn-t">參考答案（用老師預先下載的資料）</div>
+    <p>台積電最新一天，最近 5 天收盤價平均是 2488.00，最近 20 天平均是 2448.25。如果你用的是預先下載資料、最新一天是 2026-10-02，你的頁面應該一樣。用自己更新過的資料，數字會不同，這很正常。</p>
+  </div>
+</section>
+
+
+<!-- ═══ 6-4 ═══ -->
+<section class="step" id="s64">
+  <div class="step-head"><span class="badge">6-4</span><span class="mins">10 分鐘</span></div>
+  <h2>資料不夠的時候，線為什麼不畫</h2>
+  <p>輸入一檔剛上市不久的股票，或資料只有 10 幾天的股票（用上次的查股票輸入框試試看）。你會看到：</p>
+  <ul>
+    <li>20 日線：寫著「資料不足，需要至少 20 個交易日，算不出來」，圖上沒有藍線。</li>
+    <li>5 日線：資料夠，照常顯示。</li>
+  </ul>
+  <label class="chk"><input type="checkbox" data-k="s1"><span>說說看：為什麼不乾脆用「現有的天數」硬算一條 20 日線？</span></label>
+  <details>
+    <summary>看答案</summary>
+    <p>如果只有 12 天，硬算出來的其實是「12 日線」，卻標成「20 日線」。看的人會以為它是 20 天的平均，這就是在騙人。老實說「算不出來」，比畫一條看起來完整、其實名不符實的線，更有價值。</p>
+  </details>
+</section>
+
+
+<!-- ═══ 6-5 ═══ -->
+<section class="step" id="s65">
+  <div class="step-head"><span class="badge">6-5</span><span class="mins">10 分鐘</span></div>
+  <h2>結業與下一步</h2>
+  <h3>今天學到的</h3>
+  <ul>
+    <li>均線＝最近 N 天收盤價的平均，可以用計算機自己驗算。</li>
+    <li>畫在圖上的東西，也要像卡片一樣核對。</li>
+    <li>算均線要往前借資料；借不到，就讓線空著，不補、不硬畫。</li>
+    <li>均線比價格慢一步，不是預測，也不是買賣訊號。</li>
+  </ul>
+
+  <h3>你做出來的東西</h3>
+  <p>現在你的頁面有：K 線＋均線、三大法人、融資融券、位階與量比、階段參考、一句話總結，可以自己更新資料，可以查任何一檔股票。每一個數字都有來源、有算法、有核對過。這就是老師那套分析器最核心的樣子。</p>
+
+  <h3>如果還想繼續（有興趣再問老師）</h3>
+  <ul>
+    <li>把你常看的股票存成清單，下次打開還在。</li>
+    <li>加更多指標，例如 KD、MACD。</li>
+    <li>讓頁面自己每隔一段時間更新。</li>
+  </ul>
+  <div class="warn">
+    <div class="warn-t">最後提醒</div>
+    你做出來的是一個學習用的頁面。它的資料是收盤後的歷史資料，不是即時行情，也不會告訴你該買或該賣。投資的決定，請自己判斷、自己負責。
+  </div>
+</section>
+
+<footer>
+  資料來源：FinMind、證交所。預先下載的資料最後一天是 2026-10-02；查詢與更新的資料，以資料來源當時提供的為準，三大法人與融資融券是收盤後才公布，不是即時報價。價格單位是元，買賣超、成交量、融資融券單位是張。本講義是教學用途，不構成任何投資建議。
+</footer>
+</div>

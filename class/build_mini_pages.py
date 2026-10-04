@@ -485,6 +485,63 @@ def build_cp5(cp4):
     cp5 = must_replace(cp5, "function renderAll() {", CP5_JS + "\nfunction renderAll() {")
     return cp5
 
+# ───────── 存檔點6：均線（5日線、20日線）疊在K線圖上，資料不夠的地方老實空著 ─────────
+CP6_CSS = """
+.ma-row{align-items:center;margin-bottom:6px}
+.ma-row .chip.ma5.on{background:#f59e0b;border-color:#f59e0b}
+.ma-row .chip.ma20.on{background:#2563eb;border-color:#2563eb}
+.ma-info{font-size:.9rem;line-height:1.85;color:var(--ink);margin-top:8px}
+"""
+
+CP6_JS = r"""
+/* ---- 均線：最近 N 天收盤價的平均。算的時候往前借用更早的資料，不夠就空著，不補、不猜 ---- */
+const MA_COLOR = { 5: '#f59e0b', 20: '#2563eb' };
+const maOn = { 5: true, 20: true };
+function maSeries(k) {                       // 回傳跟畫面上每一天對齊的陣列；資料不夠的那天是 null
+  const raw = DATA[cur], n = view().d.length, off = raw.d.length - n;
+  return Array.from({ length: n }, (_, i) => {
+    const a = off + i - k + 1;
+    return a < 0 ? null : raw.c.slice(a, off + i + 1).reduce((x, y) => x + y, 0) / k;
+  });
+}
+function renderMA() {
+  $('maRow').innerHTML = '<span class="days-lbl">均線：</span>' + [5, 20].map(k =>
+    `<button class="chip ma${k} ${maOn[k] ? 'on' : ''}" data-k="${k}">${k} 日線</button>`).join('');
+  document.querySelectorAll('#maRow .chip').forEach(b => b.onclick = () => { maOn[b.dataset.k] = !maOn[b.dataset.k]; renderAll(); });
+
+  const s = view(), n = s.d.length, svg = document.querySelector('#chart svg');
+  const W = 900, padL = 8, padR = 56, top = 10, priceH = 215;               // 跟 renderChart 用同一把尺
+  const hi0 = Math.max(...s.h), lo0 = Math.min(...s.l), pad = (hi0 - lo0) * 0.05 || 1, hi = hi0 + pad, lo = lo0 - pad;
+  const y = v => top + (hi - v) / (hi - lo) * priceH, step = (W - padL - padR) / n;
+  let g = `<clipPath id="maClip"><rect x="${padL}" y="${top}" width="${W - padL - padR}" height="${priceH}"/></clipPath><g clip-path="url(#maClip)">`;
+  const last = {};
+  [5, 20].forEach(k => {
+    const ma = maSeries(k); last[k] = ma[n - 1];
+    if (!maOn[k]) return;
+    let pts = [];
+    const flush = () => { if (pts.length > 1) g += `<polyline points="${pts.join(' ')}" fill="none" stroke="${MA_COLOR[k]}" stroke-width="2.2" stroke-linejoin="round"/>`; pts = []; };
+    ma.forEach((v, i) => { if (v === null) flush(); else pts.push(`${(padL + step * i + step / 2).toFixed(1)},${y(v).toFixed(1)}`); });
+    flush();
+  });
+  svg.insertAdjacentHTML('beforeend', g + '</g>');
+
+  const c = s.c[n - 1], rel = (k) => last[k] === null ? `${k} 日線：資料不足，需要至少 ${k} 個交易日，算不出來。`
+    : `收盤 ${c} 在 ${k} 日線（${last[k].toFixed(2)}）${c > last[k] ? '之上' : c < last[k] ? '之下' : '持平'}。`;
+  let cross = '';
+  if (last[5] !== null && last[20] !== null) cross = `5 日線（${last[5].toFixed(2)}）在 20 日線（${last[20].toFixed(2)}）${last[5] > last[20] ? '之上' : last[5] < last[20] ? '之下' : '持平'}。`;
+  $('maInfo').innerHTML = `<b>均線怎麼看：</b>${rel(5)}${rel(20)}${cross}<br><span class="sub">均線只是過去價格的平均，會比價格慢一步，不是預測，也不是買賣訊號。</span>`;
+}
+"""
+
+def build_cp6(cp5):
+    cp6 = must_replace(cp5, "存檔點5</title>", "存檔點6</title>")
+    cp6 = must_replace(cp6, '<div id="chart"></div>', '<div id="maRow" class="chips ma-row"></div>\n    <div id="chart"></div>')
+    cp6 = must_replace(cp6, "</section>\n\n  <!-- ▼▼▼", '<div id="maInfo" class="ma-info"></div>\n  </section>\n\n  <!-- ▼▼▼') if "</section>\n\n  <!-- ▼▼▼" in cp6 else cp6
+    cp6 = must_replace(cp6, "</style>", CP6_CSS + "</style>")
+    cp6 = must_replace(cp6, "function renderAll() {", CP6_JS + "\nfunction renderAll() {")
+    cp6 = must_replace(cp6, "  renderStage();", "  renderStage();\n  renderMA();")
+    return cp6
+
 def build():
     tpl = rd("mini_start.template.html")
     data = rd("mini_data.js").strip()
@@ -511,9 +568,11 @@ def build():
     wr("mini-cp3.html", cp3)
     cp4 = build_cp4(cp3)
     wr("mini-cp4.html", cp4)
-    wr("mini-cp5.html", build_cp5(cp4))
+    cp5 = build_cp5(cp4)
+    wr("mini-cp5.html", cp5)
+    wr("mini-cp6.html", build_cp6(cp5))
 
-    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html", "mini-cp4.html", "mini-cp5.html"):
+    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html", "mini-cp4.html", "mini-cp5.html", "mini-cp6.html"):
         print(n, os.path.getsize(os.path.join(HERE, n)) // 1024, "KB")
 
 if __name__ == "__main__":
