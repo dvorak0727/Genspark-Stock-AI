@@ -1,0 +1,208 @@
+<div class="wrap">
+
+<div class="kicker">志工媽媽班 ・ 第 3 次 ・ 90 分鐘</div>
+<h1>步驟三　讓頁面學會老實說，再收成一句話</h1>
+<p class="lede">前兩次我們讓頁面「會算」。今天要教它兩件更重要的事：資料不夠的時候，要老實說「資料不足」；資料是舊的時候，要大聲說「這是舊資料」。最後再把所有數字收成一句話。一樣只做複製、貼上、核對。</p>
+
+<div class="result">
+  <b>今天做完，你的頁面會多這幾樣：</b>可以切換「顯示最近幾天」、資料不足時不亂算、最上面有資料新鮮度提示、股價下面有一句話總結。<br>
+  <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp3.html" target="_blank" rel="noopener">先看看成品長什麼樣（開新分頁）</a>
+</div>
+
+<div class="tl">
+<table>
+  <thead><tr><th>時間</th><th>做什麼</th></tr></thead>
+  <tbody>
+    <tr><td>15 分鐘</td><td>步驟 3-0　交作業、小複習、開新的 AI 對話</td></tr>
+    <tr><td>25 分鐘</td><td>步驟 3-1　顯示天數，資料不足就老實說</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 3-2　資料新鮮度提示</td></tr>
+    <tr><td>20 分鐘</td><td>步驟 3-3　一句話總結</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 3-4　上台分享，留下你的成品</td></tr>
+  </tbody>
+</table>
+</div>
+
+
+<!-- ═══ 3-0 ═══ -->
+<section class="step" id="s30">
+  <div class="step-head"><span class="badge">3-0</span><span class="mins">15 分鐘</span></div>
+  <h2>交作業、小複習、開新對話</h2>
+  <label class="chk"><input type="checkbox" data-k="p1"><span>輪流說：你上次挑的那一檔，位階在哪、融資最近是增是減、階段參考說什麼？</span></label>
+  <label class="chk"><input type="checkbox" data-k="p2"><span>在 AI 聊天網站按「新對話」，開兩個分頁：一個放這份講義，一個放 AI 聊天</span></label>
+
+  <h3>三題小複習（先自己想，再看答案）</h3>
+  <p>1. 看三大法人，為什麼要看「連續」，不看單日？</p>
+  <details><summary>看答案</summary><p>單日買賣超可能只是偶然。連續好幾天朝同一個方向，比較像是有計畫的動作。</p></details>
+  <p>2. 融資減少，股價卻上漲，白話是什麼意思？</p>
+  <details><summary>看答案</summary><p>散戶在賣，但股價不跌反漲，股票可能正從散戶手上轉到大戶手上。</p></details>
+  <p>3. 位階 89% 是什麼意思？</p>
+  <details><summary>看答案</summary><p>今天的收盤價，站在最近 15 天高低區間的 89% 位置，算高檔。</p></details>
+  <p>今天的起點是上次的「存檔點 2」。下面 3-1 的紅色按鈕會自動把它帶進去。</p>
+</section>
+
+
+<!-- ═══ 3-1 ═══ -->
+<section class="step" id="s31">
+  <div class="step-head"><span class="badge">3-1</span><span class="mins">25 分鐘</span></div>
+  <h2>顯示天數，資料不足就老實說</h2>
+
+  <h3>為什麼要教這一課</h3>
+  <p>AI 做出來的頁面有一個很危險的習慣：資料明明不夠，它還是會算出一個數字，而且看起來一樣專業。比方說，位階需要最近 15 天的資料。如果你手上只有 10 天，硬算出來的數字就是假的。</p>
+  <div class="warn">
+    <div class="warn-t">今天的規則</div>
+    資料不夠，就寫「資料不足」，不要算、不要猜、不要編。寧可那個格子空著，也不要放一個看起來對、其實是亂湊的數字。
+  </div>
+  <p>怎麼測試？我們請 AI 加一排「顯示天數」按鈕，讓你可以只看最近 10 天、20 天、30 天、60 天。天數切少了，有些卡片就會算不出來，這時候它們應該要老實說。</p>
+
+  <h3>請 AI 加上這個功能</h3>
+  <div class="prompt">
+    <div class="prompt-label">指令 7　顯示天數與資料不足</div>
+    <pre id="p_days">下面是我的「迷你台股分析器」網頁程式碼（已有股價圖、三大法人、融資融券、位階與量比、階段參考五張卡片）。請做兩件事：
+
+一、在股票選擇按鈕的下面，加一排「顯示天數」按鈕：60、30、20、10 天，預設 60。按下去之後，整個頁面（股價卡、K 線圖、所有卡片）都只用「最近 N 天」的資料來畫、來算。做法建議：寫一個函式，回傳目前股票「最近 N 天」的資料（把 d、o、h、l、c、v、f、t、s、m、sh 都只取最後 N 筆），所有卡片都改用這個函式，不要直接用整份 DATA。K 線圖的標題要跟著顯示「近 N 個交易日走勢」。
+
+二、加上「資料不足就老實說」的規則：
+・位階與量比卡片需要至少 16 筆資料。不夠的時候，那張卡片只顯示「資料不足：需要至少 16 個交易日，目前只有 Y 個」，不要算出數字、不要猜。
+・融資融券卡片需要至少 6 筆；三大法人卡片需要至少 5 筆；不夠時一樣顯示「資料不足」。
+・階段參考卡片需要位階和量比都算得出來，否則顯示「資料不足，無法判讀」。
+・資料不足的提示用淡黃色底的框，讓使用者一眼看出來。
+
+請輸出完整的 HTML 檔案，不要省略任何部分。資料區（const DATA）請原樣保留，不要修改。</pre>
+    <button class="copy" data-src="p_days" data-attach="cp2">複製「指令＋存檔點 2 程式碼」</button>
+    <p class="autonote">按下去之後，這段指令後面會自動接上存檔點 2 的完整程式碼。</p>
+  </div>
+
+  <ol class="how">
+    <li>切到 AI 聊天的<b>新對話</b>，點輸入框，按 <span class="key">Ctrl + V</span> 貼上（Mac 按 <span class="key">⌘ + V</span>），按送出。</li>
+    <li>等 AI 寫完，點「預覽」看成果。沒有預覽的話，照 <a href="step1.html#s12" target="_blank" rel="noopener">步驟一講義</a>的「沒有預覽怎麼辦」存成網頁檔。</li>
+  </ol>
+
+  <h3>一定要測試的三件事</h3>
+  <label class="chk"><input type="checkbox" data-k="d1"><span>股票按鈕下面多了一排「顯示天數：60 30 20 10」，點 <b>10 天</b>：「位階與量比」和「階段參考」兩張變成淡黃色的「資料不足」，三大法人、融資融券照常顯示</span></label>
+  <label class="chk"><input type="checkbox" data-k="d2"><span>點 <b>20 天</b>：兩張卡片的數字回來了。台積電位階還是 89%</span></label>
+  <label class="chk"><input type="checkbox" data-k="d3"><span>K 線圖的標題會跟著變成「近 10 個交易日走勢」「近 20 個…」</span></label>
+  <details>
+    <summary>為什麼 20 天和 60 天的位階一樣？</summary>
+    <p>因為位階本來就只看「最近 15 天」的高低點。只要資料有 16 天以上，算出來都一樣。天數只影響 K 線圖畫多長，以及夠不夠算。</p>
+  </details>
+
+  <details>
+    <summary>卡住了（AI 回得很短、畫面空白、跟不上）</summary>
+    <p><b>AI 只回了一小段、不是完整程式碼</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_full">你剛剛沒有輸出完整的檔案。請重新輸出完整的 HTML 檔案，從頭到尾不要省略任何部分，資料區（const DATA）也要完整保留。</pre>
+      <button class="copy alt" data-src="p_full">複製這句</button>
+    </div>
+    <p><b>畫面一片空白或壞掉</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_fix">我打開你給的網頁，畫面是空白的（或有地方壞掉）。請檢查程式碼找出原因，修好之後輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留。</pre>
+      <button class="copy alt" data-src="p_fix">複製這句</button>
+    </div>
+    <p><b>完全跟不上</b>：不用緊張，這裡有做好的「存檔點 3」，也就是今天下課時該有的樣子。</p>
+    <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp3.html" target="_blank" rel="noopener">打開存檔點 3（成品）</a>
+    <button class="copy alt" data-attach-only="cp3">複製存檔點 3 的完整程式碼</button>
+  </details>
+</section>
+
+
+<!-- ═══ 3-2 ═══ -->
+<section class="step" id="s32">
+  <div class="step-head"><span class="badge">3-2</span><span class="mins">15 分鐘</span></div>
+  <h2>資料新鮮度提示</h2>
+  <p>你手上的數字，是哪一天的？這個問題比數字本身更重要。拿三個星期前的資料，決定今天要不要買，後果會很嚴重。我們的資料是事先下載的，最後一天是 2026-10-02。頁面應該要自己老實告訴使用者。</p>
+
+  <h3>請 AI 加上提示條</h3>
+  <p>貼在同一個對話裡就好，不用再貼程式碼。</p>
+  <div class="prompt">
+    <div class="prompt-label">指令 8　資料新鮮度</div>
+    <pre id="p_fresh">請在頁面最上方（標題下面、股票按鈕上面）加一個「資料新鮮度」提示條：
+1. 取出目前股票最後一筆資料的日期（d 的最後一個），用瀏覽器的今天日期（new Date()）算出「距今幾天」（日曆天）。
+2. 如果距今 4 天以內：用淡綠色底，寫「資料日期：YYYY-MM-DD，距今 N 天（正常）」。
+3. 如果超過 4 天：用淡紅色底、粗體，寫「⚠️ 資料日期是 YYYY-MM-DD，距今已經 N 天，不是今天的行情。請不要拿來決定今天要不要買賣。」
+
+請輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留，不要修改。</pre>
+    <button class="copy" data-src="p_fresh">複製指令 8</button>
+  </div>
+
+  <h3>驗收：先自己算，再看頁面</h3>
+  <label class="chk"><input type="checkbox" data-k="f1"><span>算一算：今天幾號？離 10/02 差幾天？超過 4 天嗎？</span></label>
+  <label class="chk"><input type="checkbox" data-k="f2"><span>頁面最上面的提示條顏色，和你算的一樣：4 天以內是綠色，超過 4 天是紅色</span></label>
+  <details>
+    <summary>為什麼是 4 天，不是 1 天？</summary>
+    <p>因為股市週末不開。週五收盤的資料，到下週一早上看，已經過了 3 天，這是正常的。再加上連假，4 天以內我們都當作正常。超過 4 天，就很可能是舊資料了。</p>
+  </details>
+</section>
+
+
+<!-- ═══ 3-3 ═══ -->
+<section class="step" id="s33">
+  <div class="step-head"><span class="badge">3-3</span><span class="mins">20 分鐘</span></div>
+  <h2>一句話總結</h2>
+  <p>前面有五張卡片、很多數字。最後我們請 AI 把它們串成一句話。這句話有一條鐵則：<b>每一個判斷都要引用具體的數字</b>。「市場氣氛偏多」這種話放到任何一天都說得通，等於沒說。有數字，才有人能去驗算它對不對。</p>
+
+  <div class="prompt">
+    <div class="prompt-label">指令 9　一句話總結</div>
+    <pre id="p_brief">請在股價卡片的下面，新增一張「一句話總結」卡片。用目前選到的股票和目前選的顯示天數，把已經算出來的數字組成一段白話，格式如下。每一句都要引用實際數字；某個項目如果資料不足，就整句略過，不要編造：
+
+「{股票名稱}最新收盤 {收盤價}（{漲跌百分比，帶正負號}）。位階 {位階}%（{高檔／中段／低檔}），量比 {量比}（{窒息量／正常／爆量}）。外資{連買／連賣} {N} 天、投信{連買／連賣} {N} 天。融資近 5 日{增加／減少} {張數} 張。階段參考：{階段參考卡片的結論}。」
+
+連續天數是 0 的時候，寫「外資持平」或「投信持平」。最後另起一行小字：「這句話只是把頁面上的數字串起來，不是預測，也不是買賣建議。」
+
+請輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留，不要修改。</pre>
+    <button class="copy" data-src="p_brief">複製指令 9</button>
+  </div>
+
+  <h3>驗收</h3>
+  <label class="chk"><input type="checkbox" data-k="b1"><span>選台積電、60 天，句子應該是：<br><b>台積電最新收盤 2500（-0.40%）。位階 89%（高檔），量比 0.71（正常）。外資連賣 1 天、投信連買 4 天。融資近 5 日增加 2,106 張。階段參考：看不出明確的階段（多數時候都是這樣，很正常）。</b></span></label>
+  <label class="chk"><input type="checkbox" data-k="b2"><span>句子裡每一個數字，都能在上面的卡片找到一樣的數字（位階 89%、量比 0.71、融資 +2,106…）</span></label>
+  <label class="chk"><input type="checkbox" data-k="b3"><span>點 <b>10 天</b>：句子少了「位階」和「階段參考」那兩句，沒有硬編，這就是 3-1 學的老實</span></label>
+
+  <h3>換一檔，比一比</h3>
+  <label class="chk"><input type="checkbox" data-k="b4"><span>分別點「鴻海」和「元大高股息」，各念一次句子。哪些數字不一樣？哪些字不一樣？</span></label>
+  <details>
+    <summary>參考答案</summary>
+    <p><b>鴻海</b>：位階 56%（中段），量比 1.06（正常），外資連賣 1 天、投信連買 2 天，融資近 5 日增加 2,271 張，看不出明確的階段。</p>
+    <p><b>元大高股息</b>：位階 76%（高檔），量比 2.32（爆量），外資連賣 2 天、投信連買 2 天，融資近 5 日增加 707 張，階段參考出現「高檔爆量…小心可能在出貨」。</p>
+    <p>句子因為有引用數字，每一檔都不一樣。如果換一檔，句子還是一模一樣，那就是沒有真的在看數字。</p>
+  </details>
+  <p>還記得上次的提醒嗎？元大高股息的「小心可能在出貨」，先查原因再下結論。ETF 的大量，可能是換股或除息造成的。</p>
+</section>
+
+
+<!-- ═══ 3-4 ═══ -->
+<section class="step" id="s34">
+  <div class="step-head"><span class="badge">3-4</span><span class="mins">15 分鐘</span></div>
+  <h2>上台分享，留下你的成品</h2>
+
+  <h3>每個人 2 分鐘</h3>
+  <label class="chk"><input type="checkbox" data-k="s1"><span>選一檔股票，念出你頁面上的「一句話」</span></label>
+  <label class="chk"><input type="checkbox" data-k="s2"><span>說一個你自己驗算過的數字</span></label>
+  <label class="chk"><input type="checkbox" data-k="s3"><span>說一個「這個提示我不會直接相信」的理由（例如：資料太舊、資料不足、查不到原因）</span></label>
+
+  <h3>怎麼把成品留下來</h3>
+  <ol class="how">
+    <li>在 AI 最後一次回覆的程式碼區塊，按「複製」。</li>
+    <li>存成網頁檔：照 <a href="step1.html#s12" target="_blank" rel="noopener">步驟一講義</a>「沒有預覽怎麼辦」的 Windows 或 Mac 做法，檔名打 <span class="key">我的分析頁.html</span>。</li>
+    <li>以後連按兩下這個檔案，就能打開你自己做的分析頁。</li>
+  </ol>
+  <p>如果你的版本有問題，也可以直接用做好的「存檔點 3」當成品：</p>
+  <button class="copy alt" data-attach-only="cp3">複製存檔點 3 的完整程式碼</button>
+
+  <h3>三次課，你學到的</h3>
+  <ul>
+    <li>用「複製、貼上」，請 AI 一步一步把網頁改成你要的樣子。</li>
+    <li>AI 會錯，而且錯得很安靜。做完一個功能，就拿外面的網站核對，或拿計算機驗算。</li>
+    <li>三大法人看「連續」，融資融券看「近 5 天的組合」，位階看「現在貴不貴」，量比看「現在熱不熱」。</li>
+    <li>資料不夠就說資料不足，資料太舊就說是舊的，看到提示先查原因。</li>
+  </ul>
+  <div class="warn">
+    <div class="warn-t">最後提醒</div>
+    你做出來的是一個學習用的頁面。它用的是事先下載的歷史資料，不是即時行情，也不會告訴你該買或該賣。投資的決定，請自己判斷、自己負責。
+  </div>
+  <p>想讓頁面連上即時資料，需要註冊免費帳號、取得金鑰，還要小心不要抓太快被擋。這部分這個班沒有涵蓋，有興趣可以問老師。</p>
+</section>
+
+<footer>
+  資料為預先下載的歷史資料（來源：FinMind、證交所），最後一天是 2026-10-02，不是即時報價。價格單位是元，買賣超、成交量、融資融券單位是張。階段參考與一句話總結是教學用的簡化判讀，不是預測。本講義是教學用途，不構成任何投資建議。
+</footer>
+</div>

@@ -212,6 +212,89 @@ function renderStage() {
 }
 """
 
+# ───────── 存檔點3：顯示天數、資料不足就老實說、資料新鮮度、一句話總結 ─────────
+CP3_CSS = """
+.fresh{border-radius:10px;padding:10px 14px;font-size:.9rem;margin:0 0 12px}
+.fresh.ok{background:#e6f4ec;color:#14532d}
+.fresh.old{background:#fdecec;color:#991b1b;font-weight:700}
+.short{background:#f8f3e4;border:1px dashed #d8c58a;border-radius:10px;padding:12px 14px;color:#7a5b00;font-weight:700}
+.days-lbl{font-size:.86rem;color:var(--muted);align-self:center}
+.brief p{margin:0 0 8px;font-size:1.02rem;line-height:1.85}
+.brief .small{font-size:.8rem;color:var(--muted)}
+"""
+
+CP3_JS = r"""
+/* ---- 顯示天數：整個頁面只用「最近 N 天」的資料 ---- */
+let days = 60;
+function view() {
+  const s = DATA[cur], n = s.d.length, k = Math.min(days, n), out = { name: s.name };
+  ['d', 'o', 'h', 'l', 'c', 'v', 'f', 't', 's', 'm', 'sh'].forEach(key => { out[key] = s[key].slice(n - k); });
+  return out;
+}
+function renderDays() {
+  $('daysPick').innerHTML = '<span class="days-lbl">顯示天數：</span>' +
+    [60, 30, 20, 10].map(k => `<button class="chip ${days === k ? 'on' : ''}" data-k="${k}">${k} 天</button>`).join('');
+  document.querySelectorAll('#daysPick .chip').forEach(b => b.onclick = () => { days = +b.dataset.k; renderAll(); });
+}
+
+/* ---- 資料不足就老實說，不硬算 ---- */
+function short(id, title, need, extra) {
+  $(id).innerHTML = `<h2>${title}</h2><div class="short">${extra || `資料不足：需要至少 ${need} 個交易日，目前只有 ${view().d.length} 個。`}</div>`;
+}
+
+/* ---- 資料新鮮度 ---- */
+function renderFresh() {
+  const s = DATA[cur], last = s.d[s.d.length - 1];
+  const n = Math.floor((new Date() - new Date(last + 'T00:00:00')) / 86400000);
+  $('freshBar').innerHTML = n <= 4
+    ? `<div class="fresh ok">資料日期：${last}，距今 ${n} 天（正常）</div>`
+    : `<div class="fresh old">⚠️ 資料日期是 ${last}，距今已經 ${n} 天，不是今天的行情。請不要拿來決定今天要不要買賣。</div>`;
+}
+
+/* ---- 一句話總結：只把頁面上算好的數字串起來 ---- */
+function renderBrief() {
+  const s = view(), n = s.d.length, i = n - 1, parts = [];
+  const cp = (s.c[i] - s.c[i - 1]) / s.c[i - 1] * 100;
+  parts.push(`${s.name}最新收盤 ${s.c[i]}（${cp > 0 ? '+' : ''}${cp.toFixed(2)}%）。`);
+  if (n >= 16) {
+    const mt = metrics(s);
+    const pl = mt.pos >= 70 ? '高檔' : mt.pos <= 30 ? '低檔' : '中段';
+    const vt = mt.vr <= 0.7 ? '窒息量' : mt.vr >= 1.5 ? '爆量' : '正常';
+    parts.push(`位階 ${mt.pos.toFixed(0)}%（${pl}），量比 ${mt.vr.toFixed(2)}（${vt}）。`);
+  }
+  const w = (nm, a) => { const st = streak(a); return st.d ? `${nm}${st.dir > 0 ? '連買' : '連賣'} ${st.d} 天` : `${nm}持平`; };
+  parts.push(`${w('外資', s.f)}、${w('投信', s.t)}。`);
+  if (n >= 6) {
+    const d5 = s.m[i] - s.m[i - 5];
+    parts.push(`融資近 5 日${d5 > 0 ? '增加' : d5 < 0 ? '減少' : '持平'}${d5 ? ' ' + n0(Math.abs(d5)) + ' 張' : ''}。`);
+  }
+  const stg = document.querySelector('#stageCard .stage-label');
+  if (stg) parts.push('階段參考：' + stg.textContent.replace(/^[^一-鿿]+/, '') + '。');
+  $('briefCard').innerHTML = `<h2>一句話總結</h2><div class="brief"><p>${parts.join('')}</p>
+    <p class="small">這句話只是把頁面上的數字串起來，不是預測，也不是買賣建議。</p></div>`;
+}
+"""
+
+def build_cp3(cp2):
+    cp3 = cp2.replace("DATA[cur]", "view()")                     # 所有卡片改用「最近N天」的資料
+    cp3 = must_replace(cp3, "存檔點2</title>", "存檔點3</title>")
+    cp3 = must_replace(cp3, '  <div id="picker" class="chips"></div>',
+                       '  <div id="freshBar"></div>\n  <div id="picker" class="chips"></div>\n  <div id="daysPick" class="chips"></div>')
+    cp3 = must_replace(cp3, '<section class="card" id="priceCard"></section>',
+                       '<section class="card" id="priceCard"></section>\n  <section class="card" id="briefCard"></section>')
+    cp3 = must_replace(cp3, "<h2>近 60 個交易日走勢</h2>", '<h2 id="chartTitle">近 60 個交易日走勢</h2>')
+    cp3 = must_replace(cp3, "</style>", CP3_CSS + "</style>")
+    cp3 = must_replace(cp3, "function renderAll() {", CP3_JS.replace("DATA[cur]", "DATA[cur]") + "\nfunction renderAll() {")
+    # 各卡片開頭加「資料不足」檢查
+    cp3 = must_replace(cp3, "function renderInst() {", 'function renderInst() {\n  if (view().d.length < 5) return short("instCard", "三大法人買賣超（單位：張）", 5);')
+    cp3 = must_replace(cp3, "function renderMargin() {", 'function renderMargin() {\n  if (view().d.length < 6) return short("marginCard", "融資融券（散戶溫度計，單位：張）", 6);')
+    cp3 = must_replace(cp3, "function renderPos() {", 'function renderPos() {\n  if (view().d.length < 16) return short("posCard", "位階與量比", 16);')
+    cp3 = must_replace(cp3, "function renderStage() {",
+                       'function renderStage() {\n  if (view().d.length < 16) return short("stageCard", "現在像哪一個階段？（粗略參考）", 16, "資料不足，無法判讀（位階和量比都要先算得出來，至少需要 16 個交易日）。");')
+    cp3 = must_replace(cp3, "  renderStage();",
+                       "  renderStage();\n  renderFresh();\n  renderBrief();\n  renderDays();\n  $('chartTitle').textContent = `近 ${view().d.length} 個交易日走勢`;")
+    return cp3
+
 def build():
     tpl = rd("mini_start.template.html")
     data = rd("mini_data.js").strip()
@@ -234,7 +317,9 @@ def build():
     cp2 = must_replace(cp2, "  renderInst();", "  renderInst();\n  renderMargin();\n  renderPos();\n  renderStage();")
     wr("mini-cp2.html", cp2)
 
-    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html"):
+    wr("mini-cp3.html", build_cp3(cp2))
+
+    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html"):
         print(n, os.path.getsize(os.path.join(HERE, n)) // 1024, "KB")
 
 if __name__ == "__main__":
