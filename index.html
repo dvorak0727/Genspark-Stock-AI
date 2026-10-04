@@ -8487,6 +8487,21 @@
       content:''; position:absolute; top:0; left:0; right:0; height:3px;
       background:linear-gradient(90deg,#6D28D9,#2563EB,#10B981,#F59E0B,#DC2626);
     }
+    /* 多週期階段（簡化規則版，與上方威科夫評分是兩套獨立算法） */
+    .msx-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:9px 11px; margin-bottom:8px; }
+    .msx-title { font-size:0.84rem; font-weight:800; color:var(--fg); }
+    .msx-sub   { font-size:0.64rem; color:var(--fg3); margin:2px 0 6px; }
+    .msx-sum   { font-size:0.86rem; font-weight:800; color:var(--fg); margin:6px 0; line-height:1.6; }
+    .msx-wrap  { overflow-x:auto; }
+    .msx-tbl   { width:100%; border-collapse:collapse; font-size:0.74rem; font-variant-numeric:tabular-nums; }
+    .msx-tbl th { text-align:right; color:var(--fg3); font-weight:600; padding:4px 6px; border-bottom:1px solid var(--border); white-space:nowrap; }
+    .msx-tbl td { text-align:right; padding:5px 6px; border-bottom:1px solid var(--border); color:var(--fg2); white-space:nowrap; }
+    .msx-tbl th:first-child, .msx-tbl td:first-child, .msx-tbl th:nth-child(2), .msx-tbl td:nth-child(2) { text-align:left; }
+    .msx-tbl td.msx-lab { font-weight:800; }
+    .msx-tbl td.msx-na  { color:var(--fg3); white-space:normal; text-align:left; }
+    .msx-up { color:var(--up); } .msx-dn { color:var(--down); } .msx-fl { color:var(--fg3); }
+    .msx-note { font-size:0.62rem; color:var(--fg3); margin-top:6px; line-height:1.6; }
+    .msx-na-box { font-size:0.78rem; color:var(--fg3); padding:6px 0; }
     /* 標題 */
     .phase-header {
       display:flex; align-items:center; gap:7px; margin-bottom:6px;
@@ -19035,6 +19050,13 @@ a.module-nav-item.acc-active {
       </div><!-- /.c4-resonance-wrap -->
 
     </div><!-- /.phase-card -->
+
+    <!-- ══ 多週期階段（5/10/20/30/60 日，簡化規則版）══ -->
+    <div class="msx-card" id="msxCard">
+      <div class="msx-title">📐 多週期階段：五個週期一起看</div>
+      <div class="msx-sub">同一組簡化規則，分別套在 5／10／20／30／60 日，看結論一不一致 · 資料不足的週期不硬算</div>
+      <div id="msxBody"><div class="msx-na-box">分析後顯示…</div></div>
+    </div>
 
     <!-- v7.22 各卡片獨立全寬一行（底部探測 → 高點偵測 → 反指標） -->
 
@@ -37265,6 +37287,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
     if (isStale()) return; // ★ v6.20c 防重入
     setLoadStep(4, 'doing');
     renderPhaseDetect(closes, opens, highs, lows, vols, dates, fSeries, tSeries, instMap, instDays, ma20, lc, lRSI, lK, lD, lL, lMA5, lMA20); // 籌碼週期
+    try { renderMultiStage(closes, opens, highs, lows, vols, dates, instMap, marginRaw); } catch (e) { console.warn('[msx] 多週期階段失敗', e); } // 📐 多週期階段（簡化規則版）
     if (typeof _patchAIPhaseAdvice === 'function') _patchAIPhaseAdvice(); // v7.80：回頭補上AI建言裡的籌碼週期那一條（renderAI跑得比這裡早，第一次算的時候phaseIdx還沒好）
     renderCFD(); // 🌊 v6.21n 籌碼流體動力學（renderPhaseDetect 之後立即執行，CFD 卡片顯示於 phase-card 正上方）
     _renderChipConvergenceWarning(); // v7.72：ABCD+CFD兩個免費訊號都已算好，先評估一次（券商資料補上後會再評估一次）
@@ -50218,6 +50241,77 @@ function _updateAICFDBar({ phaseText, stateText, omegaLabel, omegaCls, gradP, Re
   }
 
   bar.classList.add('visible');
+}
+
+// ==============================================================
+//  📐 多週期階段（簡化規則版）
+//  同一組規則分別套在 5/10/20/30/60 日，比較各週期結論是否一致。
+//  與下方 renderPhaseDetect（RSI/KD 等多項評分）是兩套獨立算法，互不影響。
+//  誠實原則：資料不夠 N+1 個交易日、法人或融資缺任何一天，該週期整列寫「資料不足」，
+//  不補 0、不硬算；模擬資料（_fallback）不判斷。
+//  門檻放在 TH，想調整只改這四個數字。
+// ==============================================================
+function renderMultiStage(closes, opens, highs, lows, vols, dates, instMap, marginRaw) {
+  const el = document.getElementById('msxBody');
+  if (!el) return;
+  if (typeof _fallback !== 'undefined' && _fallback) {
+    el.innerHTML = '<div class="msx-na-box">目前顯示的是模擬資料（抓不到真實資料），不做階段判斷。</div>';
+    return;
+  }
+  const TH = { hi: 70, lo: 40, boom: 1.5, quiet: 0.7 };
+  const WIN = [5, 10, 20, 30, 60];
+  const n = dates.length, i = n - 1;
+  const mean = a => a.reduce((x, y) => x + y, 0) / a.length;
+  const signed = v => (v > 0 ? '+' : '') + Math.round(v).toLocaleString('zh-TW');
+  const cls = v => v > 0 ? 'msx-up' : v < 0 ? 'msx-dn' : 'msx-fl';
+  const mBal = {};
+  (marginRaw || []).forEach(r => { if (r && r.date && r.MarginPurchaseTodayBalance != null) mBal[r.date] = +r.MarginPurchaseTodayBalance; });
+  const ft = d => {                                   // 外資＋投信買賣超（張）；那天沒有資料就是 null，不當成 0
+    const x = instMap && instMap[d];
+    if (!x || !x.Foreign_Investor || !x.Investment_Trust) return null;
+    return (x.Foreign_Investor.net + x.Investment_Trust.net) / 1000;
+  };
+
+  function stageAt(N) {
+    if (n < N + 1) return { na: `資料不足：需要至少 ${N + 1} 個交易日，目前只有 ${n} 個` };
+    const H = Math.max(...highs.slice(i - N + 1)), L = Math.min(...lows.slice(i - N + 1));
+    if (!(H > L)) return { na: `近 ${N} 日價格完全沒有變動，位階算不出來` };
+    const volAvg = mean(vols.slice(i - N, i));
+    if (!(volAvg > 0)) return { na: `前 ${N} 日沒有成交量，量比算不出來` };
+    let inst = 0, miss = 0;
+    for (let j = i - N + 1; j <= i; j++) { const v = ft(dates[j]); if (v === null) miss++; else inst += v; }
+    if (miss) return { na: `資料不足：三大法人近 ${N} 日有 ${miss} 天沒有資料` };
+    const m0 = mBal[dates[i - N]], m1 = mBal[dates[i]];
+    if (m0 === undefined || m1 === undefined) return { na: '資料不足：缺少融資餘額資料' };
+    const pos = (closes[i] - L) / (H - L) * 100, vr = vols[i] / volAvg;
+    const mChg = m1 - m0, pChg = closes[i] - closes[i - N], red = closes[i] > opens[i];
+    let name = '看不出', c = 'msx-fl';
+    if (pos >= TH.hi && vr >= TH.boom && inst < 0) { name = '⚠️ 出貨'; c = 'msx-dn'; }
+    else if (vr >= TH.boom && red && inst > 0 && pos < TH.hi) { name = '🔥 啟動'; c = 'msx-up'; }
+    else if (pos >= TH.hi && inst > 0 && pChg > 0 && vr >= 1) { name = '📈 拉升'; c = 'msx-up'; }
+    else if (pos <= TH.lo && mChg < 0 && pChg < 0) { name = '🌀 洗盤'; }
+    else if (pos <= TH.lo && vr <= TH.quiet) { name = '😴 吸籌'; }
+    return { N, name, c, pos, vr, inst, mChg, pChg };
+  }
+
+  const rows = WIN.map(stageAt);
+  const ok = rows.filter(r => !r.na), groups = {};
+  ok.forEach(r => { (groups[r.name.replace(/^[^一-鿿]+/, '')] ||= []).push(r.N); });
+  const names = Object.keys(groups);
+  const sum = !ok.length ? '資料不足，每個週期都算不出來'
+    : names.length === 1 ? `各週期的結論一致：${names[0]}（${groups[names[0]].join('、')} 日）`
+    : '各週期的結論不一致：' + names.map(nm => `「${nm}」：${groups[nm].join('、')} 日`).join('；');
+  const body = rows.map((r, k) => r.na
+    ? `<tr><td>${WIN[k]} 日</td><td class="msx-na" colspan="6">${r.na}</td></tr>`
+    : `<tr><td>${r.N} 日</td><td class="msx-lab ${r.c}">${r.name}</td><td>${r.pos.toFixed(0)}%</td><td>${r.vr.toFixed(2)}</td>` +
+      `<td class="${cls(r.inst)}">${signed(r.inst)}</td><td class="${cls(r.mChg)}">${signed(r.mChg)}</td>` +
+      `<td class="${cls(r.pChg)}">${r.pChg > 0 ? '+' : ''}${r.pChg.toFixed(r.pChg >= 100 || r.pChg <= -100 ? 0 : 1)}</td></tr>`).join('');
+  el.innerHTML = `
+    <div class="msx-sum">${sum}</div>
+    <div class="msx-wrap"><table class="msx-tbl"><thead><tr><th>週期</th><th>判斷</th><th>位階</th><th>量比</th><th>外資＋投信（張）</th><th>融資變化（張）</th><th>股價變化（元）</th></tr></thead><tbody>${body}</tbody></table></div>
+    <div class="msx-note">資料最新日 ${dates[i]}。每一列用同一組規則（位階＝近 N 日高低區間；量比＝今日量 ÷ 前 N 日均量；累計與變化＝近 N 日），依序檢查，符合第一個就停：
+      ⚠️ 出貨＝位階≥${TH.hi}%、量比≥${TH.boom}、法人累計&lt;0｜🔥 啟動＝量比≥${TH.boom}、收紅K、法人累計&gt;0、位階&lt;${TH.hi}%｜📈 拉升＝位階≥${TH.hi}%、法人累計&gt;0、股價上漲、量比≥1｜🌀 洗盤＝位階≤${TH.lo}%、融資減少、股價下跌｜😴 吸籌＝位階≤${TH.lo}%、量比≤${TH.quiet}。
+      需要 N＋1 個交易日資料，不夠就寫「資料不足」。這是簡化規則版，和上方「籌碼週期階段診斷」（多項指標評分）是兩套獨立算法，結論可能不同；不是預測，也不是買賣建議。</div>`;
 }
 
 // ==============================================================
