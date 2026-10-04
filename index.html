@@ -34755,6 +34755,7 @@ function _parseHoldingLevel(raw) {
 //    每檔每週 [p1,u1,...,p5,u5]（5 層金字塔的人數、股數），這裡轉成與 FinMind 解析後相同的 rows。
 //    歷史從開始累積那一週算起；只有 1 週時算不出增減，介面會標示「累積中」。
 let _tdccPromise = null;
+let _holdingFmDenied = false;   // 這個工作階段已確認 FinMind 股權分散表被拒（token 等級不足）
 function _tdccLoad() {
   if (!_tdccPromise) {
     _tdccPromise = fetch('data/tdcc_pyramid.json', { cache: 'no-cache' })
@@ -34786,6 +34787,8 @@ async function fetchHoldingShares(stockId) {
   const start = new Date(); start.setDate(start.getDate() - 35);
   let rows = [], failMsg = '', source = 'finmind', rows4w = null;
   try {
+    // 沒有 token、或這個工作階段已經確認 token 等級不夠，就不用再問 FinMind（掃描器一次幾十檔，白打會吃光匿名額度）
+    if (!getToken() || _holdingFmDenied) throw new Error('level is free（略過 FinMind）');
     const raw = await fetchFM('TaiwanStockHoldingSharesPer', stockId, start, end);
     // 字串級距 → 數字 HoldingLevel，並濾掉合計列
     rows = (raw || []).map(r => {
@@ -34794,6 +34797,7 @@ async function fetchHoldingShares(stockId) {
     }).filter(Boolean);
   } catch(e) {
     failMsg = e.message || String(e);
+    if (/level is (register|free)/i.test(failMsg)) _holdingFmDenied = true;
     console.warn('[HoldingShares] FinMind 失敗，改用集保免費資料：', stockId, failMsg);
   }
 
@@ -41393,6 +41397,44 @@ async function togglePyramidWatchlist() {
   }
 }
 
+// 沒有 Sponsor Token 時的免費版：集保結算所開放資料（每週累積），只有 5 層（散戶/小戶/中戶/大戶/千張大戶），
+// 沒有完整 16 級距，也沒有 8 週軌跡；週增減要累積到至少 2 週才看得到。
+async function _renderFreePyramid(body, stockId, note) {
+  body.innerHTML = '<div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">⏳ 讀取集保免費資料中…</div>';
+  const cache = await fetchHoldingShares(stockId);
+  if (!cache.parsed) {
+    body.innerHTML = `<div style="font-size:.66rem;color:var(--fg3);line-height:1.7;padding:8px 10px;background:var(--bg2);border-radius:8px;">
+      查無這檔的股權分散表資料（${cache.error || '無資料'}）。完整 16 級距需要 FinMind Sponsor Token。</div>`;
+    return;
+  }
+  const { groups, latestDate } = cache.parsed;
+  const wk = cache.rows4w || [];
+  const sumBy = (rows, levels, key) => rows.filter(r => levels.includes(+r.HoldingLevel)).reduce((a, r) => a + (+r[key] || 0), 0);
+  const prevRows = wk.length >= 2 ? wk.at(-2).rows : null;
+  const prevTotal = prevRows ? prevRows.reduce((a, r) => a + (+r.unit || 0), 0) || 1 : 1;
+  const arrow = (v, d) => v === null ? '<span style="color:var(--fg3);">—</span>'
+    : v > 0 ? `<span style="color:#DC2626;">▲${v.toFixed(d)}</span>` : v < 0 ? `<span style="color:#10B981;">▼${Math.abs(v).toFixed(d)}</span>` : '<span style="color:var(--fg3);">不變</span>';
+  const tr = [...groups].reverse().map(g => {
+    const dPct = prevRows ? (g.unitPct * 1) - (sumBy(prevRows, g.levels, 'unit') / prevTotal * 100) : null;
+    const dPpl = prevRows ? g.people - sumBy(prevRows, g.levels, 'people') : null;
+    const top = g.label === '千張大戶';
+    return `<tr style="${top ? 'background:rgba(124,58,237,.08);font-weight:800;' : ''}">
+      <td style="padding:3px 6px;color:${g.textColor};">${g.label}</td>
+      <td style="padding:3px 6px;text-align:right;">${g.unitPct}%</td>
+      <td style="padding:3px 6px;text-align:right;">${arrow(dPct, 2)}</td>
+      <td style="padding:3px 6px;text-align:right;">${Number(g.people).toLocaleString('zh-TW')}</td>
+      <td style="padding:3px 6px;text-align:right;">${arrow(dPpl, 0)}</td></tr>`;
+  }).join('');
+  body.innerHTML = `
+    ${note ? `<div style="font-size:.62rem;color:var(--fg3);margin-bottom:4px;">${note}</div>` : ''}
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:.68rem;">
+      <thead><tr style="color:var(--fg3);"><th style="text-align:left;padding:3px 6px;">層級</th><th style="text-align:right;padding:3px 6px;">持股占比</th><th style="text-align:right;padding:3px 6px;">週增減(百分點)</th><th style="text-align:right;padding:3px 6px;">人數</th><th style="text-align:right;padding:3px 6px;">週增減</th></tr></thead>
+      <tbody>${tr}</tbody></table></div>
+    <div style="font-size:.6rem;color:var(--fg3);line-height:1.7;margin-top:6px;">
+      資料日期 ${latestDate}｜來源：集保結算所免費開放資料（已累積 ${wk.length} 週${wk.length < 2 ? '，至少 2 週才有週增減' : ''}）。
+      免費版只有 5 層簡化分級；完整 16 級距與 8 週軌跡需 FinMind Sponsor Token。</div>`;
+}
+
 async function _renderSharePyramid() {
   const body = document.getElementById('csPyramidBody');
   if (!body) return;
@@ -41406,13 +41448,7 @@ async function _renderSharePyramid() {
   _updatePyramidArchiveBadge(stockId);
 
   const token = getToken();
-  if (!token) {
-    body.innerHTML = `<div style="font-size:.66rem;color:#DC2626;line-height:1.7;padding:8px 10px;background:#FEE2E2;border-radius:8px;">
-      ⚠️ 股份金字塔需要 FinMind <b>Sponsor 付費方案</b> Token（免費帳號查不到 TaiwanStockHoldingSharesPer 這支資料）。
-      有付費Token的話，請到設定裡貼上，這裡才會顯示真實的千張大戶持股分級。
-    </div>`;
-    return;
-  }
+  if (!token || _holdingFmDenied) { await _renderFreePyramid(body, stockId); return; }
 
   body.innerHTML = '<div style="font-size:.68rem;color:var(--fg3);text-align:center;padding:10px;">⏳ 抓取股權分散表中…</div>';
 
@@ -41423,10 +41459,9 @@ async function _renderSharePyramid() {
   try {
     const r = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockHoldingSharesPer&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${encodeURIComponent(token)}`);
     const j = await r.json();
-    if (j.msg && /free/i.test(j.msg)) {
-      body.innerHTML = `<div style="font-size:.66rem;color:#DC2626;line-height:1.7;padding:8px 10px;background:#FEE2E2;border-radius:8px;">
-        ⚠️ 這個Token是免費層級，抓不到股權分散表。官方訊息：「${j.msg}」
-      </div>`;
+    if (j.msg && /free|level is/i.test(j.msg)) {
+      _holdingFmDenied = true;
+      await _renderFreePyramid(body, stockId, `這個 Token 是免費層級，抓不到完整股權分散表（官方訊息：「${j.msg}」）。`);
       return;
     }
     const rows = j.data || [];
@@ -59531,7 +59566,7 @@ async function startScreener() {
   const _isWhaleFinish = modeKey === 'whale';
   const _finishMsg = _isWhaleFinish
     ? (_screenerResults.length === 0
-        ? `⚠️ 千張大戶籌碼集中掃描完成，共 ${processed} 檔沒有找到任何一檔——最可能的原因是這支資料集（TaiwanStockHoldingSharesPer）需要 FinMind Sponsor 付費方案 Token，免費帳號查不到，不是沒有股票籌碼集中。`
+        ? `⚠️ 千張大戶籌碼集中掃描完成，共 ${processed} 檔沒有找到任何一檔——可能的原因：免費的集保資料累積的週數還不夠（至少要 2 週才看得出增減），或這一週剛好沒有持股比例增加的股票。有 FinMind Sponsor Token 時會改用付費資料（可直接看到近 4 週）。`
         : `✅ 千張大戶籌碼集中掃描完成！共 ${processed} 檔 · 找到 ${_screenerResults.length} 檔持股比例週增（量的是持股比例，不是人數，兩者可能反著走，請看卡片內「人數」欄位）`)
     : _isObiFinish
     ? `✅ 外盤強勢掃描完成！共 ${processed} 檔 · 🔴 超強(外盤≥70%)：${_cntO70} 檔 · 🟡 偏強(60-70%)：${_cntO60} 檔`
