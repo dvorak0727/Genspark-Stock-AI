@@ -1,0 +1,35 @@
+name: 更新集保股權分散表（千張大戶）
+
+# 集保結算所每週公布一次股權分散表（資料日為每週五）。
+# 週六、週日各跑一次，腳本會自己跳過已經有的週別，所以重複執行是安全的。
+on:
+  schedule:
+    - cron: "30 2 * * 6"   # 台灣時間 週六 10:30
+    - cron: "30 2 * * 0"   # 台灣時間 週日 10:30
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 抓集保開放資料並累積
+        run: python3 scripts/fetch_tdcc.py
+      - name: 有新資料才提交
+        run: |
+          if [ -n "$(git status --porcelain data/tdcc_pyramid.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/tdcc_pyramid.json
+            git commit -m "資料：集保股權分散表更新 $(python3 -c "import json;print(json.load(open('data/tdcc_pyramid.json'))['updated'])")"
+            git pull --rebase origin main   # 其他排程也會推送，先對齊再推，避免互搶
+            git push
+          else
+            echo "沒有新資料"
+          fi

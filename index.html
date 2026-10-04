@@ -34771,6 +34771,33 @@ function _parseHoldingLevel(raw) {
   return id;
 }
 
+// ── 免費替代來源：集保結算所開放資料（每週由 GitHub Actions 累積成 data/tdcc_pyramid.json）──
+//    沒有 FinMind 贊助會員的使用者查不到 TaiwanStockHoldingSharesPer，改讀這份靜態檔，
+//    一樣算得出千張大戶趨勢（鯨魚悄入／籌碼集中／大戶撤退）。格式見 scripts/fetch_tdcc.py：
+//    每檔每週 [p1,u1,...,p5,u5]（5 層金字塔的人數、股數），這裡轉成與 FinMind 解析後相同的 rows。
+//    歷史從開始累積那一週算起；只有 1 週時算不出增減，介面會標示「累積中」。
+let _tdccPromise = null;
+function _tdccLoad() {
+  if (!_tdccPromise) {
+    _tdccPromise = fetch('data/tdcc_pyramid.json', { cache: 'no-cache' })
+      .then(r => r.ok ? r.json() : null).catch(() => null);
+  }
+  return _tdccPromise;
+}
+async function _tdccRows4w(stockId) {
+  const db = await _tdccLoad();
+  const arr = db && db.s && db.s[stockId];
+  if (!arr) return null;
+  const REP = [1, 4, 9, 11, 15];      // 每一層用一個代表級距（網站的分組 id），金額已是該層合計
+  const out = [];
+  db.weeks.forEach((date, i) => {
+    const w = arr[i];
+    if (!w) return;                    // 這週沒有這檔資料就跳過，不補 0
+    out.push({ date, rows: REP.map((lv, k) => ({ date, HoldingLevel: lv, people: w[k * 2], unit: w[k * 2 + 1] })) });
+  });
+  return out.length ? out.slice(-4) : null;
+}
+
 async function fetchHoldingShares(stockId) {
   const weekSlot = _getWeekSlot();
   const cached = _holdingCache[stockId];
@@ -34779,29 +34806,43 @@ async function fetchHoldingShares(stockId) {
   // 取近 35 天（含 4~5 個週更資料點）
   const end   = new Date();
   const start = new Date(); start.setDate(start.getDate() - 35);
+  let rows = [], failMsg = '', source = 'finmind', rows4w = null;
   try {
     const raw = await fetchFM('TaiwanStockHoldingSharesPer', stockId, start, end);
     // 字串級距 → 數字 HoldingLevel，並濾掉合計列
-    const rows = (raw || []).map(r => {
+    rows = (raw || []).map(r => {
       const lv = _parseHoldingLevel(r.HoldingSharesLevel ?? r.HoldingLevel);
       return lv ? { ...r, HoldingLevel: lv } : null;
     }).filter(Boolean);
+  } catch(e) {
+    failMsg = e.message || String(e);
+    console.warn('[HoldingShares] FinMind 失敗，改用集保免費資料：', stockId, failMsg);
+  }
 
-    if (!rows.length) {
-      _holdingCache[stockId] = { fetchedWeek: weekSlot, rows4w: [], parsed: null, error: '無資料' };
-      return _holdingCache[stockId];
-    }
+  if (rows.length) {
     // 取所有不同日期（最多4週）
     const dates = [...new Set(rows.map(r => r.date))].sort().slice(-4);
-    const rows4w = dates.map(dt => {
-      const dayRows = rows.filter(r => r.date === dt);
-      return { date: dt, rows: dayRows };
-    });
+    rows4w = dates.map(dt => ({ date: dt, rows: rows.filter(r => r.date === dt) }));
+  } else {
+    rows4w = await _tdccRows4w(stockId);
+    source = 'tdcc';
+  }
+
+  if (!rows4w || !rows4w.length) {
+    // 股權分散表需 FinMind 贊助/支持會員，免費 Token 會回 "Your level is register"
+    const err = /level is (register|free)/i.test(failMsg)
+      ? '需 FinMind 贊助會員 Token（股權分散表為付費資料），集保免費資料也沒有這檔'
+      : (failMsg || '無資料');
+    _holdingCache[stockId] = { fetchedWeek: weekSlot, rows4w: [], parsed: null, error: err };
+    return _holdingCache[stockId];
+  }
+
+  try {
+    const dates = rows4w.map(w => w.date);
     // 解析最新週資料 → 金字塔分組
     const latestRows = rows4w.at(-1)?.rows || [];
     const totalUnit  = latestRows.reduce((s,r) => s + (+r.unit||0), 0) || 1;
     const totalPpl   = latestRows.reduce((s,r) => s + (+r.people||0), 0) || 1;
-
     const groups = PYRAMID_GROUPS.map(g => {
       const subset = latestRows.filter(r => g.levels.includes(+r.HoldingLevel));
       const unit   = subset.reduce((s,r) => s + (+r.unit||0), 0);  // 千股
@@ -34854,7 +34895,7 @@ async function fetchHoldingShares(stockId) {
 
     const parsed = { groups, whaleTrend, retailTrend, whaleSignal,
                      latestDate: dates.at(-1)||'', totalPpl, totalUnit };
-    _holdingCache[stockId] = { fetchedWeek: weekSlot, rows4w, parsed };
+    _holdingCache[stockId] = { fetchedWeek: weekSlot, rows4w, parsed, source };
     return _holdingCache[stockId];
   } catch(e) {
     console.warn('[HoldingShares] fetch error:', stockId, e.message);
@@ -40004,8 +40045,13 @@ async function renderHoldingPyramid(stockId) {
 
   const { groups, whaleTrend, whaleSignal, latestDate } = cache.parsed;
   const wMeta = _whaleSignalMeta(whaleSignal);
-  badgeEl.innerHTML = `<span title="千張大戶持股趨勢訊號（資料日期：${latestDate}）" style="font-size:0.6rem;font-weight:700;padding:1px 6px;border-radius:4px;
-    background:${wMeta.bg};color:${wMeta.color};border:1px solid ${wMeta.border};">${wMeta.icon} ${wMeta.label}</span>`;
+  // 免費來源（集保開放資料）剛開始累積時，只有 1 週算不出增減：老實標示「累積中」，不假裝是「觀察中」
+  const accumulating = cache.source === 'tdcc' && whaleTrend.length < 2;
+  const srcNote = cache.source === 'tdcc'
+    ? `；資料來源：集保結算所免費資料，已累積 ${whaleTrend.length} 週（至少要 2 週才看得出增減）`
+    : '';
+  badgeEl.innerHTML = `<span title="千張大戶持股趨勢訊號（資料日期：${latestDate}${srcNote}）" style="font-size:0.6rem;font-weight:700;padding:1px 6px;border-radius:4px;
+    background:${wMeta.bg};color:${wMeta.color};border:1px solid ${wMeta.border};">${accumulating ? `⏳ 累積中（${whaleTrend.length}/2 週）` : `${wMeta.icon} ${wMeta.label}`}</span>`;
   return; // 以下橫條圖／趨勢圖計算已不再輸出，保留變數僅供舊碼相容，直接略過
 
   // ── 金字塔橫條圖 ──
