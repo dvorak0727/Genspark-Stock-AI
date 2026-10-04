@@ -542,6 +542,75 @@ def build_cp6(cp5):
     cp6 = must_replace(cp6, "  renderStage();", "  renderStage();\n  renderMA();")
     return cp6
 
+# ───────── 存檔點7：多週期階段（同一組規則，分別套在 5/10/20/30/60 日）─────────
+CP7_CSS = """
+.ms-wrap{overflow-x:auto;margin:6px 0 4px}
+.ms td.lab{font-weight:800;white-space:nowrap}
+.ms td.na{color:var(--muted);font-size:.84rem}
+.ms-sum{font-size:1.05rem;font-weight:800;margin:10px 0 6px;line-height:1.7}
+.rules{font-size:.84rem;color:var(--muted);line-height:1.8;margin:8px 0 0}
+.rules summary{cursor:pointer}
+"""
+
+CP7_JS = r"""
+/* ---- 多週期階段：同一組規則，分別看 5 / 10 / 20 / 30 / 60 日 ---- */
+const WINDOWS = [5, 10, 20, 30, 60];
+const TH = { hi: 70, lo: 40, boom: 1.5, quiet: 0.7 };      // 門檻都放在這裡，想調整只改這四個數字
+function stageAt(N) {                                       // 用完整資料（不受「顯示天數」影響）；算不出來就回傳 { na: 原因 }
+  const s = DATA[cur], n = s.d.length, i = n - 1;
+  if (n < N + 1) return { na: `資料不足：需要至少 ${N + 1} 個交易日，目前只有 ${n} 個` };
+  const H = Math.max(...s.h.slice(i - N + 1)), L = Math.min(...s.l.slice(i - N + 1));
+  if (H === L) return { na: `近 ${N} 日價格完全沒有變動，位階算不出來` };
+  const volAvg = mean(s.v.slice(i - N, i));
+  if (!volAvg) return { na: `前 ${N} 日沒有成交量，量比算不出來` };
+  const pos = (s.c[i] - L) / (H - L) * 100, vr = s.v[i] / volAvg;
+  const inst = sumLast(s.f, N) + sumLast(s.t, N), mChg = s.m[i] - s.m[i - N], pChg = s.c[i] - s.c[i - N];
+  const red = s.c[i] > s.o[i];
+  let name = '看不出', cls = 'flat';
+  if (pos >= TH.hi && vr >= TH.boom && inst < 0) { name = '⚠️ 出貨'; cls = 'down'; }
+  else if (vr >= TH.boom && red && inst > 0 && pos < TH.hi) { name = '🔥 啟動'; cls = 'up'; }
+  else if (pos >= TH.hi && inst > 0 && pChg > 0 && vr >= 1) { name = '📈 拉升'; cls = 'up'; }
+  else if (pos <= TH.lo && mChg < 0 && pChg < 0) { name = '🌀 洗盤'; }
+  else if (pos <= TH.lo && vr <= TH.quiet) { name = '😴 吸籌'; }
+  return { N, name, cls, pos, vr, inst, mChg, pChg };
+}
+function renderStageMulti() {
+  const rows = WINDOWS.map(stageAt);
+  const body = rows.map((r, k) => r.na
+    ? `<tr><td>${WINDOWS[k]} 日</td><td class="na" colspan="6">${r.na}</td></tr>`
+    : `<tr><td>${r.N} 日</td><td class="lab ${r.cls}">${r.name}</td><td>${r.pos.toFixed(0)}%</td><td>${r.vr.toFixed(2)}</td>
+       <td class="${r.inst > 0 ? 'up' : r.inst < 0 ? 'down' : 'flat'}">${signed(r.inst)}</td>
+       <td class="${r.mChg > 0 ? 'up' : r.mChg < 0 ? 'down' : 'flat'}">${signed(r.mChg)}</td>
+       <td class="${r.pChg > 0 ? 'up' : r.pChg < 0 ? 'down' : 'flat'}">${r.pChg > 0 ? '+' : ''}${r.pChg.toFixed(1)}</td></tr>`).join('');
+  const ok = rows.filter(r => !r.na), groups = {};
+  ok.forEach(r => { (groups[r.name.replace(/^[^一-鿿]+/, '')] ||= []).push(r.N); });
+  const names = Object.keys(groups);
+  const sum = !ok.length ? '資料不足，每個週期都算不出來'
+    : names.length === 1 ? `各週期的結論一致：${names[0]}（${groups[names[0]].join('、')} 日）`
+    : '各週期的結論不一致：' + names.map(nm => `「${nm}」：${groups[nm].join('、')} 日`).join('；');
+  $('stageCard').innerHTML = `
+    <h2>現在像哪一個階段？（五個週期一起看）</h2>
+    <div class="stage-label ms-sum">${sum}</div>
+    <div class="ms-wrap"><table class="tbl ms"><thead><tr><th>週期</th><th>判斷</th><th>位階</th><th>量比</th><th>外資＋投信累計（張）</th><th>融資變化（張）</th><th>股價變化（元）</th></tr></thead><tbody>${body}</tbody></table></div>
+    <details class="rules"><summary>每一列是怎麼判斷的（按開來看規則）</summary>
+      <p>每一列用同一組規則，只是把「近 N 日」的 N 換成 5、10、20、30、60。位階＝近 N 日高低區間；量比＝今天成交量 ÷ 前 N 日平均；累計與變化＝近 N 日。依序檢查，符合第一個就停：<br>
+      ⚠️ 出貨：位階 ≥ ${TH.hi}%、量比 ≥ ${TH.boom}、外資＋投信累計 &lt; 0<br>
+      🔥 啟動：量比 ≥ ${TH.boom}、今天收紅 K、外資＋投信累計 &gt; 0、位階 &lt; ${TH.hi}%（放量起漲，還沒到高檔）<br>
+      📈 拉升：位階 ≥ ${TH.hi}%、外資＋投信累計 &gt; 0、股價變化 &gt; 0、量比 ≥ 1<br>
+      🌀 洗盤：位階 ≤ ${TH.lo}%、融資減少、股價下跌<br>
+      😴 吸籌：位階 ≤ ${TH.lo}%、量比 ≤ ${TH.quiet}<br>
+      都不符合：看不出。需要 N＋1 個交易日的資料，不夠就寫「資料不足」，不硬算。</p></details>
+    <div class="hint"><b>怎麼讀：</b>重點不是某一列，而是各列之間有沒有一致。短週期和長週期結論不同，代表短線和長線在講不同的故事。這是把數字整理成階段名稱的簡化判讀，<b>不是預測，也不是買賣建議</b>，門檻是老師訂的，可以再調整。</div>`;
+}
+"""
+
+def build_cp7(cp6):
+    cp7 = must_replace(cp6, "存檔點6</title>", "存檔點7</title>")
+    cp7 = must_replace(cp7, "</style>", CP7_CSS + "</style>")
+    cp7 = must_replace(cp7, "function renderAll() {", CP7_JS + "\nfunction renderAll() {")
+    cp7 = must_replace(cp7, "  renderStage();\n  renderMA();", "  renderStage();\n  renderStageMulti();\n  renderMA();")
+    return cp7
+
 def build():
     tpl = rd("mini_start.template.html")
     data = rd("mini_data.js").strip()
@@ -570,9 +639,11 @@ def build():
     wr("mini-cp4.html", cp4)
     cp5 = build_cp5(cp4)
     wr("mini-cp5.html", cp5)
-    wr("mini-cp6.html", build_cp6(cp5))
+    cp6 = build_cp6(cp5)
+    wr("mini-cp6.html", cp6)
+    wr("mini-cp7.html", build_cp7(cp6))
 
-    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html", "mini-cp4.html", "mini-cp5.html", "mini-cp6.html"):
+    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html", "mini-cp4.html", "mini-cp5.html", "mini-cp6.html", "mini-cp7.html"):
         print(n, os.path.getsize(os.path.join(HERE, n)) // 1024, "KB")
 
 if __name__ == "__main__":
