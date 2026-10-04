@@ -167,7 +167,9 @@
   <p>貼在同一個對話裡就好，不用再貼程式碼。</p>
   <div class="prompt">
     <div class="prompt-label">指令 5　位階與量比卡片</div>
-    <pre id="p_pos">請在「融資融券」卡片的下面，再新增一張「位階與量比」卡片。
+    <pre id="p_pos">請直接修改「你剛剛輸出的那份完整 HTML」（有股票按鈕、股價、K 線、三大法人、融資融券等所有卡片），不要另外重新做一個新的頁面。資料只能用那份 HTML 裡的 const DATA，不可以自己編數字。如果你找不到剛剛那份 HTML，請直接回答「找不到」，不要自己編。
+
+請在「融資融券」卡片的下面，再新增一張「位階與量比」卡片。
 
 規則：
 1. 位階＝（最新收盤價 － 近 15 個交易日的最低價）÷（近 15 個交易日的最高價 － 近 15 個交易日的最低價）× 100%。最高價用資料裡的 h，最低價用 l，近 15 日包含最新這一天。位階 70% 以上寫「高檔」，30% 以下寫「低檔」，中間寫「中段」。
@@ -183,8 +185,20 @@
 
   <div class="see">
     <div class="see-t">你應該看到</div>
+    <label class="chk"><input type="checkbox" data-k="n0"><span>頁面最上面的股票按鈕、價格、K 線、三大法人、融資融券這些<b>都還在</b>，不是只剩兩張卡片</span></label>
     <label class="chk"><input type="checkbox" data-k="n1"><span>融資融券卡片下面多了「位階與量比」卡片，有一條三色的位階條，上面有 ▼ 記號</span></label>
     <label class="chk"><input type="checkbox" data-k="n2"><span>條的下面有用實際數字寫出來的算式</span></label>
+  </div>
+
+  <div class="warn">
+    <div class="warn-t">⚠️ 如果 AI 重新做了一個新頁面，數字就是假的</div>
+    <p>有時候 AI 沒有在你原本的網頁上修改，而是自己重新做了一個全新的頁面：沒有股票按鈕、沒有 K 線，只剩兩三張卡片，數字還特別整齊（例如融資餘額 12,450、成交量 12,500）。這些數字是它編的，不在我們的資料裡。這就是「架構是對的，資料卻是假的」，最危險。</p>
+    <p>遇到這種情況，複製下面這句貼給它。如果它還是做不到，就用「存檔點 2」。</p>
+  </div>
+  <div class="prompt">
+    <div class="prompt-label">指令　AI 重做了新頁面時用</div>
+    <pre id="p_redo">你剛剛做的是一個全新的頁面，而且數字是你自己編的。我要的是在「前面那份有股票按鈕、價格、K 線、三大法人、融資融券的完整網頁」上新增卡片，資料只能用那份網頁裡的 const DATA。請以那份 HTML 為基礎重新輸出完整檔案。如果你找不到那份 HTML，請直接回答「找不到」，不要編數字。</pre>
+    <button class="copy alt" data-src="p_redo">複製這句</button>
   </div>
 
   <h3>拿計算機驗算（今天的重點）</h3>
@@ -227,7 +241,9 @@
   <h3>請 AI 加上這張卡片</h3>
   <div class="prompt">
     <div class="prompt-label">指令 6　階段參考卡片</div>
-    <pre id="p_stage">請在「位階與量比」卡片的下面，再新增一張「現在像哪一個階段？（粗略參考）」卡片。
+    <pre id="p_stage">請直接修改「你剛剛輸出的那份完整 HTML」（有股票按鈕、股價、K 線、三大法人、融資融券、位階與量比等所有卡片），不要另外重新做一個新的頁面。資料只能用那份 HTML 裡的 const DATA，不可以自己編數字。如果你找不到剛剛那份 HTML，請直接回答「找不到」，不要自己編。
+
+請在「位階與量比」卡片的下面，再新增一張「現在像哪一個階段？（粗略參考）」卡片。
 
 先算出這些數字（都用目前選到的股票）：
 ・位階、量比：同上一張卡片的算法
@@ -251,6 +267,7 @@
 
   <div class="see">
     <div class="see-t">你應該看到</div>
+    <label class="chk"><input type="checkbox" data-k="g0"><span>前面的卡片都還在，股票按鈕和 K 線也還在（如果只剩一張新卡片，照 2-3 的「重做了新頁面」那一格處理）</span></label>
     <label class="chk"><input type="checkbox" data-k="g1"><span>台積電：「看不出明確的階段」，下面列出位階 89%、量比 0.71、外資＋投信近 5 日 −9,571 張</span></label>
     <label class="chk"><input type="checkbox" data-k="g2"><span>把六檔股票全部點一遍，看哪一檔的結果和別人不一樣</span></label>
   </div>
