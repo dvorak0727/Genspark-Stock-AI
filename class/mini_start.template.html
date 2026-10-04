@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>迷你台股分析器</title>
+<!--
+  【給 AI 的說明】這是一個「單一檔案」的迷你台股分析器，所有資料都已經放在下面「資料區」，
+  不需要連網。使用者會一次一個步驟，請你幫他在這個頁面上「新增功能卡片」。
+  規則：
+  1. 請輸出完整的 HTML 檔案，不要省略任何一段，不要只給片段。
+  2. 「資料區」(const DATA = ...) 一個字都不要改、不要刪、不要重新生成，原樣保留。
+  3. 台股慣例：紅色＝漲／買超，綠色＝跌／賣超，不要用歐美的綠漲紅跌。
+  4. 資料欄位：d日期 o開 h高 l低 c收 v成交量(張) f外資買賣超(張) t投信買賣超(張)
+     s自營商自行買賣超(張) m融資餘額(張) sh融券餘額(張)。陣列由舊到新，最後一筆是最新一天。
+  5. 資料裡沒有的東西不要編造；算不出來就明確顯示「資料不足」。
+-->
+<style>
+:root{--bg:#f1f7f4;--card:#fff;--ink:#17332b;--muted:#6b8179;--line:#dbe8e2;--brand:#0f766e;--up:#e0343a;--down:#16a34a;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",sans-serif;line-height:1.6}
+.wrap{max-width:960px;margin:0 auto;padding:18px 16px 40px}
+header h1{margin:0;font-size:1.35rem;color:var(--brand)}
+header p{margin:2px 0 14px;color:var(--muted);font-size:.85rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chip{border:1px solid var(--line);background:#fff;color:var(--ink);padding:6px 14px;border-radius:999px;font-size:.88rem;cursor:pointer}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.card h2{margin:0 0 10px;font-size:1rem}
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--muted)}
+.price-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 28px}
+.big{font-size:2.3rem;font-weight:800;line-height:1.1}
+.sub{font-size:.9rem;color:var(--muted)}
+.ohlc{display:flex;gap:18px;flex-wrap:wrap;font-size:.88rem;color:var(--muted)}
+.ohlc b{color:var(--ink)}
+svg{width:100%;height:auto;display:block}
+.legend{font-size:.78rem;color:var(--muted);margin:8px 0 0}
+footer{font-size:.75rem;color:var(--muted);margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>迷你台股分析器</h1>
+    <p>志工媽媽班 ・ 一次加一個功能，慢慢長成自己的分析器</p>
+  </header>
+
+  <div id="picker" class="chips"></div>
+  <section class="card" id="priceCard"></section>
+  <section class="card">
+    <h2>近 60 個交易日走勢</h2>
+    <div id="chart"></div>
+    <p class="legend">紅 K＝收盤高於開盤（漲），綠 K＝收盤低於開盤（跌）；細線是影線，代表盤中曾經到過的最高／最低價。下方長條是成交量。</p>
+  </section>
+
+  <!-- ▼▼▼ 新功能的卡片請加在這一行下面 ▼▼▼ -->
+
+  <footer>資料為預先下載的歷史資料（來源：FinMind／證交所），不是即時報價；價格單位為元，成交量與買賣超單位為「張」。僅供學習，不構成投資建議。</footer>
+</div>
+
+<script>
+/* ========== 資料區（請原樣保留，不要修改）========== */
+/*__DATA__*/
+/* ========== 程式區 ========== */
+const IDS = ['2330', '2317', '2882', '2412', '2603', '0056'].filter(id => DATA[id]);  // 按鈕顯示順序
+let cur = IDS[0];
+const $ = id => document.getElementById(id);
+const n0 = x => Number(x).toLocaleString('zh-TW');
+
+function renderPicker() {
+  $('picker').innerHTML = IDS.map(id =>
+    `<button class="chip ${id === cur ? 'on' : ''}" data-id="${id}">${DATA[id].name} ${id}</button>`).join('');
+  document.querySelectorAll('#picker .chip').forEach(b => b.onclick = () => { cur = b.dataset.id; renderAll(); });
+}
+
+function renderPrice() {
+  const s = DATA[cur], i = s.d.length - 1;
+  const c = s.c[i], p = s.c[i - 1], ch = c - p, cp = ch / p * 100;
+  const cls = ch > 0 ? 'up' : ch < 0 ? 'down' : 'flat';
+  const arrow = ch > 0 ? '▲' : ch < 0 ? '▼' : '－';
+  $('priceCard').innerHTML = `
+    <div class="price-row">
+      <div>
+        <div class="sub">${s.name} ${cur}</div>
+        <div class="big ${cls}">${c.toFixed(2)}</div>
+        <div class="${cls}">${arrow} ${Math.abs(ch).toFixed(2)}（${Math.abs(cp).toFixed(2)}%）</div>
+        <div class="sub">${s.d[i]} 收盤</div>
+      </div>
+      <div class="ohlc">
+        <span>開 <b>${s.o[i]}</b></span><span>高 <b>${s.h[i]}</b></span>
+        <span>低 <b>${s.l[i]}</b></span><span>成交量 <b>${n0(s.v[i])}</b> 張</span>
+      </div>
+    </div>`;
+}
+
+function renderChart() {
+  const s = DATA[cur], n = s.d.length;
+  const W = 900, H = 330, padL = 8, padR = 56, top = 10, priceH = 215, volTop = 245, volH = 70;
+  const hi0 = Math.max(...s.h), lo0 = Math.min(...s.l), pad = (hi0 - lo0) * 0.05 || 1;
+  const hi = hi0 + pad, lo = lo0 - pad;
+  const y = v => top + (hi - v) / (hi - lo) * priceH;
+  const step = (W - padL - padR) / n, bw = step * 0.62;
+  const vMax = Math.max(...s.v, 1);
+  let g = '';
+  for (let k = 0; k <= 4; k++) {
+    const v = lo + (hi - lo) * k / 4, yy = y(v);
+    g += `<line x1="${padL}" x2="${W - padR}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="#e5eeea"/>` +
+         `<text x="${W - padR + 6}" y="${(yy + 4).toFixed(1)}" font-size="11" fill="#6b8179">${v.toFixed(v > 100 ? 0 : 1)}</text>`;
+  }
+  for (let i = 0; i < n; i++) {
+    const cx = padL + step * i + step / 2;
+    const col = s.c[i] > s.o[i] ? '#e0343a' : s.c[i] < s.o[i] ? '#16a34a' : '#8a9a93';
+    const yo = y(s.o[i]), yc = y(s.c[i]);
+    const vh = s.v[i] / vMax * volH;
+    g += `<g><title>${s.d[i]}  開${s.o[i]} 高${s.h[i]} 低${s.l[i]} 收${s.c[i]}  量${n0(s.v[i])}張</title>` +
+         `<line x1="${cx.toFixed(1)}" x2="${cx.toFixed(1)}" y1="${y(s.h[i]).toFixed(1)}" y2="${y(s.l[i]).toFixed(1)}" stroke="${col}" stroke-width="1.6"/>` +
+         `<rect x="${(cx - bw / 2).toFixed(1)}" y="${Math.min(yo, yc).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1.5, Math.abs(yc - yo)).toFixed(1)}" fill="${col}"/>` +
+         `<rect x="${(cx - bw / 2).toFixed(1)}" y="${(volTop + volH - vh).toFixed(1)}" width="${bw.toFixed(1)}" height="${vh.toFixed(1)}" fill="${col}" opacity=".45"/></g>`;
+  }
+  const lab = i => s.d[i].slice(5).replace('-', '/');
+  g += `<text x="${padL}" y="${H - 2}" font-size="11" fill="#6b8179">${lab(0)}</text>` +
+       `<text x="${(W - padR) / 2}" y="${H - 2}" font-size="11" fill="#6b8179" text-anchor="middle">${lab(Math.floor(n / 2))}</text>` +
+       `<text x="${W - padR}" y="${H - 2}" font-size="11" fill="#6b8179" text-anchor="end">${lab(n - 1)}</text>`;
+  $('chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${s.name}近60日K線與成交量">${g}</svg>`;
+}
+
+function renderAll() {
+  renderPicker();
+  renderPrice();
+  renderChart();
+  /* 新功能的畫面程式請加在這裡（例如 renderInst();） */
+}
+renderAll();
+</script>
+</body>
+</html>
