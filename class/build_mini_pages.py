@@ -377,6 +377,114 @@ def build_cp4(cp3):
     cp4 = must_replace(cp4, "  renderDays();", "  renderDays();\n  renderRefresh();")
     return cp4
 
+# ───────── 存檔點5：查其他股票（輸入代號，查不到就老實說）─────────
+CP5_CSS = """
+.lookup{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.lookup input{border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:.9rem;width:220px;background:#fff;color:var(--ink)}
+#lookupBtn:disabled{opacity:.5;cursor:wait}
+"""
+
+CP5_HTML = """
+  <div class="lookup"><input id="idInput" type="text" maxlength="6" placeholder="輸入股票代號，例如 2891" autocomplete="off"><button id="lookupBtn" class="chip" type="button">查這檔</button><span id="lookupMsg" class="rmsg"></span></div>"""
+
+# 把存檔點4裡「更新資料」的整段抓取邏輯，改成可以重複使用的 fetchStock（更新與查詢共用）
+CP5_FETCH_BLOCK = r"""/* 抓一檔股票：回傳「股價、三大法人、融資融券三種都齊全」的最近60天，格式跟 DATA 一樣 */
+async function fetchStock(id, name) {
+  const end = new Date(), start = new Date(end.getTime() - 130 * 86400000);
+  const f = d => d.toLocaleDateString('sv-SE');                       // YYYY-MM-DD（本地日期）
+  const [px, ch, mg] = await Promise.all([
+    fm('TaiwanStockPrice', id, f(start), f(end)),
+    fm('TaiwanStockInstitutionalInvestorsBuySell', id, f(start), f(end)),
+    fm('TaiwanStockMarginPurchaseShortSale', id, f(start), f(end))]);
+  if (!px.length) throw new Error('查不到這個代號的股價資料，請確認代號');
+  const net = { Foreign_Investor: {}, Investment_Trust: {}, Dealer_self: {} };   // 只要這三種，避險(Dealer_Hedging)不要
+  ch.forEach(r => { if (net[r.name]) net[r.name][r.date] = (r.buy || 0) - (r.sell || 0); });
+  const mgd = {}; mg.forEach(r => { mgd[r.date] = r; });
+  const priced = px.filter(r => +r.close > 0).sort((a, b) => a.date < b.date ? -1 : 1);
+  // 只用「三種資料都有」的日子，避免把還沒公布或根本沒有的資料當成 0
+  const rows = priced.filter(r => r.date in net.Foreign_Investor && r.date in net.Investment_Trust && r.date in net.Dealer_self && r.date in mgd).slice(-60);
+  if (rows.length < 16) throw new Error(!ch.length || !mg.length ? '這檔缺少三大法人或融資融券資料' : '回傳的資料太少');
+  const dates = rows.map(r => r.date), k = x => Math.round(x / 1000);          // 股 → 張
+  const fresh = { name, d: dates,
+    o: rows.map(r => r.open), h: rows.map(r => r.max), l: rows.map(r => r.min), c: rows.map(r => r.close),
+    v: rows.map(r => k(r.Trading_Volume)),
+    f: dates.map(d => k(net.Foreign_Investor[d])), t: dates.map(d => k(net.Investment_Trust[d])), s: dates.map(d => k(net.Dealer_self[d])),
+    m: dates.map(d => +mgd[d].MarginPurchaseTodayBalance || 0), sh: dates.map(d => +mgd[d].ShortSaleTodayBalance || 0) };
+  // 算不出來的情況，老實說，不硬算
+  const last16 = fresh.v.slice(-16);
+  if (!last16.some(x => x > 0)) throw new Error('這檔最近沒有成交量，無法計算量比');
+  if (Math.max(...fresh.h.slice(-15)) === Math.min(...fresh.l.slice(-15))) throw new Error('最近 15 天價格完全沒有變動，無法計算位階');
+  if (!(fresh.m.at(-1) > 0) || !(fresh.m.at(-6) > 0)) throw new Error('這檔的融資餘額是 0，無法計算券資比');
+  return { fresh, latestPrice: priced.at(-1).date };
+}
+
+async function refreshData() {
+  const id = cur, btn = $('refreshBtn');
+  btn.disabled = true;
+  rmsgs[id] = { cls: '', text: '更新中…' }; renderRefresh();
+  try {
+    const { fresh, latestPrice } = await fetchStock(id, DATA[id].name);
+    const before = raw().d.at(-1), last = fresh.d.at(-1);
+    live[id] = fresh;
+    let text = last === before ? `已經是最新（最近一個交易日：${last}）` : `已更新：最新資料日期 ${last}（共 ${fresh.d.length} 個交易日）`;
+    if (latestPrice !== last) text += `。股價已經有 ${latestPrice}，但三大法人或融資券還沒公布，所以先用 ${last}`;
+    rmsgs[id] = { cls: 'ok', text };
+  } catch (e) {
+    // 失敗：原本的資料完全不動，也絕不用編造的數字頂替
+    rmsgs[id] = { cls: 'bad', text: `⚠️ 抓不到最新資料（${e.message || e}）。目前仍使用 ${raw().d.at(-1)} 的資料。` };
+  }
+  renderAll();
+  setTimeout(() => { btn.disabled = false; }, 5000);                    // 停用5秒，避免連續狂按用光次數
+}
+
+"""
+
+CP5_JS = r"""
+/* ---- 查其他股票：輸入代號，頁面自己去抓；查不到就老實說 ---- */
+function setLookup(cls, text) { $('lookupMsg').className = 'rmsg ' + cls; $('lookupMsg').textContent = text; }
+
+async function lookupName(id) {
+  try {   // 名稱查不到不影響主流程，就先用代號當名稱
+    const r = await fetch(`${FM}?dataset=TaiwanStockInfo&data_id=${id}`);
+    const j = await r.json();
+    return (j.status === 200 && j.data.length && j.data[0].stock_name) || id;
+  } catch (e) { return id; }
+}
+
+async function lookupStock() {
+  const btn = $('lookupBtn'), id = $('idInput').value.trim().toUpperCase();
+  if (!/^[0-9A-Z]{4,6}$/.test(id)) { setLookup('bad', '請輸入 4 到 6 碼的股票代號，例如 2891'); return; }
+  if (DATA[id]) { cur = id; renderAll(); setLookup('ok', `已切換到 ${DATA[id].name} ${id}`); return; }
+  btn.disabled = true; setLookup('', '查詢中…');
+  try {
+    const name = await lookupName(id);
+    const { fresh } = await fetchStock(id, name);
+    DATA[id] = fresh; IDS.push(id); cur = id;                           // 加進股票按鈕列
+    rmsgs[id] = { cls: 'ok', text: `自選股：資料剛從 FinMind 抓回來，最新資料日期 ${fresh.d.at(-1)}` };
+    setLookup('ok', `已加入：${name} ${id}`);
+    renderAll();
+  } catch (e) {
+    setLookup('bad', `⚠️ 查不到「${id}」（${e.message || e}）。沒有資料就是沒有資料，這個頁面不會編。`);
+  }
+  setTimeout(() => { btn.disabled = false; }, 5000);
+}
+$('lookupBtn').onclick = lookupStock;
+$('idInput').addEventListener('keydown', e => { if (e.key === 'Enter') lookupStock(); });
+"""
+
+def build_cp5(cp4):
+    i0 = CP4_JS.index("async function fm(")
+    i1 = CP4_JS.index("async function refreshData() {")
+    i2 = CP4_JS.index("function renderRefresh() {")
+    old_refresh = CP4_JS[i1:i2]
+    assert old_refresh in cp4, "找不到存檔點4的refreshData區塊"
+    cp5 = cp4.replace(old_refresh, CP5_FETCH_BLOCK)
+    cp5 = must_replace(cp5, "存檔點4</title>", "存檔點5</title>")
+    cp5 = must_replace(cp5, '<span id="refreshMsg" class="rmsg"></span></div>', '<span id="refreshMsg" class="rmsg"></span></div>' + CP5_HTML)
+    cp5 = must_replace(cp5, "</style>", CP5_CSS + "</style>")
+    cp5 = must_replace(cp5, "function renderAll() {", CP5_JS + "\nfunction renderAll() {")
+    return cp5
+
 def build():
     tpl = rd("mini_start.template.html")
     data = rd("mini_data.js").strip()
@@ -401,9 +509,11 @@ def build():
 
     cp3 = build_cp3(cp2)
     wr("mini-cp3.html", cp3)
-    wr("mini-cp4.html", build_cp4(cp3))
+    cp4 = build_cp4(cp3)
+    wr("mini-cp4.html", cp4)
+    wr("mini-cp5.html", build_cp5(cp4))
 
-    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html", "mini-cp4.html"):
+    for n in ("mini-start.html", "mini-cp1.html", "mini-cp2.html", "mini-cp3.html", "mini-cp4.html", "mini-cp5.html"):
         print(n, os.path.getsize(os.path.join(HERE, n)) // 1024, "KB")
 
 if __name__ == "__main__":

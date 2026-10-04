@@ -1,0 +1,221 @@
+<div class="wrap">
+
+<div class="kicker">志工媽媽班 ・ 進階 ・ 90 分鐘</div>
+<h1>步驟五　查自己的股票</h1>
+<p class="lede">前面四次，頁面只能看老師挑的六檔。今天我們加一個輸入框：打一個股票代號，頁面自己去抓、自己算。重點還是那條規矩：查得到就用，查不到就老實說，絕不編數字。一樣只做複製、貼上、核對，唯一要打的字是「股票代號」。</p>
+
+<div class="result">
+  <b>今天做完，你的頁面會多一個輸入框：</b>輸入 2891，按「查這檔」，頁面去 FinMind 抓中信金的資料，所有卡片跟著重算，並且多出一顆中信金的按鈕。輸入不存在的代號，它會用紅字說「查不到」，不會亂編。<br>
+  <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp5.html" target="_blank" rel="noopener">先看看成品長什麼樣（開新分頁，可以輸入代號試試）</a>
+</div>
+
+<div class="tl">
+<table>
+  <thead><tr><th>時間</th><th>做什麼</th></tr></thead>
+  <tbody>
+    <tr><td>10 分鐘</td><td>步驟 5-0　交作業，選好你要查的 2～3 檔股票</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 5-1　先聽白話：為什麼不是每一檔都查得到</td></tr>
+    <tr><td>30 分鐘</td><td>步驟 5-2　請 AI 加「查其他股票」輸入框，存成網頁檔測試</td></tr>
+    <tr><td>15 分鐘</td><td>步驟 5-3　查你自己的股票，讀它的一句話總結</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 5-4　查不到的時候，紅字在說什麼</td></tr>
+    <tr><td>10 分鐘</td><td>步驟 5-5　結業與下一步</td></tr>
+  </tbody>
+</table>
+</div>
+
+
+<!-- ═══ 5-0 ═══ -->
+<section class="step" id="s50">
+  <div class="step-head"><span class="badge">5-0</span><span class="mins">10 分鐘</span></div>
+  <h2>交作業，選好你要查的股票</h2>
+  <label class="chk"><input type="checkbox" data-k="p1"><span>說說上次「更新最新資料」按鈕，你有沒有遇到紅字？原因是什麼？</span></label>
+  <label class="chk"><input type="checkbox" data-k="p2"><span>在 AI 聊天網站按「新對話」，開兩個分頁：一個放這份講義，一個放 AI 聊天</span></label>
+  <label class="chk"><input type="checkbox" data-k="p3"><span>在紙上寫下 2～3 個你想查的股票代號（自己持有的、家人提過的都可以）。代號是 4 位數字，ETF 是 5 位數字加英文</span></label>
+  <p>今天的起點是「存檔點 4」（有更新最新資料按鈕）。5-2 的紅色按鈕會自動把它帶進去。</p>
+</section>
+
+
+<!-- ═══ 5-1 ═══ -->
+<section class="step" id="s51">
+  <div class="step-head"><span class="badge">5-1</span><span class="mins">15 分鐘</span></div>
+  <h2>先聽白話：為什麼不是每一檔都查得到</h2>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>情況</th><th>白話</th></tr></thead>
+    <tbody>
+      <tr><td>股票代號</td><td>每一檔股票的身分證。上市、上櫃的普通股是 4 位數字（例如 2330）；ETF 是 5～6 碼（例如 00878）。</td></tr>
+      <tr><td>三份資料要齊</td><td>頁面要同時有「股價、三大法人、融資融券」三份資料才會算。少一份，整檔就不算。</td></tr>
+      <tr><td>沒有融資融券</td><td>有些股票不能融資融券，或成交太冷門，資料庫就沒有這一份。這種股票，我們的頁面查不到，這不是壞掉。</td></tr>
+      <tr><td>資料太少</td><td>剛上市不久，天數不到 16 天，算不出位階和量比，所以也不算。</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>為什麼不寧可補 0 讓它算出來？</h3>
+  <p>因為補了 0，頁面就會說「外資持平、沒人融資」。但真實情況是「根本沒有這份資料」。<b>沒有資料，和資料是 0，是兩件完全不同的事。</b>頁面老實說「查不到」，比給你一個看起來完整、其實是編的畫面，有價值得多。</p>
+
+  <div class="warn">
+    <div class="warn-t">今天的額度提醒</div>
+    <p>每查一檔新股票，要抓 4 份資料（股價、三大法人、融資融券、股票名稱），用掉 4 次額度。不登入每小時約 300 次，四個人輪流查沒有問題，但請不要同時狂按。查過的股票，頁面會記在按鈕上，再按那顆按鈕不會重抓。</p>
+  </div>
+</section>
+
+
+<!-- ═══ 5-2 ═══ -->
+<section class="step" id="s52">
+  <div class="step-head"><span class="badge">5-2</span><span class="mins">30 分鐘</span></div>
+  <h2>請 AI 加「查其他股票」輸入框</h2>
+
+  <div class="prompt">
+    <div class="prompt-label">指令 12　查其他股票輸入框</div>
+    <pre id="p_lookup">下面是我的「迷你台股分析器」網頁程式碼。請新增一個「查其他股票」的功能：在「更新這檔的最新資料」那一列的下面，放一個文字輸入框（提示文字「輸入股票代號，例如 2891」）、一顆「查這檔」按鈕，以及一個顯示訊息的位置。
+
+做法與規則：
+1. 輸入的代號要先檢查：英文字母一律轉大寫，長度 4 到 6 個字，只能是數字或英文字母。不符合就在訊息位置用紅字提醒「請輸入 4～6 碼的股票代號」，不要去抓資料。也要支援按 Enter 鍵送出。
+2. 如果這個代號已經在頁面的股票按鈕裡（原本的六檔，或之前查過的），就直接切換過去，不要再抓一次。
+3. 如果是新的代號，就用和「更新最新資料」相同的方式，向 FinMind 抓 TaiwanStockPrice、TaiwanStockInstitutionalInvestorsBuySell、TaiwanStockMarginPurchaseShortSale 三份資料（單位換算、格式、只保留最近 60 天、只用三份都有的日期，全部和更新按鈕一樣，請直接共用同一段程式，不要另外亂寫一套）。用最單純的 GET，不加任何自訂標頭，不需要金鑰。
+4. 股票名稱：另外用 TaiwanStockInfo（參數 data_id=代號）抓 stock_name。抓不到名稱，就直接顯示代號當名稱。
+5. 成功：把這檔股票加進頁面的股票按鈕列（按鈕上寫「代號 名稱」），自動切換到這一檔，所有卡片、K 線、一句話總結都照這一檔重新計算。訊息位置用綠色字顯示「已加入：代號 名稱（最新資料日期 YYYY-MM-DD）」。
+6. 失敗，一律不要加按鈕、不要動到原本的資料，也絕對不可以用模擬或編造的數字頂替。訊息位置用紅色粗體顯示「⚠️ 查不到「代號」（原因）。沒有資料就是沒有資料，這個頁面不會編。」原因要照實寫，至少包含這幾種：
+   ・查不到這個代號的股價資料，請確認代號
+   ・這檔缺少三大法人或融資融券資料
+   ・回傳的資料太少（三份都有的日期不到 16 天）
+   ・這檔最近沒有成交量，無法計算量比
+   ・最近 15 天價格完全沒有變動，無法計算位階
+   ・這檔的融資餘額是 0，無法計算券資比
+   ・連不上網或其他錯誤（寫出實際錯誤訊息）
+7. 按下「查這檔」之後，按鈕要暫時停用 5 秒，避免連續狂按。
+8. 所有卡片的計算，遇到資料不足或分母是 0，都要顯示「資料不足」，不可以出現 NaN、undefined 或 0 當結果。
+
+請輸出完整的 HTML 檔案，不要省略任何部分。其他部分不要改動，原本的資料區（const DATA）請原樣保留。</pre>
+    <button class="copy" data-src="p_lookup" data-attach="cp4">複製「指令＋存檔點 4 程式碼」</button>
+    <p class="autonote">按下去之後，這段指令後面會自動接上存檔點 4 的完整程式碼。</p>
+  </div>
+
+  <ol class="how">
+    <li>切到 AI 聊天的<b>新對話</b>，點輸入框，按 <span class="key">Ctrl + V</span> 貼上（Mac 按 <span class="key">⌘ + V</span>），按送出。</li>
+    <li>等 AI 寫完。先在預覽裡輸入代號試試看。</li>
+  </ol>
+
+  <div class="warn">
+    <div class="warn-t">預覽裡查不到，是正常的</div>
+    <p>跟上次一樣，很多 AI 的預覽視窗不讓網頁連到外面。這時候頁面如果用紅字說「查不到」，反而是<b>做對了</b>。要真的查，請把程式碼存成網頁檔再打開。做法在 <a href="step1.html#s12" target="_blank" rel="noopener">步驟一講義</a>的「沒有預覽怎麼辦」，檔名打 <span class="key">我的分析頁.html</span>，連按兩下打開。</p>
+  </div>
+
+  <h3>驗收（在網頁檔裡測）</h3>
+  <label class="chk"><input type="checkbox" data-k="u1"><span>原本的股票按鈕、顯示天數、更新按鈕、K 線和所有卡片都還在</span></label>
+  <label class="chk"><input type="checkbox" data-k="u2"><span>輸入 <b>2891</b>，按「查這檔」：多一顆「2891 中信金」按鈕，綠色字出現「已加入…」，卡片換成中信金</span></label>
+  <label class="chk"><input type="checkbox" data-k="u3"><span>再輸入一次 2891：只是切換，不會再等很久重抓</span></label>
+  <label class="chk"><input type="checkbox" data-k="u4"><span>輸入 <b>9999</b>（不存在的代號）：紅色粗體「⚠️ 查不到「9999」…」，沒有多出按鈕，畫面上原本的數字沒變</span></label>
+  <label class="chk"><input type="checkbox" data-k="u5"><span>輸入 <b>ab</b> 或什麼都不輸入：提醒要輸入 4～6 碼，沒有去抓資料</span></label>
+  <label class="chk"><input type="checkbox" data-k="u6"><span>整個頁面上沒有出現 NaN、undefined</span></label>
+
+  <h3>核對：新查的資料是真的嗎？</h3>
+  <ol class="how">
+    <li>在你的頁面查 2891，看卡片裡「最新一天」日期和外資買賣超。</li>
+    <li>打開 <a href="https://histock.tw/stock/chips.aspx?no=2891" target="_blank" rel="noopener">HiStock 中信金的籌碼頁</a>，找「近三十日三大法人買賣超」表格裡<b>同一天</b>那一列。</li>
+    <li>外資、投信、自營(自買) 三個數字，應該和你頁面上一樣（最多差 1 張，是四捨五入）。</li>
+  </ol>
+  <label class="chk"><input type="checkbox" data-k="u7"><span>兩邊同一天的外資、投信、自營（自行買賣）一樣</span></label>
+  <p>對不上的話，把兩邊的畫面各截一張圖貼給 AI，問它差在哪，先不要改程式。</p>
+
+  <h3>AI 的作法和我們不一樣，怎麼辦？</h3>
+  <p>每個人的 AI 寫出來的程式都會有一點不同，這很正常。只要驗收那幾項成立就算過關。如果頁面變得很簡陋，或數字特別整齊，代表 AI 自己重做了一個新頁面，數字是編的。複製下面這句貼給它：</p>
+  <div class="prompt">
+    <div class="prompt-label">指令　AI 重做了新頁面時用</div>
+    <pre id="p_redo">你剛剛做的是一個全新的頁面，而且數字是你自己編的。我要的是在「前面那份有股票按鈕、顯示天數按鈕、更新按鈕、價格、K 線和所有卡片的完整網頁」上新增功能，資料只能用那份網頁裡的 const DATA，或是從 FinMind 抓回來的真實資料。請以那份 HTML 為基礎重新輸出完整檔案。如果你找不到那份 HTML，請直接回答「找不到」，不要編數字。</pre>
+    <button class="copy alt" data-src="p_redo">複製這句</button>
+  </div>
+
+  <details>
+    <summary>卡住了（AI 回得很短、畫面空白、跟不上）</summary>
+    <p><b>AI 只回了一小段、不是完整程式碼</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_full">你剛剛沒有輸出完整的檔案。請重新輸出完整的 HTML 檔案，從頭到尾不要省略任何部分，資料區（const DATA）也要完整保留。</pre>
+      <button class="copy alt" data-src="p_full">複製這句</button>
+    </div>
+    <p><b>畫面一片空白或壞掉</b>：複製下面這句貼給它。</p>
+    <div class="prompt">
+      <pre id="p_fix">我打開你給的網頁，畫面是空白的（或有地方壞掉）。請檢查程式碼找出原因，修好之後輸出完整的 HTML 檔案，資料區（const DATA）請原樣保留。</pre>
+      <button class="copy alt" data-src="p_fix">複製這句</button>
+    </div>
+    <p><b>完全跟不上</b>：不用緊張，這裡有做好的「存檔點 5」，也就是今天下課時該有的樣子。</p>
+    <a class="btn-link alt" href="https://dvorak0727.github.io/Genspark-Stock-AI/class/mini-cp5.html" target="_blank" rel="noopener">打開存檔點 5（成品）</a>
+    <button class="copy alt" data-attach-only="cp5">複製存檔點 5 的完整程式碼</button>
+  </details>
+</section>
+
+
+<!-- ═══ 5-3 ═══ -->
+<section class="step" id="s53">
+  <div class="step-head"><span class="badge">5-3</span><span class="mins">15 分鐘</span></div>
+  <h2>查你自己的股票，讀它的一句話</h2>
+  <p>每個人輪流查 5-0 寫在紙上的代號，把頁面最下方的「一句話總結」念出來。</p>
+  <label class="chk"><input type="checkbox" data-k="r1"><span>我查了至少一檔自己的股票，而且查得到</span></label>
+  <label class="chk"><input type="checkbox" data-k="r2"><span>我念得出它的位階（高檔、中間、低檔）和量比（窒息量、爆量、正常）是什麼意思</span></label>
+  <label class="chk"><input type="checkbox" data-k="r3"><span>我分得出「頁面算出來的事實」和「階段參考」：前者是已經發生的數字，後者只是簡化規則，不是預測</span></label>
+  <label class="chk"><input type="checkbox" data-k="r4"><span>有人查到「查不到」的股票，我們一起看紅字寫的原因，並說得出為什麼這樣比較好</span></label>
+  <div class="warn">
+    <div class="warn-t">提醒</div>
+    <p>「位階低」不等於「該買」，「爆量」不等於「要漲」。頁面只是把已經發生的數字整理給你看，判斷是你的事。</p>
+  </div>
+</section>
+
+
+<!-- ═══ 5-4 ═══ -->
+<section class="step" id="s54">
+  <div class="step-head"><span class="badge">5-4</span><span class="mins">10 分鐘</span></div>
+  <h2>查不到的時候，紅字在說什麼</h2>
+  <div class="tw">
+  <table class="g">
+    <thead><tr><th>紅字的原因</th><th>白話</th><th>怎麼辦</th></tr></thead>
+    <tbody>
+      <tr><td>查不到這個代號的股價資料</td><td>代號打錯，或這個代號不存在</td><td>回頭檢查代號</td></tr>
+      <tr><td>缺少三大法人或融資融券資料</td><td>這檔沒有這兩份資料（常見於冷門股、部分 ETF）</td><td>換一檔，或到證券 App 自己看</td></tr>
+      <tr><td>回傳的資料太少</td><td>上市不久，天數不夠算</td><td>過幾週再查</td></tr>
+      <tr><td>最近沒有成交量</td><td>停牌或太冷門，量比算不出來</td><td>換一檔</td></tr>
+      <tr><td>價格完全沒有變動</td><td>位階的分母是 0，算不出來</td><td>換一檔</td></tr>
+      <tr><td>融資餘額是 0</td><td>券資比的分母是 0，算不出來</td><td>換一檔</td></tr>
+      <tr><td>Failed to fetch 等英文</td><td>網路不通，或額度用完</td><td>確認網路；等一小時再試</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <label class="chk"><input type="checkbox" data-k="e1"><span>說說看：為什麼「融資餘額是 0」要直接說算不出來，而不是顯示「券資比 0%」？</span></label>
+  <details>
+    <summary>看答案</summary>
+    <p>券資比是融券除以融資。融資是 0 時，這個除法本來就沒有意思。顯示 0% 會讓人以為「沒人放空」，但其實是「算不出來」。老實說「算不出來」，才不會誤導人。</p>
+  </details>
+</section>
+
+
+<!-- ═══ 5-5 ═══ -->
+<section class="step" id="s55">
+  <div class="step-head"><span class="badge">5-5</span><span class="mins">10 分鐘</span></div>
+  <h2>結業與下一步</h2>
+  <h3>今天學到的</h3>
+  <ul>
+    <li>輸入代號就能查任何一檔（資料齊全的）股票，頁面自己抓、自己算。</li>
+    <li>查不到的原因有很多種，每一種都要照實說，不補 0、不編數字。</li>
+    <li>輸入的東西（代號）要先檢查格式，檢查不過就不去抓。</li>
+    <li>新查的股票，一樣要拿 HiStock 的同一天、同一個數字核對。</li>
+  </ul>
+
+  <h3>誠實比較：你的頁面和老師的完整版</h3>
+  <p>你做的頁面是學習版：指標比較少（沒有 KD、MACD、均線）、資料是收盤後的、不是即時行情，也沒有自動排程和板塊分析。它真正的價值，不是功能多，而是你<b>知道每一個數字從哪裡來、怎麼算、怎麼核對</b>。這個習慣，比任何工具都有用。</p>
+
+  <h3>如果還想繼續（有興趣再問老師）</h3>
+  <ul>
+    <li>加更多指標，例如 KD、MACD、均線。</li>
+    <li>讓頁面自己每隔一段時間更新。</li>
+    <li>把你常看的股票存成清單，下次打開還在。</li>
+  </ul>
+  <div class="warn">
+    <div class="warn-t">最後提醒</div>
+    你做出來的是一個學習用的頁面。它的資料是收盤後的歷史資料，不是即時行情，也不會告訴你該買或該賣。投資的決定，請自己判斷、自己負責。
+  </div>
+</section>
+
+<footer>
+  資料來源：FinMind、證交所。預先下載的資料最後一天是 2026-10-02；查詢與更新的資料，以資料來源當時提供的為準，三大法人與融資融券是收盤後才公布，不是即時報價。價格單位是元，買賣超、成交量、融資融券單位是張。本講義是教學用途，不構成任何投資建議。
+</footer>
+</div>
