@@ -57930,6 +57930,22 @@ async function checkIndexBorderBrokerConcen(id, name) {
   const el = document.getElementById(`brokerSig-${id}`);
   if (!el) return;
   el.textContent = '⏳查詢中'; el.onclick = null;
+  // 每日存檔（data/broker/<代號>.json）有這檔就直接讀，不打 FinMind：存檔是 GitHub Actions 每個平日晚上用贊助會員 token 抓好的，
+  // 所以沒有 token 的人也看得到，有 token 的人也少打一次 API。存檔太舊、太少或沒有這檔，才往下走原本的 FinMind 查詢。
+  try {
+    const arch = await _tryLoadFinLabBrokerData(id, 10);
+    if (arch && arch.length) {
+      const dateStr = arch.reduce((m, r) => (r.date > m ? r.date : m), '');
+      const day = arch.filter(r => r.date === dateStr).map(r => ({ name: r.broker_id, buy: +r.buy || 0, sell: +r.sell || 0 }));
+      day.forEach(b => { b.vol = b.buy + b.sell; });
+      day.sort((a, b) => b.vol - a.vol);
+      const top = day[0], net = top.buy - top.sell, netLots = Math.abs(net);
+      el.textContent = `🏦${top.name}${net >= 0 ? '買超' : '賣超'}${netLots.toLocaleString()}張`;
+      el.style.color = net >= 0 ? '#dc2626' : '#16a34a';
+      el.title = `${dateStr} 成交量最大的分點：${top.name}，買${top.buy.toLocaleString()}張／賣${top.sell.toLocaleString()}張，淨${net >= 0 ? '買超' : '賣超'}${netLots.toLocaleString()}張（📦 每日存檔，收盤後更新）`;
+      return;
+    }
+  } catch (e) { /* 存檔讀取失敗就改走 FinMind */ }
   const token = (typeof getToken === 'function' ? getToken() : '') || localStorage.getItem('tsai_finmind_token') || '';
   try {
     // 分點資料(TaiwanStockTradingDailyReport)常常要盤後才結算完，白天查「今天」
