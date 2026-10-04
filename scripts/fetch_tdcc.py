@@ -13,8 +13,8 @@
   [p1,u1,p2,u2,p3,u3,p4,u4,p5,u5]（p=人數、u=股數，單位都是原始值；股數÷1000=張）
 只保留普通股（4位數代號）與 ETF（00 開頭），最多保留最近 8 週。
 
-注意：集保網站的憑證缺少 Subject Key Identifier，Python 預設驗證會失敗。
-這份資料是公開唯讀、不含任何機敏資訊，所以只對這個網址關閉憑證驗證，其他連線不受影響。
+注意：集保網站的憑證缺少 Subject Key Identifier，Python 3.13 之後預設的「嚴格憑證檢查」會擋掉它。
+這裡只放寬那一項嚴格檢查，憑證本身仍然照常驗證（不是關掉驗證）。
 """
 import csv, io, json, os, re, ssl, sys, urllib.request
 from datetime import datetime
@@ -30,8 +30,8 @@ WANT = re.compile(r"^(\d{4}|00\d{3,4}[A-Z]?)$")
 
 def download():
     ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE      # 只用在這個公開唯讀網址，見檔頭說明
+    if hasattr(ssl, "VERIFY_X509_STRICT"):
+        ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT   # 只放寬這一項嚴格檢查；憑證本身仍然照常驗證
     req = urllib.request.Request(URL, headers={"User-Agent": "Mozilla/5.0"})
     with urllib.request.urlopen(req, timeout=120, context=ctx) as r:
         return r.read().decode("utf-8-sig")

@@ -17432,15 +17432,15 @@ a.module-nav-item.acc-active {
         <div class="cs-matrix-head">
           <div class="cs-panel-tabs">
             <button class="cs-panel-tab active" id="csPanelTabCost" onclick="switchMatrixPanel('cost')" data-tip="法人成本矩陣｜統計外資／投信在不同時間窗口的加權平均持倉成本，與現價對比判斷多空方向">⚖️ 法人成本矩陣</button>
-            <!-- 2026-09-16 暫時隱藏：FinLab broker_transactions 回傳「僅限VIP」，
+            <!-- 2026-09-16 暫時隱藏：當時的分點資料來源（FinLab）回傳「僅限VIP」，
                  已寄信詢問客服正確資料集名稱/權限問題，回覆確認、
-                 fetch_broker_data.py 補做完之前，先隱藏整個籌碼博弈矩陣分頁，
+                 分點資料源接好之前，先隱藏整個籌碼博弈矩陣分頁，
                  避免使用者看到還是模擬資料的版本。等資料源接好，
                  把下面這個 style="display:none" 拿掉即可恢復。 -->
             <button class="cs-panel-tab" id="csPanelTabGame" onclick="switchMatrixPanel('game')" data-tip="籌碼博弈矩陣｜解析前五大分點券商買賣淨額與方向，判斷主力進出與控盤節律" style="display:none;">🎯 籌碼博弈矩陣</button>
             <!-- v7.70 試作：原本這裡固定寫死「⚙️ 模擬資料」，因為 FinMind 免費/
                  贊助方案都不含分點明細。現在改成依實際抓到的資料來源動態切換
-                 （見 _renderGameMatrix 裡對 gmSourceBadge 的更新），FinLab JSON
+                 （見 _renderGameMatrix 裡對 gmSourceBadge 的更新），每日存檔
                  或 FinMind proxy 真的拿到資料時顯示來源徽章，都失敗才顯示模擬警語。 -->
             <span id="gmSourceBadge" style="display:none;cursor:help;font-size:0.6rem;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;margin-left:4px;background:#FEF3C7;border:1px solid #FCD34D;color:#92400E;">⚙️ 模擬資料</span>
           </div>
@@ -39097,7 +39097,7 @@ function _setBrokerLoading(isLoading) {
 // 把每日存檔轉成 FinMind 原始資料的樣子（buy/sell 用「股」，後面統一 ÷1000），取最近 days 個「有資料的交易日」。
 // 存檔只有券商名稱，沒有券商代號，所以代號欄位也放名稱（這個面板用名稱關鍵字分類券商）。
 async function _brokerArchiveRows(stockId, days, endAnchor) {
-  const rows = await _tryLoadFinLabBrokerData(stockId, 60);
+  const rows = await _loadBrokerArchive(stockId, 60);
   if (!rows) return null;
   const upTo = endAnchor ? fmtDate(new Date(endAnchor)) : '9999-12-31';
   const dates = [...new Set(rows.map(r => r.date))].filter(d => d <= upTo).sort().slice(-days);
@@ -42285,10 +42285,10 @@ function _renderPCAPanel(pca, containerId) {
 //  3. 最終改用 taiwan_stock_trading_daily_report（單日端點，data_id 可
 //     單獨使用），由 finmind-broker-proxy 這個 Worker 在後端迴圈打 N 天、
 //     彙整後一次回傳，同時補上 CORS（FinMind 該端點不回傳 CORS 標頭）。
-// v7.70 試作：FinLab 排程輸出的真實分點 JSON（優先於 FinMind proxy）。
-// 資料來源：GitHub Actions 每日收盤後跑 fetch_broker_data.py，用 FinLab
-// 的 broker_transactions 資料集，輸出成 ./broker_data.json 放在同一個
-// repo 裡（見 fetch_broker_data.py + .github/workflows/update-broker-data.yml）。
+// 每日分點存檔（優先於 FinMind 逐日查詢）。
+// 資料來源：GitHub Actions 每個平日晚上跑 scripts/fetch_broker_finmind.py，用 FinMind
+// 的 TaiwanStockTradingDailyReport，一檔一個檔案放在 ./data/broker/<代號>.json，在同一個
+// repo 裡（見 scripts/fetch_broker_finmind.py + .github/workflows/update-broker-finmind.yml）。
 // 檔案不存在或抓不到該檔股票的資料時，靜靜地 return null，讓外層繼續往下
 // 試 FinMind proxy，不影響原本的 fallback 鏈。
 // v7.71 主動式ETF買賣超排行：GitHub Actions 每日排程跑 fetch_active_etf_data.py，
@@ -42342,7 +42342,7 @@ async function _injectBrokerEtfNote(stockId) {
 // 一檔一個檔案放在 data/broker/<代號>.json（scripts/fetch_broker_finmind.py）。切到那一檔才讀那一個檔案。
 // 檔案不存在、太舊或資料太少時靜靜地 return null，讓外層繼續往下試 FinMind 逐日查詢（需要 token）。
 const _brokerFileCache = {}; // { 股票代號: rows | false }，同一檔只讀一次
-async function _tryLoadFinLabBrokerData(stockId, days) {
+async function _loadBrokerArchive(stockId, days) {
   try {
     const id = String(stockId);
     if (!(id in _brokerFileCache)) {
@@ -42367,9 +42367,9 @@ async function _tryLoadFinLabBrokerData(stockId, days) {
 }
 
 async function _fetchBrokerData(stockId, days = 20) {
-  // 第一順位：FinLab 排程輸出的真實分點資料
-  const finlabRows = await _tryLoadFinLabBrokerData(stockId, days);
-  if (finlabRows) return { rows: finlabRows, live: true, source: 'finlab' };
+  // 第一順位：GitHub Actions 每日存檔的真實分點資料（data/broker）
+  const archiveRows = await _loadBrokerArchive(stockId, days);
+  if (archiveRows) return { rows: archiveRows, live: true, source: 'archive' };
 
   // v7.72：原本走 finmind-broker-proxy.dvorak0727.workers.dev，一次帶寬日期區間
   // （start_date~end_date）給 taiwan_stock_trading_daily_report——但這支資料集
@@ -42454,11 +42454,11 @@ async function _renderGameMatrix(stockId) {
   if (matrixWrap) matrixWrap.classList.toggle('gm-sim-mode', !live);
 
   // v7.70 試作：分頁標題旁的來源徽章，依實際抓到的資料來源動態切換文字/顏色，
-  // 不再固定寫死「模擬資料」——FinLab JSON 是最準的真實分點，FinMind proxy
+  // 不再固定寫死「模擬資料」——每日存檔是最準的真實分點，FinMind 逐日查詢
   // 次之，兩個都失敗才是真的模擬。
   const sourceBadge = document.getElementById('gmSourceBadge');
   if (sourceBadge) {
-    if (source === 'finlab') {
+    if (source === 'archive') {
       sourceBadge.textContent = '✅ FinMind 分點（每日存檔）';
       sourceBadge.title = '資料來源：FinMind TaiwanStockTradingDailyReport，GitHub Actions 每個平日晚上存檔（只留當天買+賣≥20張的券商），為真實券商分點數字。';
       sourceBadge.style.background = '#DCFCE7';
@@ -42473,7 +42473,7 @@ async function _renderGameMatrix(stockId) {
     } else {
       // v7.72：不再有模擬資料這個選項，抓不到真實資料就如實告知查無資料
       sourceBadge.textContent = '⚠️ 查無資料';
-      sourceBadge.title = 'FinLab JSON 與 FinMind 皆未取得真實分點資料，可能是流量限制或近期無成交紀錄，不提供模擬/推算數字。';
+      sourceBadge.title = '每日存檔與 FinMind 皆未取得真實分點資料，可能是流量限制或近期無成交紀錄，不提供模擬/推算數字。';
       sourceBadge.style.background = '#FEF3C7';
       sourceBadge.style.borderColor = '#FCD34D';
       sourceBadge.style.color = '#92400E';
@@ -57933,7 +57933,7 @@ async function checkIndexBorderBrokerConcen(id, name) {
   // 每日存檔（data/broker/<代號>.json）有這檔就直接讀，不打 FinMind：存檔是 GitHub Actions 每個平日晚上用贊助會員 token 抓好的，
   // 所以沒有 token 的人也看得到，有 token 的人也少打一次 API。存檔太舊、太少或沒有這檔，才往下走原本的 FinMind 查詢。
   try {
-    const arch = await _tryLoadFinLabBrokerData(id, 10);
+    const arch = await _loadBrokerArchive(id, 10);
     if (arch && arch.length) {
       const dateStr = arch.reduce((m, r) => (r.date > m ? r.date : m), '');
       const day = arch.filter(r => r.date === dateStr).map(r => ({ name: r.broker_id, buy: +r.buy || 0, sell: +r.sell || 0 }));
