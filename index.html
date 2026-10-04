@@ -18696,6 +18696,12 @@ a.module-nav-item.acc-active {
       <!-- 低分「看不出」與強勢超買提示 -->
       <div id="phaseNotes"></div>
 
+      <!-- 📐 多週期結論（簡化規則版）：併在籌碼週期裡，預設收合 -->
+      <details class="msx-det" id="msxDet" style="margin:0 0 8px;">
+        <summary style="font-size:0.76rem;cursor:pointer;color:var(--fg2);font-weight:700;line-height:1.6;">📐 多週期結論（5／10／20／30／60 日）<span id="msxSum" style="font-weight:600;color:var(--fg3);"></span></summary>
+        <div id="msxBody"><div class="msx-na-box">分析後顯示…</div></div>
+      </details>
+
       <!-- 五階段進度尺 -->
       <div class="phase-ruler" id="phaseRuler">
         <div class="phase-ruler-step p1 inactive" id="phaseStep1" data-tip="吸籌期">
@@ -19053,13 +19059,6 @@ a.module-nav-item.acc-active {
       </div><!-- /.c4-resonance-wrap -->
 
     </div><!-- /.phase-card -->
-
-    <!-- ══ 多週期階段（5/10/20/30/60 日，簡化規則版）══ -->
-    <div class="msx-card" id="msxCard">
-      <div class="msx-title">📐 多週期階段：五個週期一起看</div>
-      <div class="msx-sub">同一組簡化規則，分別套在 5／10／20／30／60 日，看結論一不一致 · 資料不足的週期不硬算</div>
-      <div id="msxBody"><div class="msx-na-box">分析後顯示…</div></div>
-    </div>
 
     <!-- v7.22 各卡片獨立全寬一行（底部探測 → 高點偵測 → 反指標） -->
 
@@ -50259,6 +50258,7 @@ function renderMultiStage(closes, opens, highs, lows, vols, dates, instMap, marg
   if (!el) return;
   if (typeof _fallback !== 'undefined' && _fallback) {
     el.innerHTML = '<div class="msx-na-box">目前顯示的是模擬資料（抓不到真實資料），不做階段判斷。</div>';
+    const se0 = document.getElementById('msxSum'); if (se0) se0.textContent = '';
     return;
   }
   const TH = { hi: 70, lo: 40, boom: 1.5, quiet: 0.7 };
@@ -50309,6 +50309,7 @@ function renderMultiStage(closes, opens, highs, lows, vols, dates, instMap, marg
     : `<tr><td>${r.N} 日</td><td class="msx-lab ${r.c}">${r.name}</td><td>${r.pos.toFixed(0)}%</td><td>${r.vr.toFixed(2)}</td>` +
       `<td class="${cls(r.inst)}">${signed(r.inst)}</td><td class="${cls(r.mChg)}">${signed(r.mChg)}</td>` +
       `<td class="${cls(r.pChg)}">${r.pChg > 0 ? '+' : ''}${r.pChg.toFixed(r.pChg >= 100 || r.pChg <= -100 ? 0 : 1)}</td></tr>`).join('');
+  const se = document.getElementById('msxSum'); if (se) se.textContent = '：' + sum;
   el.innerHTML = `
     <div class="msx-sum">${sum}</div>
     <div class="msx-wrap"><table class="msx-tbl"><thead><tr><th>週期</th><th>判斷</th><th>位階</th><th>量比</th><th>外資＋投信（張）</th><th>融資變化（張）</th><th>股價變化（元）</th></tr></thead><tbody>${body}</tbody></table></div>
