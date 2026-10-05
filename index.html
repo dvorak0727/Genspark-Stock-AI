@@ -3343,13 +3343,15 @@
     /* ====== INDICATOR GRID ====== */
     .ind-grid {
       display: grid;
-      /* v8.x：桌機固定8欄1排（新增乖離率後共8張卡）；手機改用auto-fit自動
-         偵測可放幾欄，卡片本身有最小寬度，畫面窄就自動縮成更少欄，不用
-         再對應各斷點手動指定3欄/4欄，新增/減少卡片數也不用回來調斷點 */
-      grid-template-columns: repeat(8, 1fr);
+      /* v8.x：桌機固定10欄1排（RSI右側新增ATR、OBV後共10張卡）；視窗不夠寬
+         （<1200px）或手機改用auto-fit自動偵測可放幾欄，卡片本身有最小寬度，
+         畫面窄就自動縮成更少欄，不用再對應各斷點手動指定3欄/4欄，新增/減少
+         卡片數也不用回來調斷點 */
+      grid-template-columns: repeat(10, 1fr);
       gap: 6px;
       margin-top: 8px;
     }
+    @media(max-width:1199px){ .ind-grid{ grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); } }
     @media(max-width:720px){ .ind-grid{ grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); } }
     .ind-card {
       background: var(--surface2);
@@ -47325,6 +47327,35 @@ function _renderMarketStateBanner() {
   }
 }
 
+// ── v8.x ATR / OBV 全序列計算（指標卡 + 點開線圖共用）──
+// ATR(Wilder 14)：TR = max(高-低, |高-昨收|, |低-昨收|)，首值取前14根TR平均，之後
+// 用 (前值×13 + 今TR)/14 平滑。回傳與 closes 等長陣列，資料不足的前段為 null。
+function _calcATRSeries(highs, lows, closes, n = 14) {
+  const len = closes.length, out = new Array(len).fill(null);
+  if (len <= n) return out;
+  const tr = [null];
+  for (let i = 1; i < len; i++) {
+    const h = highs[i], l = lows[i], pc = closes[i - 1];
+    tr.push((h == null || l == null || pc == null) ? null : Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+  }
+  let sum = 0;
+  for (let i = 1; i <= n; i++) { if (tr[i] == null) return out; sum += tr[i]; }
+  out[n] = sum / n;
+  for (let i = n + 1; i < len; i++) {
+    out[i] = tr[i] == null ? out[i - 1] : (out[i - 1] * (n - 1) + tr[i]) / n;
+  }
+  return out;
+}
+// OBV：收盤上漲加當日量、下跌減當日量、持平不變；單位沿用 vols（股），顯示時再 /1000 換張
+function _calcOBVSeries(closes, vols) {
+  const out = [0];
+  for (let i = 1; i < closes.length; i++) {
+    const v = vols[i] || 0, prev = out[i - 1];
+    out.push(closes[i] > closes[i - 1] ? prev + v : closes[i] < closes[i - 1] ? prev - v : prev);
+  }
+  return out;
+}
+
 function renderIndCards(rsi, K, D, macd, sig, hist, upper, lower, close, ma5, ma20) {
   const rsig  = rsi>70?['sig-up','超買']:rsi<30?['sig-dn','超賣']:['sig-neu','中性'];
   const kdsig = K>D&&K<80?['sig-dn','黃金交叉']:K<D&&K>20?['sig-up','死亡交叉']:K<20?['sig-dn','低檔']:['sig-neu','中性'];
@@ -47363,8 +47394,53 @@ function renderIndCards(rsi, K, D, macd, sig, hist, upper, lower, close, ma5, ma
     bwSub  = `帶寬 ${bw.toFixed(2)}%`;
   }
 
+  // ── v8.x ATR(14) 真實平均波動區間 ──
+  // ATR 只量「波動幅度」、不帶方向（無多空），所以訊號燈一律用中性色，只描述
+  // 目前波動比近60日平均大或小；佔股價% 方便跨股票比較，2×ATR 常用來抓停損距離。
+  const _d = window.aData;
+  let atrV = null, atrSub = 'ATR 計算中', atrSig = ['sig-neu', '—'];
+  if (_d && Array.isArray(_d.highs) && _d.closes.length > 15) {
+    const atrArr = _calcATRSeries(_d.highs, _d.lows, _d.closes, 14);
+    atrV = atrArr.at(-1);
+    if (atrV != null && close > 0) {
+      atrSub = `佔股價 ${(atrV / close * 100).toFixed(2)}%`;
+      const ref = atrArr.slice(-60).filter(x => x != null);
+      const refAvg = ref.length >= 20 ? ref.reduce((a, b) => a + b, 0) / ref.length : null;
+      const ratio = refAvg ? atrV / refAvg : null;
+      atrSig = ratio == null ? ['sig-neu', '—']
+        : ratio > 1.3 ? ['sig-neu', '⚡ 波動放大']
+        : ratio < 0.75 ? ['sig-neu', '🌀 波動收縮']
+        : ['sig-neu', '📊 波動正常'];
+    }
+  }
+
+  // ── v8.x OBV 能量潮 ──
+  // 看「近10日OBV變化」與「近10日股價變化」是否同向：同向＝量價配合，反向＝背離。
+  // OBV 變化量以近10日總成交量標準化（±20%內視為持平），避免大型股/小型股量級差異。
+  let obvV = '—', obvSub = 'OBV 計算中', obvSig = ['sig-neu', '—'];
+  if (_d && Array.isArray(_d.vols) && _d.closes.length > 12) {
+    const obvArr = _calcOBVSeries(_d.closes, _d.vols);
+    const L = obvArr.length - 1, back = 10;
+    const delta = obvArr[L] - obvArr[L - back];
+    const volSum = _d.vols.slice(-back).reduce((a, b) => a + (b || 0), 0) || 1;
+    const obvDir = delta / volSum > 0.2 ? 1 : delta / volSum < -0.2 ? -1 : 0;
+    const pChg = _d.closes[L - back] > 0 ? (_d.closes[L] - _d.closes[L - back]) / _d.closes[L - back] * 100 : 0;
+    const pDir = pChg > 1 ? 1 : pChg < -1 ? -1 : 0;
+    const zhang = Math.round(obvArr[L] / 1000);
+    obvV = (zhang >= 0 ? '' : '-') + Math.abs(zhang).toLocaleString();
+    const dz = Math.round(delta / 1000);
+    obvSub = `近10日 ${dz >= 0 ? '+' : ''}${dz.toLocaleString()}張`;
+    // 配色沿用本站慣例：sig-dn＝偏多（綠）、sig-up＝偏空（紅）
+    obvSig = obvDir === 1 ? (pDir === 1 ? ['sig-dn', '量價齊揚'] : ['sig-dn', '量能領先↑'])
+           : obvDir === -1 ? (pDir === 1 ? ['sig-up', '價漲量背離'] : ['sig-up', '資金流出'])
+           : ['sig-neu', '量能持平'];
+  }
+
   const cards = [
     { n:'RSI(14)',  v: rsi  != null ? rsi.toFixed(1)  : '—', sub:'',                              sig:rsig,  tip:'RSI(14)' },
+    // v8.x：ATR、OBV 放在RSI右邊（RSI→ATR→OBV→乖離率…），桌機共10欄1排
+    { n:'ATR(14)',  v: atrV != null ? atrV.toFixed(2) : '—', sub: atrSub, sig:atrSig, tip:'ATR(14)' },
+    { n:'OBV',      v: obvV, sub: obvSub, sig:obvSig, tip:'OBV能量潮' },
     // v8.x：乖離率放在RSI右邊——同屬「離正常軌道多遠」的均值回歸類指標，方便並排比對
     { n:'乖離率',  v: bias != null ? (bias>=0?'+':'')+bias.toFixed(2)+'%' : '—', sub: ma20 ? `MA20 ${ma20.toFixed(1)}` : 'MA20 —', sig:biasSig, tip:'乖離率' },
     { n:'K值',      v: K    != null ? K.toFixed(1)    : '—', sub: D != null ? `D: ${D.toFixed(1)}` : 'D: —', sig:kdsig, tip:'K值' },
@@ -49503,6 +49579,63 @@ const IND_CHART_META = {
       ];
     },
     desc: '🔵 乖離率：股價偏離月線（MA20）的距離，反映短線是不是漲/跌得太急。正乖離過大（>+8%）通常代表短線漲多，有拉回壓力；負乖離過大（<-5%）代表短線跌深，反彈機率提高。強勢股常會「長期正乖離不回歸」，乖離率適合當風險提示，不宜單獨當作進出場訊號。'
+  },
+  // v8.x：ATR(14) 真實平均波動區間——只量波動幅度、不帶方向，常用來設停損距離與決定倉位大小
+  'ATR(14)': {
+    title: 'ATR(14) 真實平均波動區間',
+    series: days => {
+      const d = window.aData; if (!d) return null;
+      const N = Math.min(days, d.dates.length);
+      const atrAll = _calcATRSeries(d.highs, d.lows, d.closes, 14);
+      return {
+        labels: d.dates.slice(-N),
+        datasets: [
+          { label:'ATR(14)', data:atrAll.slice(-N), borderColor:'#F97316', backgroundColor:'rgba(249,115,22,.12)',
+            fill:true, tension:0.3, pointRadius:2, borderWidth:2 },
+        ],
+        yMin: undefined, yMax: undefined
+      };
+    },
+    stats: () => {
+      const d = window.aData; if (!d) return [];
+      const atr = _calcATRSeries(d.highs, d.lows, d.closes, 14).at(-1);
+      if (atr == null) return [];
+      return [
+        { val: atr.toFixed(2), lbl: '目前ATR(元)' },
+        { val: d.lc > 0 ? (atr / d.lc * 100).toFixed(2) + '%' : '—', lbl: '佔股價比例' },
+        { val: d.lc > 0 ? (d.lc - 2 * atr).toFixed(2) : '—', lbl: '2×ATR 停損參考價' }
+      ];
+    },
+    desc: '🟠 ATR：近14日「真實波動幅度」的平均，單位是元，只代表股價每天大約震盪多少、完全不告訴你方向。ATR 變大＝行情變激烈（可能剛爆發或恐慌），變小＝市場安靜（常見於盤整、整理）。常見用法：停損設在「進場價 − 2×ATR」，波動大的股票停損放寬、波動小的收緊，也可以用來決定買幾張（波動越大，買越少）。注意 ATR 的元數不同股票不能直接比較，要看「佔股價比例」。'
+  },
+  // v8.x：OBV 能量潮——累計「上漲日成交量 − 下跌日成交量」，看量能是否支持股價方向
+  'OBV能量潮': {
+    title: 'OBV 能量潮（累計成交量方向）',
+    series: days => {
+      const d = window.aData; if (!d) return null;
+      const N = Math.min(days, d.dates.length);
+      const obvAll = _calcOBVSeries(d.closes, d.vols).map(v => Math.round(v / 1000));
+      return {
+        labels: d.dates.slice(-N),
+        datasets: [
+          { label:'OBV（張）', data:obvAll.slice(-N), borderColor:'#14B8A6', backgroundColor:'rgba(20,184,166,.12)',
+            fill:true, tension:0.3, pointRadius:2, borderWidth:2 },
+        ],
+        yMin: undefined, yMax: undefined
+      };
+    },
+    stats: () => {
+      const d = window.aData; if (!d || d.closes.length < 12) return [];
+      const obv = _calcOBVSeries(d.closes, d.vols), L = obv.length - 1;
+      const dz = Math.round((obv[L] - obv[L - 10]) / 1000);
+      const pChg = d.closes[L - 10] > 0 ? (d.closes[L] - d.closes[L - 10]) / d.closes[L - 10] * 100 : 0;
+      return [
+        { val: Math.round(obv[L] / 1000).toLocaleString(), lbl: 'OBV（張）' },
+        { val: (dz >= 0 ? '+' : '') + dz.toLocaleString(), lbl: '近10日OBV變化（張）' },
+        { val: (pChg >= 0 ? '+' : '') + pChg.toFixed(1) + '%', lbl: '近10日股價變化' }
+      ];
+    },
+    desc: '🟢 OBV：收盤上漲的日子，把當天成交量加進去；下跌的日子減掉；平盤不變，一路累計。它看的不是絕對數字（起點是任意的），而是「走勢方向」與股價有沒有同步：股價漲、OBV 也創高＝量價配合；股價創高但 OBV 沒跟上＝頂背離（追價買盤變少）；股價破底但 OBV 沒破底＝底背離（賣壓減輕）。卡片上的「近10日」是把 OBV 變化量除以近10日總成交量，超過 ±20% 才算上升/下降，避免被小幅波動誤導。'
   },
 };
 
@@ -75579,6 +75712,11 @@ const INDICATOR_TIP_DB = {
     title: '📊 籌碼集中度',
     formula: '= 千張大戶持股比率\n（持有超過1000張的投資人佔比）',
     body: '🔍 這是什麼？\n大股東（千張以上）的持股佔總股本的比例。越高代表籌碼越「集中在少數人手上」。\n\n判讀：\n• 集中度上升 → 大戶在吸籌，散戶在賣\n• 集中度下降 → 大戶在出貨，籌碼分散化\n• 集中度 > 70% → 主力高度控盤，拉抬容易\n• 搭配股價：集中度↑但股價橫盤 → 主力在悄悄吸籌（最佳布局期）'
+  },
+  'ATR(14)': {
+    title: 'ATR(14) 真實平均波動區間',
+    formula: 'TR = max(高−低, |高−昨收|, |低−昨收|)\nATR = 14日 TR 的平滑平均',
+    body: '🔍 這是什麼？\n股價「每天大約震盪多少元」，只量波動幅度，完全不告訴你漲或跌。\n\n📌 怎麼用：\n• 停損參考：進場價 − 2×ATR（波動大的股票停損放寬）\n• 部位大小：ATR 越大，買越少張\n• ATR 突然放大：行情剛爆發或恐慌\n• ATR 持續縮小：盤整、蓄勢\n\n⚠️ 不同股票的 ATR 元數不能直接比，要看「佔股價%」。',
   },
   'OBV能量潮': {
     title: '🌊 OBV 能量潮（底部／頂部背離）',
