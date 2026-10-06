@@ -64678,6 +64678,7 @@ let _dtreeCurStep = 1;
 let _dtreeEpicenter = '';
 
 function openDTree() {
+  if (!_requireTier('vip', '早安決策')) return;   // VIP、尊爵可用；一般會員與未登入不行
   _dtreeAnswers = [];
   _dtreeCurStep = 1;
   _dtreeEpicenter = '';
@@ -64811,6 +64812,7 @@ function _dtreeShowEnd(endKey) {
    💎 VIP 掛單建議書
 ══════════════════════════════════════════════════════════════════ */
 function openVipOrder() {
+  if (!_requireTier('premium', 'AI 掛單建議書')) return;   // 尊爵專屬，VIP 不能用
   const sid = window._currentStockId;
   if (!sid) { alert('請先輸入股票代號進行分析'); return; }
 
@@ -67347,6 +67349,24 @@ function _vipRefreshModal() {
     cur.style.display = 'none'; blk.style.display = ''; if (btn) btn.style.display = '';
   }
   return !!info;
+}
+
+// 尊爵（或管理人）專屬：VIP 不算。到期的授權不算。
+function isPremium() {
+  const d = _vipLicenseInfo();
+  return !!d && (d.tier === 'admin' || d.tier === 'premium');
+}
+
+// 功能的會員門檻：need='vip'＝VIP／尊爵／管理人；need='premium'＝只有尊爵／管理人。
+// 沒達到門檻就跳出「會員方案」視窗，回傳 false（呼叫的功能要直接 return）。
+function _requireTier(need, featureName) {
+  if (typeof DEMO_MODE !== 'undefined' && DEMO_MODE) { alert(`${featureName}是完整版功能，體驗版尚未開放。`); return false; }
+  if (need === 'premium' ? isPremium() : isVIP()) return true;
+  if (typeof showEpicToast === 'function') {
+    showEpicToast(need === 'premium' ? `🔒 ${featureName}為尊爵專屬` : `🔒 ${featureName}需要 VIP 以上方案`, '#d97706');
+  }
+  vipOpenPlans();
+  return false;
 }
 
 function vipOpenPlans() {
