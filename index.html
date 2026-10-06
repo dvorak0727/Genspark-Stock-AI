@@ -15782,7 +15782,7 @@ a.module-nav-item.acc-active {
     <button class="token-setting-btn" onclick="openTokenModal()" title="設定 FinMind API Token" id="tokenSettingBtn">
       <span id="tokenBtnIcon">🔑</span>
     </button>
-    <button class="ks-shortcut-btn" onclick="document.getElementById('vipCodeInput').value='';document.getElementById('vipModalErr').textContent='';document.getElementById('vipModal').classList.add('show');setTimeout(()=>document.getElementById('vipCodeInput').focus(),80);" title="VIP 升級專區" style="position:relative;border:1.5px solid #e5c97e;color:#b8860b;background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+    <button class="ks-shortcut-btn" onclick="vipOpenPlans();" title="VIP 升級專區" style="position:relative;border:1.5px solid #e5c97e;color:#b8860b;background:linear-gradient(135deg,#fffbeb,#fef3c7);">
       <span class="ks-sb-icon">👑</span> VIP
       <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:0.48rem;font-weight:800;padding:1px 5px;border-radius:99px;border:1px solid #f59e0b88;letter-spacing:.04em;white-space:nowrap;">升級</span>
     </button>
@@ -20428,13 +20428,18 @@ a.module-nav-item.acc-active {
       🔧 欲更改方案，請聯絡管理人：<a href="mailto:dvorak0727@gmail.com" style="color:#6366f1;">dvorak0727@gmail.com</a>
     </div>
 
-    <!-- 啟用序號 -->
-    <div style="font-size:.72rem;color:var(--fg2);margin-bottom:6px;">已有序號？輸入啟用：</div>
-    <input class="vip-modal-input" id="vipCodeInput" placeholder="TSAIU-XXXXXXXXXXXX" maxlength="32"
-           onkeydown="if(event.key==='Enter')vipActivate()" />
-    <div id="vipModalErr" style="font-size:.68rem;color:#dc2626;margin:-6px 0 10px;min-height:16px;"></div>
+    <!-- 目前方案（已啟用過、而且還沒到期時顯示，這時候不需要再輸入序號） -->
+    <div id="vipCurrentPlan" style="display:none;font-size:.74rem;color:var(--fg);margin-bottom:12px;padding:9px 12px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.35);border-radius:8px;line-height:1.7;"></div>
+
+    <!-- 啟用序號（還沒啟用才顯示） -->
+    <div id="vipActivateBlock">
+      <div style="font-size:.72rem;color:var(--fg2);margin-bottom:6px;">已有序號？輸入啟用：</div>
+      <input class="vip-modal-input" id="vipCodeInput" placeholder="TSAIU-XXXXXXXXXXXX" maxlength="32"
+             onkeydown="if(event.key==='Enter')vipActivate()" />
+      <div id="vipModalErr" style="font-size:.68rem;color:#dc2626;margin:-6px 0 10px;min-height:16px;"></div>
+    </div>
     <div class="vip-modal-btns">
-      <button class="vip-modal-ok"     onclick="vipActivate()">🔓 啟用序號</button>
+      <button class="vip-modal-ok" id="vipActivateBtn" onclick="vipActivate()">🔓 啟用序號</button>
       <button class="vip-modal-cancel" onclick="vipModalClose()">關閉</button>
     </div>
   </div>
@@ -67317,6 +67322,41 @@ async function _vipRevalidate() {
 }
 document.addEventListener('DOMContentLoaded', _vipRevalidate);
 
+// 目前這台瀏覽器已經啟用、而且還沒到期的授權（任何等級都算，含「一般」）；沒有就回傳 null
+function _vipLicenseInfo() {
+  try {
+    const d = JSON.parse(localStorage.getItem(VIP_KEY) || 'null');
+    if (!d || !d.activated) return null;
+    if (d.tier !== 'admin' && d.expiry && d.expiry < new Date().toISOString().slice(0, 10)) return null;
+    return d;
+  } catch { return null; }
+}
+
+// 打開「會員方案」視窗時：已經是會員就顯示「目前方案」、藏起序號輸入；還沒啟用才顯示輸入框
+function _vipRefreshModal() {
+  const info = _vipLicenseInfo();
+  const blk = document.getElementById('vipActivateBlock'), btn = document.getElementById('vipActivateBtn');
+  const cur = document.getElementById('vipCurrentPlan');
+  if (!blk || !cur) return false;
+  if (info) {
+    const NAMES = { admin: '管理人', premium: '👑 尊爵', vip: '⭐ VIP', standard: '📊 一般' };
+    const exp = info.tier === 'admin' ? '' : (info.expiry && info.expiry < '9999' ? `（到期日 ${info.expiry}）` : '');
+    cur.innerHTML = `✅ 你目前的方案：<b>${NAMES[info.tier] || info.tier}</b>${exp}${info.user ? `<br>會員：${info.user}` : ''}`;
+    cur.style.display = ''; blk.style.display = 'none'; if (btn) btn.style.display = 'none';
+  } else {
+    cur.style.display = 'none'; blk.style.display = ''; if (btn) btn.style.display = '';
+  }
+  return !!info;
+}
+
+function vipOpenPlans() {
+  document.getElementById('vipCodeInput').value = '';
+  document.getElementById('vipModalErr').textContent = '';
+  const has = _vipRefreshModal();
+  document.getElementById('vipModal').classList.add('show');
+  if (!has) setTimeout(() => document.getElementById('vipCodeInput').focus(), 80);
+}
+
 let _vipPendingModId = null;
 
 function vipModalOpen(modId) {
@@ -67327,10 +67367,7 @@ function vipModalOpen(modId) {
     return;
   }
   _vipPendingModId = modId || null;
-  document.getElementById('vipCodeInput').value = '';
-  document.getElementById('vipModalErr').textContent = '';
-  document.getElementById('vipModal').classList.add('show');
-  setTimeout(() => document.getElementById('vipCodeInput').focus(), 80);
+  vipOpenPlans();
 }
 function vipModalClose() {
   document.getElementById('vipModal').classList.remove('show');
