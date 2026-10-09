@@ -1,28 +1,28 @@
 {
-  "generated_at": "2026-10-08T14:24:09Z",
+  "generated_at": "2026-10-09T14:09:48Z",
   "dram": {
-    "last_update": "2026-10-08 18:10 (GMT+8)",
+    "last_update": "2026-10-09 18:10 (GMT+8)",
     "items": [
       {
         "name": "DDR5 16Gb (2Gx8) 4800/5600",
         "vendors": "SK Hynix、Samsung",
-        "session_avg": 58.667,
-        "change_pct": 0.46,
+        "session_avg": 58.9,
+        "change_pct": 0.4,
         "trend": "rise"
       },
       {
         "name": "DDR5 16Gb (2Gx8) eTT",
         "vendors": "Samsung",
-        "session_avg": 26.6,
-        "change_pct": 0.76,
+        "session_avg": 26.8,
+        "change_pct": 0.75,
         "trend": "rise"
       },
       {
         "name": "DDR4 16Gb (2Gx8) 3200",
         "vendors": "Samsung、SK Hynix、Micron",
         "session_avg": 83.64,
-        "change_pct": 0.06,
-        "trend": "rise"
+        "change_pct": 0.0,
+        "trend": "flat"
       },
       {
         "name": "DDR4 16Gb (2Gx8) eTT",
@@ -34,23 +34,23 @@
       {
         "name": "DDR4 8Gb (1Gx8) 3200",
         "vendors": "Samsung、SK Hynix、Micron",
-        "session_avg": 46.4,
-        "change_pct": 0.09,
-        "trend": "rise"
+        "session_avg": 46.186,
+        "change_pct": -0.46,
+        "trend": "fall"
       },
       {
         "name": "DDR4 8Gb (1Gx8) eTT",
         "vendors": "SK Hynix、Spectek、Samsung、CXMT",
-        "session_avg": 5.95,
-        "change_pct": 0.0,
-        "trend": "flat"
+        "session_avg": 5.96,
+        "change_pct": 0.17,
+        "trend": "rise"
       },
       {
         "name": "DDR3 4Gb 512Mx8 1600/1866",
         "vendors": "SK Hynix, Micron, Samsung, Nanya",
-        "session_avg": 13.72,
-        "change_pct": 0.0,
-        "trend": "flat"
+        "session_avg": 13.709,
+        "change_pct": -0.08,
+        "trend": "fall"
       }
     ]
   },
