@@ -83039,14 +83039,14 @@ if (typeof _origRenderSM === 'function') {
     <div class="cb-head"><div class="cb-title">📻 股市分析播報員 <span style="font-size:.66rem;color:#f59e0b;font-weight:800">依畫面真實資料組稿</span></div><button class="cb-x" onclick="bcClose()" title="關閉">✕</button></div>
     <div class="cb-grid2">
       <div><div class="cb-lab">1. 選擇播報焦點（Topic）</div>
-        <select class="cb-sel" id="bcTopic"><option value="all">全盤綜合播報（壓力表→夜盤→板塊→買賣超）</option><option value="open">開盤壓力表與今日走勢</option><option value="night">期貨夜盤與隔日影響</option><option value="sector">板塊資金流動</option><option value="chips">買賣超與板塊對照</option></select></div>
+        <select class="cb-sel" id="bcTopic"><option value="all">全盤綜合播報（今日展望＋昨日回顧）</option><option value="open">開盤壓力表與今日走勢</option><option value="night">期貨夜盤與隔日影響</option><option value="sector">板塊資金流動</option><option value="chips">買賣超與板塊對照</option></select></div>
       <div><div class="cb-lab">2. 選擇主播語氣（Tone）</div>
         <select class="cb-sel" id="bcTone"><option value="pro">專業財經主播</option><option value="easy">輕鬆口語</option><option value="brief">簡短快報</option></select></div>
     </div>
     <div class="cb-databar" id="bcData">資料載入中…</div>
     <div class="cb-row" style="margin-top:10px"><button class="cb-btn main" onclick="bcMake()">🔄 重新調配播報文稿</button><button class="cb-btn" onclick="bcCopy(this)">📋 複製播報稿</button><button class="cb-btn" onclick="bcSpeak()">🔊 朗讀 / 停止</button></div>
     <div class="cb-script" id="bcScript">按「重新調配播報文稿」產生。</div>
-    <div class="cb-note">💡 這份稿子是用規則模板，把畫面上的真實數字（開盤壓力表、夜盤、板塊輪動、大盤法人、籌碼榜）依「壓力表→期貨→板塊→買賣超」的順序填進句子，<b>不是 AI 模型即時寫的</b>，也不會編造沒有的數字。朗讀用瀏覽器內建中文語音。<br>⚠️ 內容是統計描述，不是買賣建議。</div>
+    <div class="cb-note">💡 這份稿子是用規則模板，把畫面上的真實數字（開盤壓力表、夜盤、板塊輪動、大盤法人、籌碼榜）分成「今日展望」（壓力表、夜盤）和「昨日回顧」（大盤、板塊、買賣超）兩段填進句子，<b>不是 AI 模型即時寫的</b>，也不會編造沒有的數字。朗讀用瀏覽器內建中文語音。<br>⚠️ 內容是統計描述，不是買賣建議。</div>
   </div>
 </div>
 
@@ -83192,6 +83192,14 @@ function _bcMapSectors(rows, sec) {
   return { mapped: mapped, total: rows.length, parts: parts };
 }
 
+// ── 昨日收盤的大盤現況（屬於回顧）──
+function _bcSecIndex(d, T) {
+  const L = [];
+  if (d.close) L.push('加權指數昨日收盤 ' + d.close + ' 點' + (d.change ? '，' + d.change.replace(/\s+/g, ' ') : '') + (d.trend ? '；近五日趨勢 ' + d.trend : '') + '。' +
+    (d.macd ? '大盤 MACD「' + d.macd.replace(/^[^一-龥A-Za-z]+/, '') + '」' : '') + (d.kd ? '，KD「' + d.kd.replace(/^[^一-龥A-Za-z]+/, '') + '」' + (d.k && d.dd ? '（K ' + d.k + '、D ' + d.dd + '）' : '') : '') + (d.kdZone ? '，' + d.kdZone : '') + '。');
+  return L;
+}
+
 // ── 第 1 段：開盤壓力表與今日走勢影響 ──
 function _bcSecOpen(d, T) {
   const o = d.opp, L = [];
@@ -83202,8 +83210,6 @@ function _bcSecOpen(d, T) {
   L.push((T.easy ? '先看外面的市場：' : '先看外盤與相關市場：') + mk.join('、') + '。');
   if (macro.length) L.push('風險氣氛與總體指標：' + macro.join('、') + '。');
   if (o.badge || o.main) L.push('站內的開盤壓力判讀：' + [o.badge, o.main].filter(Boolean).join('，') + '。' + (o.sub ? o.sub + (/[。！]$/.test(o.sub) ? '' : '。') : ''));
-  if (d.close) L.push('加權指數目前 ' + d.close + ' 點' + (d.change ? '，' + d.change.replace(/\s+/g, ' ') : '') + (d.trend ? '；近五日趨勢 ' + d.trend : '') + '。' +
-    (d.macd ? '大盤 MACD「' + d.macd.replace(/^[^一-龥A-Za-z]+/, '') + '」' : '') + (d.kd ? '，KD「' + d.kd.replace(/^[^一-龥A-Za-z]+/, '') + '」' + (d.k && d.dd ? '（K ' + d.k + '、D ' + d.dd + '）' : '') : '') + (d.kdZone ? '，' + d.kdZone : '') + '。');
   return L;
 }
 
@@ -83242,7 +83248,7 @@ function _bcSecChips(d, T) {
       const m = _bcMapSectors(a[2].slice(0, 20), sec); if (!m.mapped) return;
       let t = '對照板塊：' + _cbWhoMap[who] + a[1] + '前 20 名裡，有 ' + m.mapped + ' 檔可對應到站內板塊——' + m.parts.slice(0, 3).map(p => p.s.name + ' ' + p.n + ' 檔（板塊今日 ' + _bcSigned(p.s.chg) + '，強弱第 ' + p.s.rank + '/' + sec.list.length + '）').join('、') + '。';
       const top = m.parts[0].s, same = (a[0] === 'buy') === (top.chg > 0);
-      if (top.chg !== 0) t += '以最集中的' + top.name + '來看，' + _cbWhoMap[who] + a[1] + '與板塊當日' + (top.chg > 0 ? '上漲' : '下跌') + (same ? '方向一致，板塊的強弱可能是資金動向的線索之一。' : '方向相反，原因無法從畫面資料判斷，值得再查。');
+      if (top.chg !== 0) t += '以最集中的' + top.name + '來看，' + _cbWhoMap[who] + a[1] + '與板塊當日' + (top.chg > 0 ? '上漲' : '下跌') + (same ? '兩者同向，但無法判斷誰影響誰（也可能是資金買進把板塊推高了）。' : '兩者方向相反，原因無法從畫面資料判斷，值得再查。');
       L.push(t);
     });
   });
@@ -83252,16 +83258,20 @@ function _bcSecChips(d, T) {
 
 function _bcBuild(d, topic, tone) {
   const T = { pro: tone === 'pro', easy: tone === 'easy', brief: tone === 'brief' };
-  const fn = { open: _bcSecOpen, night: _bcSecNight, sector: _bcSecSector, chips: _bcSecChips };
-  const order = topic === 'all' ? ['open', 'night', 'sector', 'chips'] : [topic];
-  const titles = { open: '一、開盤壓力與今日走勢', night: '二、期貨夜盤與隔日影響', sector: '三、板塊資金流動', chips: '四、買賣超與板塊對照' };
+  const secs = { open: _bcSecOpen, night: _bcSecNight, index: _bcSecIndex, sector: _bcSecSector, chips: _bcSecChips };
+  const upd = d.opp.updated ? '壓力表' + d.opp.updated.replace(/^更新[：:]?\s*/, '更新 ') : '壓力表即時';
+  const fDate = d.rank.foreign ? _cbFmtDate(d.rank.foreign.date) : '';
+  const groups = topic === 'all' ? [
+    { head: '【今日展望】', note: '（還沒發生的事：開盤前的外盤與夜盤，只是參考；' + upd + (d.night && d.night.date ? '；夜盤 ' + d.night.date : '') + '）', keys: ['open', 'night'] },
+    { head: '【昨日回顧】', note: '（已經發生的事：' + (fDate ? '收盤資料日 ' + fDate : '昨日收盤') + '。展望與回顧是不同時間的資料，不是前因後果）', keys: ['index', 'sector', 'chips'] }
+  ] : [{ head: '', note: '', keys: [topic] }];
   const out = [];
   if (T.pro) out.push('各位投資朋友大家好，以下是依畫面資料整理的盤勢播報。');
-  if (T.easy) out.push('哈囉大家好，我們一段一段來看今天的盤面。');
-  order.forEach(k => {
-    let ls = fn[k](d, T).filter(Boolean); if (!ls.length) return;
-    if (T.brief) ls = ls.slice(0, 2);
-    out.push((topic === 'all' && !T.brief ? '【' + titles[k] + '】\n' : '') + ls.join(T.brief ? '\n' : '\n'));
+  if (T.easy) out.push('哈囉大家好，我們先看今天可能怎麼開，再回頭看昨天發生了什麼。');
+  groups.forEach(g => {
+    const parts = [];
+    g.keys.forEach(k => { let ls = secs[k](d, T).filter(Boolean); if (T.brief) ls = ls.slice(0, 2); if (ls.length) parts.push(ls.join('\n')); });
+    if (parts.length) out.push((g.head ? g.head + (T.brief ? '' : g.note) + '\n' : '') + parts.join('\n'));
   });
   out.push(T.brief ? '以上為統計描述，不是買賣建議。' : (T.pro ? '以上為依畫面資料整理的統計描述，過去的紀錄不保證後續走勢，也不是買賣建議。感謝收聽。' : '以上只是把數字整理給你看，不是買賣建議，投資還是要自己判斷喔。'));
   return out.join('\n\n');
