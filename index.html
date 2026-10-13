@@ -436,6 +436,54 @@
       .ks-shortcut-btn .ks-sb-icon { font-size: 0.75rem; }
       .theme-toggle-btn { width: 34px; height: 34px; font-size: 0.92rem; }
     }
+    /* ══ 手機版改善（2026-10 實驗）：①頁首收成一列＋☰選單 ②排序列可橫向滑動 ③浮動按鈕只留一顆 ══ */
+    .header-menu-btn, .header .hdr-mobile-only { display: none; }
+    @media (max-width: 600px) {
+      /* ① 頁首：只留 logo／標題／配色／☰，其餘按鈕收進選單，點 ☰ 才展開 */
+      .header { flex-wrap: wrap; position: static; }
+      .header-menu-btn {
+        display: flex; align-items: center; justify-content: center;
+        width: 40px; height: 36px; border-radius: 10px; flex: 0 0 auto;
+        border: 1.5px solid var(--border); background: var(--surface2); color: var(--fg);
+        font-size: 1.1rem; cursor: pointer;
+      }
+      .header .header-right-scroll { display: none !important; width: 100%; }
+      .header.menu-open .header-right-scroll {
+        display: flex !important; justify-content: flex-start !important; gap: 8px; padding: 6px 0 4px;
+        border-top: 1px dashed var(--border);
+      }
+      .header .hdr-mobile-only { display: inline-flex; }
+      .header-right-scroll .ks-shortcut-btn, .header-right-scroll .og-reopen-btn { min-height: 36px; }
+      /* ② 排序按鈕：一行、可左右滑動，不再把字折成直排 */
+      .screener-sort-tabs {
+        flex: 1 1 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
+        flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; padding-bottom: 2px; gap: 6px;
+      }
+      /* 排序列外面還有一層沒有 class 的 flex 容器，預設 min-width:auto 會被內容撐寬，導致內層捲不動、最右邊的按鈕被切掉
+         （實測 390 寬時被撐到 429px）。限制它不能超過父層寬度，內層才會真的出現橫向捲動。 */
+      .screener-results-header > div { min-width: 0; max-width: 100%; }
+      .screener-sort-tabs::-webkit-scrollbar { display: none; }
+      .screener-sort-tab { flex: 0 0 auto; white-space: nowrap; padding: 7px 14px; font-size: 0.78rem; }
+      /* ③ 浮動按鈕：追蹤清單／白板筆改從 ☰ 選單進入，右下角只留「快速查詢」一顆，縮小並留出底部空間 */
+      .side-fab { display: none !important; }
+      .fab-wrap { right: 10px; bottom: 14px; }
+      .fab-btn { width: 42px; height: 42px; opacity: .92; }
+      .fab-icon { font-size: 1.1rem; }
+      body { padding-bottom: 64px; }
+      /* ④ 今日開盤壓力表：標題原本 flex:1 又允許換行，手機上被擠成「一個字一行」→ 標題獨佔一行，徽章／時間／更新鈕排在下面 */
+      /* .opp-title 的規則定義在這段 CSS 後面（同樣權重會被蓋掉），所以用較高權重＋!important */
+      .opp-card .opp-header .opp-title { flex: 1 1 100% !important; min-width: 0; }
+      /* ⑤ 台指夜盤 MACD／KD 小圖：兩欄並排時，圖表會把欄位撐寬，KD 被擠到畫面右邊看不到 → 手機上上下排，各占滿寬 */
+      .nf-ind-grid { grid-template-columns: minmax(0, 1fr) !important; }
+      .nf-ind-grid > div { min-width: 0; }
+      /* ⑥ 台灣50門檻觀察區：左右兩欄在手機上改成上下排（先 35～50，再 51～65），每欄用整個螢幕寬度；
+            欄位多的時候整欄一起左右滑，標題列和每一列對得齊（以前是每一列各自有捲軸）*/
+      .ib-cols { grid-template-columns: minmax(0, 1fr) !important; }
+      .ib-col { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .ib-row, .ib-head { overflow-x: visible !important; width: max-content; min-width: 100%; }
+      .ib-name, .ib-name-h { flex: 0 0 118px !important; min-width: 118px !important; }
+    }
     .theme-toggle-btn {
       width: 32px; height: 32px; border-radius: 50%;
       background: var(--surface2);
@@ -15768,9 +15816,13 @@ a.module-nav-item.acc-active {
       <span>🎨</span>
     </button>
   </div>
+  <button class="header-menu-btn" id="headerMenuBtn" onclick="toggleHeaderMenu()" title="更多功能" aria-label="更多功能" aria-expanded="false">☰</button>
   <!-- v7.95：拿掉overflow-x:auto的橫向捲動，改成flex-wrap:wrap讓按鈕放不下時自動
        換行，VIP/登出等按鈕永遠完整可見，不用捲動去找 -->
   <div class="header-right-scroll" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;row-gap:6px;justify-content:flex-end;min-width:0;padding-bottom:2px;">
+    <!-- 手機版專用：浮動按鈕收起來後，追蹤清單與白板筆改從這裡進入 -->
+    <button class="ks-shortcut-btn hdr-mobile-only" onclick="toggleWatchlist()" title="我的追蹤清單" style="border:1.5px solid #1565C0;color:#1565C0;">⭐ 追蹤清單</button>
+    <button class="ks-shortcut-btn hdr-mobile-only" onclick="wbToggle()" title="虛擬白板筆" style="border:1.5px solid #7C3AED;color:#7C3AED;">✏️ 白板筆</button>
     <div class="header-badge">💬 支援公司名稱查詢</div>
     <!-- 選項F v6.99：收盤價過期提示 badge -->
     <span class="stale-base-badge" id="staleBaseBadge"
@@ -15807,6 +15859,11 @@ a.module-nav-item.acc-active {
     </button>
     <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="切換深色/淡色模式">
       <span id="themeIcon">🌙</span>
+    </button>
+    <!-- 🧪 手機模式（實驗中）：在電腦上用手機大小的視窗看這個網頁，錄影時用來體驗「手機用戶看到的樣子」。
+         只有本機（localhost／file）或網址加 ?lab=1 才會顯示，一般使用者看不到。 -->
+    <button class="ks-shortcut-btn" id="phoneModeBtn" onclick="togglePhoneMode()" title="用手機大小的視窗預覽（實驗中）" style="display:none;border:1.5px solid #6366f1;color:#6366f1;">
+      📱 手機模式
     </button>
     <!-- v7.95：原本套用.theme-toggle-btn（固定32×32圓形，只給單一icon用），
          「🔒 登出」文字塞進去會被裁切看不全，改用跟VIP/教學操盤同款的
@@ -16844,7 +16901,7 @@ a.module-nav-item.acc-active {
             <canvas id="nightFutVolChart"></canvas>
           </div>
           </div><!-- /#nightFutZoomArea -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+          <div class="nf-ind-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
             <div onclick="openIndChart('nightFutMACD')" title="點擊放大" style="cursor:zoom-in;">
               <div style="font-size:.6rem;color:var(--fg3);font-weight:700;margin-bottom:4px;">📊 MACD <span style="opacity:.5;font-weight:400;">🔍</span></div>
               <div class="chart-wrap" style="position:relative;height:100px;"><canvas id="nightFutMacdChart"></canvas></div>
@@ -57733,9 +57790,9 @@ async function fetchIndexBorderCandidates() {
 // v9.x 使用者反映：只有icon、沒有欄位名，新使用者看到「0.3%」不知道是什麼——
 // 補一列Excel式欄位標題，寬度要跟rowHtml每一欄完全對齊，兩個renderXxx函式共用。
 const _idxBorderColHeaderHtml = `
-  <div style="display:flex;align-items:center;gap:5px;padding:2px 8px 4px;font-size:0.58rem;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);white-space:nowrap;">
+  <div class="ib-head" style="display:flex;align-items:center;gap:5px;padding:2px 8px 4px;font-size:0.58rem;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);white-space:nowrap;">
     <span style="flex:0 0 auto;width:22px;">排名</span>
-    <span style="flex:1;min-width:56px;">股票</span>
+    <span class="ib-name-h" style="flex:1;min-width:56px;">股票</span>
     <span style="flex:0 0 auto;width:42px;text-align:right;">漲跌</span>
     <span style="flex:0 0 auto;width:40px;text-align:center;">走勢</span>
     <span style="flex:0 0 auto;width:20px;text-align:center;">籌碼</span>
@@ -57751,9 +57808,9 @@ function renderIndexBorderList(list) {
   const inGroup  = list.filter(x => x.direction === 'in').sort((a,b) => a.rank - b.rank);  // 排名51~59，越接近51機會越大
 
   const rowHtml = x => `
-    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:5px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:nowrap;overflow-x:auto;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+    <div class="ib-row" title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:5px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:nowrap;overflow-x:auto;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
       <span style="flex:0 0 auto;font-weight:800;color:var(--fg3);width:22px;">#${x.rank}</span>
-      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:56px;color:var(--accent);text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span class="ib-name" onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:56px;color:var(--accent);text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
       <span style="flex:0 0 auto;font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:42px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
       <canvas id="mini-${x.id}" width="40" height="20" onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="近15日K線，點擊看完整門檻觀察區走勢" style="flex:0 0 auto;cursor:pointer;"></canvas>
       <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.72rem;font-weight:700;color:var(--fg3);width:20px;text-align:center;">⏳</span>
@@ -57765,13 +57822,13 @@ function renderIndexBorderList(list) {
     </div>`;
 
   return `
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;">
-      <div style="min-width:0;">
+    <div class="ib-cols" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;">
+      <div class="ib-col" style="min-width:0;">
         <div style="font-weight:800;font-size:0.75rem;color:#dc2626;margin-bottom:4px;">🔴 潛在出指候選（排名${IDX_BORDER_LO}~50，接近墊底）</div>
         ${_idxBorderColHeaderHtml}
         ${outGroup.length ? outGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
       </div>
-      <div style="min-width:0;">
+      <div class="ib-col" style="min-width:0;">
         <div style="font-weight:800;font-size:0.75rem;color:#16a34a;margin-bottom:4px;">🟢 潛在入指候選（排名51~${IDX_BORDER_HI}，接近門檻）</div>
         ${_idxBorderColHeaderHtml}
         ${inGroup.length ? inGroup.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">目前沒有落在觀察區的股票</div>'}
@@ -57798,9 +57855,9 @@ const _idxBorderLegendHtml = `
 
 function renderIndexBorderPage1(page1) {
   const rowHtml = x => `
-    <div title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:5px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:nowrap;overflow-x:auto;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+    <div class="ib-row" title="點擊查看 ${x.name}(${x.id}) 完整分析" style="display:flex;align-items:center;gap:5px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.72rem;flex-wrap:nowrap;overflow-x:auto;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
       <span style="flex:0 0 auto;font-weight:800;color:var(--fg3);width:22px;">#${x.rank}</span>
-      <span onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:56px;color:var(--accent);text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
+      <span class="ib-name" onclick="quickSearch && quickSearch('${x.id}')" style="cursor:pointer;font-weight:700;flex:1;min-width:56px;color:var(--accent);text-decoration:underline;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${x.name}<span style="color:var(--fg3);font-weight:400;text-decoration:none;"> ${x.id}</span></span>
       <span style="flex:0 0 auto;font-weight:700;color:${x.changePct>=0?'#dc2626':'#16a34a'};width:42px;text-align:right;">${x.changePct>=0?'+':''}${x.changePct.toFixed(1)}%</span>
       <canvas id="mini-${x.id}" width="40" height="20" onclick="openIndexBorderTrend('${x.id}','${x.name}')" title="近15日K線，點擊看完整門檻觀察區走勢" style="flex:0 0 auto;cursor:pointer;"></canvas>
       <span id="chipSig-${x.id}" title="籌碼近底量縮判斷" style="flex:0 0 auto;font-size:0.72rem;font-weight:700;color:var(--fg3);width:20px;text-align:center;">⏳</span>
@@ -57814,13 +57871,13 @@ function renderIndexBorderPage1(page1) {
   const colA = page1.slice(0, mid);
   const colB = page1.slice(mid);
   return `
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;">
-      <div style="min-width:0;">
+    <div class="ib-cols" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;">
+      <div class="ib-col" style="min-width:0;">
         <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名1~${colA.length ? colA[colA.length-1].rank : ''}）</div>
         ${_idxBorderColHeaderHtml}
         ${colA.length ? colA.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
       </div>
-      <div style="min-width:0;">
+      <div class="ib-col" style="min-width:0;">
         <div style="font-weight:800;font-size:0.75rem;color:var(--fg);margin-bottom:4px;">🏆 現有台灣50成分股（排名${colB.length ? colB[0].rank : ''}~${IDX_BORDER_LO - 1}）</div>
         ${_idxBorderColHeaderHtml}
         ${colB.length ? colB.map(rowHtml).join('') : '<div style="padding:10px;color:var(--fg3);font-size:0.7rem;">尚無資料</div>'}
@@ -59411,6 +59468,36 @@ function _renderUSHeatmap(results) {
 }
 
 // ── 啟動海選 ──
+// 海選每檔抓價只等 4 秒，網路慢或被 FinMind 限流時抓不到，卡片原本會顯示「$0.0 ▲0.0%」（像是真的 0 元）。
+// 掃描結束後，對「沒有報價」的結果再補抓一輪：等待時間拉長到 12 秒，一次一檔、不並行，避免再被限流。
+// 補不到的維持沒有報價（卡片顯示「報價—」），不會編數字。回傳補到幾檔。
+async function _scrBackfillPrices(results, start, end, shouldStop) {
+  let filled = 0;
+  for (const r of results) {
+    if (shouldStop && shouldStop()) break;
+    if (r.lc > 0) continue;
+    try {
+      const raw = await Promise.race([
+        fetchFM('TaiwanStockPrice', r.stockId, start, end),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('backfillTimeout')), 12000)),
+      ]);
+      const closes = (raw || []).map(d => +d.close).filter(v => v > 0);
+      if (closes.length < 2) continue;
+      r.lc = closes.at(-1);
+      const pc = closes.at(-2) || r.lc;
+      r.chgPct = pc ? (r.lc - pc) / pc * 100 : 0;
+      if (!r.candles) {
+        const n = Math.min(15, raw.length), p = raw.slice(-n);
+        r.candles = { closes: p.map(d => +d.close), opens: p.map(d => +(d.open || d.close)), highs: p.map(d => +d.max),
+                      lows: p.map(d => +d.min), dates: p.map(d => d.date || ''), vols: p.map(d => +d.Trading_Volume || 0) };
+      }
+      filled++;
+    } catch (e) { /* 這檔補不到就維持沒有報價 */ }
+    await new Promise(res => setTimeout(res, 250));
+  }
+  return filled;
+}
+
 async function startScreener() {
   if (_demoBlockMultiStock()) return;
   if (_screenerRunning) {
@@ -59742,6 +59829,17 @@ async function startScreener() {
     }
     await sleep(_scrDelay);
   }
+
+  // 報價補抓：把掃描時沒抓到報價的結果再補一輪（見 _scrBackfillPrices）
+  try {
+    const _noPx = _screenerResults.filter(r => !(r.lc > 0)).length;
+    if (_noPx && !_screenerStop) {
+      document.getElementById('screenerProgressText').textContent = `補抓 ${_noPx} 檔沒有報價的股票…`;
+      const _got = await _scrBackfillPrices(_screenerResults, _scrStart, _scrEnd, () => _screenerStop);
+      console.log(`[海選] 報價補抓：${_noPx} 檔缺報價，補到 ${_got} 檔`);
+      renderScreenerCards();
+    }
+  } catch (e) { console.warn('[海選] 報價補抓失敗', e); }
 
   // 完成——v8.x：這一段（統計摘要計算+最終渲染）獨立包一層try/catch，
   // 之前這裡若拋例外會直接掉到最外層catch，顯示「掃描發生錯誤」，
@@ -65746,9 +65844,9 @@ function renderScreenerCards(showStats=false) {
           <div class="sc-code">
             ${r.stockId}
             &nbsp;
-            <span class="sc-price" data-rt-price="${r.stockId}">$${r.lc >= 100 ? r.lc.toFixed(0) : r.lc.toFixed(1)}</span>
+            <span class="sc-price" data-rt-price="${r.stockId}">${r.lc > 0 ? '$' + (r.lc >= 100 ? r.lc.toFixed(0) : r.lc.toFixed(1)) : '<span title="報價暫時抓不到（海選時網路較慢或被限流），不是 0 元" style="color:var(--fg3);">報價—</span>'}</span>
             &nbsp;
-            <span class="sc-chg" data-rt-chg="${r.stockId}" style="color:${up?'var(--up)':'var(--down)'};">${up?'▲':'▼'}${Math.abs(r.chgPct).toFixed(1)}%</span>
+            <span class="sc-chg" data-rt-chg="${r.stockId}" style="color:${up?'var(--up)':'var(--down)'};">${r.lc > 0 ? (up?'▲':'▼') + Math.abs(r.chgPct).toFixed(1) + '%' : ''}</span>
           </div>
           <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}${volPriceBadgeHtml}${blowoffBadgeHtml}${gapBadgeHtml}</div>
           <div class="sc-industry">${info.industry}</div>
@@ -67352,6 +67450,80 @@ function _vipRefreshModal() {
   }
   return !!info;
 }
+
+// 手機版頁首選單（☰）：點開／收合；點選單裡的任一個按鈕後自動收合
+function toggleHeaderMenu(force) {
+  const h = document.querySelector('.header'), b = document.getElementById('headerMenuBtn');
+  if (!h) return;
+  const open = typeof force === 'boolean' ? force : !h.classList.contains('menu-open');
+  h.classList.toggle('menu-open', open);
+  if (b) { b.setAttribute('aria-expanded', String(open)); b.textContent = open ? '✕' : '☰'; }
+}
+document.addEventListener('click', e => {
+  const h = document.querySelector('.header');
+  if (!h || !h.classList.contains('menu-open')) return;
+  if (e.target.closest('.header-right-scroll button, .header-right-scroll a')) setTimeout(() => toggleHeaderMenu(false), 0);
+});
+
+// ══════════════════════════════════════════════════════════════
+//  🧪 手機模式（實驗中）
+//  做法：開一個手機尺寸的 iframe 載入同一個網頁。CSS 的 @media 看的是「視窗寬度」，
+//  用 iframe 才能讓網頁真的以手機寬度排版（只縮小外框是不會觸發手機版面的）。
+//  登入狀態（sessionStorage / localStorage）同源同分頁，iframe 裡自動沿用。
+//  只在本機（localhost／127.0.0.1／file）或網址有 ?lab=1 時顯示按鈕。
+// ══════════════════════════════════════════════════════════════
+const PHONE_PRESETS = { s: [360, 740, '小'], m: [390, 844, '標準'], l: [430, 932, '大'] };
+let _phoneKey = 'm';
+
+function _phoneModeAllowed() {
+  const h = location.hostname, q = new URLSearchParams(location.search);
+  return window.top === window.self && (h === 'localhost' || h === '127.0.0.1' || h === '' || q.get('lab') === '1');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const b = document.getElementById('phoneModeBtn');
+  if (b && _phoneModeAllowed()) b.style.display = '';
+});
+
+function _phoneRender() {
+  const [w, h] = PHONE_PRESETS[_phoneKey];
+  const ov = document.getElementById('phoneOverlay'); if (!ov) return;
+  const fit = Math.min(1, (window.innerHeight - 96) / (h + 24));   // 螢幕不夠高就等比縮小，錄影時整支手機都看得到
+  const frame = ov.querySelector('.phone-frame');
+  frame.style.width = w + 'px'; frame.style.height = h + 'px';
+  frame.style.transform = `scale(${fit})`; frame.style.marginBottom = `${-(h + 24) * (1 - fit)}px`;
+  ov.querySelectorAll('[data-pk]').forEach(el => {
+    const on = el.dataset.pk === _phoneKey;
+    el.style.background = on ? '#6366f1' : 'transparent'; el.style.color = on ? '#fff' : '#c7d2fe';
+  });
+}
+
+function togglePhoneMode() {
+  const old = document.getElementById('phoneOverlay');
+  if (old) { old.remove(); document.body.style.overflow = ''; return; }
+  const u = new URL(location.href); u.searchParams.set('phoneframe', '1');
+  const ov = document.createElement('div');
+  ov.id = 'phoneOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:2147483000;background:rgba(15,23,42,.94);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:10px;overflow:hidden;';
+  ov.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;font-family:inherit;">
+      <span style="color:#c7d2fe;font-size:.78rem;font-weight:700;">📱 手機模式</span>
+      ${Object.entries(PHONE_PRESETS).map(([k, [w, h, n]]) =>
+        `<button data-pk="${k}" style="border:1px solid #6366f1;border-radius:99px;padding:3px 12px;font-size:.72rem;cursor:pointer;">${n} ${w}×${h}</button>`).join('')}
+      <button id="phoneReload" style="border:1px solid #6366f1;background:transparent;color:#c7d2fe;border-radius:99px;padding:3px 12px;font-size:.72rem;cursor:pointer;">↻ 重新載入</button>
+      <button id="phoneClose" style="border:1px solid #f87171;background:transparent;color:#fca5a5;border-radius:99px;padding:3px 12px;font-size:.72rem;cursor:pointer;">✕ 關閉（Esc）</button>
+    </div>
+    <div class="phone-frame" style="background:#000;border:10px solid #1f2937;border-radius:38px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.6);transform-origin:top center;flex:0 0 auto;box-sizing:content-box;">
+      <iframe id="phoneIframe" src="${u.href}" style="width:100%;height:100%;border:0;background:#fff;display:block;"></iframe>
+    </div>`;
+  document.body.appendChild(ov);
+  document.body.style.overflow = 'hidden';
+  ov.querySelectorAll('[data-pk]').forEach(el => el.onclick = () => { _phoneKey = el.dataset.pk; _phoneRender(); });
+  ov.querySelector('#phoneClose').onclick = togglePhoneMode;
+  ov.querySelector('#phoneReload').onclick = () => { document.getElementById('phoneIframe').src = u.href; };
+  _phoneRender();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.getElementById('phoneOverlay')) togglePhoneMode(); });
+window.addEventListener('resize', () => { if (document.getElementById('phoneOverlay')) _phoneRender(); });
 
 // 尊爵（或管理人）專屬：VIP 不算。到期的授權不算。
 function isPremium() {
