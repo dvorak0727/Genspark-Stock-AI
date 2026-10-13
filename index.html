@@ -83019,6 +83019,10 @@ if (typeof _origRenderSM === 'function') {
 .cb-script{white-space:pre-wrap;line-height:1.85;font-size:.86rem;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;max-height:48vh;overflow:auto;margin-top:8px}
 .cb-databar{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.72rem;background:var(--bg2);border-radius:10px;padding:8px 12px;margin-top:10px}
 .cb-btn{font-size:.78rem;padding:7px 14px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--fg);cursor:pointer;font-weight:800}
+.cb-rate{display:flex;align-items:center;gap:10px;margin-top:8px}
+.cb-rate input{flex:1;min-width:0;accent-color:#f59e0b;height:28px}
+.cb-rate b{min-width:3em;text-align:right;font-variant-numeric:tabular-nums}
+.cb-ticks{display:flex;justify-content:space-between;font-size:.62rem;color:var(--fg3);padding:0 2px 0 5.6em;margin-right:3.4em}
 .cb-btn.main{background:#f59e0b;border-color:#f59e0b;color:#fff}
 @media (max-width:600px){.cb-grid2{grid-template-columns:1fr}.cb-overlay{padding:8px 6px}}
 </style>
@@ -83045,6 +83049,8 @@ if (typeof _origRenderSM === 'function') {
     </div>
     <div class="cb-databar" id="bcData">資料載入中…</div>
     <div class="cb-row" style="margin-top:10px"><button class="cb-btn main" onclick="bcMake()">🔄 重新調配播報文稿</button><button class="cb-btn" onclick="bcCopy(this)">📋 複製播報稿</button><button class="cb-btn" onclick="bcSpeak()">🔊 朗讀 / 停止</button></div>
+    <div class="cb-rate"><span class="cb-lab" style="margin:0">朗讀速度</span><input type="range" id="bcRate" min="0" max="3" step="1" value="1" aria-label="朗讀速度"><b id="bcRateLbl">×1.5</b></div>
+    <div class="cb-ticks"><span>×1.2</span><span>×1.5</span><span>×1.7</span><span>×2.0</span></div>
     <div class="cb-script" id="bcScript">按「重新調配播報文稿」產生。</div>
     <div class="cb-note">💡 這份稿子是用規則模板，把畫面上的真實數字（開盤壓力表、夜盤、板塊輪動、大盤法人、籌碼榜）分成「今日展望」（壓力表、夜盤）和「昨日回顧」（大盤、板塊、買賣超）兩段填進句子，<b>不是 AI 模型即時寫的</b>，也不會編造沒有的數字。朗讀用瀏覽器內建中文語音。<br>⚠️ 內容是統計描述，不是買賣建議。</div>
   </div>
@@ -83296,12 +83302,30 @@ function bcCopy(btn) {
   const t = document.getElementById('bcScript').textContent, done = () => { const o = btn.textContent; btn.textContent = '已複製 ✓'; setTimeout(() => btn.textContent = o, 1500); };
   if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, () => alert('複製失敗，請手動選取文字')); else alert('這個瀏覽器不允許自動複製，請手動選取文字');
 }
+var _bcRates = [1.2, 1.5, 1.7, 2.0];
+function _bcRateNow() { const i = parseInt(document.getElementById('bcRate').value, 10); return _bcRates[isFinite(i) && _bcRates[i] ? i : 1]; }
+function _bcSpeakNow() {
+  speechSynthesis.cancel();
+  const rate = _bcRateNow();
+  const lines = document.getElementById('bcScript').textContent.split(String.fromCharCode(10)).map(x => x.trim()).filter(Boolean);
+  lines.forEach(t => { const u = new SpeechSynthesisUtterance(t); u.lang = 'zh-TW'; u.rate = rate; speechSynthesis.speak(u); });
+}
 function bcSpeak() {
   try {
-    if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
-    const u = new SpeechSynthesisUtterance(document.getElementById('bcScript').textContent); u.lang = 'zh-TW'; u.rate = 1.0; speechSynthesis.speak(u);
+    if (speechSynthesis.speaking || speechSynthesis.pending) { speechSynthesis.cancel(); return; }
+    _bcSpeakNow();
   } catch (e) { alert('這個瀏覽器不支援朗讀'); }
 }
+(function () {
+  const el = document.getElementById('bcRate'), lb = document.getElementById('bcRateLbl');
+  try { const v = localStorage.getItem('bc_rate_idx'); if (v !== null && _bcRates[+v]) el.value = v; } catch (e) {}
+  const paint = () => { lb.textContent = '×' + _bcRateNow().toFixed(1); };
+  paint();
+  el.addEventListener('input', () => {
+    paint(); try { localStorage.setItem('bc_rate_idx', el.value); } catch (e) {}
+    try { if (speechSynthesis.speaking || speechSynthesis.pending) _bcSpeakNow(); } catch (e) {}   // 朗讀中拉動速度：用新速度從頭重新朗讀
+  });
+})();
 document.getElementById('bcTopic').addEventListener('change', bcMake);
 document.getElementById('bcTone').addEventListener('change', bcMake);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { cbClose(); bcClose(); } });
