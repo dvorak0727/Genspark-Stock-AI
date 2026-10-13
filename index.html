@@ -15800,6 +15800,7 @@ a.module-nav-item.acc-active {
       <span class="ks-sb-icon">📖</span> 知識站
       <span style="position:absolute;top:-7px;right:-6px;background:linear-gradient(135deg,#6d28d9,#7c3aed);color:#fff;font-size:0.45rem;font-weight:800;padding:1px 4px;border-radius:99px;letter-spacing:.03em;white-space:nowrap;">VIP</span>
     </a>
+    <button class="ks-shortcut-btn" onclick="bcOpen()" title="股市分析播報員：依畫面真實資料自動組稿" style="border:1.5px solid #f59e0b;color:#f59e0b;"><span class="ks-sb-icon">📻</span> 播報員</button>
     <!-- ★ v7.17 OnboardingGuide 重新開啟按鈕 -->
     <button class="og-reopen-btn" onclick="ogOpen()" title="新手引導 / 操作說明">
       <span>？</span> 操作說明
@@ -19200,6 +19201,7 @@ a.module-nav-item.acc-active {
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
           <span style="font-size:.62rem;color:var(--fg3);font-weight:700;"><span id="twseInstRangeLabel">🏦 大盤法人籌碼（近1週）</span><span style="font-size:.5rem;opacity:.6;"> ▼ 點擊看圖</span></span>
           <span style="font-size:.55rem;padding:2px 6px;background:rgba(16,185,129,.12);color:#059669;border-radius:10px;border:1px solid rgba(16,185,129,.3);">✅ 全市場真實買賣金額（TWSE三大法人統計表）</span>
+          <button class="cb-open-btn" onclick="event.stopPropagation();cbOpen()" title="每日外資／投信／自營商買賣超前50名">📊 籌碼榜 Top50</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:.68rem;text-align:center;">
           <div>外資<br><span id="twseForeign5" style="font-weight:900;color:var(--fg);">—</span></div>
@@ -82813,6 +82815,240 @@ if (typeof _origRenderSM === 'function') {
 })();
 </script>
 
+
+<!-- ══ v7.51：籌碼榜 Top50（TWSE T86 三大法人買賣超日報）＋ 股市分析播報員（規則式組稿） ══ -->
+<style>
+.cb-overlay{position:fixed;inset:0;z-index:9500;background:rgba(10,14,24,.62);display:none;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 12px}
+.cb-overlay.open{display:flex}
+.cb-box{background:var(--surface);color:var(--fg);border:1px solid var(--border);border-radius:14px;width:100%;max-width:760px;padding:14px 16px 16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.cb-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.cb-title{font-size:1rem;font-weight:900;flex:1}
+.cb-x{border:0;background:var(--bg2);color:var(--fg2);border-radius:8px;width:30px;height:30px;font-size:1rem;cursor:pointer}
+.cb-row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.cb-tab,.cb-pill{font-size:.78rem;padding:6px 14px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--fg2);cursor:pointer;font-weight:700}
+.cb-tab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.cb-pill.on{background:var(--fg);color:var(--surface);border-color:var(--fg)}
+.cb-pill.buy.on{background:#dc2626;border-color:#dc2626;color:#fff}
+.cb-pill.sell.on{background:#16a34a;border-color:#16a34a;color:#fff}
+.cb-meta{font-size:.68rem;color:var(--fg3);margin:6px 0}
+.cb-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.cb-table th{font-size:.66rem;color:var(--fg3);text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)}
+.cb-table td{padding:5px 6px;border-bottom:1px dashed var(--border);text-align:left}
+.cb-table td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
+.cb-table tr.cb-r{cursor:pointer}
+.cb-table tr.cb-r:hover{background:var(--bg2)}
+.cb-bar{display:block;height:5px;border-radius:3px;margin-top:3px}
+.cb-wrap{max-height:62vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:0 6px}
+.cb-note{font-size:.64rem;color:var(--fg3);margin-top:8px;line-height:1.6}
+.cb-open-btn{font-size:.6rem;padding:3px 10px;border-radius:10px;border:1px solid var(--accent);background:var(--bg);color:var(--accent);cursor:pointer;font-weight:800;margin-left:auto}
+.cb-sel{font-size:.8rem;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--fg);width:100%}
+.cb-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cb-lab{font-size:.68rem;color:var(--fg3);font-weight:700;margin-bottom:4px}
+.cb-script{white-space:pre-wrap;line-height:1.85;font-size:.86rem;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px;max-height:48vh;overflow:auto;margin-top:8px}
+.cb-databar{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.72rem;background:var(--bg2);border-radius:10px;padding:8px 12px;margin-top:10px}
+.cb-btn{font-size:.78rem;padding:7px 14px;border-radius:9px;border:1px solid var(--border);background:var(--bg2);color:var(--fg);cursor:pointer;font-weight:800}
+.cb-btn.main{background:#f59e0b;border-color:#f59e0b;color:#fff}
+@media (max-width:600px){.cb-grid2{grid-template-columns:1fr}.cb-overlay{padding:8px 6px}}
+</style>
+
+<div class="cb-overlay" id="cbOverlay" onclick="if(event.target===this)cbClose()">
+  <div class="cb-box" role="dialog" aria-label="籌碼榜 Top50">
+    <div class="cb-head"><div class="cb-title">📊 籌碼榜 Top50</div><button class="cb-x" onclick="cbClose()" title="關閉">✕</button></div>
+    <div class="cb-row" id="cbWho"></div>
+    <div class="cb-row" id="cbCtl"></div>
+    <div class="cb-meta" id="cbMeta">載入中…</div>
+    <div class="cb-wrap"><table class="cb-table"><thead><tr><th>名次</th><th>股票</th><th style="text-align:right">買賣超（張）</th></tr></thead><tbody id="cbBody"></tbody></table></div>
+    <div class="cb-note">資料來源：臺灣證券交易所「三大法人買賣超日報」（上市股票，收盤後公布，當日未公布時顯示最近交易日）。外資＝外資及陸資（不含外資自營商），與上方「大盤法人籌碼」口徑一致。多日＝各日買賣超加總。點一列可直接查詢該股。<br>⚠️ 這是歷史統計，不是買賣建議，也不代表之後會漲或跌。</div>
+  </div>
+</div>
+
+<div class="cb-overlay" id="bcOverlay" onclick="if(event.target===this)bcClose()">
+  <div class="cb-box" role="dialog" aria-label="股市分析播報員">
+    <div class="cb-head"><div class="cb-title">📻 股市分析播報員 <span style="font-size:.66rem;color:#f59e0b;font-weight:800">依畫面真實資料組稿</span></div><button class="cb-x" onclick="bcClose()" title="關閉">✕</button></div>
+    <div class="cb-grid2">
+      <div><div class="cb-lab">1. 選擇播報焦點（Topic）</div>
+        <select class="cb-sel" id="bcTopic"><option value="all">全盤綜合盤勢播報</option><option value="inst">三大法人買賣金額</option><option value="foreign">外資買賣超焦點</option><option value="trust">投信買賣超焦點</option><option value="dealer">自營商買賣超焦點</option></select></div>
+      <div><div class="cb-lab">2. 選擇主播語氣（Tone）</div>
+        <select class="cb-sel" id="bcTone"><option value="pro">專業財經主播</option><option value="easy">輕鬆口語</option><option value="brief">簡短快報</option></select></div>
+    </div>
+    <div class="cb-databar" id="bcData">資料載入中…</div>
+    <div class="cb-row" style="margin-top:10px"><button class="cb-btn main" onclick="bcMake()">🔄 重新調配播報文稿</button><button class="cb-btn" onclick="bcCopy(this)">📋 複製播報稿</button><button class="cb-btn" onclick="bcSpeak()">🔊 朗讀 / 停止</button></div>
+    <div class="cb-script" id="bcScript">按「重新調配播報文稿」產生。</div>
+    <div class="cb-note">💡 這份稿子是用規則模板，把畫面上的真實數字（加權指數、大盤法人、籌碼榜）填進句子，<b>不是 AI 模型即時寫的</b>，也不會編造沒有的數字。朗讀用瀏覽器內建中文語音。<br>⚠️ 內容是統計描述，不是買賣建議。</div>
+  </div>
+</div>
+
+<script>
+// ───── 籌碼榜 Top50 ─────
+var _cbDay = {};        // 日期字串 → {codes:{code:{n,f,t,d}}} 或 null（非交易日／尚未公布）
+var _cbState = { who: 'foreign', side: 'buy', days: 1, noEtf: false };
+var _cbWhoMap = { foreign: '外資', trust: '投信', dealer: '自營商' };
+var _cbLoadSeq = 0;
+
+function _cbNum(s) { return parseFloat(String(s == null ? '' : s).replace(/,/g, '')) || 0; }
+function _cbDateStr(dt) { return dt.getFullYear() + String(dt.getMonth() + 1).padStart(2, '0') + String(dt.getDate()).padStart(2, '0'); }
+
+async function _cbFetchDay(ds) {
+  if (ds in _cbDay) return _cbDay[ds];
+  const r = await fetch('https://www.twse.com.tw/rwd/zh/fund/T86?date=' + ds + '&selectType=ALLBUT0999&response=json');
+  const j = await r.json();
+  if (j.stat !== 'OK' || !Array.isArray(j.data) || !j.data.length) { _cbDay[ds] = null; return null; }
+  const fs = j.fields || [];
+  const iF = fs.indexOf('外陸資買賣超股數(不含外資自營商)'), iT = fs.indexOf('投信買賣超股數'), iD = fs.indexOf('自營商買賣超股數');
+  if (iF < 0 || iT < 0 || iD < 0) throw new Error('證交所欄位格式有變，請回報');
+  const codes = {};
+  j.data.forEach(row => { codes[String(row[0]).trim()] = { n: String(row[1]).trim(), f: _cbNum(row[iF]), t: _cbNum(row[iT]), d: _cbNum(row[iD]) }; });
+  _cbDay[ds] = { date: ds, codes: codes };
+  return _cbDay[ds];
+}
+
+// 往回找最近 N 個有資料的交易日（週末直接略過；假日會回傳非 OK 自然跳過）
+async function _cbGetDays(n) {
+  const out = [], today = new Date();
+  for (let i = 0; i < 20 && out.length < n; i++) {
+    const dt = new Date(today); dt.setDate(today.getDate() - i);
+    if (dt.getDay() === 0 || dt.getDay() === 6) continue;
+    try { const d = await _cbFetchDay(_cbDateStr(dt)); if (d) out.push(d); } catch (e) { if (!out.length && i > 12) throw e; }
+  }
+  return out;
+}
+
+async function cbRank(who, side, days, noEtf) {
+  const ds = await _cbGetDays(days);
+  if (!ds.length) throw new Error('抓不到證交所資料，請稍後再試');
+  const key = who === 'foreign' ? 'f' : who === 'trust' ? 't' : 'd';
+  const sum = {};
+  ds.forEach(d => Object.keys(d.codes).forEach(c => {
+    const o = d.codes[c]; if (!sum[c]) sum[c] = { c: c, n: o.n, v: 0 }; sum[c].v += o[key];
+  }));
+  let arr = Object.values(sum);
+  if (noEtf) arr = arr.filter(o => !/^00/.test(o.c));
+  arr = side === 'buy' ? arr.filter(o => o.v > 0).sort((a, b) => b.v - a.v) : arr.filter(o => o.v < 0).sort((a, b) => a.v - b.v);
+  return { rows: arr.slice(0, 50), dates: ds.map(d => d.date) };
+}
+
+function _cbFmtDate(s) { return s.slice(0, 4) + '/' + s.slice(4, 6) + '/' + s.slice(6); }
+function _cbEsc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+function _cbRenderCtl() {
+  const S = _cbState;
+  document.getElementById('cbWho').innerHTML = Object.keys(_cbWhoMap).map(k => '<button class="cb-tab' + (S.who === k ? ' on' : '') + '" onclick="cbSet(\'who\',\'' + k + '\')">' + _cbWhoMap[k] + '</button>').join('');
+  document.getElementById('cbCtl').innerHTML =
+    '<button class="cb-pill buy' + (S.side === 'buy' ? ' on' : '') + '" onclick="cbSet(\'side\',\'buy\')">買超</button>' +
+    '<button class="cb-pill sell' + (S.side === 'sell' ? ' on' : '') + '" onclick="cbSet(\'side\',\'sell\')">賣超</button>' +
+    [1, 3, 5].map(n => '<button class="cb-pill' + (S.days === n ? ' on' : '') + '" onclick="cbSet(\'days\',' + n + ')">' + (n === 1 ? '1日' : n + '日合計') + '</button>').join('') +
+    '<label style="font-size:.72rem;color:var(--fg2);display:flex;align-items:center;gap:4px;margin-left:6px"><input type="checkbox" ' + (S.noEtf ? 'checked ' : '') + 'onchange="cbSet(\'noEtf\',this.checked)"> 不含 ETF</label>';
+}
+
+function cbSet(k, v) { _cbState[k] = v; cbLoad(); }
+
+async function cbLoad() {
+  const seq = ++_cbLoadSeq, S = _cbState;
+  _cbRenderCtl();
+  document.getElementById('cbMeta').textContent = '載入中…（第一次要抓 ' + S.days + ' 天資料，請稍等幾秒）';
+  document.getElementById('cbBody').innerHTML = '';
+  try {
+    const res = await cbRank(S.who, S.side, S.days, S.noEtf);
+    if (seq !== _cbLoadSeq) return;
+    const max = res.rows.length ? Math.abs(res.rows[0].v) : 1, up = S.side === 'buy';
+    const dl = res.dates.length === 1 ? _cbFmtDate(res.dates[0]) : _cbFmtDate(res.dates[res.dates.length - 1]) + ' ～ ' + _cbFmtDate(res.dates[0]);
+    document.getElementById('cbMeta').textContent = _cbWhoMap[S.who] + (up ? '買超' : '賣超') + ' Top50 · ' + dl + (res.dates.length < S.days ? '（只找到 ' + res.dates.length + ' 個交易日）' : '') + ' · 上市';
+    document.getElementById('cbBody').innerHTML = res.rows.map((o, i) =>
+      '<tr class="cb-r" onclick="cbPick(\'' + _cbEsc(o.c) + '\')"><td>' + (i + 1) + '</td><td><b>' + _cbEsc(o.c) + '</b> ' + _cbEsc(o.n) +
+      '<span class="cb-bar" style="width:' + Math.max(2, Math.round(Math.abs(o.v) / max * 100)) + '%;background:' + (up ? '#dc2626' : '#16a34a') + '"></span></td>' +
+      '<td class="num" style="color:' + (up ? '#dc2626' : '#16a34a') + '">' + (o.v > 0 ? '+' : '') + Math.round(o.v / 1000).toLocaleString('en-US') + '</td></tr>').join('') ||
+      '<tr><td colspan="3" style="padding:14px;color:var(--fg3)">這個條件下沒有資料。</td></tr>';
+  } catch (e) {
+    if (seq !== _cbLoadSeq) return;
+    document.getElementById('cbMeta').textContent = '載入失敗：' + e.message;
+  }
+}
+function cbOpen() { document.getElementById('cbOverlay').classList.add('open'); cbLoad(); }
+function cbClose() { document.getElementById('cbOverlay').classList.remove('open'); }
+function cbPick(code) { cbClose(); if (typeof quickSearch === 'function') quickSearch(code); }
+
+// ───── 股市分析播報員（規則式組稿，不呼叫任何 AI 模型） ─────
+function _bcTxt(id) { const e = document.getElementById(id); const t = e ? (e.textContent || '').trim() : ''; return (t && t !== '—') ? t : ''; }
+function _bcFmtLots(v) { return Math.round(Math.abs(v) / 1000).toLocaleString('en-US') + ' 張'; }
+var _bcData = null;
+
+async function _bcCollect() {
+  const d = { close: _bcTxt('twseClose'), change: _bcTxt('twseChange'), trend: _bcTxt('twse5dTrend'), macd: _bcTxt('twseMacdStatus'), kd: _bcTxt('twseKdStatus'), kdZone: _bcTxt('twseKdZone'),
+    k: _bcTxt('twseK'), dd: _bcTxt('twseD'), instLabel: _bcTxt('twseInstRangeLabel').replace(/^🏦\s*/, ''), fgn: _bcTxt('twseForeign5'), trs: _bcTxt('twseTrust5'), dlr: _bcTxt('twseDealer5'), top: {}, night: null };
+  try { const n = window._nightFutIndData; if (n && n.closes && n.closes.length > 1) { const a = n.closes[n.closes.length - 1], b = n.closes[n.closes.length - 2]; d.night = { v: a, diff: a - b }; } } catch (e) {}
+  for (const who of ['foreign', 'trust', 'dealer']) {
+    try { const b = await cbRank(who, 'buy', 1, true), s = await cbRank(who, 'sell', 1, true); d.top[who] = { buy: b.rows.slice(0, 3), sell: s.rows.slice(0, 3), date: b.dates[0] }; } catch (e) { d.top[who] = null; }
+  }
+  return d;
+}
+
+function _bcNames(rows) { return rows.map(o => o.n + '（' + o.c + '）' + _bcFmtLots(o.v)).join('、'); }
+
+function _bcBuild(d, topic, tone) {
+  const L = [], pro = tone === 'pro', easy = tone === 'easy', brief = tone === 'brief';
+  const hello = pro ? '各位投資朋友大家好，以下是依今日畫面資料整理的盤勢播報。' : easy ? '哈囉大家好，我們來看看今天盤面的重點。' : '';
+  if (hello) L.push(hello);
+  const idxLine = () => {
+    if (!d.close) return '';
+    let s = (easy ? '加權指數目前是 ' : '加權指數收在 ') + d.close + ' 點';
+    if (d.change) s += '，' + d.change.replace(/\s+/g, ' ');
+    s += '。';
+    if (d.trend) s += '近五日趨勢 ' + d.trend + '。';
+    return s;
+  };
+  const techLine = () => {
+    const p = [];
+    if (d.macd) p.push('大盤 MACD 呈現「' + d.macd.replace(/^[^一-龥A-Za-z]+/, '') + '」');
+    if (d.kd) p.push('KD 為「' + d.kd.replace(/^[^一-龥A-Za-z]+/, '') + '」' + (d.k && d.dd ? '（K ' + d.k + '、D ' + d.dd + '）' : ''));
+    return p.length ? p.join('，') + '。' + (d.kdZone ? d.kdZone + '。' : '') : '';
+  };
+  const instLine = () => (d.fgn || d.trs || d.dlr) ? (d.instLabel || '大盤法人籌碼') + '：外資 ' + (d.fgn || '—') + '、投信 ' + (d.trs || '—') + '、自營商 ' + (d.dlr || '—') + '（數字為買賣超金額，正為買超、負為賣超，以畫面為準）。' : '';
+  const nightLine = () => d.night ? '台指期夜盤最新 ' + Math.round(d.night.v).toLocaleString('en-US') + ' 點，較前一筆' + (d.night.diff >= 0 ? '上漲 ' : '下跌 ') + Math.abs(Math.round(d.night.diff)) + ' 點。' : '';
+  const whoLine = who => {
+    const t = d.top[who]; if (!t) return '';
+    return _cbWhoMap[who] + '（' + _cbFmtDate(t.date) + '，不含 ETF）買超前三名：' + _bcNames(t.buy) + '；賣超前三名：' + _bcNames(t.sell) + '。';
+  };
+  if (topic === 'all') {
+    [idxLine(), techLine(), nightLine(), instLine(), whoLine('foreign'), whoLine('trust')].forEach(x => x && L.push(x));
+  } else if (topic === 'inst') {
+    [idxLine(), instLine(), whoLine('foreign')].forEach(x => x && L.push(x));
+  } else {
+    [idxLine(), whoLine(topic)].forEach(x => x && L.push(x));
+  }
+  if (brief) { const k = L.filter(x => x); return k.slice(0, 3).join('\n') + '\n以上為統計描述，不是買賣建議。'; }
+  L.push(pro ? '以上為依畫面資料整理的統計描述，法人買賣超只代表過去的紀錄，不保證後續走勢，也不是買賣建議。感謝收聽。' : '以上只是把數字整理給你看，不是買賣建議，投資還是要自己判斷喔。');
+  return L.filter(x => x).join('\n\n');
+}
+
+async function bcMake() {
+  const box = document.getElementById('bcScript'), bar = document.getElementById('bcData');
+  box.textContent = '資料整理中…';
+  try {
+    if (!_bcTxt('twseClose') && typeof fetchTWSEIndex === 'function') { try { await fetchTWSEIndex(); } catch (e) {} }
+    _bcData = await _bcCollect();
+    const d = _bcData;
+    bar.innerHTML = '<span>加權 <b>' + _cbEsc(d.close || '—') + '</b> ' + _cbEsc(d.change || '') + '</span>' +
+      (d.night ? '<span>夜盤期貨 <b>' + Math.round(d.night.v).toLocaleString('en-US') + '</b></span>' : '') +
+      '<span>' + _cbEsc(d.instLabel || '大盤法人') + '：外資 <b>' + _cbEsc(d.fgn || '—') + '</b> 投信 <b>' + _cbEsc(d.trs || '—') + '</b> 自營 <b>' + _cbEsc(d.dlr || '—') + '</b></span>';
+    box.textContent = _bcBuild(d, document.getElementById('bcTopic').value, document.getElementById('bcTone').value);
+  } catch (e) { box.textContent = '組稿失敗：' + e.message; }
+}
+function bcOpen() { document.getElementById('bcOverlay').classList.add('open'); bcMake(); }
+function bcClose() { document.getElementById('bcOverlay').classList.remove('open'); try { speechSynthesis.cancel(); } catch (e) {} }
+function bcCopy(btn) {
+  const t = document.getElementById('bcScript').textContent, done = () => { const o = btn.textContent; btn.textContent = '已複製 ✓'; setTimeout(() => btn.textContent = o, 1500); };
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, () => alert('複製失敗，請手動選取文字')); else alert('這個瀏覽器不允許自動複製，請手動選取文字');
+}
+function bcSpeak() {
+  try {
+    if (speechSynthesis.speaking) { speechSynthesis.cancel(); return; }
+    const u = new SpeechSynthesisUtterance(document.getElementById('bcScript').textContent); u.lang = 'zh-TW'; u.rate = 1.0; speechSynthesis.speak(u);
+  } catch (e) { alert('這個瀏覽器不支援朗讀'); }
+}
+document.getElementById('bcTopic').addEventListener('change', bcMake);
+document.getElementById('bcTone').addEventListener('change', bcMake);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { cbClose(); bcClose(); } });
+</script>
 
 </body>
 </html>
