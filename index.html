@@ -83273,7 +83273,7 @@ function _bcBuild(d, topic, tone) {
   ] : [{ head: '', note: '', keys: [topic] }];
   const out = [];
   if (T.pro) out.push('各位投資朋友大家好，以下是依畫面資料整理的盤勢播報。');
-  if (T.easy) out.push('哈囉大家好，我們先看今天可能怎麼開，再回頭看昨天發生了什麼。');
+  if (T.easy) out.push(topic === 'all' ? '哈囉大家好，我們先看今天可能怎麼開，再回頭看昨天發生了什麼。' : '哈囉大家好，我們來看看這一段的重點。');
   groups.forEach(g => {
     const parts = [];
     g.keys.forEach(k => { let ls = secs[k](d, T).filter(Boolean); if (T.brief) ls = ls.slice(0, 2); if (ls.length) parts.push(ls.join('\n')); });
