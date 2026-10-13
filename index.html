@@ -83039,14 +83039,14 @@ if (typeof _origRenderSM === 'function') {
     <div class="cb-head"><div class="cb-title">📻 股市分析播報員 <span style="font-size:.66rem;color:#f59e0b;font-weight:800">依畫面真實資料組稿</span></div><button class="cb-x" onclick="bcClose()" title="關閉">✕</button></div>
     <div class="cb-grid2">
       <div><div class="cb-lab">1. 選擇播報焦點（Topic）</div>
-        <select class="cb-sel" id="bcTopic"><option value="all">全盤綜合盤勢播報</option><option value="inst">三大法人買賣金額</option><option value="foreign">外資買賣超焦點</option><option value="trust">投信買賣超焦點</option><option value="dealer">自營商買賣超焦點</option></select></div>
+        <select class="cb-sel" id="bcTopic"><option value="all">全盤綜合播報（壓力表→夜盤→板塊→買賣超）</option><option value="open">開盤壓力表與今日走勢</option><option value="night">期貨夜盤與隔日影響</option><option value="sector">板塊資金流動</option><option value="chips">買賣超與板塊對照</option></select></div>
       <div><div class="cb-lab">2. 選擇主播語氣（Tone）</div>
         <select class="cb-sel" id="bcTone"><option value="pro">專業財經主播</option><option value="easy">輕鬆口語</option><option value="brief">簡短快報</option></select></div>
     </div>
     <div class="cb-databar" id="bcData">資料載入中…</div>
     <div class="cb-row" style="margin-top:10px"><button class="cb-btn main" onclick="bcMake()">🔄 重新調配播報文稿</button><button class="cb-btn" onclick="bcCopy(this)">📋 複製播報稿</button><button class="cb-btn" onclick="bcSpeak()">🔊 朗讀 / 停止</button></div>
     <div class="cb-script" id="bcScript">按「重新調配播報文稿」產生。</div>
-    <div class="cb-note">💡 這份稿子是用規則模板，把畫面上的真實數字（加權指數、大盤法人、籌碼榜）填進句子，<b>不是 AI 模型即時寫的</b>，也不會編造沒有的數字。朗讀用瀏覽器內建中文語音。<br>⚠️ 內容是統計描述，不是買賣建議。</div>
+    <div class="cb-note">💡 這份稿子是用規則模板，把畫面上的真實數字（開盤壓力表、夜盤、板塊輪動、大盤法人、籌碼榜）依「壓力表→期貨→板塊→買賣超」的順序填進句子，<b>不是 AI 模型即時寫的</b>，也不會編造沒有的數字。朗讀用瀏覽器內建中文語音。<br>⚠️ 內容是統計描述，不是買賣建議。</div>
   </div>
 </div>
 
@@ -83144,52 +83144,127 @@ function _bcTxt(id) { const e = document.getElementById(id); const t = e ? (e.te
 function _bcFmtLots(v) { return Math.round(Math.abs(v) / 1000).toLocaleString('en-US') + ' 張'; }
 var _bcData = null;
 
+function _bcClean(s) { return String(s || '').replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}]/gu, '').replace(/\s+/g, ' ').trim(); }
+function _bcQ(el, sel) { const e = el && el.querySelector(sel); return e ? _bcClean(e.textContent) : ''; }
+
+// 讀「今日開盤壓力表」畫面上的格子
+function _bcReadOpp() {
+  const items = [...document.querySelectorAll('#oppGrid .opp-item')].map(el => ({
+    name: _bcClean(_bcQ(el, '.opp-item-name').replace(/\?/g, '')), price: _bcQ(el, '.opp-item-price'), chg: _bcQ(el, '.opp-item-chg'), sub: _bcQ(el, '.opp-item-sim') }))
+    .filter(o => o.name && o.price && o.price !== '—' && !/載入中|抓取/.test(o.name));
+  const v = document.getElementById('oppVerdict');
+  return { items: items, badge: _bcClean(_bcTxt('oppBadge')), main: _bcQ(v, '.vd-main'), sub: _bcQ(v, '.vd-sub'), updated: _bcTxt('oppUpdated') };
+}
+
+// 讀「板塊輪動脈絡」：只有「真實資料」才採用，模擬示範資料一律不播
+function _bcReadSector() {
+  const st = window._srState, badge = document.getElementById('srApiBadge');
+  if (!st || !st.sectorData) return { ok: false, why: '板塊資料還沒載入。請先查詢任一檔股票，等「板塊輪動脈絡」出現後，再按「重新調配播報文稿」' };
+  if (!badge || !/live/.test(badge.className)) return { ok: false, why: '板塊目前是模擬示範資料，不拿來播報' };
+  const defs = (typeof SR_SECTOR_DEF !== 'undefined') ? SR_SECTOR_DEF : [];
+  const arr = defs.filter(s => st.sectorData[s.id]).map(s => ({ id: s.id, name: s.name, chg: st.sectorData[s.id].change, state: st.sectorData[s.id].state, strength: st.sectorData[s.id].strength, fsell: st.sectorData[s.id].foreignSellYi, stocks: s.stocks || [] }));
+  arr.sort((a, b) => b.chg - a.chg);
+  arr.forEach((o, i) => o.rank = i + 1);
+  const chain = [...document.querySelectorAll('#srChainRow .sr-chain-step')].map(el => _bcClean(_bcQ(el, '.sr-chain-step-name') + ' ' + _bcQ(el, '.sr-chain-step-badge')));
+  return { ok: true, list: arr, epicId: st.epicId, safe: st.safeHavens || [], rotDay: st.rotDay, date: _bcClean(badge.textContent), chain: chain };
+}
+
 async function _bcCollect() {
   const d = { close: _bcTxt('twseClose'), change: _bcTxt('twseChange'), trend: _bcTxt('twse5dTrend'), macd: _bcTxt('twseMacdStatus'), kd: _bcTxt('twseKdStatus'), kdZone: _bcTxt('twseKdZone'),
-    k: _bcTxt('twseK'), dd: _bcTxt('twseD'), instLabel: _bcTxt('twseInstRangeLabel').replace(/^🏦\s*/, ''), fgn: _bcTxt('twseForeign5'), trs: _bcTxt('twseTrust5'), dlr: _bcTxt('twseDealer5'), top: {}, night: null };
-  try { const n = window._nightFutIndData; if (n && n.closes && n.closes.length > 1) { const a = n.closes[n.closes.length - 1], b = n.closes[n.closes.length - 2]; d.night = { v: a, diff: a - b }; } } catch (e) {}
-  for (const who of ['foreign', 'trust', 'dealer']) {
-    try { const b = await cbRank(who, 'buy', 1, true), s = await cbRank(who, 'sell', 1, true); d.top[who] = { buy: b.rows.slice(0, 3), sell: s.rows.slice(0, 3), date: b.dates[0] }; } catch (e) { d.top[who] = null; }
+    k: _bcTxt('twseK'), dd: _bcTxt('twseD'), instLabel: _bcTxt('twseInstRangeLabel').replace(/^🏦\s*/, ''), fgn: _bcTxt('twseForeign5'), trs: _bcTxt('twseTrust5'), dlr: _bcTxt('twseDealer5'),
+    opp: _bcReadOpp(), sec: _bcReadSector(), nightVerdict: _bcClean(_bcTxt('nightFutVerdict')), night: null, rank: {} };
+  const it = d.opp.items.find(o => /夜盤/.test(o.name));
+  if (it) { const v = parseFloat(it.price.replace(/,/g, '')), p = parseFloat(it.chg.replace(/[+%,]/g, '')); if (isFinite(v)) d.night = { v: v, pct: isFinite(p) ? p : null, date: it.sub }; }
+  for (const who of ['foreign', 'trust']) {
+    try { const b = await cbRank(who, 'buy', 1, true), s = await cbRank(who, 'sell', 1, true); d.rank[who] = { buy: b.rows, sell: s.rows, date: b.dates[0] }; } catch (e) { d.rank[who] = null; }
   }
   return d;
 }
 
 function _bcNames(rows) { return rows.map(o => o.n + '（' + o.c + '）' + _bcFmtLots(o.v)).join('、'); }
+function _bcSigned(n) { return (n > 0 ? '+' : '') + n + '%'; }
+
+// 把一批股票對應到站內板塊（只比對板塊代表股清單，不做模糊猜測）
+function _bcMapSectors(rows, sec) {
+  const cnt = {}; let mapped = 0;
+  rows.forEach(o => { const s = sec.list.find(x => x.stocks.indexOf(o.c) >= 0); if (s) { mapped++; cnt[s.id] = (cnt[s.id] || 0) + 1; } });
+  const parts = Object.keys(cnt).map(id => ({ s: sec.list.find(x => x.id === id), n: cnt[id] })).sort((a, b) => b.n - a.n);
+  return { mapped: mapped, total: rows.length, parts: parts };
+}
+
+// ── 第 1 段：開盤壓力表與今日走勢影響 ──
+function _bcSecOpen(d, T) {
+  const o = d.opp, L = [];
+  if (!o.items.length) return [];
+  const isSpecial = n => /夜盤|VIX|利差|聯準會|總經/.test(n);
+  const mk = o.items.filter(x => !isSpecial(x.name)).map(x => x.name + ' ' + x.price + (x.chg ? '（' + x.chg + '）' : ''));
+  const macro = o.items.filter(x => /VIX|利差|聯準會/.test(x.name)).map(x => x.name + ' ' + x.price + (x.sub ? '（' + x.sub + '）' : ''));
+  L.push((T.easy ? '先看外面的市場：' : '先看外盤與相關市場：') + mk.join('、') + '。');
+  if (macro.length) L.push('風險氣氛與總體指標：' + macro.join('、') + '。');
+  if (o.badge || o.main) L.push('站內的開盤壓力判讀：' + [o.badge, o.main].filter(Boolean).join('，') + '。' + (o.sub ? o.sub + (/[。！]$/.test(o.sub) ? '' : '。') : ''));
+  if (d.close) L.push('加權指數目前 ' + d.close + ' 點' + (d.change ? '，' + d.change.replace(/\s+/g, ' ') : '') + (d.trend ? '；近五日趨勢 ' + d.trend : '') + '。' +
+    (d.macd ? '大盤 MACD「' + d.macd.replace(/^[^一-龥A-Za-z]+/, '') + '」' : '') + (d.kd ? '，KD「' + d.kd.replace(/^[^一-龥A-Za-z]+/, '') + '」' + (d.k && d.dd ? '（K ' + d.k + '、D ' + d.dd + '）' : '') : '') + (d.kdZone ? '，' + d.kdZone : '') + '。');
+  return L;
+}
+
+// ── 第 2 段：期貨夜盤與隔日影響 ──
+function _bcSecNight(d, T) {
+  const n = d.night, L = [];
+  if (!n) return [];
+  L.push('台指期夜盤最新 ' + Math.round(n.v).toLocaleString('en-US') + ' 點' + (n.pct != null ? '，' + (n.pct >= 0 ? '上漲 ' : '下跌 ') + Math.abs(n.pct) + '%' : '') + (n.date ? '（' + n.date + '）' : '') + '。');
+  if (d.nightVerdict && !/載入中|抓取/.test(d.nightVerdict)) L.push('夜盤技術面：' + d.nightVerdict.replace(/^.*?最新：[^）]*）\s*/, '') + '。');
+  if (n.pct != null) L.push('對隔日開盤的參考：' + (n.pct <= -0.5 ? '夜盤偏弱，開盤較容易承壓，須留意向下跳空。' : n.pct >= 0.5 ? '夜盤偏強，開盤傾向有支撐，但追價要留意風險。' : '夜盤變動不大，開盤偏向小幅震盪。') + '夜盤只是開盤參考，不保證隔日走勢。');
+  return L;
+}
+
+// ── 第 3 段：板塊資金流動 ──
+function _bcSecSector(d, T) {
+  const s = d.sec, L = [];
+  if (!s.ok) return ['（板塊部分略過：' + s.why + '）'];
+  const strong = s.list.slice(0, 3), weak = s.list.slice(-3).reverse(), epic = s.list.find(x => x.id === s.epicId);
+  L.push('接著看板塊資金（' + s.date + '）。今日較強的板塊：' + strong.map(x => x.name + ' ' + _bcSigned(x.chg)).join('、') + '；較弱的板塊：' + weak.map(x => x.name + ' ' + _bcSigned(x.chg)).join('、') + '。');
+  if (epic) L.push('站內判定的「震央」板塊是' + epic.name + '（' + _bcSigned(epic.chg) + '，震波強度 ' + epic.strength + ' 分' + (epic.fsell != null && epic.fsell > 0.5 ? '，含外資淨賣 ' + epic.fsell.toFixed(1) + ' 億' : '') + '）' + (s.rotDay != null ? '，輪動第 D+' + s.rotDay + ' 天' : '') + '。震央是「賣壓最集中的區域」，不代表它一定有問題。');
+  const safe = s.list.filter(x => s.safe.indexOf(x.id) >= 0);
+  if (safe.length) L.push('與震央相關性低、被站內列為避風港的板塊：' + safe.map(x => x.name + ' ' + _bcSigned(x.chg)).join('、') + '。');
+  if (s.chain.length) L.push('站內推估的資金輪動順序：' + s.chain.join(' → ') + '。這是依規則推估，不是已發生的事實。');
+  return L;
+}
+
+// ── 第 4 段：買賣超，並對照板塊 ──
+function _bcSecChips(d, T) {
+  const L = [], sec = d.sec;
+  if (d.fgn || d.trs || d.dlr) L.push('再看籌碼。' + (d.instLabel || '大盤法人籌碼') + '：外資 ' + (d.fgn || '—') + '、投信 ' + (d.trs || '—') + '、自營商 ' + (d.dlr || '—') + '（買賣超金額，正為買超、負為賣超，以畫面為準）。');
+  ['foreign', 'trust'].forEach(who => {
+    const r = d.rank[who]; if (!r) return;
+    L.push(_cbWhoMap[who] + '（' + _cbFmtDate(r.date) + '，不含 ETF）買超前三名：' + _bcNames(r.buy.slice(0, 3)) + '；賣超前三名：' + _bcNames(r.sell.slice(0, 3)) + '。');
+    if (!sec.ok) return;
+    [['buy', '買超', r.buy], ['sell', '賣超', r.sell]].forEach(a => {
+      const m = _bcMapSectors(a[2].slice(0, 20), sec); if (!m.mapped) return;
+      let t = '對照板塊：' + _cbWhoMap[who] + a[1] + '前 20 名裡，有 ' + m.mapped + ' 檔可對應到站內板塊——' + m.parts.slice(0, 3).map(p => p.s.name + ' ' + p.n + ' 檔（板塊今日 ' + _bcSigned(p.s.chg) + '，強弱第 ' + p.s.rank + '/' + sec.list.length + '）').join('、') + '。';
+      const top = m.parts[0].s, same = (a[0] === 'buy') === (top.chg > 0);
+      if (top.chg !== 0) t += '以最集中的' + top.name + '來看，' + _cbWhoMap[who] + a[1] + '與板塊當日' + (top.chg > 0 ? '上漲' : '下跌') + (same ? '方向一致，板塊的強弱可能是資金動向的線索之一。' : '方向相反，原因無法從畫面資料判斷，值得再查。');
+      L.push(t);
+    });
+  });
+  if (sec.ok) L.push('提醒：板塊只涵蓋站內設定的代表股，榜上沒有對應到的個股不代表與板塊無關；這種對照只能提供線索，不能證明因果。');
+  return L;
+}
 
 function _bcBuild(d, topic, tone) {
-  const L = [], pro = tone === 'pro', easy = tone === 'easy', brief = tone === 'brief';
-  const hello = pro ? '各位投資朋友大家好，以下是依今日畫面資料整理的盤勢播報。' : easy ? '哈囉大家好，我們來看看今天盤面的重點。' : '';
-  if (hello) L.push(hello);
-  const idxLine = () => {
-    if (!d.close) return '';
-    let s = (easy ? '加權指數目前是 ' : '加權指數收在 ') + d.close + ' 點';
-    if (d.change) s += '，' + d.change.replace(/\s+/g, ' ');
-    s += '。';
-    if (d.trend) s += '近五日趨勢 ' + d.trend + '。';
-    return s;
-  };
-  const techLine = () => {
-    const p = [];
-    if (d.macd) p.push('大盤 MACD 呈現「' + d.macd.replace(/^[^一-龥A-Za-z]+/, '') + '」');
-    if (d.kd) p.push('KD 為「' + d.kd.replace(/^[^一-龥A-Za-z]+/, '') + '」' + (d.k && d.dd ? '（K ' + d.k + '、D ' + d.dd + '）' : ''));
-    return p.length ? p.join('，') + '。' + (d.kdZone ? d.kdZone + '。' : '') : '';
-  };
-  const instLine = () => (d.fgn || d.trs || d.dlr) ? (d.instLabel || '大盤法人籌碼') + '：外資 ' + (d.fgn || '—') + '、投信 ' + (d.trs || '—') + '、自營商 ' + (d.dlr || '—') + '（數字為買賣超金額，正為買超、負為賣超，以畫面為準）。' : '';
-  const nightLine = () => d.night ? '台指期夜盤最新 ' + Math.round(d.night.v).toLocaleString('en-US') + ' 點，較前一筆' + (d.night.diff >= 0 ? '上漲 ' : '下跌 ') + Math.abs(Math.round(d.night.diff)) + ' 點。' : '';
-  const whoLine = who => {
-    const t = d.top[who]; if (!t) return '';
-    return _cbWhoMap[who] + '（' + _cbFmtDate(t.date) + '，不含 ETF）買超前三名：' + _bcNames(t.buy) + '；賣超前三名：' + _bcNames(t.sell) + '。';
-  };
-  if (topic === 'all') {
-    [idxLine(), techLine(), nightLine(), instLine(), whoLine('foreign'), whoLine('trust')].forEach(x => x && L.push(x));
-  } else if (topic === 'inst') {
-    [idxLine(), instLine(), whoLine('foreign')].forEach(x => x && L.push(x));
-  } else {
-    [idxLine(), whoLine(topic)].forEach(x => x && L.push(x));
-  }
-  if (brief) { const k = L.filter(x => x); return k.slice(0, 3).join('\n') + '\n以上為統計描述，不是買賣建議。'; }
-  L.push(pro ? '以上為依畫面資料整理的統計描述，法人買賣超只代表過去的紀錄，不保證後續走勢，也不是買賣建議。感謝收聽。' : '以上只是把數字整理給你看，不是買賣建議，投資還是要自己判斷喔。');
-  return L.filter(x => x).join('\n\n');
+  const T = { pro: tone === 'pro', easy: tone === 'easy', brief: tone === 'brief' };
+  const fn = { open: _bcSecOpen, night: _bcSecNight, sector: _bcSecSector, chips: _bcSecChips };
+  const order = topic === 'all' ? ['open', 'night', 'sector', 'chips'] : [topic];
+  const titles = { open: '一、開盤壓力與今日走勢', night: '二、期貨夜盤與隔日影響', sector: '三、板塊資金流動', chips: '四、買賣超與板塊對照' };
+  const out = [];
+  if (T.pro) out.push('各位投資朋友大家好，以下是依畫面資料整理的盤勢播報。');
+  if (T.easy) out.push('哈囉大家好，我們一段一段來看今天的盤面。');
+  order.forEach(k => {
+    let ls = fn[k](d, T).filter(Boolean); if (!ls.length) return;
+    if (T.brief) ls = ls.slice(0, 2);
+    out.push((topic === 'all' && !T.brief ? '【' + titles[k] + '】\n' : '') + ls.join(T.brief ? '\n' : '\n'));
+  });
+  out.push(T.brief ? '以上為統計描述，不是買賣建議。' : (T.pro ? '以上為依畫面資料整理的統計描述，過去的紀錄不保證後續走勢，也不是買賣建議。感謝收聽。' : '以上只是把數字整理給你看，不是買賣建議，投資還是要自己判斷喔。'));
+  return out.join('\n\n');
 }
 
 async function bcMake() {
