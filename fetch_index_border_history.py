@@ -57,6 +57,21 @@ def main():
     basic_raw = fetch_json(BASIC_URL)
     price_raw = fetch_json(PRICE_URL)
 
+    # STOCK_DAY_ALL 是證交所夜間才更新的「收盤結算檔」：盤後到隔天凌晨抓到的是「前一個交易日」的資料。
+    # 所以歷史快照的日期 key 必須用資料本身的 Date 欄位（民國7碼，例 1151014 = 2026-10-14），
+    # 不能用「執行當下的日期」，否則快照會標早一天（兩天抓到同一份資料就會互相蓋成重複）。
+    data_date = None
+    for row in price_raw:
+        d = str(row.get("Date") or "").strip()
+        if len(d) == 7 and d.isdigit():
+            data_date = f"{int(d[:3]) + 1911}-{d[3:5]}-{d[5:7]}"
+            break
+    if not data_date:
+        print("[警告] STOCK_DAY_ALL 沒有 Date 欄位，改用執行日期當快照日期（可能標錯一天）", file=sys.stderr)
+        data_date = today_str
+    elif data_date != today_str:
+        print(f"[提醒] 證交所收盤檔目前是 {data_date} 的資料（執行日期 {today_str}），快照將以 {data_date} 存檔")
+
     price_map = {}
     for row in price_raw:
         code = row.get("Code")
@@ -118,7 +133,7 @@ def main():
     except (FileNotFoundError, json.JSONDecodeError):
         history = {}
 
-    history[today_str] = {
+    history[data_date] = {
         "computed_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "rank50_cap": rank50_cap,
         "page1": page1,
