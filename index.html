@@ -72201,7 +72201,7 @@ async function _renderPeg(stockId, per, perPct) {
 
   const fmt = d => d.toISOString().split('T')[0];
   const end = new Date();
-  const start = new Date(); start.setFullYear(start.getFullYear() - 2); // 抓2年，湊近8季EPS算年增率
+  const start = new Date(); start.setFullYear(start.getFullYear() - 3); // 抓3年：2年會剛好少一季（季底日期剛滑出視窗、新一季財報又還沒公布時只剩7季），後面只取最近8季
 
   const r = await fetch(`${FINMIND}?dataset=TaiwanStockFinancialStatements&data_id=${encodeURIComponent(stockId)}&start_date=${fmt(start)}&end_date=${fmt(end)}&token=${encodeURIComponent(getToken())}`);
   const j = await r.json();
@@ -72326,7 +72326,7 @@ async function _fetchAIBubbleMetrics(stockId) {
   const fmt = d => d.toISOString().split('T')[0];
   const end = new Date();
   const perStart = new Date(); perStart.setFullYear(perStart.getFullYear() - 1);
-  const finStart = new Date(); finStart.setFullYear(finStart.getFullYear() - 2);
+  const finStart = new Date(); finStart.setFullYear(finStart.getFullYear() - 3); // 同上：抓3年才不會在財報空窗期只剩7季
   const token = getToken();
 
   try {
