@@ -83082,6 +83082,11 @@ if (typeof _origRenderSM === 'function') {
 .cb-table td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
 .cb-table tr.cb-r{cursor:pointer}
 .cb-table tr.cb-r:hover{background:var(--bg2)}
+.cb-table td.cb-sub{font-size:.72rem;padding:5px 3px}@media (max-width:600px){.cb-day{word-break:break-all}.cb-table{table-layout:fixed}.cb-table th:first-child{width:26px}.cb-table th:nth-child(n+3){width:17%}.cb-table.cb-hasfh th:nth-child(n+3){width:14%}.cb-table th.cb-fh{width:15%}.cb-table td:nth-child(2){overflow-wrap:anywhere}.cb-table th{font-size:.58rem}.cb-sec{display:block;width:fit-content;margin-top:2px}.cb-table td.cb-sub{font-size:.66rem;padding:5px 1px}.cb-table th,.cb-table td{padding-left:2px;padding-right:2px}.cb-table{font-size:.74rem}}.cb-table td:nth-child(2){word-break:break-all}
+.cb-sec{display:inline-block;font-size:.58rem;line-height:1.3;padding:0 5px;border-radius:6px;border:1px solid var(--accent);color:var(--accent);font-weight:700;vertical-align:1px;white-space:nowrap}.cb-sec.none{border-color:var(--border);color:var(--fg3)}
+.cb-px{font-size:.6rem;color:var(--fg3);line-height:1.4}.cb-fd{font-size:.62rem;color:var(--fg2);line-height:1.5;background:var(--bg2);border-radius:6px;padding:4px 6px;margin-top:3px;white-space:normal;font-weight:400}
+.cb-fq{display:inline-block;font-size:.62rem;font-weight:800;padding:1px 5px;border-radius:6px;border:1px solid var(--border);color:var(--fg3);cursor:pointer;white-space:nowrap}.cb-fq.t1{border-color:#8b5cf6;color:#8b5cf6}.cb-fq.t2{border-color:#8b5cf6;background:rgba(139,92,246,.2);color:#8b5cf6}.cb-fq.t3{border-color:#7c3aed;background:#7c3aed;color:#fff}
+.cb-table td.cb-fh,.cb-table th.cb-fh{text-align:center}
 .cb-bar{display:block;height:5px;border-radius:3px;margin-top:3px}
 .cb-wrap{max-height:62vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:0 6px}
 .cb-note{font-size:.64rem;color:var(--fg3);margin-top:8px;line-height:1.6}
@@ -83106,7 +83111,8 @@ if (typeof _origRenderSM === 'function') {
     <div class="cb-row" id="cbWho"></div>
     <div class="cb-row" id="cbCtl"></div>
     <div class="cb-meta" id="cbMeta">載入中…</div>
-    <div class="cb-wrap"><table class="cb-table"><thead><tr><th>名次</th><th>股票</th><th style="text-align:right">買賣超（張）</th></tr></thead><tbody id="cbBody"></tbody></table></div>
+    <div class="cb-meta" id="cbStat" style="margin-top:-2px"></div>
+    <div class="cb-wrap"><table class="cb-table"><thead id="cbHead"><tr><th>名次</th><th>股票</th><th style="text-align:right">買賣超（張）</th></tr></thead><tbody id="cbBody"></tbody></table></div>
     <div class="cb-note">資料來源：臺灣證券交易所「三大法人買賣超日報」（上市股票，收盤後公布，當日未公布時顯示最近交易日）。外資＝外資及陸資（不含外資自營商），與上方「大盤法人籌碼」口徑一致。多日＝各日買賣超加總。點一列可直接查詢該股。<br>⚠️ 這是歷史統計，不是買賣建議，也不代表之後會漲或跌。</div>
   </div>
 </div>
@@ -83132,7 +83138,7 @@ if (typeof _origRenderSM === 'function') {
 <script>
 // ───── 籌碼榜 Top50 ─────
 var _cbDay = {};        // 日期字串 → {codes:{code:{n,f,t,d}}} 或 null（非交易日／尚未公布）
-var _cbState = { who: 'foreign', side: 'buy', days: 1, noEtf: false };
+var _cbState = { who: 'foreign', side: 'buy', days: 1, noEtf: false, cf: 0, ct: 0, cd: 0, res: 0, rn: 1, fq: 0 };  // fq：基本面篩選 0=不限 1/2/3=至少 N 檔（讀 fundamental_strength.json）  // rn：共振連續天數（1=單日共振；2/3=兩法人N日連買/連賣，每天外資＋投信都同向）  // res：同頻共振 0=關 1=同買共振 -1=同賣共振（外資＋投信同向，自營商不限）  // cf/ct/cd：外資/投信/自營商組合條件 0=不限 1=買超 -1=賣超（只支援1日）
 var _cbWhoMap = { foreign: '外資', trust: '投信', dealer: '自營商' };
 var _cbLoadSeq = 0;
 
@@ -83164,20 +83170,131 @@ async function _cbGetDays(n) {
   return out;
 }
 
-async function cbRank(who, side, days, noEtf) {
+// 組合條件：三法人各自 買超(+)/賣超(-)/不限；僅 1 日有定義（多日「同買」算法待定，故多日一律忽略）
+function _cbDays(S) { return S.res ? S.rn : S.days; }
+function _cbCombo(S) { return S.res ? { f: S.res, t: S.res, d: 0, res: S.res, rn: S.rn } : S.days !== 1 ? null : { f: S.cf, t: S.ct, d: S.cd }; }
+function _cbComboOn(c) { return !!c && (c.f !== 0 || c.t !== 0 || c.d !== 0); }
+// 有組合時，頂部所選法人若已被限定買/賣，排序方向跟著組合走（否則「買超」鈕會與組合互相矛盾而全空）
+function _cbEffSide(S) { const c = _cbCombo(S); const v = c ? c[S.who === 'foreign' ? 'f' : S.who === 'trust' ? 't' : 'd'] : 0; return S.res ? (S.res === 1 ? 'buy' : 'sell') : v === 1 ? 'buy' : v === -1 ? 'sell' : S.side; }
+
+async function cbRank(who, side, days, noEtf, combo, minTier) {
   const ds = await _cbGetDays(days);
   if (!ds.length) throw new Error('抓不到證交所資料，請稍後再試');
+  if (combo && combo.res) {   // 共振／連買連賣：每一天外資、投信都同向（>0 或 <0；0 或缺資料不列），用已載入的各日資料，不新增請求
+    const n = combo.rn || 1;
+    if (ds.length < n) throw new Error('只找到 ' + ds.length + ' 個交易日，不足 ' + n + ' 日，無法計算');
+    const dd = ds.slice(0, n).reverse(), r = combo.res, out = [];
+    Object.keys(dd[n - 1].codes).forEach(c => {
+      const xs = dd.map(d => d.codes[c]);
+      if (xs.some(x => !x || x.f * r <= 0 || x.t * r <= 0)) return;
+      const o = { c: c, n: xs[n - 1].n, f: 0, t: 0, d: 0, fd: xs.map(x => x.f), td: xs.map(x => x.t) };
+      xs.forEach(x => { o.f += x.f; o.t += x.t; o.d += x.d; }); o.v = o.f + o.t; out.push(o);
+    });
+    let a2 = noEtf ? out.filter(o => !/^00/.test(o.c)) : out;
+    a2 = r > 0 ? a2.sort((x, y) => y.v - x.v) : a2.sort((x, y) => x.v - y.v);
+    const pre2 = a2.length;
+    if (minTier > 0) a2 = a2.filter(o => { const t = _cbFundTier(o.c); return t != null && t >= minTier; });   // 基本面篩選：資料不足／不在名單者不列入
+    return { rows: a2.slice(0, 50), pre: pre2, total: a2.length, all: a2.map(o => o.c), dates: dd.map(d => d.date).reverse() };
+  }
   const key = who === 'foreign' ? 'f' : who === 'trust' ? 't' : 'd';
   const sum = {};
   ds.forEach(d => Object.keys(d.codes).forEach(c => {
     const o = d.codes[c]; if (!sum[c]) sum[c] = { c: c, n: o.n, v: 0 }; sum[c].v += o[key];
   }));
+  if (_cbComboOn(combo) && ds.length === 1) {   // 只在單日用同一份已載入資料判斷，不新增請求
+    const ok = (v, w) => w === 0 || (w === 1 ? v > 0 : v < 0), cs = ds[0].codes;
+    Object.keys(sum).forEach(c => { const o = cs[c]; if (!(ok(o.f, combo.f) && ok(o.t, combo.t) && ok(o.d, combo.d))) delete sum[c]; });
+  }
   let arr = Object.values(sum);
   if (noEtf) arr = arr.filter(o => !/^00/.test(o.c));
   arr = side === 'buy' ? arr.filter(o => o.v > 0).sort((a, b) => b.v - a.v) : arr.filter(o => o.v < 0).sort((a, b) => a.v - b.v);
-  return { rows: arr.slice(0, 50), dates: ds.map(d => d.date) };
+  const pre = arr.length;
+  if (minTier > 0) arr = arr.filter(o => { const t = _cbFundTier(o.c); return t != null && t >= minTier; });
+  return { rows: arr.slice(0, 50), pre: pre, total: arr.length, all: arr.map(o => o.c), dates: ds.map(d => d.date) };
 }
 
+// 板塊：重用頁面既有的 srFindSector（與「潛在入指/出指候選」板塊欄同一套）。
+// 該函式找不到時會一律回傳「半導體」當預設，直接顯示會誤導，所以：只有在板塊代表股名單內、
+// 或產業分類確實比對到時才採用，否則歸為「未分類」。
+function _cbSector(code) {
+  try {
+    if (typeof srFindSector !== 'function' || typeof SR_SECTOR_DEF === 'undefined') return '未分類';
+    if (SR_SECTOR_DEF.some(s => s.stocks && s.stocks.indexOf(code) >= 0)) return srFindSector(code).name.split('/')[0];
+    const info = (typeof STOCK_DB !== 'undefined') ? STOCK_DB[code] : null, ind = info && info.industry || '';
+    if (!ind) return '未分類';
+    const sec = srFindSector(code);
+    if (!sec) return '未分類';
+    if (sec.id === 'semi' && !/半導|晶圓|積體|IC設計/.test(ind)) return '未分類';   // 預設值，不算真的分類
+    return sec.name.split('/')[0];
+  } catch (e) { return '未分類'; }
+}
+function _cbSecTag(code) { const t = _cbSector(code); return ' <span class="cb-sec' + (t === '未分類' ? ' none' : '') + '">' + _cbEsc(t) + '</span>'; }
+function _cbSecStat(codes) {
+  const cnt = {}; codes.forEach(c => { const t = _cbSector(c); cnt[t] = (cnt[t] || 0) + 1; });
+  return Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).map(k => k + ' ' + cnt[k]).join('、');
+}
+// ───── 基本面強度：只讀 fundamental_strength.json（由 fetch_fundamental_strength.py 每日產生），頁面不即時去抓財報 ─────
+var _cbFund = { state: 'idle', data: null, err: '' };
+async function _cbFundLoad() {
+  try {
+    const r = await fetch('./fundamental_strength.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (!j || typeof j.stocks !== 'object') throw new Error('格式不符');
+    _cbFund = { state: 'ok', data: j, err: '' };
+  } catch (e) { _cbFund = { state: 'err', data: null, err: e.message }; }
+}
+function _cbFundOk() { return _cbFund.state === 'ok'; }
+function _cbFundGet(c) { return _cbFundOk() ? (_cbFund.data.stocks[c] || null) : null; }
+function _cbFundTier(c) { const s = _cbFundGet(c); return s && s.status === 'ok' ? s.tier : null; }
+function _cbPct(v) { return v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%'; }
+function _cbYi(v) { return v == null ? '—' : Math.round(v / 1e8).toLocaleString('en-US') + ' 億'; }
+function _cbFundStale(s) { const lr = _cbFund.data && _cbFund.data.dates && _cbFund.data.dates.latestReportedPeriod; return !!(s && lr && s.epsPeriod && s.epsPeriod < lr); }
+function _cbFundDetail(c) {
+  const s = _cbFundGet(c);
+  if (!s) return '不在計算名單內（基本面只算籌碼榜前 50 與連買連賣名單的股票）。';
+  const L = [];
+  if (s.kind === 'etf' || s.kind === 'na') return s.reason || '無財報資料';
+  const e = s.eps, cf = s.cfo, rv = s.rev;
+  L.push('EPS 單季年增 ' + _cbPct(e && e.yoy) + (e && e.cur != null ? '（' + e.cur + ' vs ' + (e.prev == null ? '—' : e.prev) + '，' + (s.epsPeriod || '') + '）' : ''));
+  if (s.kind === 'financial') L.push('金融業：不含營業現金流');
+  else L.push('營業現金流年增（年初累計） ' + _cbPct(cf && cf.yoy) + (cf ? '（' + _cbYi(cf.cur) + ' vs ' + _cbYi(cf.prev) + '）' : ''));
+  L.push('月營收年增 ' + _cbPct(rv && rv.yoy) + (rv && rv.month ? '（' + rv.month + '）' : ''));
+  if (s.status === 'ok') L.push('最小值 ' + _cbPct(s.minYoY) + ' → ' + ['未達（<5%）', '一檔（≥5%）', '二檔（≥10%）', '三檔（≥15%）'][s.tier]);
+  else L.push('資料不足：' + (s.reason || ''));
+  if (s.cashRatio != null) L.push('獲利含金量 ' + s.cashRatio + '（單季營業現金流÷稅後淨利，僅顯示）');
+  if (s.dropFromHigh != null) L.push('離一年高點 ' + _cbPct(s.dropFromHigh) + '；一年區間位置 ' + (s.rangePos == null ? '—' : s.rangePos + '%') + '（收盤價' + (s.priceDate ? '，' + s.priceDate : '') + '）');
+  if (_cbFundStale(s)) L.push('⏳ 財報待更新：官方已公布 ' + _cbFund.data.dates.latestReportedPeriod + '，此檔仍是 ' + (s.epsPeriod || '—'));
+  return L.join('<br>');
+}
+// 名稱欄下方：離高點／位置（小字）＋點選展開的明細
+function _cbFundSub(c) {
+  if (!_cbFundOk()) return '';
+  const s = _cbFundGet(c);
+  const px = s && s.dropFromHigh != null ? '離高 ' + _cbPct(s.dropFromHigh) + '／位置 ' + (s.rangePos == null ? '—' : s.rangePos + '%') : '';
+  return (px ? '<div class="cb-px">' + px + '</div>' : '') + '<div class="cb-fd" id="cbfd-' + _cbEsc(c) + '" style="display:none">' + _cbFundDetail(c) + '</div>';
+}
+function _cbFundCell(c) {
+  if (!_cbFundOk()) return '';
+  const s = _cbFundGet(c);
+  let cls = '', txt = '—', tip = '';
+  if (!s) tip = '不在計算名單內';
+  else if (s.status !== 'ok') tip = '資料不足：' + (s.reason || '');
+  else { txt = ['未達', '一檔', '二檔', '三檔'][s.tier]; cls = ' t' + s.tier; tip = '最小年增 ' + _cbPct(s.minYoY) + '（點一下看明細）'; }
+  return '<td class="cb-fh"><span class="cb-fq' + cls + '" data-c="' + _cbEsc(c) + '" title="' + _cbEsc(tip) + '" onclick="event.stopPropagation();cbFundTip(this)">' + txt + (s && _cbFundStale(s) ? '⏳' : '') + '</span></td>';
+}
+function cbFundTip(el) { const d = document.getElementById('cbfd-' + el.dataset.c); if (d) d.style.display = d.style.display === 'none' ? 'block' : 'none'; }
+// 基本面資料更新日（標題旁）；資料價格日比最新交易日落後超過 2 個交易日就警示
+function _cbFundMeta(latestT86) {
+  if (_cbFund.state === 'err') return ' · 基本面：尚未產生（讀不到 fundamental_strength.json：' + _cbFund.err + '）';
+  if (!_cbFundOk()) return '';
+  const pd = _cbFund.data.dates && _cbFund.data.dates.priceDate;
+  if (!pd) return ' · 基本面：無更新日期';
+  let a = new Date(pd + 'T00:00:00'), b = new Date(latestT86.slice(0, 4) + '-' + latestT86.slice(4, 6) + '-' + latestT86.slice(6) + 'T00:00:00'), n = 0;
+  for (let d = new Date(a); d < b; d.setDate(d.getDate() + 1)) { if (d.getDay() !== 0 && d.getDay() !== 6) n++; }
+  const fm = pd.slice(0, 4) + '/' + pd.slice(5, 7) + '/' + pd.slice(8);
+  return n > 2 ? ' · ⚠ 基本面資料停在 ' + fm + '（已超過 2 個交易日沒更新）' : ' · 基本面資料更新至 ' + fm;
+}
 function _cbFmtDate(s) { return s.slice(0, 4) + '/' + s.slice(4, 6) + '/' + s.slice(6); }
 function _cbEsc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
@@ -83188,27 +83305,39 @@ function _cbRenderCtl() {
     '<button class="cb-pill buy' + (S.side === 'buy' ? ' on' : '') + '" onclick="cbSet(\'side\',\'buy\')">買超</button>' +
     '<button class="cb-pill sell' + (S.side === 'sell' ? ' on' : '') + '" onclick="cbSet(\'side\',\'sell\')">賣超</button>' +
     [1, 3, 5].map(n => '<button class="cb-pill' + (S.days === n ? ' on' : '') + '" onclick="cbSet(\'days\',' + n + ')">' + (n === 1 ? '1日' : n + '日合計') + '</button>').join('') +
-    '<label style="font-size:.72rem;color:var(--fg2);display:flex;align-items:center;gap:4px;margin-left:6px"><input type="checkbox" ' + (S.noEtf ? 'checked ' : '') + 'onchange="cbSet(\'noEtf\',this.checked)"> 不含 ETF</label>';
+    '<label style="font-size:.72rem;color:var(--fg2);display:flex;align-items:center;gap:4px;margin-left:6px"><input type="checkbox" ' + (S.noEtf ? 'checked ' : '') + 'onchange="cbSet(\'noEtf\',this.checked)"> 不含 ETF</label>' +
+    '<span style="display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%">' + [[1, 1, '同買共振', 'buy'], [-1, 1, '同賣共振', 'sell'], [1, 2, '2日連買', 'buy'], [-1, 2, '2日連賣', 'sell'], [1, 3, '3日連買', 'buy'], [-1, 3, '3日連賣', 'sell']].map(o => '<button class="cb-pill ' + o[3] + (S.res === o[0] && S.rn === o[1] ? ' on' : '') + '" title="' + (o[1] === 1 ? '外資與投信當日同向（自營商不限），買賣超為 0 不算' : '最近 ' + o[1] + ' 個交易日，每一天外資與投信都同向（自營商不限），任一天為 0 或缺資料不算') + '" onclick="cbRes(' + o[0] + ',' + o[1] + ')">' + o[2] + '</button>').join('') + '</span>';
 }
 
-function cbSet(k, v) { _cbState[k] = v; cbLoad(); }
+function cbSet(k, v) { _cbState[k] = v; if (k === 'days') _cbState.res = 0; if (/^c[ftd]$/.test(k)) { _cbState.res = 0; _cbState.days = 1; } cbLoad(); }
+function cbRes(r, n) { const S = _cbState; S.res = (S.res === r && S.rn === n) ? 0 : r; S.rn = n; if (S.res) S.days = n === 1 ? 1 : S.days; cbLoad(); }
+function _cbResName(S) { return S.rn === 1 ? (S.res > 0 ? '同買共振' : '同賣共振') : '兩法人' + S.rn + '日' + (S.res > 0 ? '連買' : '連賣'); }
+function _cbComboTxt(S) { const c = _cbCombo(S); if (!_cbComboOn(c)) return ''; if (c.res) return c.rn > 1 ? '（每天外資＋投信都' + (c.res > 0 ? '買超' : '賣超') + '，依 ' + c.rn + ' 日合計排序；每列小字為每日數字，由舊到新）' : ' · （外資＋投信同向，依兩者合計排序）'; return ' · 組合：' + [['f', '外資'], ['t', '投信'], ['d', '自營商']].filter(a => c[a[0]]).map(a => a[1] + (c[a[0]] > 0 ? '買' : '賣')).join('＋'); }
 
 async function cbLoad() {
   const seq = ++_cbLoadSeq, S = _cbState;
   _cbRenderCtl();
-  document.getElementById('cbMeta').textContent = '載入中…（第一次要抓 ' + S.days + ' 天資料，請稍等幾秒）';
+  document.getElementById('cbMeta').textContent = '載入中…（第一次要抓 ' + _cbDays(S) + ' 天資料，請稍等幾秒）';
   document.getElementById('cbBody').innerHTML = '';
+  document.getElementById('cbStat').textContent = '';
   try {
-    const res = await cbRank(S.who, S.side, S.days, S.noEtf);
+    const ed = _cbDays(S), effSide = _cbEffSide(S), minT = _cbFundOk() ? S.fq : 0, res = await cbRank(S.who, effSide, ed, S.noEtf, _cbCombo(S), minT);
     if (seq !== _cbLoadSeq) return;
-    const max = res.rows.length ? Math.abs(res.rows[0].v) : 1, up = S.side === 'buy';
+    const max = res.rows.length ? Math.abs(res.rows[0].v) : 1, up = effSide === 'buy';
     const dl = res.dates.length === 1 ? _cbFmtDate(res.dates[0]) : _cbFmtDate(res.dates[res.dates.length - 1]) + ' ～ ' + _cbFmtDate(res.dates[0]);
-    document.getElementById('cbMeta').textContent = _cbWhoMap[S.who] + (up ? '買超' : '賣超') + ' Top50 · ' + dl + (res.dates.length < S.days ? '（只找到 ' + res.dates.length + ' 個交易日）' : '') + ' · 上市';
-    document.getElementById('cbBody').innerHTML = res.rows.map((o, i) =>
-      '<tr class="cb-r" onclick="cbPick(\'' + _cbEsc(o.c) + '\')"><td>' + (i + 1) + '</td><td><b>' + _cbEsc(o.c) + '</b> ' + _cbEsc(o.n) +
+    document.getElementById('cbMeta').textContent = (S.res ? _cbResName(S) : _cbWhoMap[S.who] + (up ? '買超' : '賣超') + ' Top50') + ' · ' + dl + (res.dates.length < ed ? '（只找到 ' + res.dates.length + ' 個交易日）' : '') + _cbComboTxt(S) + (_cbComboOn(_cbCombo(S)) ? ' · 共 ' + res.total + ' 檔' + (res.total > 50 ? '（顯示前 50）' : '') : '') + (minT > 0 ? ' · 基本面≥' + ['', '一', '二', '三'][minT] + '檔：' + res.total + ' 檔（已排除 ' + (res.pre - res.total) + ' 檔未達／資料不足／不在名單）' : '') + ' · 上市' + _cbFundMeta(res.dates[0]);
+    document.getElementById('cbStat').textContent = res.total ? '板塊分布（' + (res.total > 50 ? '全部 ' : '') + res.total + ' 檔）：' + _cbSecStat(res.all) : '';
+    const rs = !!S.res, fo = _cbFundOk(), nc = (rs ? 5 : 3) + (fo ? 1 : 0), fmtL = v => (v > 0 ? '+' : '') + Math.round(v / 1000).toLocaleString('en-US'), cc = v => '<td class="num cb-sub" style="color:' + (v > 0 ? '#dc2626' : v < 0 ? '#16a34a' : 'var(--fg3)') + '">' + (v > 0 ? '+' : '') + Math.round(v / 1000).toLocaleString('en-US') + '</td>';
+    document.querySelector('#cbOverlay .cb-table').classList.toggle('cb-hasfh', fo);
+    document.getElementById('cbHead').innerHTML = rs ? '<tr><th>名次</th><th>股票（外資＋投信）</th><th style="text-align:right">外資' + (ed > 1 ? ed + '日' : '') + '</th><th style="text-align:right">投信' + (ed > 1 ? ed + '日' : '') + '</th><th style="text-align:right">自營商</th>' + (fo ? '<th class="cb-fh">基本面</th>' : '') + '</tr>' : '<tr><th>名次</th><th>股票</th><th style="text-align:right">買賣超（張）</th>' + (fo ? '<th class="cb-fh">基本面</th>' : '') + '</tr>';
+    if (rs) document.getElementById('cbBody').innerHTML = res.rows.map((o, i) =>
+      '<tr class="cb-r" onclick="cbPick(\'' + _cbEsc(o.c) + '\')"><td>' + (i + 1) + '</td><td><b>' + _cbEsc(o.c) + '</b> ' + _cbEsc(o.n) + _cbSecTag(o.c) + _cbFundSub(o.c) + '<div style="font-size:.64rem;color:' + (up ? '#dc2626' : '#16a34a') + '">合計 ' + (o.v > 0 ? '+' : '') + Math.round(o.v / 1000).toLocaleString('en-US') + '</div>' + (o.fd && o.fd.length > 1 ? '<div class="cb-day" style="font-size:.6rem;color:var(--fg3);line-height:1.4">外 ' + o.fd.map(fmtL).join('／') + '<br>投 ' + o.td.map(fmtL).join('／') + '</div>' : '') +
+      '<span class="cb-bar" style="width:' + Math.max(2, Math.round(Math.abs(o.v) / max * 100)) + '%;background:' + (up ? '#dc2626' : '#16a34a') + '"></span></td>' + cc(o.f) + cc(o.t) + cc(o.d) + _cbFundCell(o.c) + '</tr>').join('') || '<tr><td colspan="' + nc + '" style="padding:14px;color:var(--fg3)">' + (ed > 1 ? '這 ' + ed + ' 個交易日沒有外資與投信天天同' + (S.res > 0 ? '買' : '賣') + '的股票。' : '這一天沒有外資與投信同向的股票。') + '</td></tr>';
+    else document.getElementById('cbBody').innerHTML = res.rows.map((o, i) =>
+      '<tr class="cb-r" onclick="cbPick(\'' + _cbEsc(o.c) + '\')"><td>' + (i + 1) + '</td><td><b>' + _cbEsc(o.c) + '</b> ' + _cbEsc(o.n) + _cbSecTag(o.c) + _cbFundSub(o.c) +
       '<span class="cb-bar" style="width:' + Math.max(2, Math.round(Math.abs(o.v) / max * 100)) + '%;background:' + (up ? '#dc2626' : '#16a34a') + '"></span></td>' +
-      '<td class="num" style="color:' + (up ? '#dc2626' : '#16a34a') + '">' + (o.v > 0 ? '+' : '') + Math.round(o.v / 1000).toLocaleString('en-US') + '</td></tr>').join('') ||
-      '<tr><td colspan="3" style="padding:14px;color:var(--fg3)">這個條件下沒有資料。</td></tr>';
+      '<td class="num" style="color:' + (up ? '#dc2626' : '#16a34a') + '">' + (o.v > 0 ? '+' : '') + Math.round(o.v / 1000).toLocaleString('en-US') + '</td>' + _cbFundCell(o.c) + '</tr>').join('') ||
+      '<tr><td colspan="' + nc + '" style="padding:14px;color:var(--fg3)">' + (minT > 0 ? '沒有符合「基本面≥' + ['', '一', '二', '三'][minT] + '檔」的股票（資料不足或不在計算名單的不列入，可改回「不限」）。' : _cbComboOn(_cbCombo(S)) ? '這一天沒有股票同時符合所選的三法人買賣組合（可改選「不限」放寬條件）。' : '這個條件下沒有資料。') + '</td></tr>';
   } catch (e) {
     if (seq !== _cbLoadSeq) return;
     document.getElementById('cbMeta').textContent = '載入失敗：' + e.message;
