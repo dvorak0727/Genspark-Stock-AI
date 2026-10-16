@@ -72273,10 +72273,21 @@ async function _renderPeg(stockId, per, perPct) {
 //  製程/封裝、AI伺服器/散熱/電源供應鏈），非嚴謹產業分類，也不是
 //  投資建議，只是決定「要不要多顯示這段提醒」的篩選條件。
 // ══════════════════════════════════════════════════════════════
+// 名單＝原本人工整理的 17 檔 ＋ Yahoo股市「AI人工智慧」概念股分類（2026-10-16 抓取，共 62 檔，含上櫃／興櫃）的聯集，共 68 檔。
+// Yahoo 名單是靜態寫進程式的快照，不會自動更新；要更新請重新整理這份清單。興櫃股沒有 PER 資料時會列在「查無足夠資料」。
 const AI_BUBBLE_WATCHLIST = new Set([
   '2330','2454','3711','2317','2382','3661','6669','2376','2377',
-  '3037','8046','2449','3443','6531','2313','6789','3596',
+  '3037','8046','2449','3443','6531','2313','6789','3596','1504',
+  '2059','2308','2312','2353','2356','2357','2368','2379','2383',
+  '2395','2439','2453','3029','3044','3078','3163','3169','3227',
+  '3231','3324','3653','3665','4966','5269','5274','5289','5351',
+  '5439','6104','6166','6214','6274','6414','6451','6515','6526',
+  '6643','6689','6811','6841','6902','6930','6933','7735','7737',
+  '7749','7781','7825','7875','8210',
 ]);
+// 名稱備援（STOCK_DB 沒有的股票，例如上櫃／興櫃）：來源同上
+const AI_BUBBLE_NAMES = {"1504": "東元", "2059": "川湖", "2308": "台達電", "2312": "金寶", "2317": "鴻海", "2330": "台積電", "2353": "宏碁", "2356": "英業達", "2357": "華碩", "2368": "金像電", "2376": "技嘉", "2377": "微星", "2379": "瑞昱", "2382": "廣達", "2383": "台光電", "2395": "研華", "2439": "美律", "2449": "京元電子", "2453": "凌群", "2454": "聯發科", "3029": "零壹", "3037": "欣興", "3044": "健鼎", "3078": "僑威", "3163": "波若威", "3169": "亞信", "3227": "原相", "3231": "緯創", "3324": "雙鴻", "3443": "創意", "3653": "健策", "3661": "世芯-KY", "3665": "貿聯-KY", "4966": "譜瑞-KY", "5269": "祥碩", "5274": "信驊", "5289": "宜鼎", "5351": "鈺創", "5439": "高技", "6104": "創惟", "6166": "凌華", "6214": "精誠", "6274": "台燿", "6414": "樺漢", "6451": "訊芯-KY", "6515": "穎崴", "6526": "達發", "6643": "M31", "6669": "緯穎", "6689": "伊雲谷", "6811": "宏碁資訊", "6841": "長佳智能", "6902": "GOGOLOOK", "6930": "盛新", "6933": "AMAX-KY", "7735": "台智雲", "7737": "凱鈿", "7749": "意騰-KY", "7781": "昕力資*", "7825": "和亞智慧", "7875": "安圖斯", "8210": "勤誠"};
+function _aiBubbleName(id) { return (STOCK_DB[id] && STOCK_DB[id].name) || AI_BUBBLE_NAMES[id] || id; }
 
 function _hideAIBubbleWarn() {
   const el = document.getElementById('aiBubbleWarn');
@@ -72371,7 +72382,7 @@ async function runAIBubbleScan() {
   const results = [];
   for (const id of ids) {
     const progEl = document.getElementById('aiBubbleScanProgress');
-    if (progEl) progEl.textContent = `體檢中 ${results.length+1}/${ids.length}：${STOCK_DB[id]?.name || id} (${id})`;
+    if (progEl) progEl.textContent = `體檢中 ${results.length+1}/${ids.length}：${_aiBubbleName(id)} (${id})`;
     const r = await _fetchAIBubbleMetrics(id);
     results.push(r);
   }
@@ -72385,7 +72396,7 @@ async function runAIBubbleScan() {
   const noData = results.filter(r => !r.ok || r.peg == null);
 
   const rowHtml = r => {
-    const name = STOCK_DB[r.stockId]?.name || r.stockId;
+    const name = _aiBubbleName(r.stockId);
     const tagHtml = r.hot
       ? `<span style="font-weight:800;color:#dc2626;">🔴 估值偏熱</span>`
       : r.warm
@@ -72401,7 +72412,7 @@ async function runAIBubbleScan() {
   };
 
   const noDataHtml = noData.length
-    ? `<div style="margin-top:10px;font-size:0.62rem;color:var(--text-muted);">查無足夠資料：${noData.map(r => `${STOCK_DB[r.stockId]?.name || r.stockId}（${r.reason || r.note || '資料不足'}）`).join('、')}</div>`
+    ? `<div style="margin-top:10px;font-size:0.62rem;color:var(--text-muted);">查無足夠資料：${noData.map(r => `${_aiBubbleName(r.stockId)}（${r.reason || r.note || '資料不足'}）`).join('、')}</div>`
     : '';
 
   body.innerHTML = scored.length
