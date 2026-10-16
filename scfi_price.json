@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-10-12T18:17:58Z",
+  "generated_at": "2026-10-16T13:35:19Z",
   "scfi": {
-    "prev_date": "2026-09-30",
-    "curr_date": "2026-10-09",
-    "prev_index": 3662.3,
-    "curr_index": 3664.11,
-    "change": 1.81,
-    "change_pct": 0.0494
+    "prev_date": "2026-10-09",
+    "curr_date": "2026-10-16",
+    "prev_index": 3664.11,
+    "curr_index": 3679.58,
+    "change": 15.47,
+    "change_pct": 0.4222
   }
 }
