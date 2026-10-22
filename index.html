@@ -77582,18 +77582,8 @@ function _showEngineModal(type) {
 
   // ── v6.90 儲存狀態初始化 ──
   const closePrice = d.closes?.at(-1) ?? 0;
-  const rfConf = (() => {
-    const K=d.lK??null, D=d.lD??null, close=d.closes?.at(-1)??null, ma20=d.ma?.ma20?.at(-1)??null;
-    const passes = [
-      close!=null&&ma20!=null ? close>=ma20 : null,
-      K!=null&&D!=null ? K>=D : null,
-      d.instNet5!=null ? d.instNet5>0 : null,
-      d.chipScore!=null ? d.chipScore>=2.5 : null,
-      (d.marginTrend==='down'||d.silentScore>=2.5) ? true : null,
-    ];
-    const p=passes.filter(x=>x===true).length, n=passes.filter(x=>x!=null).length;
-    return n>0 ? Math.round(p/n*100) : 50;
-  })();
+  // 儲存用信心分數：直接沿用彈窗 _engineContentRF 剛算出的值，避免兩邊規則不一致
+  const rfConf = (type === 'rf' && typeof window._rfLastConf === 'number') ? window._rfLastConf : 0;
   const verdictMap = {
     rf: rfConf>=70?'多方信心高（RF）':rfConf>=40?'中性偏多（RF）':'多方信心偏低（RF）',
     l2: '',
@@ -77635,12 +77625,15 @@ document.addEventListener('keydown', function _engineEsc(e) {
 ──────────────────────────────────────────────────────────────── */
 function _engineContentRF(d, stockName, theme) {
   const close  = d.closes?.at(-1) ?? null;
-  const ma20   = d.ma?.ma20?.at(-1) ?? null;
+  const ma20   = d.lMA20 ?? d.ma20?.at(-1) ?? null;   // aData 欄位是 lMA20 / ma20（陣列），沒有 d.ma
   const K      = d.lK ?? null;
   const D_val  = d.lD ?? null;
   const instNet5 = d.instNet5 ?? null;   // 法人5日淨買超（若有）
-  const marginDown = d.marginTrend === 'down' || d.silentScore >= 2.5;
-  const chipScore  = d.chipScore ?? null;
+  // 籌碼類分數不在 aData 內，掃描後寫在 _ctrl14Results，這裡補讀
+  const _scan = (typeof _ctrl14Results !== 'undefined') ? _ctrl14Results[window._currentStockId] : null;
+  const chipScore   = d.chipScore   ?? _scan?.chipScore   ?? null;
+  const silentScore = d.silentScore ?? _scan?.silentScore ?? null;
+  const marginDown = d.marginTrend === 'down' || silentScore >= 2.5;
 
   // 五棵決策樹
   const trees = [
@@ -77675,8 +77668,8 @@ function _engineContentRF(d, stockName, theme) {
       name: 'Tree_4 散戶樹',
       icon: '🧊',
       condition: '融資餘額持續下降（資減人走，籌碼乾淨化）',
-      pass: marginDown ? true : (d.silentScore != null ? d.silentScore >= 2 : null),
-      val:  d.silentScore != null ? `靜默評分 ${d.silentScore.toFixed(1)}/5.0` : '執行掃描後顯示',
+      pass: marginDown ? true : (silentScore != null ? silentScore >= 2 : null),
+      val:  silentScore != null ? `靜默評分 ${silentScore.toFixed(1)}/5.0` : '執行掃描後顯示',
       failNote: '融資仍高或上升，浮動籌碼多，大戶不易拉抬',
       passNote: '資減人走特徵成立，籌碼集中度提升，浮動賣壓減少',
     },
@@ -77684,7 +77677,7 @@ function _engineContentRF(d, stockName, theme) {
       name: 'Tree_5 節律樹',
       icon: '🎵',
       condition: '前五大券商滿足 1:4 囤貨控盤節律特徵',
-      pass: (d.chipScore != null && chipScore != null) ? (chipScore >= 3.0) : null,
+      pass: chipScore != null ? (chipScore >= 3.0) : null,
       val:  chipScore != null ? `控盤節律評分 ${chipScore.toFixed(1)}/5.0` : '執行 1:4 掃描後顯示',
       failNote: '主力尚未進入明確的囤貨節律，需持續觀察',
       passNote: '1:4 囤貨節律特徵吻合，主力大概率正在低調建倉',
@@ -77693,7 +77686,8 @@ function _engineContentRF(d, stockName, theme) {
 
   const passCount = trees.filter(t => t.pass === true).length;
   const totalKnown = trees.filter(t => t.pass !== null).length;
-  const confScore  = totalKnown > 0 ? Math.round((passCount / Math.max(totalKnown, 3)) * 100) : 0;
+  const confScore  = Math.round((passCount / trees.length) * 100);   // 分母固定 5，未驗證的樹視為未通過
+  window._rfLastConf = confScore;
   const verdict = confScore >= 80
     ? { cls:'bull', label:'⚡ 高勝率吸籌訊號', note:'隨機森林 AI 信心分數高，多方籌碼特徵共振，可積極關注' }
     : confScore >= 60
@@ -77744,7 +77738,7 @@ function _engineContentRF(d, stockName, theme) {
         <div class="em-score-info">
           <div class="em-score-verdict" style="color:${donutColor};">${verdict.label}</div>
           <div class="em-score-note">${verdict.note}<br>
-            <b>通過 ${passCount} / ${totalKnown > 0 ? totalKnown : 5} 棵（已知）決策樹</b>
+            <b>通過 ${passCount} / ${trees.length} 棵決策樹${trees.length - totalKnown > 0 ? `（${trees.length - totalKnown} 棵尚未驗證）` : ''}</b>
           </div>
         </div>
       </div>
@@ -77755,7 +77749,7 @@ function _engineContentRF(d, stockName, theme) {
         <div class="em-formula">Confidence_Score = (通過棵數 / 5棵) × 100%
 Tree_i = True(1) / False(0)  ← 布林運算
 總分 = (T1+T2+T3+T4+T5) / 5 × 100%
-${stockName} 計算：${passCount} / ${Math.max(totalKnown,5)} × 100% = <b>${confScore}%</b></div>
+${stockName} 計算：${passCount} / ${trees.length} × 100% = <b>${confScore}%</b>${trees.length - totalKnown > 0 ? `（另有 ${trees.length - totalKnown} 棵未驗證，以未通過計）` : ''}</div>
       </div>
 
       <!-- 五棵決策樹投票結果 -->
@@ -77770,7 +77764,7 @@ ${stockName} 計算：${passCount} / ${Math.max(totalKnown,5)} × 100% = <b>${co
         <div>
           <b>判斷基準：</b>信心分數 ≥ 80% → 高勝率吸籌訊號（強烈關注）
           ｜40~79% → 中度訊號（觀察）｜≤ 39% → 高風險警示（邊拉邊出危機）<br>
-          <b>注意：</b>若部分資料需掃描後才能取得，信心分數為<b>已知樹的比例估算</b>。
+          <b>注意：</b>需掃描後才能取得的樹，未掃描前視為未通過，信心分數偏低屬正常；掃描後會自動更新。
         </div>
       </div>
     </div>`;
@@ -77781,7 +77775,7 @@ ${stockName} 計算：${passCount} / ${Math.max(totalKnown,5)} × 100% = <b>${co
 ──────────────────────────────────────────────────────────────── */
 function _engineContentL2(d, stockName, theme) {
   const close   = d.closes?.at(-1) ?? null;
-  const ma20    = d.ma?.ma20?.at(-1) ?? null;
+  const ma20    = d.lMA20 ?? d.ma20?.at(-1) ?? null;
   const ma5     = d.ma?.ma5?.at(-1) ?? null;
   const rsi     = d.lRSI ?? null;
   const instNet = d.instNet5 ?? null;
@@ -77898,7 +77892,7 @@ ${stockName}：‖𝑽‖ = √(${v1_raw.toFixed(2)}²+${v2_raw.toFixed(2)}²+${
 ──────────────────────────────────────────────────────────────── */
 function _engineContentJB(d, stockName, theme) {
   const close  = d.closes?.at(-1) ?? null;
-  const ma20   = d.ma?.ma20?.at(-1) ?? null;
+  const ma20   = d.lMA20 ?? d.ma20?.at(-1) ?? null;
   const ma5    = d.ma?.ma5?.at(-1) ?? null;
   const rsi    = d.lRSI ?? null;
   const K      = d.lK ?? null;
