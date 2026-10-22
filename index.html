@@ -77635,7 +77635,27 @@ function _engineContentRF(d, stockName, theme) {
   const silentScore = d.silentScore ?? _scan?.silentScore ?? null;
   const marginDown = d.marginTrend === 'down' || silentScore >= 2.5;
 
-  // 五棵決策樹
+  // ── T2 用：投信連買天數＋近2日買超佔成交量（回測：投信連2買且量比>1% 為最穩定的法人訊號）
+  let trustStreak = null, trustRatio = null, trustSum2 = null;
+  if (Array.isArray(d.tSeries) && d.tSeries.length >= 2 && Array.isArray(d.instDays) && Array.isArray(d.dates) && Array.isArray(d.vols)) {
+    trustStreak = 0;
+    for (let i = d.tSeries.length - 1; i >= 0 && d.tSeries[i] > 0; i--) trustStreak++;
+    const _volAt = day => { const j = d.dates.indexOf(day); return j >= 0 ? d.vols[j] / 1000 : null; };   // vols 是股，轉成張
+    const v1 = _volAt(d.instDays.at(-1)), v2 = _volAt(d.instDays.at(-2));
+    trustSum2 = d.tSeries.at(-1) + d.tSeries.at(-2);
+    if (v1 != null && v2 != null && v1 + v2 > 0) trustRatio = trustSum2 / (v1 + v2);
+  }
+  const trustPass = (trustStreak == null) ? null : (trustStreak >= 2 && trustRatio != null && trustRatio > 0.01);
+
+  // ── T3 用：盤整盤判定（MA20 斜率持平且 20 日振幅 < 12%）。回測：盤整盤 KD 低檔金叉後勝率反而偏低
+  let isFlat = null;
+  if (Array.isArray(d.ma20) && d.ma20.length >= 11 && Array.isArray(d.highs) && d.highs.length >= 20 && close) {
+    const m0 = d.ma20.at(-1), m10 = d.ma20.at(-11);
+    const rng = (Math.max(...d.highs.slice(-20)) - Math.min(...d.lows.slice(-20))) / close;
+    if (m0 > 0 && m10 > 0) isFlat = Math.abs(m0 / m10 - 1) < 0.015 && rng < 0.12;
+  }
+
+  // 決策樹（na:true = 不計入投票，僅供參考）
   const trees = [
     {
       name: 'Tree_1 趨勢樹',
@@ -77647,22 +77667,26 @@ function _engineContentRF(d, stockName, theme) {
       passNote: '站穩月線，中線結構完整，趨勢樹判多',
     },
     {
-      name: 'Tree_2 籌碼樹',
+      name: 'Tree_2 法人樹',
       icon: '🏦',
-      condition: '千張大戶持股 + 主力買賣家數差為負（外部視角悲觀）',
-      pass: chipScore != null ? chipScore >= 2.5 : null,
-      val:  chipScore != null ? `籌碼交叉評分 ${chipScore.toFixed(1)}/5.0` : '執行掃描後顯示',
-      failNote: '籌碼交叉分不足，大戶仍在觀望或派發中',
-      passNote: '籌碼交叉共振分數達標，主力靜默吸籌特徵成形',
+      condition: '投信連買 ≥2 日，且近2日買超 > 成交量 1%',
+      pass: trustPass,
+      val:  trustStreak == null ? '資料載入中'
+            : `連買${trustStreak}日` + (trustRatio != null ? `｜近2日${Math.round(trustSum2).toLocaleString()}張（佔量${(trustRatio*100).toFixed(1)}%）` : ''),
+      failNote: trustStreak != null && trustStreak >= 2 ? '投信雖連買，但買超量佔成交量偏低，力道不足' : '投信尚未連續買超，法人訊號未成形',
+      passNote: '投信連買且買超佔量達標，法人早期布局訊號成立（歷史上略優於無訊號）',
     },
     {
       name: 'Tree_3 動能樹',
       icon: '⚡',
       condition: 'KD 低檔（<50）且 K 上穿 D（黃金交叉）',
-      pass: (K != null && D_val != null) ? (K > D_val && K < 50) : null,
-      val:  (K != null && D_val != null) ? `K=${K.toFixed(1)}  D=${D_val.toFixed(1)}` : '資料載入中',
+      na: isFlat === true,
+      pass: isFlat === true ? null : ((K != null && D_val != null) ? (K > D_val && K < 50) : null),
+      val:  isFlat === true ? '盤整盤・不計入'
+            : (K != null && D_val != null) ? `K=${K.toFixed(1)}  D=${D_val.toFixed(1)}` : '資料載入中',
+      naNote: '目前為盤整盤（MA20 持平、區間振幅小）。回測顯示盤整盤中 KD 低檔金叉後，勝率反而比其他時候低約 5 個百分點，故不計入投票',
       failNote: `K=${K?.toFixed(1) ?? '?'} 未完成低檔金叉，動能尚未翻正`,
-      passNote: '低檔 KD 金叉確認，動能反轉訊號最強，歷史勝率最高',
+      passNote: '低檔 KD 金叉確認，動能可能反轉（歷史回測顯示預測力有限，僅供參考）',
     },
     {
       name: 'Tree_4 散戶樹',
@@ -77676,17 +77700,22 @@ function _engineContentRF(d, stockName, theme) {
     {
       name: 'Tree_5 節律樹',
       icon: '🎵',
-      condition: '前五大券商滿足 1:4 囤貨控盤節律特徵',
+      condition: '前五大券商 1:4 囤貨控盤節律（參考標籤，不計入投票）',
+      na: true,
       pass: chipScore != null ? (chipScore >= 3.0) : null,
       val:  chipScore != null ? `控盤節律評分 ${chipScore.toFixed(1)}/5.0` : '執行 1:4 掃描後顯示',
+      naNote: '券商分點歷史資料不足、尚無法驗證其預測力，盤整盤時節律也較不明顯，目前僅作參考，待累積紀錄驗證後再決定權重',
       failNote: '主力尚未進入明確的囤貨節律，需持續觀察',
-      passNote: '1:4 囤貨節律特徵吻合，主力大概率正在低調建倉',
+      passNote: '1:4 囤貨節律特徵吻合，主力可能正在低調建倉（僅供參考）',
     },
   ];
 
-  const passCount = trees.filter(t => t.pass === true).length;
-  const totalKnown = trees.filter(t => t.pass !== null).length;
-  const confScore  = Math.round((passCount / trees.length) * 100);   // 分母固定 5，未驗證的樹視為未通過
+  const voters     = trees.filter(t => !t.na);                      // 參與投票的樹（排除「參考／不計入」）
+  const refCount   = trees.length - voters.length;
+  const passCount  = voters.filter(t => t.pass === true).length;
+  const totalKnown = voters.filter(t => t.pass !== null).length;
+  const unverified = voters.length - totalKnown;                    // 需掃描、尚未驗證的樹，以未通過計
+  const confScore  = voters.length ? Math.round((passCount / voters.length) * 100) : 0;
   window._rfLastConf = confScore;
   const verdict = confScore >= 80
     ? { cls:'bull', label:'⚡ 高勝率吸籌訊號', note:'隨機森林 AI 信心分數高，多方籌碼特徵共振，可積極關注' }
@@ -77700,9 +77729,11 @@ function _engineContentRF(d, stockName, theme) {
   const donutColor = confScore >= 80 ? '#10b981' : confScore >= 60 ? '#f59e0b' : '#ef4444';
 
   const treeRowsHtml = trees.map(t => {
-    const cls = t.pass === true ? 'pass' : t.pass === false ? 'fail' : 'warn';
-    const icon = t.pass === true ? '✅' : t.pass === false ? '❌' : '⏳';
-    const note = t.pass === true ? t.passNote : t.pass === false ? t.failNote : '等待資料載入';
+    const cls = t.na ? 'warn' : t.pass === true ? 'pass' : t.pass === false ? 'fail' : 'warn';
+    const icon = t.na ? 'ℹ️' : t.pass === true ? '✅' : t.pass === false ? '❌' : '⏳';
+    const note = (t.na && (t.pass === null || t.name.includes('Tree_3'))) ? t.naNote
+               : t.na ? (t.pass === true ? t.passNote : t.failNote) + '｜' + t.naNote
+               : t.pass === true ? t.passNote : t.pass === false ? t.failNote : '尚未掃描，掃描後顯示';
     return `<div class="em-tree-row ${cls}">
       <span class="em-tree-icon">${icon}</span>
       <span class="em-tree-name">${t.name}</span>
@@ -77738,7 +77769,7 @@ function _engineContentRF(d, stockName, theme) {
         <div class="em-score-info">
           <div class="em-score-verdict" style="color:${donutColor};">${verdict.label}</div>
           <div class="em-score-note">${verdict.note}<br>
-            <b>通過 ${passCount} / ${trees.length} 棵決策樹${trees.length - totalKnown > 0 ? `（${trees.length - totalKnown} 棵尚未驗證）` : ''}</b>
+            <b>通過 ${passCount} / ${voters.length} 棵投票樹${unverified > 0 ? `（${unverified} 棵尚未掃描）` : ''}${refCount > 0 ? `｜${refCount} 棵僅供參考` : ''}</b>
           </div>
         </div>
       </div>
@@ -77746,10 +77777,10 @@ function _engineContentRF(d, stockName, theme) {
       <!-- 公式 -->
       <div class="em-section">
         <div class="em-section-title">計算公式</div>
-        <div class="em-formula">Confidence_Score = (通過棵數 / 5棵) × 100%
+        <div class="em-formula">Confidence_Score = (通過棵數 / 參與投票棵數) × 100%
 Tree_i = True(1) / False(0)  ← 布林運算
-總分 = (T1+T2+T3+T4+T5) / 5 × 100%
-${stockName} 計算：${passCount} / ${trees.length} × 100% = <b>${confScore}%</b>${trees.length - totalKnown > 0 ? `（另有 ${trees.length - totalKnown} 棵未驗證，以未通過計）` : ''}</div>
+僅供參考的樹（ℹ️）不計入分子與分母；需掃描但尚未掃描的樹以未通過計
+${stockName} 計算：${passCount} / ${voters.length} × 100% = <b>${confScore}%</b>${unverified > 0 ? `（其中 ${unverified} 棵尚未掃描）` : ''}</div>
       </div>
 
       <!-- 五棵決策樹投票結果 -->
