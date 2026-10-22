@@ -37296,6 +37296,10 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
   });
   const marginSeries = instDays.map(d => marginMap[d] !== undefined ? marginMap[d] : 0);
   const hasRealMarginData = Object.keys(marginMap).length > 0;
+  // 融資餘額（張），對齊股價日期；供隨機森林彈窗的「融資與價格互動」標籤使用
+  const _marginBalMap = {};
+  (marginRaw||[]).forEach(r => { if (r && r.date && +r.MarginPurchaseTodayBalance > 0) _marginBalMap[r.date] = +r.MarginPurchaseTodayBalance; });
+  const marginBal = dates.map(d => _marginBalMap[d] !== undefined ? _marginBalMap[d] : null);
 
   const ma5  = calcMA(closes, 5);
   const ma20 = calcMA(closes, 20);
@@ -37315,7 +37319,7 @@ function renderAll(stockId, instRaw, priceRaw, _gen, marginRaw) {
 
   aData = { stockId, instMap, instDays, fSeries, tSeries, mSeries,
     closes, opens, highs, lows, vols, dates, ma5, ma20, rsi, kd, macd, boll,
-    lc, pc, lRSI, lK, lD, lMACD, lHist, lSig, lU, lL, lM, lMA5, lMA20, lVol };
+    lc, pc, lRSI, lK, lD, lMACD, lHist, lSig, lU, lL, lM, lMA5, lMA20, lVol, marginBal };
   window.aData = aData; // ← let 變數不自動掛到 window，需明確同步
   // ── 同步追蹤清單價格（分析成功時立即更新，不依賴獨立 API 呼叫）──
   try {
@@ -59717,6 +59721,7 @@ async function startScreener() {
             let fCons = 0; for (const v of revF) { if (v > 0) fCons++; else break; }
             let tCons = 0; for (const v of revT) { if (v > 0) tCons++; else break; }
             result.fCons = fCons; result.tCons = tCons;
+            result.f5 = fSeries.slice(-5).reduce((a,b)=>a+b,0);   // 外資近5日淨買賣（張），卡片用來標示與ETF同向或相反
           }
         } catch(e) { /* 抓不到現價/法人資料不影響ETF買賣超判斷，維持原值 */ }
 
@@ -64542,6 +64547,7 @@ const MODE_GUIDE = {
       'Lee-Ready法（用收盤價在當日高低區間的位置估算）是沒有MoneyFlow資料時的備援算法，準確度不如真實成交明細，數字僅供參考。',
       '外盤強但量比不夠（量縮情況下的高外盤比），代表籌碼安定、賣壓少，不一定是真的買盤湧入，要搭配量比一起看才有意義。',
       '同一天外盤強勢，不保證法人也在買——建議搭配「三大法人籌碼」欄位一起確認方向是否一致。',
+      '📊 回測提醒（10 檔大型股、約一年，未做顯著性檢定）：外盤強勢之後 1～5 天，相對大盤沒有超額報酬，甚至略差；外盤比率主要反映「今天已經漲了」。這個掃描只描述今日買盤主動，不建議單獨當進場理由。',
     ],
     action: '📌 操作思路：4分全過（外盤比率高＋外盤>內盤＋量放大＋收漲）代表當天買盤動能扎實，適合作為短線切入的觀察名單，但務必搭配隔天的量價是否延續再決定是否進場，不要看到當天訊號就重壓。',
   },
@@ -64575,7 +64581,7 @@ const MODE_GUIDE = {
     features: [
       { icon: '💰', text: '<b>C1 主動式ETF淨買超</b>：最近5個交易日，所有主動式ETF對這檔股票的買進股數，扣掉賣出股數後是正的。' },
       { icon: '2️⃣', text: '<b>C2 ≥2檔ETF同步買進</b>：不只一檔ETF在買，代表不是單一經理人的個別動作。' },
-      { icon: '3️⃣', text: '<b>C3 ≥3檔ETF同步買進</b>：3檔以上同步買進，訊號更強，越多不同基金公司的經理人同時看好同一檔股票，越值得留意。' },
+      { icon: '3️⃣', text: '<b>C3 ≥3檔ETF同步買進</b>：3檔以上同步買進，代表較多經理人同時看好。但回測顯示同買檔數並非越多越好：≥5檔同買的股票之後20日相對大盤反而明顯偏弱（樣本少），可能已經擁擠。' },
       { icon: '📏', text: '<b>C4 淨買超≥10萬股</b>：買超金額要有規模，避免小額調倉被誤判成強烈訊號。' },
       { icon: '🛡️', text: '<b>C5 無同步賣壓</b>：完全沒有其他主動式ETF在賣這檔股票，代表市場看法一致，沒有分歧。' },
     ],
@@ -64583,6 +64589,7 @@ const MODE_GUIDE = {
       '資料每日排程更新（收盤後才會有當天資料），不是即時資料，跟盤中價格可能有落差。',
       '⚠️ 這份資料集（TaiwanStockActiveETFHoldingChange）需要 FinMind Sponsor 付費方案 Token，免費帳號查不到。',
       '主動式ETF經理人也會看錯，同步買進不保證股價一定漲，仍要搭配其他面向（技術面、基本面）確認。',
+      '📊 回測提醒（2025-05 起、約 1.4 年，未做顯著性檢定）：ETF 買超後前幾天沒有優勢，約 10～20 日相對較好；外資同步買時效果較好，外資同步賣時沒有加分；但最近兩季已不明顯。持股異動隔天才公布，進場價請以隔日開盤估算。',
       '主動式ETF目前檔數不多（約40檔上下），冷門股可能剛好都沒被納入任何一檔的持股池，不代表沒有籌碼動作，只是這個角度看不到。',
     ],
     action: '📌 操作思路：優先看C2/C3同時成立、且卡片上列出的ETF名稱橫跨不同基金公司（不是同一家旗下好幾檔）的股票，代表看法更分散一致。建議搭配技術面確認買點，不要單靠這個模式就重壓。',
@@ -65707,9 +65714,26 @@ function renderScreenerCards(showStats=false) {
     const _isSuper = (_curMode === 'macdmatrix' && r.score >= 5);
     const cardCls  = (r.score>=_th4?'score4':r.score>=_th3?'score3':r.score>=_th2?'score2':r.score>=_th1?'score1':'score0') + (_isSuper ? ' score-super' : '');
     const rankCls  = idx===0?'r1':idx===1?'r2':idx===2?'r3':'rn';
-    const verdict  = r.score>=_th4?`🔴 強烈${_mBadge}訊號`:r.score>=_th3?`🟡 ${_mBadge}訊號明確`:r.score>=_th2?`🔵 部分訊號成立`:r.score>=_th1?'⚪ 訊號初現':'—';
-    const verdictCls = r.score>=_th4?'strong':r.score>=_th2?'mid':'weak';
+    let verdict  = r.score>=_th4?`🔴 強烈${_mBadge}訊號`:r.score>=_th3?`🟡 ${_mBadge}訊號明確`:r.score>=_th2?`🔵 部分訊號成立`:r.score>=_th1?'⚪ 訊號初現':'—';
+    let verdictCls = r.score>=_th4?'strong':r.score>=_th2?'mid':'weak';
     const up = r.chgPct >= 0;
+
+    // ── 回測後改版：外盤強勢、ETF買超都只描述現象，不用「強烈…訊號」的進場口吻 ──
+    let _modeNote = '';
+    if (_curMode === 'obi' && r.score >= _th3) {
+      verdict = '🟡 外盤偏強（今日買盤主動）'; verdictCls = 'mid';
+      _modeNote = `<div class="sc-etf-note">ℹ️ <b>只描述今天買盤主動</b>：回測（10 檔大型股、約一年）顯示外盤強勢後 1～5 天相對大盤沒有優勢，甚至略差，不宜單獨當進場理由。僅供參考。</div>`;
+    } else if (_curMode === 'etfFlow') {
+      const _nBuy = (r._etfFlowBuyers || []).length;
+      const _f5 = (typeof r.f5 === 'number') ? r.f5 : null;
+      verdict = _nBuy >= 5 ? `⚠️ ${_nBuy} 檔 ETF 同買（可能擁擠）` : `🟡 ${_nBuy} 檔主動式 ETF 買超`;
+      verdictCls = _nBuy >= 5 ? 'weak' : 'mid';
+      const _fTxt = _f5 == null ? ''
+        : _f5 > 0 ? `外資近 5 日淨買 +${Math.round(_f5).toLocaleString()} 張，與 ETF 同方向。`
+        : `外資近 5 日淨賣 ${Math.abs(Math.round(_f5)).toLocaleString()} 張，與 ETF 相反——回測中外資同步賣時，ETF 買超後的相對表現沒有優勢。`;
+      const _crowd = _nBuy >= 5 ? ' ≥5 檔同買在回測中之後 20 日相對大盤明顯偏弱（樣本少），可能已擁擠。' : '';
+      _modeNote = `<div class="sc-etf-note">ℹ️ ${_fTxt}${_crowd} 回測（2025-05 起）：ETF 買超後前幾天沒有優勢，約 10～20 日相對較好，但近兩季已不明顯，僅供參考。</div>`;
+    }
 
     const _showVal = (_curMode === 'macdmatrix' || _curMode === 'etfFlow'); // 這些模式顯示數值（etfFlow用來顯示是哪些ETF在買）
     const checksHtml = r.checks.map(c => {
@@ -65903,6 +65927,7 @@ function renderScreenerCards(showStats=false) {
       ${etfNote}
       ${squeezeMomentumNote}
       ${distCautionNote}
+      ${_modeNote}
       <div class="sc-verdict ${verdictCls}${verdictClickable}"${verdictTitle}${verdictClick}>${verdictFinal}${_macdDirTag}</div>
       <div class="sc-click-hint">▶ 點擊分數圈查看完整分析</div>
       <!-- 快速展開面板：法人/MACD（動態注入）-->
@@ -77604,8 +77629,6 @@ function _rfCompute(d) {
   // 籌碼類分數不在 aData 內，掃描後寫在 _ctrl14Results，這裡補讀
   const _scan = (typeof _ctrl14Results !== 'undefined') ? _ctrl14Results[window._currentStockId] : null;
   const chipScore   = d.chipScore   ?? _scan?.chipScore   ?? null;
-  const silentScore = d.silentScore ?? _scan?.silentScore ?? null;
-  const marginDown = d.marginTrend === 'down' || silentScore >= 2.5;
 
   // ── T2 用：投信連買天數＋近2日買超佔成交量（回測：投信連2買且量比>1% 為最穩定的法人訊號）
   let trustStreak = null, trustRatio = null, trustSum2 = null;
@@ -77617,6 +77640,20 @@ function _rfCompute(d) {
     trustSum2 = d.tSeries.at(-1) + d.tSeries.at(-2);
     if (v1 != null && v2 != null && v1 + v2 > 0) trustRatio = trustSum2 / (v1 + v2);
   }
+  // ── T4 用：融資與價格互動（近5日融資餘額變化 × 近5日股價漲跌）
+  //    回測：價跌＋融資大減（斷頭型）後10日略強、但僅近一年明顯；價漲＋融資增加後漲勢略有延續；價平時融資無訊號
+  const marginState = (() => {
+    const b = d.marginBal, c = d.closes;
+    if (!Array.isArray(b) || !Array.isArray(c) || b.length < 6 || c.length < 6 || !(b.at(-1) > 0) || !(b.at(-6) > 0))
+      return { val: '融資資料不足', note: '目前取不到足夠的融資餘額資料，無法判斷融資與價格的互動。' };
+    const ch5 = b.at(-1) / b.at(-6) - 1, p5 = c.at(-1) / c.at(-6) - 1;
+    const v = `融資5日${ch5 >= 0 ? '+' : ''}${(ch5*100).toFixed(1)}%｜股價5日${p5 >= 0 ? '+' : ''}${(p5*100).toFixed(1)}%`;
+    if (p5 < -0.03 && ch5 < -0.02)
+      return { val: v + '｜斷頭型', note: '股價下跌且融資明顯減少（散戶斷頭）。回測中此型態後 10 日略強，但差距有限、主要出現在近一年，不保證有效。' };
+    if (p5 > 0.03 && ch5 > 0.02)
+      return { val: v + '｜追價型', note: '股價上漲且融資增加（散戶跟進）。回測中此型態後漲勢略有延續，但不代表因果，仍需留意追高風險。' };
+    return { val: v + '｜無特殊互動', note: '股價與融資沒有明顯的互動型態。回測顯示價平時融資沒有預測力，僅供參考。' };
+  })();
   const trustPass = (trustStreak == null) ? null : (trustStreak >= 2 && trustRatio != null && trustRatio > 0.01);
 
   // ── T3 用：盤整盤判定（MA20 斜率持平且 20 日振幅 < 12%）。回測：盤整盤 KD 低檔金叉後勝率反而偏低
@@ -77644,6 +77681,7 @@ function _rfCompute(d) {
       condition: '投信連買 ≥2 日，且近2日買超 > 成交量 1%',
       pass: trustPass,
       val:  trustStreak == null ? '資料載入中'
+            : trustStreak === 0 ? `未連買｜近2日${trustSum2 >= 0 ? '買超' : '賣超'}${Math.abs(Math.round(trustSum2)).toLocaleString()}張`
             : `連買${trustStreak}日` + (trustRatio != null ? `｜近2日${Math.round(trustSum2).toLocaleString()}張（佔量${(trustRatio*100).toFixed(1)}%）` : ''),
       failNote: trustStreak != null && trustStreak >= 2 ? '投信雖連買，但買超量佔成交量偏低，力道不足' : '投信尚未連續買超，法人訊號未成形',
       passNote: '投信連買且買超佔量達標，法人早期布局訊號成立（回測中略優於無訊號，差距不大，且可能隨環境改變）',
@@ -77661,13 +77699,14 @@ function _rfCompute(d) {
       passNote: '低檔 KD 金叉確認，動能可能反轉（歷史回測顯示預測力有限，僅供參考）',
     },
     {
-      name: 'Tree_4 散戶樹',
+      name: 'Tree_4 融資樹',
       icon: '🧊',
-      condition: '融資餘額持續下降（資減人走，籌碼乾淨化）',
-      pass: marginDown ? true : (silentScore != null ? silentScore >= 2 : null),
-      val:  silentScore != null ? `靜默評分 ${silentScore.toFixed(1)}/5.0` : '執行掃描後顯示',
-      failNote: '融資仍高或上升，浮動籌碼多，大戶不易拉抬',
-      passNote: '資減人走特徵成立，籌碼集中度提升，浮動賣壓減少',
+      condition: '融資與價格互動狀態（參考標籤，不計入投票）',
+      na: true,
+      pass: null,
+      val:  marginState.val,
+      naNote: marginState.note,
+      failNote: '', passNote: '',
     },
     {
       name: 'Tree_5 節律樹',
@@ -77697,7 +77736,11 @@ function _rfCompute(d) {
     : { cls:'bear', label:'⚠️ 多數條件未成立，謹慎觀望', note:'多數投票樹條件不符，目前不具備明顯的布局特徵' };
 
   const donutColor = confScore >= 67 ? '#10b981' : confScore >= 50 ? '#f59e0b' : '#ef4444';
-  return { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict, donutColor };
+  // 投票樹很少時，百分比容易失真（例如 2/2 = 100%），在說明裡明講
+  const verdictOut = voters.length < 3
+    ? { ...verdict, note: verdict.note + `（目前僅 ${voters.length} 棵樹可判斷，分數參考性低）` }
+    : verdict;
+  return { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict: verdictOut, donutColor };
 }
 
 // 隨機森林彈窗內容（主畫面與彈窗共用 _rfCompute 的結果，避免兩邊規則不一致）
@@ -77758,7 +77801,7 @@ function _engineContentRF(d, stockName, theme) {
         <div class="em-section-title">計算公式</div>
         <div class="em-formula">Confidence_Score = (通過棵數 / 參與投票棵數) × 100%
 Tree_i = True(1) / False(0)  ← 布林運算
-僅供參考的樹（ℹ️）不計入分子與分母；需掃描但尚未掃描的樹以未通過計
+僅供參考的樹（ℹ️）不計入分子與分母；若有需掃描但尚未掃描的投票樹，以未通過計
 ${stockName} 計算：${passCount} / ${voters.length} × 100% = <b>${confScore}%</b>${unverified > 0 ? `（其中 ${unverified} 棵尚未掃描）` : ''}</div>
       </div>
 
@@ -77775,7 +77818,7 @@ ${stockName} 計算：${passCount} / ${voters.length} × 100% = <b>${confScore}%
           <b>判斷基準：</b>≥ 67% → 多數條件翻多（可留意）
           ｜50~66% → 條件分歧（觀察）｜&lt; 50% → 多數條件未成立（謹慎）<br>
           <b>提醒：</b>市場規律會隨時代與政策環境改變，這些條件是依歷史回測挑選，僅供參考，不保證未來有效。<br>
-          <b>注意：</b>需掃描後才能取得的樹，未掃描前視為未通過，信心分數偏低屬正常；掃描後會自動更新。
+          ${unverified > 0 ? '<b>注意：</b>需掃描後才能取得的樹，未掃描前視為未通過，信心分數偏低屬正常；掃描後會自動更新。' : ''}
         </div>
       </div>
     </div>`;
