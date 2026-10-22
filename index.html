@@ -77674,7 +77674,7 @@ function _engineContentRF(d, stockName, theme) {
       val:  trustStreak == null ? '資料載入中'
             : `連買${trustStreak}日` + (trustRatio != null ? `｜近2日${Math.round(trustSum2).toLocaleString()}張（佔量${(trustRatio*100).toFixed(1)}%）` : ''),
       failNote: trustStreak != null && trustStreak >= 2 ? '投信雖連買，但買超量佔成交量偏低，力道不足' : '投信尚未連續買超，法人訊號未成形',
-      passNote: '投信連買且買超佔量達標，法人早期布局訊號成立（歷史上略優於無訊號）',
+      passNote: '投信連買且買超佔量達標，法人早期布局訊號成立（回測中略優於無訊號，差距不大，且可能隨環境改變）',
     },
     {
       name: 'Tree_3 動能樹',
@@ -77684,7 +77684,7 @@ function _engineContentRF(d, stockName, theme) {
       pass: isFlat === true ? null : ((K != null && D_val != null) ? (K > D_val && K < 50) : null),
       val:  isFlat === true ? '盤整盤・不計入'
             : (K != null && D_val != null) ? `K=${K.toFixed(1)}  D=${D_val.toFixed(1)}` : '資料載入中',
-      naNote: '目前為盤整盤（MA20 持平、區間振幅小）。回測顯示盤整盤中 KD 低檔金叉後，勝率反而比其他時候低約 5 個百分點，故不計入投票',
+      naNote: '目前為盤整盤（MA20 持平、區間振幅小）。回測（前50大權值股、2021～2026）顯示，盤整盤中 KD 低檔金叉後的勝率可能偏低（約低 5 個百分點，未做顯著性檢定），且市場環境改變時此結論也可能失效，因此暫不計入投票',
       failNote: `K=${K?.toFixed(1) ?? '?'} 未完成低檔金叉，動能尚未翻正`,
       passNote: '低檔 KD 金叉確認，動能可能反轉（歷史回測顯示預測力有限，僅供參考）',
     },
@@ -77717,16 +77717,17 @@ function _engineContentRF(d, stockName, theme) {
   const unverified = voters.length - totalKnown;                    // 需掃描、尚未驗證的樹，以未通過計
   const confScore  = voters.length ? Math.round((passCount / voters.length) * 100) : 0;
   window._rfLastConf = confScore;
-  const verdict = confScore >= 80
-    ? { cls:'bull', label:'⚡ 高勝率吸籌訊號', note:'隨機森林 AI 信心分數高，多方籌碼特徵共振，可積極關注' }
-    : confScore >= 60
-    ? { cls:'warn', label:'👀 中度訊號，持續觀察', note:'部分決策樹已翻多，需等候更多樹完成驗證後再確認' }
-    : { cls:'bear', label:'⚠️ 低分警示，謹慎觀望', note:'多棵決策樹條件不符，當前個股不具備高信心吸籌特徵' };
+  // 投票樹只有 3～4 棵，分數是粗粒度（0/25/33/50/67/75/100），門檻對應調整
+  const verdict = confScore >= 67
+    ? { cls:'bull', label:'⚡ 多數條件翻多', note:'多數投票樹條件成立，可留意；這不代表一定會漲，仍需搭配大環境與板塊判斷' }
+    : confScore >= 50
+    ? { cls:'warn', label:'👀 條件分歧，持續觀察', note:'部分決策樹成立、部分未成立，可等更多條件確認後再判斷' }
+    : { cls:'bear', label:'⚠️ 多數條件未成立，謹慎觀望', note:'多數投票樹條件不符，目前不具備明顯的布局特徵' };
 
   const donutPct = Math.min(confScore, 100);
   const circumference = 2 * Math.PI * 26;
   const strokeDash = (donutPct / 100) * circumference;
-  const donutColor = confScore >= 80 ? '#10b981' : confScore >= 60 ? '#f59e0b' : '#ef4444';
+  const donutColor = confScore >= 67 ? '#10b981' : confScore >= 50 ? '#f59e0b' : '#ef4444';
 
   const treeRowsHtml = trees.map(t => {
     const cls = t.na ? 'warn' : t.pass === true ? 'pass' : t.pass === false ? 'fail' : 'warn';
@@ -77751,7 +77752,7 @@ function _engineContentRF(d, stockName, theme) {
         🌲 隨機森林多維度決策矩陣
       </div>
       <div class="em-subtitle">
-        ${stockName} · 五棵獨立決策樹 → 布林投票 → 多空信心分數
+        ${stockName} · 多棵決策樹 → 布林投票（部分僅供參考）→ 條件成立比例
       </div>
 
       <!-- 信心分數 Donut -->
@@ -77785,7 +77786,7 @@ ${stockName} 計算：${passCount} / ${voters.length} × 100% = <b>${confScore}%
 
       <!-- 五棵決策樹投票結果 -->
       <div class="em-section">
-        <div class="em-section-title">五棵決策樹實例投票結果</div>
+        <div class="em-section-title">決策樹實例投票結果</div>
         <div class="em-tree-grid">${treeRowsHtml}</div>
       </div>
 
@@ -77793,8 +77794,9 @@ ${stockName} 計算：${passCount} / ${voters.length} × 100% = <b>${confScore}%
       <div class="em-alert-banner ${verdict.cls}">
         <span style="font-size:1rem;">🎯</span>
         <div>
-          <b>判斷基準：</b>信心分數 ≥ 80% → 高勝率吸籌訊號（強烈關注）
-          ｜40~79% → 中度訊號（觀察）｜≤ 39% → 高風險警示（邊拉邊出危機）<br>
+          <b>判斷基準：</b>≥ 67% → 多數條件翻多（可留意）
+          ｜50~66% → 條件分歧（觀察）｜&lt; 50% → 多數條件未成立（謹慎）<br>
+          <b>提醒：</b>市場規律會隨時代與政策環境改變，這些條件是依歷史回測挑選，僅供參考，不保證未來有效。<br>
           <b>注意：</b>需掃描後才能取得的樹，未掃描前視為未通過，信心分數偏低屬正常；掃描後會自動更新。
         </div>
       </div>
