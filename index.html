@@ -50802,39 +50802,20 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
 
   const ph = phaseInfo[phaseIdx-1];
 
-  // ── F2. 隨機森林 5棵決策樹投票 ──
-  // Tree_1：趨勢樹：現價 > MA20
-  const t1 = lc > ma20Now;
-  // Tree_2：籌碼樹：法人連買≥3 且 近10日法人淨買為正
-  const t2 = instConsBuy >= 3 && instNet10 > 0;
-  // Tree_3：動能樹：KD低檔區且K>D（黃金交叉）或 RSI從低位回升
-  const t3 = (lK < 50 && lK > lD) || (lRSI > 35 && lRSI < 60 && recentDrop < 0);
-  // Tree_4：散戶樹：近期跌幅>3%（代表散戶恐慌殺出）且量縮（浮籌排出）
-  const t4 = recentDrop < -3 && volRatio < 1.0;
-  // Tree_5：節律樹：法人近5日持續買（1:4節奏代理）且量無異常放大
-  const t5 = instNet5 > 0 && volRatio >= 0.7 && volRatio <= 1.3;
-
-  const rfScore = [t1,t2,t3,t4,t5].filter(Boolean).length;
-  const rfConfScore = Math.round(rfScore / 5 * 100);
-  const rfLabel = rfConfScore >= 80 ? '🚀 高勝率入場訊號' : rfConfScore >= 60 ? '📈 偏多，條件趨近' : rfConfScore >= 40 ? '⏳ 訊號分歧，觀望' : '⚠️ 邊拉邊出預警';
-
-  const rfTrees = [
-    { name:'Tree_1\n趨勢樹', icon:'📈', pass:t1,
-      val: t1?`現價${lc.toFixed(0)}>${ma20Now.toFixed(0)}`:`現價${lc.toFixed(0)}<${ma20Now.toFixed(0)}`, sub: t1?'站穩月線':'月線下方',
-      plain: t1?'✅ 股價在20日均線上，趨勢偏多。':'❌ 股價跌破月線，短期趨勢偏弱。' },
-    { name:'Tree_2\n籌碼樹', icon:'💼', pass:t2,
-      val: t2?`連買${instConsBuy}天`:`連買${instConsBuy}天`, sub: instNet10>0?`10日+${instNet10.toFixed(0)}張`:`10日${instNet10.toFixed(0)}張`,
-      plain: t2?`✅ 法人連買${instConsBuy}天且10日淨買正，大戶在吃貨。`:`❌ 法人連買天數或10日買超未達標，籌碼不夠強。` },
-    { name:'Tree_3\n動能樹', icon:'⚡', pass:t3,
-      val: t3?'黃金交叉/回升':'KD/RSI弱', sub: `K=${lK.toFixed(0)} D=${lD.toFixed(0)}`,
-      plain: t3?`✅ KD金叉或RSI回升，短線動能恢復。`:`❌ KD/RSI仍弱（K${lK.toFixed(0)}），反彈力道不足。` },
-    { name:'Tree_4\n散戶樹', icon:'🌊', pass:t4,
-      val: t4?`跌${recentDrop.toFixed(1)}%量縮`:'未見洗盤特徵', sub: `量比${volRatio.toFixed(2)}x`,
-      plain: t4?`✅ 近期跌${Math.abs(recentDrop).toFixed(1)}%且量縮，散戶恐慌殺出，浮籌已清。`:`❌ 尚未出現跌幅+量縮洗盤型態，等待訊號。` },
-    { name:'Tree_5\n節律樹', icon:'🥁', pass:t5,
-      val: t5?`5日+${instNet5.toFixed(0)}張`:`5日${instNet5.toFixed(0)}張`, sub: `量比±正常`,
-      plain: t5?`✅ 法人近5日穩定買且量能正常，節奏健康。`:`❌ 法人近5日買超不足（${instNet5.toFixed(0)}張）或量能異常。` },
-  ];
+  // ── F2. 隨機森林決策樹投票 ──
+  // 與「三大 AI 引擎」彈窗共用 _rfCompute()，確保主畫面與彈窗的樹定義、分數一致
+  const _rf = _rfCompute(window.aData);
+  const rfConfScore = _rf.confScore;
+  const rfScore = _rf.passCount;
+  const rfLabel = _rf.verdict.label;
+  const _rfPlain = t => t.na ? 'ℹ️ ' + t.naNote
+                      : t.pass === true ? '✅ ' + t.passNote
+                      : t.pass === false ? '❌ ' + t.failNote
+                      : '⏳ 尚未掃描，掃描後顯示';
+  const rfTrees = _rf.trees.map(t => ({
+    name: t.name.replace(' ', '\n'), icon: t.icon, pass: t.pass, na: !!t.na,
+    val: t.condition, sub: t.val, plain: _rfPlain(t),
+  }));
 
   // ── F3. 賈尼別科夫三軸力場判定 ──
   // 第一軸（絕對穩定）：股價接近歷史密集支撐、量縮、波動低、法人接
@@ -51103,27 +51084,31 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
 
   // ── 渲染 RF 5棵樹（5×1 橫排 row）──
   const rfGrid = document.getElementById('rfTreeGrid');
-  if (rfGrid) rfGrid.innerHTML = rfTrees.map(t => `
-    <div class="rf-tree ${t.pass?'pass':'fail'}" style="flex-direction:column;align-items:stretch;gap:2px;padding:4px 9px 5px;">
+  if (rfGrid) rfGrid.innerHTML = rfTrees.map(t => {
+    const st = t.na ? 'warn' : t.pass === true ? 'pass' : t.pass === false ? 'fail' : 'warn';
+    const stTxt = t.na ? 'ℹ️ 參考' : t.pass === true ? '✅ 通過' : t.pass === false ? '❌ 未通過' : '⏳ 待掃描';
+    return `
+    <div class="rf-tree ${st}" style="flex-direction:column;align-items:stretch;gap:2px;padding:4px 9px 5px;">
       <div class="rf-tree-row" style="display:flex;align-items:center;gap:8px;">
         <div class="rf-tree-icon">${t.icon}</div>
         <div class="rf-tree-name">${t.name.replace('\n',' ')}</div>
-        <div class="rf-tree-val">${t.pass?'✅ 通過':'❌ 未通過'}</div>
+        <div class="rf-tree-val">${stTxt}</div>
         <div class="rf-tree-sub">${t.val}</div>
         <div class="rf-tree-sub" style="opacity:.7;margin-left:auto">${t.sub}</div>
       </div>
-      <div class="l2-dim-plain ${t.pass?'down':'neut'}" style="font-size:0.61rem;">${t.plain}</div>
-    </div>`).join('');
+      <div class="l2-dim-plain ${t.pass===true&&!t.na?'down':'neut'}" style="font-size:0.61rem;">${t.plain}</div>
+    </div>`;
+  }).join('');
 
   const rfFill = document.getElementById('rfConfFill');
   if (rfFill) {
     rfFill.style.width = rfConfScore+'%';
-    rfFill.style.background = rfConfScore>=80?'#10B981':rfConfScore>=60?'#F59E0B':'#DC2626';
+    rfFill.style.background = rfConfScore>=67?'#10B981':rfConfScore>=50?'#F59E0B':'#DC2626';
   }
   const rfPctEl = document.getElementById('rfConfPct');
   if (rfPctEl) {
     rfPctEl.textContent = rfConfScore+'%';
-    rfPctEl.style.color = rfConfScore>=80?'#059669':rfConfScore>=60?'#D97706':'#DC2626';
+    rfPctEl.style.color = rfConfScore>=67?'#059669':rfConfScore>=50?'#D97706':'#DC2626';
   }
   // inline-fill 同步更新（rfConfFill 已附加在 inline-bar）
 
@@ -51347,9 +51332,9 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
   //  🌲 RF 多空信心儀表盤深化 渲染
   // ══════════════════════════════════════════════════
   (function renderRfConfPanel() {
-    const bullVotes = [t1,t2,t3,t4,t5].filter(Boolean).length;
-    const bearVotes = 5 - bullVotes;
-    const confScore = Math.round(bullVotes / 5 * 100);
+    const bullVotes = _rf.passCount;
+    const bearVotes = _rf.voters.length - _rf.passCount;
+    const confScore = _rf.confScore;
 
     // 多空票數
     const bullEl = document.getElementById('rfVoteBull');
@@ -51359,39 +51344,25 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
     if (bearEl) bearEl.textContent = bearVotes;
     if (arcEl)  {
       arcEl.textContent = confScore + '%';
-      arcEl.style.color = confScore >= 80 ? '#059669' : confScore >= 60 ? '#D97706' : confScore >= 40 ? '#F59E0B' : '#DC2626';
+      arcEl.style.color = confScore >= 67 ? '#059669' : confScore >= 50 ? '#D97706' : '#DC2626';
     }
 
-    // 5棵樹圓點（對應 t1~t5 通過/失敗）
-    const treeResults = [t1,t2,t3,t4,t5];
-    const treeNames   = ['T1','T2','T3','T4','T5'];
+    // 樹圓點（✓ 通過／✗ 未通過／ℹ 參考不計入／… 尚未掃描）
     const dotsEl = document.getElementById('rfTreeDots');
     if (dotsEl) {
-      dotsEl.innerHTML = treeResults.map((pass, i) =>
-        '<div class="rf-tree-dot ' + (pass ? 'pass' : 'fail') + '" title="' + treeNames[i] + '">'
-        + (pass ? '✓' : '✗') + '</div>'
-      ).join('');
+      dotsEl.innerHTML = _rf.trees.map((t, i) => {
+        const sym = t.na ? 'ℹ' : t.pass === true ? '✓' : t.pass === false ? '✗' : '…';
+        const cls = (!t.na && t.pass === true) ? 'pass' : 'fail';
+        const extra = (t.na || t.pass === null) ? ' style="opacity:.45"' : '';
+        return '<div class="rf-tree-dot ' + cls + '" title="T' + (i+1) + '"' + extra + '>' + sym + '</div>';
+      }).join('');
     }
 
     // 信心等級文字
     const gradeEl = document.getElementById('rfConfGrade');
     if (gradeEl) {
-      let gradeText, gradeCls;
-      if (confScore >= 80) {
-        gradeText = `🚀 隨機森林 AI 信心分數：${confScore}% — 具備高勝率吸籌訊號`;
-        gradeCls  = 'high';
-      } else if (confScore >= 60) {
-        gradeText = `📈 隨機森林 AI 信心分數：${confScore}% — 偏多，條件趨近入場`;
-        gradeCls  = 'mid';
-      } else if (confScore >= 40) {
-        gradeText = `⏳ 隨機森林 AI 信心分數：${confScore}% — 訊號分歧，建議觀望`;
-        gradeCls  = 'mid';
-      } else {
-        gradeText = `⚠️ 隨機森林 AI 信心分數：${confScore}% — 風險極高，警示邊拉邊出`;
-        gradeCls  = 'low';
-      }
-      gradeEl.textContent = gradeText;
-      gradeEl.className   = 'rf-conf-grade ' + gradeCls;
+      gradeEl.textContent = `🌲 條件成立比例：${confScore}%（${_rf.passCount}/${_rf.voters.length} 棵投票樹）— ${_rf.verdict.label}`;
+      gradeEl.className   = 'rf-conf-grade ' + (confScore >= 67 ? 'high' : confScore >= 50 ? 'mid' : 'low');
     }
 
     // ── Signal Bar 升級：補充 L₂ + RF 兩個 Pill ──────────
@@ -51403,9 +51374,9 @@ function renderPhaseDetect(closes, opens, highs, lows, vols, dates,
       const l2Lbl  = l2Norm < 5 ? `L₂ ${l2Norm.toFixed(1)} 安全` : l2Norm < 10 ? `L₂ ${l2Norm.toFixed(1)} 溫和` : l2Norm < 15 ? `L₂ ${l2Norm.toFixed(1)} 偏熱` : `L₂ ${l2Norm.toFixed(1)} 極熱`;
       const l2Icon = l2Norm < 5 ? '🟢' : l2Norm < 10 ? '📐' : l2Norm < 15 ? '🔶' : '🔥';
       // RF 信心 Pill
-      const rfCls  = confScore >= 80 ? 'bull' : confScore >= 60 ? 'info' : confScore >= 40 ? 'warn' : 'bear';
+      const rfCls  = confScore >= 67 ? 'bull' : confScore >= 50 ? 'info' : 'bear';
       const rfLbl  = `RF ${confScore}%`;
-      const rfIcon = confScore >= 80 ? '🚀' : confScore >= 60 ? '🌲' : confScore >= 40 ? '⏳' : '⚠️';
+      const rfIcon = confScore >= 67 ? '🌲' : confScore >= 50 ? '⏳' : '⚠️';
       // 插入到 pills 末尾
       const sep = document.createElement('span');
       sep.className = 'signal-bar-sep';
@@ -77623,7 +77594,8 @@ document.addEventListener('keydown', function _engineEsc(e) {
 /* ────────────────────────────────────────────────────────────────
    🌲 隨機森林 5 棵決策樹投票（RF）
 ──────────────────────────────────────────────────────────────── */
-function _engineContentRF(d, stockName, theme) {
+function _rfCompute(d) {
+  d = d || {};
   const close  = d.closes?.at(-1) ?? null;
   const ma20   = d.lMA20 ?? d.ma20?.at(-1) ?? null;   // aData 欄位是 lMA20 / ma20（陣列），沒有 d.ma
   const K      = d.lK ?? null;
@@ -77724,10 +77696,16 @@ function _engineContentRF(d, stockName, theme) {
     ? { cls:'warn', label:'👀 條件分歧，持續觀察', note:'部分決策樹成立、部分未成立，可等更多條件確認後再判斷' }
     : { cls:'bear', label:'⚠️ 多數條件未成立，謹慎觀望', note:'多數投票樹條件不符，目前不具備明顯的布局特徵' };
 
+  const donutColor = confScore >= 67 ? '#10b981' : confScore >= 50 ? '#f59e0b' : '#ef4444';
+  return { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict, donutColor };
+}
+
+// 隨機森林彈窗內容（主畫面與彈窗共用 _rfCompute 的結果，避免兩邊規則不一致）
+function _engineContentRF(d, stockName, theme) {
+  const { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict, donutColor } = _rfCompute(d);
   const donutPct = Math.min(confScore, 100);
   const circumference = 2 * Math.PI * 26;
   const strokeDash = (donutPct / 100) * circumference;
-  const donutColor = confScore >= 67 ? '#10b981' : confScore >= 50 ? '#f59e0b' : '#ef4444';
 
   const treeRowsHtml = trees.map(t => {
     const cls = t.na ? 'warn' : t.pass === true ? 'pass' : t.pass === false ? 'fail' : 'warn';
