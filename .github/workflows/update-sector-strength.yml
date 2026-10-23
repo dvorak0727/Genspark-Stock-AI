@@ -1,0 +1,36 @@
+name: 更新板塊相對強弱排名
+
+# 台灣時間平日 19:30（收盤資料都更新之後）算一次各小板塊近 20 日相對強弱，輸出 data/sector_strength.json。
+# 沒有 FINMIND_TOKEN 也能跑（免費額度足夠約 100 檔）；有的話會帶上。
+on:
+  schedule:
+    - cron: "30 11 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: 計算板塊強弱
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+        run: python3 scripts/fetch_sector_strength.py
+      - name: 有新資料才提交
+        run: |
+          if [ -n "$(git status --porcelain data/sector_strength.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add data/sector_strength.json
+            git commit -m "資料：板塊相對強弱更新 $(python3 -c "import json;print(json.load(open('data/sector_strength.json'))['as_of'])")"
+            git pull --rebase origin main   # 其他排程也會推送，先對齊再推，避免互搶
+            git push
+          else
+            echo "沒有新資料"
+          fi
