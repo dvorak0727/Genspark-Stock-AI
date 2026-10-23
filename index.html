@@ -52894,6 +52894,30 @@ function renderAI(stockId, info, price, fS, tS, rsi, K, D, hist, ma5, ma20, macd
   document.getElementById('gaugeLabel').textContent  = label;
   document.getElementById('gaugeLabel').style.color  = color;
 
+  // ── 回測後加註：舊版加權評分未經驗證；與隨機森林分歧時明講，避免被「強烈買進 87 分」誤導 ──
+  try {
+    const aiCard = document.getElementById('aiCard');
+    if (aiCard) {
+      let cav = document.getElementById('aiCaveat');
+      if (!cav) {
+        cav = document.createElement('div');
+        cav.id = 'aiCaveat';
+        cav.style.cssText = 'margin:4px 0 8px;padding:6px 10px;border-radius:8px;font-size:0.68rem;line-height:1.5;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.35);color:#92400E;';
+        const t = aiCard.querySelector('.card-title');
+        if (t && t.parentNode) t.parentNode.insertBefore(cav, t.nextSibling); else aiCard.prepend(cav);
+      }
+      let msg = 'ℹ️ <b>舊版加權評分，未經回測驗證</b>：分數是多個條件加總，<b>不是上漲機率</b>；回測顯示多數單一指標的預測力很弱、且會隨時代改變，僅供參考。';
+      if (typeof _rfCompute === 'function' && window.aData && window.aData.closes) {
+        const _r = _rfCompute(window.aData);
+        const _bull = score >= 60, _bear = score < 40;
+        if ((_bull && _r.confScore < 50) || (_bear && _r.confScore >= 67)) {
+          msg += `<br>⚠️ <b>與隨機森林分歧</b>：本評分${_bull ? '偏多' : '偏空'}（${score} 分），但隨機森林條件成立比例為 ${_r.confScore}%（通過 ${_r.passCount}/${_r.voters.length} 棵投票樹）。兩套規則看的條件不同，請看個別條件，不要只看總分。`;
+        }
+      }
+      cav.innerHTML = msg;
+    }
+  } catch (e) { console.warn('[AI建言加註]', e.message); }
+
   const conf = Math.min(95, 50 + Math.abs(score-50));
   document.getElementById('aiConf').textContent   = conf.toFixed(0)+'%';
 
