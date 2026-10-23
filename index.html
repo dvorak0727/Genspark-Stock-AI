@@ -77751,6 +77751,9 @@ function _riskProfile(d) {
     // ATR(14) 佔股價
     const tr = []; for (let i = 1; i < n; i++) tr.push(Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1])));
     const atr = tr.slice(-14).reduce((x, y) => x + y, 0) / 14;
+    const atrPct = atr / last * 100;
+    out.level = atrPct >= 5 ? { label: '很高', color: '#b91c1c' } : atrPct >= 3.5 ? { label: '高', color: '#dc2626' } : atrPct >= 2 ? { label: '中', color: '#b45309' } : { label: '低', color: '#047857' };
+    out.levelAtr = atrPct;
     out.rows.push(['平均一天震盪（ATR14）', `${(atr / last * 100).toFixed(1)}% （約 ${atr.toFixed(atr >= 100 ? 0 : 1)} 元）`, '停損不要設得比平常震盪還近']);
     // 波動與其分位
     const vol20 = sd(r.slice(-20));
@@ -77962,7 +77965,7 @@ function _engineContentRF(d, stockName, theme) {
     ? `<div class="em-section"><div class="em-alert-banner warn"><span style="font-size:1rem;">🗂️</span><div><b>第 2 層・所屬板塊近 20 日強弱</b>（資料至 ${sec.as_of}）<br>${secKeys.map(k => { const v = sec.sectors[k]; return `${v.label}：${v.rank}/${sec.total_sectors} 名，近 20 日 ${_fm(v.ret20)}（全部平均 ${_fm(sec.market_ret20)}）`; }).join('<br>')}<br><span style="opacity:.75">只顯示「資金現在輪到誰」，不計分。回測：板塊強者續強的優勢很小，且主要在 2025-03 之後；板塊名單為手選，僅供參考。</span></div></div></div>`
     : `<div class="em-section"><div class="em-alert-banner warn"><span style="font-size:1rem;">🗂️</span><div>第 2 層・這檔股票不在追蹤的 10 個小板塊名單內，沒有板塊排名。</div></div></div>`) : '';
   const _rp = _riskProfile(d);
-  const riskHtml = _rp.ok ? `<div class="em-section"><div class="em-section-title">🛡️ 風險輪廓（不預測漲跌，只看「判斷錯了會多痛」）</div>
+  const riskHtml = _rp.ok ? `<div class="em-section"><div class="em-section-title">🛡️ 風險輪廓（不預測漲跌，只看「判斷錯了會多痛」）${_rp.level ? ` <span title="依平均一天震盪（ATR14 佔股價）粗分：&lt;2% 低、2～3.5% 中、3.5～5% 高、≥5% 很高。門檻為暫定值，只是粗分，不是統計結論。" style="margin-left:6px;padding:1px 8px;border-radius:10px;font-size:.62rem;font-weight:700;color:#fff;background:${_rp.level.color};">風險等級：${_rp.level.label}（ATR ${_rp.levelAtr.toFixed(1)}%）</span>` : ''}</div>
       <div style="display:grid;grid-template-columns:1fr;gap:4px;font-size:0.68rem;">${_rp.rows.map(r => `<div style="display:flex;gap:8px;justify-content:space-between;padding:4px 8px;border-radius:6px;background:rgba(0,0,0,.03);"><span style="opacity:.8">${r[0]}</span><span style="text-align:right"><b>${r[1]}</b>${r[2] ? `<br><span style="opacity:.65;font-size:.6rem">${r[2]}</span>` : ''}</span></div>`).join('')}</div>
       ${_rp.alerts.length ? `<div class="em-alert-banner bear" style="margin-top:6px;"><span style="font-size:1rem;">⚠️</span><div><b>目前的風險提醒</b><br>${_rp.alerts.map(a => '・' + a).join('<br>')}</div></div>` : `<div style="font-size:.62rem;opacity:.7;margin-top:4px;">目前沒有觸發任何風險提醒。</div>`}
       <div style="font-size:.6rem;opacity:.65;margin-top:4px;">數字是「過去這段期間」的統計，亂流或崩盤時可能不適用；不構成買賣建議。</div></div>` : '';
