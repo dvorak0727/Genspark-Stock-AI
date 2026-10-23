@@ -17620,7 +17620,7 @@ a.module-nav-item.acc-active {
       <!-- ⑥ 可折疊：10日明細表 -->
       <div class="cs-detail-toggle" onclick="toggleCsDetail()">
         <span id="csDetailToggleIcon">▼</span>
-        <span>展開 10 日法人明細表</span>
+        <span>展開法人明細表（近 20 個交易日）</span>
       </div>
       <div class="cs-detail-body" id="csDetailBody">
         <table class="cs-force-table" id="csForceTable">
@@ -17629,7 +17629,7 @@ a.module-nav-item.acc-active {
               <th>日期</th>
               <th>外資(張)</th>
               <th>投信(張)</th>
-              <th>自營(張)</th>
+              <th title="自營＝自行買賣＋避險合計。避險屬造市商的中性對沖，隔日常反向沖銷，不代表看多或看空">自營(張)*</th>
               <th>合計(張)</th>
               <th>家數差</th>
               <th>趨勢</th>
@@ -38781,7 +38781,7 @@ window.renderChipABCDCard = function renderChipABCDCard() {
 
   // ── G. 10日明細表（折疊）＋買賣家數差 ──────────────────────
   const maxAbs = Math.max(...fSeries.map(Math.abs), ...tSeries.map(Math.abs), 1);
-  let cumulF=0, cumulT=0, bullDays=0, bearDays=0, cumulCntDiff=0;
+  let cumulF=0, cumulT=0, bullDays=0, bearDays=0, cumulCntDiff=0, cumulH=0;
   // 計算某日的法人買超家數 vs 賣超家數
   function _dayBSCount(dayMap) {
     // v7.60：共振/家數差只算有方向性意義的三方（外資／投信／自營商自行買賣）
@@ -38799,9 +38799,10 @@ window.renderChipABCDCard = function renderChipABCDCard() {
     const fi = Math.round((instMap[d]?.Foreign_Investor?.net||0)/1000);
     const it = Math.round((instMap[d]?.Investment_Trust?.net||0)/1000);
     const ds = Math.round(((instMap[d]?.Dealer_self?.net||0)+(instMap[d]?.Dealer_Hedging?.net||0))/1000);
+    const dh = Math.round((instMap[d]?.Dealer_Hedging?.net||0)/1000);   // 自營商避險（已含在 ds 內，另外標出來）
     const tot = fi + it + ds;
     const cnt = _dayBSCount(instMap[d]);
-    cumulF += fi; cumulT += it; cumulCntDiff += cnt.diff;
+    cumulF += fi; cumulT += it; cumulCntDiff += cnt.diff; cumulH += dh;
     if(tot>0) bullDays++; else if(tot<0) bearDays++;
     const barW = Math.min(Math.abs(tot)/maxAbs*40, 40);
     const isToday = i === instDays.length-1;
@@ -38810,7 +38811,7 @@ window.renderChipABCDCard = function renderChipABCDCard() {
       <td>${d.slice(5).replace('-','/')}</td>
       <td class="${fi>0?'num-up':fi<0?'num-dn':''}">${fi>0?'+':''}${fi.toLocaleString()}</td>
       <td class="${it>0?'num-up':it<0?'num-dn':''}">${it>0?'+':''}${it.toLocaleString()}</td>
-      <td class="${ds>0?'num-up':ds<0?'num-dn':''}">${ds>0?'+':''}${ds.toLocaleString()}</td>
+      <td class="${ds>0?'num-up':ds<0?'num-dn':''}">${ds>0?'+':''}${ds.toLocaleString()}${dh !== 0 ? `<div style="font-size:0.52rem;font-weight:400;color:var(--fg3);line-height:1;" title="自營商避險：造市商中性對沖，不代表方向">含避險${dh>0?'+':''}${dh.toLocaleString()}</div>` : ''}</td>
       <td class="${tot>0?'num-up':tot<0?'num-dn':''}" style="font-weight:700">${tot>0?'+':''}${tot.toLocaleString()}</td>
       <td class="${cntCls}" style="font-weight:800;text-align:center;">
         ${cnt.diff>0?'+':''}${cnt.diff}
@@ -38822,11 +38823,11 @@ window.renderChipABCDCard = function renderChipABCDCard() {
   if ($('csForceBody')) $('csForceBody').innerHTML = tableRows.join('');
   if ($('csForceSummary')) $('csForceSummary').innerHTML =
     `<div style="font-size:0.72rem;color:var(--fg3);display:flex;gap:10px;flex-wrap:wrap;">
-      <span>外資10日累計：<b style="color:${cumulF>=0?'var(--up)':'var(--down)'}">${cumulF>=0?'+':''}${cumulF.toLocaleString()}張</b></span>
-      <span>投信10日累計：<b style="color:${cumulT>=0?'var(--up)':'var(--down)'}">${cumulT>=0?'+':''}${cumulT.toLocaleString()}張</b></span>
-      <span>家數差累計：<b style="color:${cumulCntDiff>=0?'var(--up)':'var(--down)'}">${cumulCntDiff>=0?'+':''}${cumulCntDiff}家</b></span>
+      <span>外資${instDays.length}日累計：<b style="color:${cumulF>=0?'var(--up)':'var(--down)'}">${cumulF>=0?'+':''}${cumulF.toLocaleString()}張</b></span>
+      <span>投信${instDays.length}日累計：<b style="color:${cumulT>=0?'var(--up)':'var(--down)'}">${cumulT>=0?'+':''}${cumulT.toLocaleString()}張</b></span>
+      <span>家數差累計：<b style="color:${cumulCntDiff>=0?'var(--up)':'var(--down)'}">${cumulCntDiff>=0?'+':''}${cumulCntDiff}家</b></span><span title="自營商避險累計（已含在『自營』欄與『合計』內）">其中自營避險：<b>${cumulH>=0?'+':''}${cumulH.toLocaleString()}張</b></span>
       <span>多方天數：<b style="color:var(--up)">${bullDays}日</b></span>
-      <span>空方天數：<b style="color:var(--down)">${bearDays}日</b></span>
+      <span>空方天數：<b style="color:var(--down)">${bearDays}日</b></span><span style="flex-basis:100%;font-size:0.62rem;line-height:1.5;">* <b>自營買超主要是「避險」類時，不代表方向</b>：自營欄是「自行買賣＋避險」的合計；避險是造市商為對沖權證等部位的中性操作，隔日常反向沖銷，不能解讀成自營商看好或看空。家數差與共振只計外資、投信、自營自行買賣三方。</span>
     </div>`;
 
   // ── H. instNotice（保留給其他地方引用）───────────────
@@ -66223,7 +66224,7 @@ function _scQuickInst(stockId, triggerEl) {
       + '<div class="scqp-inst-bar-item"><div class="scqp-inst-bar-label">自營5日</div><div class="scqp-inst-bar-val ' + cls2(d5) + '">' + fmt(d5) + '張</div></div>'
       + '<div class="scqp-inst-bar-item"><div class="scqp-inst-bar-label">合計5日</div><div class="scqp-inst-bar-val ' + cls2(f5+t5+d5) + '">' + fmt(f5+t5+d5) + '張</div></div>'
     + '</div>'
-    + '<div style="overflow-x:auto;margin-top:6px;"><table class="scqp-inst-table"><thead><tr><th>日期</th><th>外資</th><th>投信</th><th>自營</th><th>合計</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + '<div style="overflow-x:auto;margin-top:6px;"><table class="scqp-inst-table"><thead><tr><th>日期</th><th>外資</th><th>投信</th><th title="自營＝自行買賣＋避險合計；避險為造市商中性對沖，不代表看多或看空">自營*</th><th>合計</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
     + '<button class="scqp-goto-btn" onclick="quickSearchScroll(\'' + stockId + '\',\'csCard\')">&#x1F50D; 進入 ' + info.name + ' 完整籌碼分析 ↓</button>'
     + '</div>';
 
