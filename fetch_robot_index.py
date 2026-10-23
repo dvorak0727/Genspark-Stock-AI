@@ -47,6 +47,11 @@ def fetch_robo():
         print("[警告] 沒有回傳資料", file=sys.stderr)
         return None
     meta = result[0]["meta"]
+    # chartPreviousClose 是「查詢區間(range=5d)開始前」的收盤，不是昨天，直接拿來算會變成5日漲跌；
+    # 改用日線收盤序列的倒數第二筆當前收，才是單日漲跌（鐵礦砂腳本本來就是這樣算）
+    _cl = [c for c in (result[0].get("indicators", {}).get("quote", [{}])[0].get("close") or []) if c is not None]
+    if len(_cl) >= 2:
+        meta["chartPreviousClose"] = _cl[-2]
     price, prev_close = meta.get("regularMarketPrice"), meta.get("chartPreviousClose")
     if price is None or prev_close is None:
         return None
