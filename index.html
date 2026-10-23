@@ -77684,7 +77684,15 @@ function _loadMarketRegime(force) {
       const ma20 = ma(c, 20, last), ma20p = ma(c, 20, last - 10), ma60 = ma(c, 60, last);
       const slope = ma20 / ma20p - 1;
       const label = (c[last] > ma60 && slope > 0.01) ? '上升' : (c[last] < ma60 && slope < -0.01) ? '下降' : '盤整';
-      window._marketRegime = { label, close: c[last], ma60, slope, asOf: rows[rows.length - 1].date };
+      // 加權指數日線（日期→收盤）與大盤近 20 日波動／分位，供「風險輪廓」使用
+      const series = {};
+      rows.forEach(r => { if (+r.close > 0) series[r.date] = +r.close; });
+      const rr = []; for (let i = 1; i < c.length; i++) rr.push(c[i] / c[i - 1] - 1);
+      const sd = a => { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) * (y - m), 0) / (a.length - 1)); };
+      const vols = []; for (let i = 20; i <= rr.length; i++) vols.push(sd(rr.slice(i - 20, i)));
+      const mktVol20 = vols.length ? vols[vols.length - 1] : null;
+      const mktVolPct = vols.length > 30 ? vols.filter(v => v < mktVol20).length / vols.length : null;
+      window._marketRegime = { label, close: c[last], ma60, slope, asOf: rows[rows.length - 1].date, series, mktVol20, mktVolPct };
       return window._marketRegime;
     } catch (e) { console.warn('[盤態] 載入失敗', e.message); return null; }
   })();
@@ -77727,6 +77735,79 @@ function _loadSectorStrength() {
   return _sectorStrengthPromise;
 }
 try { setTimeout(() => { _loadUSOvernight(); _loadSectorStrength(); }, 2500); } catch (e) {}
+
+/* ────────────────────────────────────────────────────────────────
+   🛡️ 風險輪廓（第一版）：不預測漲跌，只回答「如果判斷錯了或遇到亂流，這檔股票會多痛」
+   全部由個股日線／法人／融資與加權指數日線算出；數字是「過去這段期間」的統計，亂流時可能不適用。
+──────────────────────────────────────────────────────────────── */
+function _riskProfile(d) {
+  const out = { rows: [], alerts: [], ok: false };
+  try {
+    const c = d.closes, h = d.highs, l = d.lows, v = d.vols, dt = d.dates;
+    if (!Array.isArray(c) || c.length < 30 || !Array.isArray(h) || !Array.isArray(l)) return out;
+    const n = c.length, last = c[n - 1];
+    const sd = a => { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) * (y - m), 0) / (a.length - 1)); };
+    const r = []; for (let i = 1; i < n; i++) r.push(c[i] / c[i - 1] - 1);
+    // ATR(14) 佔股價
+    const tr = []; for (let i = 1; i < n; i++) tr.push(Math.max(h[i] - l[i], Math.abs(h[i] - c[i - 1]), Math.abs(l[i] - c[i - 1])));
+    const atr = tr.slice(-14).reduce((x, y) => x + y, 0) / 14;
+    out.rows.push(['平均一天震盪（ATR14）', `${(atr / last * 100).toFixed(1)}% （約 ${atr.toFixed(atr >= 100 ? 0 : 1)} 元）`, '停損不要設得比平常震盪還近']);
+    // 波動與其分位
+    const vol20 = sd(r.slice(-20));
+    const rolling = []; for (let i = 20; i <= r.length; i++) rolling.push(sd(r.slice(i - 20, i)));
+    const pct = rolling.length > 30 ? rolling.filter(x => x < vol20).length / rolling.length : null;
+    const longEnough = rolling.length >= 100;     // 窗口太短時分位會失真（容易把「比最近平靜期高」誤判成「偏高」）
+    out.rows.push(['近 20 日波動', `${(vol20 * 100).toFixed(2)}%` + (pct != null ? `（在近 ${rolling.length} 個交易日中位於 ${Math.round(pct * 100)}% 分位）` : ''),
+      pct == null ? '' : !longEnough ? '資料天數較短，分位參考性有限' : pct >= 0.8 ? '波動偏高' : pct <= 0.2 ? '目前偏平靜，過低之後可能放大' : '']);
+    if (pct != null && longEnough && pct >= 0.8) out.alerts.push('波動偏高（近 20 日波動位於高分位），同樣的部位會有較大的起伏。');
+    // 距高點、最大單日跌幅
+    const hi60 = Math.max(...c.slice(-60));
+    out.rows.push(['距近 60 日高點', `${((last / hi60 - 1) * 100).toFixed(1)}%`, '']);
+    const worst = Math.min(...r.slice(-60));
+    out.rows.push(['近 60 日最大單日跌幅', `${(worst * 100).toFixed(1)}%`, '']);
+    // 流動性（20 日均成交值，億元）
+    if (Array.isArray(v) && v.length >= 20) {
+      const tv = v.slice(-20).map((x, i) => x * c[n - 20 + i]).reduce((x, y) => x + y, 0) / 20 / 1e8;
+      out.rows.push(['20 日均成交值', `${tv.toFixed(tv >= 10 ? 0 : 1)} 億元`, tv < 1 ? '成交值偏低，進出可能有滑價' : '']);
+      if (tv < 1) out.alerts.push('成交值偏低（20 日均不到 1 億元），進出場可能有較大滑價。');
+    }
+    // 大盤大跌日的抗跌程度（需要加權指數日線）
+    const mr = window._marketRegime;
+    if (mr && mr.series && Array.isArray(dt)) {
+      const downs = [], mkts = [];
+      for (let i = 1; i < n; i++) {
+        const m0 = mr.series[dt[i - 1]], m1 = mr.series[dt[i]];
+        if (m0 > 0 && m1 > 0 && (m1 / m0 - 1) <= -0.01) { downs.push(c[i] / c[i - 1] - 1); mkts.push(m1 / m0 - 1); }
+      }
+      if (downs.length >= 4) {
+        const a = downs.reduce((x, y) => x + y, 0) / downs.length, b = mkts.reduce((x, y) => x + y, 0) / mkts.length;
+        out.rows.push([`加權指數單日跌逾 1% 時（${downs.length} 次）`, `此股平均 ${(a * 100).toFixed(2)}%，同期大盤 ${(b * 100).toFixed(2)}%`, '大盤指加權指數（台積電等權值股占比高）；抗跌程度只反映這段期間，崩盤時不保證']);
+      } else {
+        out.rows.push(['加權指數單日跌逾 1% 時', `樣本只有 ${downs.length} 次，不足以判斷`, '']);
+      }
+    }
+    if (mr && mr.mktVol20 != null) {
+      out.rows.push(['大盤近 20 日波動', `${(mr.mktVol20 * 100).toFixed(2)}%` + (mr.mktVolPct != null ? `（近半年 ${Math.round(mr.mktVolPct * 100)}% 分位）` : ''), mr.mktVolPct != null && mr.mktVolPct >= 0.8 ? '市場波動偏高' : '']);
+      if (mr.mktVolPct != null && mr.mktVolPct >= 0.8) out.alerts.push('大盤波動偏高（近半年高分位），市場環境較不穩定。');
+    }
+    // 警示（事實）
+    const fS = d.fSeries, tS = d.tSeries;
+    const negStreak = a => { let k = 0; for (let i = a.length - 1; i >= 0 && a[i] < 0; i--) k++; return k; };
+    if (Array.isArray(fS) && negStreak(fS) >= 3) out.alerts.push(`外資連續賣超 ${negStreak(fS)} 日。回測：外資重賣後，之後 5 日繼續賣超的機率偏高（約 74%），且之後 10～20 日相對大盤偏弱。`);
+    if (Array.isArray(tS) && negStreak(tS) >= 3) out.alerts.push(`投信連續賣超 ${negStreak(tS)} 日。`);
+    if (Array.isArray(d.marginBal) && d.marginBal.length >= 6 && d.marginBal.at(-1) > 0 && d.marginBal.at(-6) > 0) {
+      const ch = d.marginBal.at(-1) / d.marginBal.at(-6) - 1;
+      if (ch > 0.05) out.alerts.push(`融資餘額 5 日增加 ${(ch * 100).toFixed(1)}%，下跌時可能有融資斷頭賣壓。`);
+    }
+    const ma20 = d.lMA20 ?? (d.ma20 && d.ma20.at(-1));
+    if (ma20 > 0) {
+      if (last < ma20) out.alerts.push(`收盤低於月線（MA20 ${ma20.toFixed(1)}），短線結構偏弱。`);
+      else out.rows.push(['距月線（MA20）', `${((last / ma20 - 1) * 100).toFixed(1)}%`, '']);
+    }
+    out.ok = true;
+  } catch (e) { console.warn('[風險輪廓]', e.message); }
+  return out;
+}
 
 // 前一夜綜合強弱 → 歷史上台股平均開盤跳空（回測五等分；台股整體平均，個股差異很大）
 function _usGapHint(comp) {
@@ -77880,6 +77961,11 @@ function _engineContentRF(d, stockName, theme) {
   const secHtml = (sec && sec.sectors) ? (secKeys.length
     ? `<div class="em-section"><div class="em-alert-banner warn"><span style="font-size:1rem;">🗂️</span><div><b>第 2 層・所屬板塊近 20 日強弱</b>（資料至 ${sec.as_of}）<br>${secKeys.map(k => { const v = sec.sectors[k]; return `${v.label}：${v.rank}/${sec.total_sectors} 名，近 20 日 ${_fm(v.ret20)}（全部平均 ${_fm(sec.market_ret20)}）`; }).join('<br>')}<br><span style="opacity:.75">只顯示「資金現在輪到誰」，不計分。回測：板塊強者續強的優勢很小，且主要在 2025-03 之後；板塊名單為手選，僅供參考。</span></div></div></div>`
     : `<div class="em-section"><div class="em-alert-banner warn"><span style="font-size:1rem;">🗂️</span><div>第 2 層・這檔股票不在追蹤的 10 個小板塊名單內，沒有板塊排名。</div></div></div>`) : '';
+  const _rp = _riskProfile(d);
+  const riskHtml = _rp.ok ? `<div class="em-section"><div class="em-section-title">🛡️ 風險輪廓（不預測漲跌，只看「判斷錯了會多痛」）</div>
+      <div style="display:grid;grid-template-columns:1fr;gap:4px;font-size:0.68rem;">${_rp.rows.map(r => `<div style="display:flex;gap:8px;justify-content:space-between;padding:4px 8px;border-radius:6px;background:rgba(0,0,0,.03);"><span style="opacity:.8">${r[0]}</span><span style="text-align:right"><b>${r[1]}</b>${r[2] ? `<br><span style="opacity:.65;font-size:.6rem">${r[2]}</span>` : ''}</span></div>`).join('')}</div>
+      ${_rp.alerts.length ? `<div class="em-alert-banner bear" style="margin-top:6px;"><span style="font-size:1rem;">⚠️</span><div><b>目前的風險提醒</b><br>${_rp.alerts.map(a => '・' + a).join('<br>')}</div></div>` : `<div style="font-size:.62rem;opacity:.7;margin-top:4px;">目前沒有觸發任何風險提醒。</div>`}
+      <div style="font-size:.6rem;opacity:.65;margin-top:4px;">數字是「過去這段期間」的統計，亂流或崩盤時可能不適用；不構成買賣建議。</div></div>` : '';
   const regimeHtml = regime ? `<div class="em-section"><div class="em-alert-banner ${regime.label === '下降' ? 'bear' : regime.label === '上升' ? 'bull' : 'warn'}"><span style="font-size:1rem;">🧭</span><div><b>大盤盤態：${regime.label}盤</b>（加權指數 ${Math.round(regime.close).toLocaleString()}，${regime.close > regime.ma60 ? '高於' : '低於'}季線，月線 10 日斜率 ${(regime.slope*100).toFixed(1)}%，資料至 ${regime.asOf}）<br>${regime.label === '上升' ? '回測：上升盤中順勢訊號（站上均線、創新高）相對偏正；KD 低檔、RSI&lt;30 這類抄底訊號偏負。' : regime.label === '下降' ? '回測：下降盤中順勢訊號相對偏負，T1 暫不計入；抄底訊號略偏正，但樣本少、不穩定。' : '回測：盤整盤中多數指標優勢不明顯，抄底訊號偏負。'}<br><span style="opacity:.75">盤態判斷有落後，門檻為暫定值，僅供參考。</span></div></div></div>` : '';
   const donutPct = Math.min(confScore, 100);
   const circumference = 2 * Math.PI * 26;
@@ -77914,6 +78000,7 @@ function _engineContentRF(d, stockName, theme) {
       ${usHtml}
       ${secHtml}
       ${regimeHtml}
+      ${riskHtml}
 
       <!-- 信心分數 Donut -->
       <div class="em-score-wrap">
