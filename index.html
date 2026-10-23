@@ -65690,6 +65690,20 @@ function _isTodayBlowoff(candles) {
   return candles.vols.at(-1) / avgVol >= 1.8;
 }
 
+// 卡片「法人連買 N 日」顯示用：從掃描抓回的法人原始資料，往前最多看 20 個交易日數連續買超天數。
+// 只影響「顯示」；各掃描模式的評分仍維持原本的 10 日窗口（評分門檻是依 10 日設計的，不能跟著改）。
+const _SC_STREAK_WINDOW = 20;
+function _scInstStreak(r) {
+  try {
+    if (!r || !Array.isArray(r._instRaw) || !r._instRaw.length) return null;
+    const instMap = buildInstMap(r._instRaw);
+    const days = Object.keys(instMap).sort().slice(-_SC_STREAK_WINDOW);
+    if (!days.length) return null;
+    const cnt = key => { let n = 0; for (let i = days.length - 1; i >= 0; i--) { if ((instMap[days[i]]?.[key]?.net || 0) > 0) n++; else break; } return n; };
+    return { f: cnt('Foreign_Investor'), t: cnt('Investment_Trust'), capped: days.length >= _SC_STREAK_WINDOW, win: days.length };
+  } catch (e) { return null; }
+}
+
 function renderScreenerCards(showStats=false) {
   if (!_screenerResults.length) return;
 
@@ -65868,11 +65882,14 @@ function renderScreenerCards(showStats=false) {
         instBadge = `<span class="sc-inst-badge mild sc-quick-btn" onclick="_scQuickBroker('${r.stockId}', this)" title="點擊展開主力分點熱力圖">📦 連買${_streak}日 ▾</span>`;
       }
     } else {
-      const maxCons = Math.max(r.fCons||0, r.tCons||0);
+      const _ls = _scInstStreak(r);   // 連買天數改看近 20 日（原本只看近 10 日，最多顯示到 10）
+      const maxCons = _ls ? Math.max(_ls.f, _ls.t) : Math.max(r.fCons||0, r.tCons||0);
+      const _consTxt = (_ls && _ls.capped && maxCons >= _ls.win) ? `${maxCons}日以上` : `${maxCons}日`;
+      const _consTip = _ls ? `連買天數以近 ${_ls.win} 個交易日計算；下方展開面板仍顯示近 10 日明細` : '點擊展開三大法人籌碼';
       instBadge = maxCons >= 3
-        ? `<span class="sc-inst-badge strong sc-quick-btn" onclick="_scQuickInst('${r.stockId}', this)" title="點擊展開三大法人籌碼">🐋 法人連買${maxCons}日 ▾</span>`
+        ? `<span class="sc-inst-badge strong sc-quick-btn" onclick="_scQuickInst('${r.stockId}', this)" title="${_consTip}">🐋 法人連買${_consTxt} ▾</span>`
         : maxCons >= 1
-          ? `<span class="sc-inst-badge mild sc-quick-btn" onclick="_scQuickInst('${r.stockId}', this)" title="點擊展開三大法人籌碼">📦 連買${maxCons}日 ▾</span>`
+          ? `<span class="sc-inst-badge mild sc-quick-btn" onclick="_scQuickInst('${r.stockId}', this)" title="${_consTip}">📦 連買${_consTxt} ▾</span>`
           : '';
     }
 
