@@ -77619,6 +77619,38 @@ document.addEventListener('keydown', function _engineEsc(e) {
 /* ────────────────────────────────────────────────────────────────
    🌲 隨機森林 5 棵決策樹投票（RF）
 ──────────────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────
+   🧭 市場盤態（用加權指數 TAIEX 判斷：上升／盤整／下降）
+   回測（2021-06~2026-10，116 檔）：順勢類訊號（站上 MA20、創新高、KD/RSI 高值）在上升盤偏正、在下降盤偏負；
+   KD 低檔、RSI<30 這類抄底訊號在上升／盤整盤偏負。盤態判斷有落後，門檻為暫定值，僅供參考。
+   定義：收盤 > MA60 且 MA20 的 10 日斜率 > +1% → 上升；收盤 < MA60 且斜率 < -1% → 下降；其餘 → 盤整。
+──────────────────────────────────────────────────────────────── */
+window._marketRegime = window._marketRegime || null;
+let _marketRegimePromise = null;
+function _loadMarketRegime(force) {
+  if (_marketRegimePromise && !force) return _marketRegimePromise;
+  _marketRegimePromise = (async () => {
+    try {
+      const end = new Date(), start = new Date(); start.setDate(start.getDate() - 200);
+      const fmt = x => x.toISOString().split('T')[0];
+      const res = await fetch(`https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPrice&data_id=TAIEX&start_date=${fmt(start)}&end_date=${fmt(end)}&token=`);
+      const json = await res.json();
+      const rows = (json.data || []).sort((a, b) => a.date > b.date ? 1 : -1);
+      const c = rows.map(r => +r.close).filter(v => v > 0);
+      if (c.length < 71) return null;
+      const ma = (arr, n, end0) => arr.slice(end0 - n + 1, end0 + 1).reduce((a, b) => a + b, 0) / n;
+      const last = c.length - 1;
+      const ma20 = ma(c, 20, last), ma20p = ma(c, 20, last - 10), ma60 = ma(c, 60, last);
+      const slope = ma20 / ma20p - 1;
+      const label = (c[last] > ma60 && slope > 0.01) ? '上升' : (c[last] < ma60 && slope < -0.01) ? '下降' : '盤整';
+      window._marketRegime = { label, close: c[last], ma60, slope, asOf: rows[rows.length - 1].date };
+      return window._marketRegime;
+    } catch (e) { console.warn('[盤態] 載入失敗', e.message); return null; }
+  })();
+  return _marketRegimePromise;
+}
+try { setTimeout(() => _loadMarketRegime(), 1500); } catch (e) {}
+
 function _rfCompute(d) {
   d = d || {};
   const close  = d.closes?.at(-1) ?? null;
@@ -77664,14 +77696,19 @@ function _rfCompute(d) {
     if (m0 > 0 && m10 > 0) isFlat = Math.abs(m0 / m10 - 1) < 0.015 && rng < 0.12;
   }
 
+  const regimeLabel = window._marketRegime ? window._marketRegime.label : null;   // 上升／盤整／下降／null(尚未載入)
+
   // 決策樹（na:true = 不計入投票，僅供參考）
   const trees = [
     {
       name: 'Tree_1 趨勢樹',
       icon: '📈',
       condition: '現價 > MA20（月線支撐有效）',
-      pass: (close != null && ma20 != null) ? close >= ma20 : null,
-      val:  (close != null && ma20 != null) ? `收盤 ${close.toFixed(1)} vs MA20 ${ma20.toFixed(1)}` : '資料載入中',
+      na: regimeLabel === '下降',
+      pass: regimeLabel === '下降' ? null : ((close != null && ma20 != null) ? close >= ma20 : null),
+      val:  regimeLabel === '下降' ? '下降盤・不計入'
+            : (close != null && ma20 != null) ? `收盤 ${close.toFixed(1)} vs MA20 ${ma20.toFixed(1)}` : '資料載入中',
+      naNote: '目前大盤為下降盤。回測顯示下降盤中「站上 MA20」這類順勢訊號的相對表現偏負（與上升盤相反），因此暫不計入投票',
       failNote: '現價低於月線，趨勢結構偏弱，大戶吸籌意願降低',
       passNote: '站穩月線，中線結構完整，趨勢樹判多',
     },
@@ -77740,12 +77777,14 @@ function _rfCompute(d) {
   const verdictOut = voters.length < 3
     ? { ...verdict, note: verdict.note + `（目前僅 ${voters.length} 棵樹可判斷，分數參考性低）` }
     : verdict;
-  return { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict: verdictOut, donutColor };
+  return { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict: verdictOut, donutColor, regime: window._marketRegime || null };
 }
 
 // 隨機森林彈窗內容（主畫面與彈窗共用 _rfCompute 的結果，避免兩邊規則不一致）
 function _engineContentRF(d, stockName, theme) {
-  const { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict, donutColor } = _rfCompute(d);
+  const { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict, donutColor, regime } = _rfCompute(d);
+  if (!regime) { try { _loadMarketRegime().then(r => { if (r && document.getElementById('engineModalOverlay')?.classList.contains('open') && typeof _showEngineModal === 'function' && window._engineCurrentState?.type === 'rf') _showEngineModal('rf'); }); } catch (e) {} }
+  const regimeHtml = regime ? `<div class="em-section"><div class="em-alert-banner ${regime.label === '下降' ? 'bear' : regime.label === '上升' ? 'bull' : 'warn'}"><span style="font-size:1rem;">🧭</span><div><b>大盤盤態：${regime.label}盤</b>（加權指數 ${Math.round(regime.close).toLocaleString()}，${regime.close > regime.ma60 ? '高於' : '低於'}季線，月線 10 日斜率 ${(regime.slope*100).toFixed(1)}%，資料至 ${regime.asOf}）<br>${regime.label === '上升' ? '回測：上升盤中順勢訊號（站上均線、創新高）相對偏正；KD 低檔、RSI&lt;30 這類抄底訊號偏負。' : regime.label === '下降' ? '回測：下降盤中順勢訊號相對偏負，T1 暫不計入；抄底訊號略偏正，但樣本少、不穩定。' : '回測：盤整盤中多數指標優勢不明顯，抄底訊號偏負。'}<br><span style="opacity:.75">盤態判斷有落後，門檻為暫定值，僅供參考。</span></div></div></div>` : '';
   const donutPct = Math.min(confScore, 100);
   const circumference = 2 * Math.PI * 26;
   const strokeDash = (donutPct / 100) * circumference;
@@ -77775,6 +77814,8 @@ function _engineContentRF(d, stockName, theme) {
       <div class="em-subtitle">
         ${stockName} · 多棵決策樹 → 布林投票（部分僅供參考）→ 條件成立比例
       </div>
+
+      ${regimeHtml}
 
       <!-- 信心分數 Donut -->
       <div class="em-score-wrap">
