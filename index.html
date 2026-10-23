@@ -65762,7 +65762,7 @@ function renderScreenerCards(showStats=false) {
       _modeNote = `<div class="sc-etf-note">ℹ️ <b>只描述今天買盤主動</b>：回測（10 檔大型股、約一年）顯示外盤強勢後 1～5 天相對大盤沒有優勢，甚至略差，不宜單獨當進場理由。僅供參考。</div>`;
     } else if (_curMode === 'chippure' && r.score >= _th3) {
       verdict = `🟡 籌碼淨化條件成立（${r.score}/5）`; verdictCls = 'mid';
-      _modeNote = `<div class="sc-etf-note">ℹ️ <b>量價與法人買賣超的條件組合</b>：沒有使用真實融資與券商分點。回測（前 50 大、2021～2026）顯示此評分 ≥ 3 之後 10～20 日相對大盤沒有優勢，分數越高並沒有越好，僅供篩選參考，不是進場訊號。</div>`;
+      _modeNote = `<div class="sc-etf-note">ℹ️ <b>量價與法人買賣超的條件組合</b>：沒有使用真實融資與券商分點。回測（前 50 大、2021～2026）顯示此評分 ≥ 3 之後 10～20 日相對大盤沒有優勢，分數越高並沒有越好，僅供篩選參考，不是進場訊號。<br>🏷️ 「今日 K 棒＋量」標籤：依最後一根 K 棒實體（收盤>開盤＝紅）與量（≤近 15 日均量 0.7 倍＝量縮、≤0.5 倍＝極縮）判斷；回測：紅K＋量縮略優於綠K＋量縮，差距小（約 0.1～0.4%）且不顯著，僅描述。</div>`;
     } else if (_curMode === 'etfFlow') {
       const _nBuy = (r._etfFlowBuyers || []).length;
       const _f5 = (typeof r.f5 === 'number') ? r.f5 : null;
@@ -65895,6 +65895,30 @@ function renderScreenerCards(showStats=false) {
           : '';
     }
 
+    // ── 籌碼淨化專用：「今日 K 棒顏色 × 量縮」標籤（使用者第一步篩選會看的條件）──
+    // 判斷基準與迷你 K 線的量柱一致：量 ≤ 近 15 日均量 0.7 倍＝灰色量縮、≤ 0.5 倍＝極縮；K 棒實體 收盤>開盤＝紅（台股）
+    let kvTagHtml = '';
+    if (_curMode === 'chippure' && r.candles && Array.isArray(r.candles.closes) && Array.isArray(r.candles.vols) && r.candles.closes.length >= 5) {
+      const _cc = r.candles, _n = _cc.closes.length;
+      const _c = _cc.closes[_n - 1], _o = (_cc.opens && _cc.opens[_n - 1] != null) ? _cc.opens[_n - 1] : _c, _v = _cc.vols[_n - 1];
+      const _avg = _cc.vols.reduce((a, b) => a + (b || 0), 0) / _n;
+      if (_avg > 0 && _v != null) {
+        const _ratio = _v / _avg, _shrink = _ratio <= 0.7, _ext = _ratio <= 0.5;
+        const _kind = _c > _o ? 'red' : _c < _o ? 'green' : 'flat';
+        let _txt, _st;
+        if (_shrink) {
+          const vt = _ext ? '極縮量' : '量縮';
+          if (_kind === 'red')        { _txt = `🔴 紅K＋${vt}`;  _st = 'background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5;'; }
+          else if (_kind === 'green') { _txt = `🟢 綠K＋${vt}`;  _st = 'background:#DCFCE7;color:#166534;border:1px solid #86EFAC;'; }
+          else                        { _txt = `⚪ 十字＋${vt}`;  _st = 'background:#F1F5F9;color:#475569;border:1px solid #CBD5E1;'; }
+        } else {
+          _txt = '量未縮'; _st = 'background:var(--surface2);color:var(--fg3);border:1px solid var(--border);';
+        }
+        const _tip = `今日量為近 ${_n} 日均量的 ${_ratio.toFixed(2)} 倍（≤0.7 倍＝量縮、≤0.5 倍＝極縮）。回測：紅K＋量縮略優於綠K＋量縮，差距小且不顯著，僅描述，不是進場訊號`;
+        kvTagHtml = `<span class="sc-bias-badge" style="${_st}" title="${_tip}">${_txt}</span>`;
+      }
+    }
+
     // ── v5.69 MA20 乖離率標籤 ──
     const ma20Val = r.lMA20 || 0;
     const biasVal = ma20Val > 0 ? ((r.lc - ma20Val) / ma20Val * 100) : null;
@@ -65959,7 +65983,7 @@ function renderScreenerCards(showStats=false) {
             &nbsp;
             <span class="sc-chg" data-rt-chg="${r.stockId}" style="color:${up?'var(--up)':'var(--down)'};">${r.lc > 0 ? (up?'▲':'▼') + Math.abs(r.chgPct).toFixed(1) + '%' : ''}</span>
           </div>
-          <div class="sc-badges-row">${instBadge}${biasBadge}${bottomBadgeHtml}${volPriceBadgeHtml}${blowoffBadgeHtml}${gapBadgeHtml}</div>
+          <div class="sc-badges-row">${instBadge}${biasBadge}${kvTagHtml}${bottomBadgeHtml}${volPriceBadgeHtml}${blowoffBadgeHtml}${gapBadgeHtml}</div>
           <div class="sc-industry">${info.industry}</div>
         </div>
       </div>
