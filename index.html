@@ -57866,7 +57866,7 @@ const _idxBorderLegendHtml = `
       <div style="margin-bottom:3px;">🌍 板塊＝該股所屬板塊今日代表股平均漲跌幅（非資金流向，要先去「板塊」分頁載入過一次）</div>
       <div style="margin-bottom:3px;">🐋 千張大戶＝最新一週籌碼趨勢</div>
       <div style="margin-bottom:3px;">📊 月營收YoY＝真實基本面數字，紅字成長綠字衰退，跟排名位置無關（51~65是想擠進50大，不代表體質差）</div>
-      <div style="margin-bottom:3px;">🧠🖥️🚢🛢️⛏️✈️🔶💰💻🤖🔋🧬🔬📡🌡️🧵 報價偵測＝記憶體股/伺服器筆電組裝股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌、航空股比對油價(燃油成本，方向跟塑化股相反)、PCB股比對國際銅價漲跌、金融股比對黃金+美10年債殖利率、半導體股(不含記憶體)比對SOX指數+NVDA/SMCI、機器人相關股比對ROBO ETF、汽車股比對LIT鋰電池ETF、生技股比對NBI生技指數、CPO矽光子股比對COHR股價、電信股比對美10年債殖利率(方向跟金融股相反)、散熱/機殼/滑軌/被動元件等AI伺服器供應鏈股比對NVDA/SMCI(需求端領先指標)、紡織股比對棉花期貨(上游原料成本)。產業領先指標，比股價更早反映景氣；水泥查無合理公開指標，暫不做。</div>
+      <div style="margin-bottom:3px;">🧠🖥️🚢🛢️⛏️✈️🔶💰💻🤖🔋🧬🔬📡🌡️🧵 報價偵測＝記憶體股/伺服器筆電組裝股比對DRAM現貨均價、面板股比對面板均價月增、海運股比對SCFI運價指數週漲跌、塑化股比對國際油價(WTI+Brent)漲跌、鋼鐵股比對國際鐵礦砂期貨漲跌、航空股比對油價(燃油成本，方向跟塑化股相反)、PCB股比對國際銅價漲跌、金融股比對黃金+美10年債殖利率、半導體股(不含記憶體)比對SOX指數單日漲跌（欄位只顯示SOX；NVDA/SMCI放在滑鼠提示內參考）、機器人相關股比對ROBO ETF、汽車股比對LIT鋰電池ETF、生技股比對NBI生技指數、CPO矽光子股比對COHR股價、電信股比對美10年債殖利率(方向跟金融股相反)、散熱/機殼/滑軌/被動元件等AI伺服器供應鏈股比對NVDA/SMCI(需求端領先指標)、紡織股比對棉花期貨(上游原料成本)。產業領先指標，比股價更早反映景氣；水泥查無合理公開指標，暫不做。</div>
       <div style="margin-bottom:3px;">報價數字後面會直接標文字「有利／不利／無影響」，不用再自己判斷這個報價對該股是好是壞；「無影響」代表這個指標對該股的方向本來就因股而異（例如金融股同時受金價+利率雙重影響），不強行下定論。查不到資料或這類股沒有對應指標時，一律誠實標「無資料」，不留空白。</div>
       <div style="margin-bottom:3px;">🏦 分點＝點擊才查、最近一個交易日量最大分點買賣超</div>
       <div>板塊看的是整體板塊動能、分點看的是這一檔個股的籌碼，兩者是不同層級，可能互相背離，今日漲跌只是參考，這幾個訊號才是複合判斷的重點。</div>
@@ -58746,7 +58746,7 @@ async function annotatePriceRadar(list) {
         nvda ? `NVDA ${nvda.change_pct>0?'+':''}${nvda.change_pct}%` : null,
         smci ? `SMCI ${smci.change_pct>0?'+':''}${smci.change_pct}%` : null,
       ].filter(Boolean).join('／');
-      el.title = `費城半導體指數(SOX)${sox.date}漲跌${sox.change_pct>0?'+':''}${sox.change_pct}%（${sox.prev_close}→${sox.price}點${extra?'；'+extra:''}，資料源：Yahoo Finance）——SOX是全球半導體景氣最重要領先指標，台灣半導體股與SOX相關係數通常較高`;
+      el.title = `此欄顯示費城半導體指數(SOX，單一指數，不含NVDA/SMCI)${sox.date}單日漲跌${sox.change_pct>0?'+':''}${sox.change_pct}%（前一交易日收盤${sox.prev_close}→${sox.price}點${extra?'；參考 '+extra:''}，資料源：Yahoo Finance）——SOX是全球半導體景氣最重要領先指標，台灣半導體股與SOX相關係數通常較高`;
     });
   }
 
