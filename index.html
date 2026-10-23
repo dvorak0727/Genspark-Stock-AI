@@ -77756,8 +77756,10 @@ function _riskProfile(d) {
     const vol20 = sd(r.slice(-20));
     const rolling = []; for (let i = 20; i <= r.length; i++) rolling.push(sd(r.slice(i - 20, i)));
     const pct = rolling.length > 30 ? rolling.filter(x => x < vol20).length / rolling.length : null;
-    out.rows.push(['近 20 日波動', `${(vol20 * 100).toFixed(2)}%` + (pct != null ? `（在近 ${rolling.length} 個交易日中位於 ${Math.round(pct * 100)}% 分位）` : ''), pct != null && pct >= 0.8 ? '波動偏高' : pct != null && pct <= 0.2 ? '目前偏平靜，過低之後可能放大' : '']);
-    if (pct != null && pct >= 0.8) out.alerts.push('波動偏高（近 20 日波動位於高分位），同樣的部位會有較大的起伏。');
+    const longEnough = rolling.length >= 100;     // 窗口太短時分位會失真（容易把「比最近平靜期高」誤判成「偏高」）
+    out.rows.push(['近 20 日波動', `${(vol20 * 100).toFixed(2)}%` + (pct != null ? `（在近 ${rolling.length} 個交易日中位於 ${Math.round(pct * 100)}% 分位）` : ''),
+      pct == null ? '' : !longEnough ? '資料天數較短，分位參考性有限' : pct >= 0.8 ? '波動偏高' : pct <= 0.2 ? '目前偏平靜，過低之後可能放大' : '']);
+    if (pct != null && longEnough && pct >= 0.8) out.alerts.push('波動偏高（近 20 日波動位於高分位），同樣的部位會有較大的起伏。');
     // 距高點、最大單日跌幅
     const hi60 = Math.max(...c.slice(-60));
     out.rows.push(['距近 60 日高點', `${((last / hi60 - 1) * 100).toFixed(1)}%`, '']);
@@ -77779,7 +77781,7 @@ function _riskProfile(d) {
       }
       if (downs.length >= 4) {
         const a = downs.reduce((x, y) => x + y, 0) / downs.length, b = mkts.reduce((x, y) => x + y, 0) / mkts.length;
-        out.rows.push([`加權指數單日跌逾 1% 時（${downs.length} 次）`, `此股平均 ${(a * 100).toFixed(2)}%，同期大盤 ${(b * 100).toFixed(2)}%`, '抗跌程度只反映這段期間，崩盤時不保證']);
+        out.rows.push([`加權指數單日跌逾 1% 時（${downs.length} 次）`, `此股平均 ${(a * 100).toFixed(2)}%，同期大盤 ${(b * 100).toFixed(2)}%`, '大盤指加權指數（台積電等權值股占比高）；抗跌程度只反映這段期間，崩盤時不保證']);
       } else {
         out.rows.push(['加權指數單日跌逾 1% 時', `樣本只有 ${downs.length} 次，不足以判斷`, '']);
       }
