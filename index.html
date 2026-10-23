@@ -19411,7 +19411,7 @@ a.module-nav-item.acc-active {
         <span class="ctrl14-pill sell">賣</span>
         <span style="color:var(--fg3);">→</span>
         <span class="ctrl14-pill net">淨買 1</span>
-        <span style="margin-left:8px;">大戶有計劃囤貨，避免驚動市場，拉高成本，吸乾散戶浮額</span>
+        <span style="margin-left:8px;">法人買賣節奏的一種形態（4 天買、1 天賣，淨買為正）。只描述節奏，不能推論有人「有計劃囤貨」；此型態之後的表現尚未回測驗證，僅供參考</span>
 
         <!-- 雙模式交叉驗證開關 -->
         <label style="margin-left:auto;display:flex;align-items:center;gap:5px;cursor:pointer;font-size:0.6rem;white-space:nowrap;">
@@ -19460,7 +19460,7 @@ a.module-nav-item.acc-active {
         <div class="cross-valid-wrap">
           <div class="cross-valid-title">
             🔀 雙模式交叉驗證：資減人走 × 極致量縮
-            <span style="font-size:0.58rem;font-weight:600;color:var(--fg3);margin-left:8px;">同時通過兩個模式 = 爆發前最強共振訊號</span>
+            <span style="font-size:0.58rem;font-weight:600;color:var(--fg3);margin-left:8px;">同時通過只代表兩組條件都成立，不代表更強的訊號（回測無優勢，僅供參考）</span>
           </div>
           <!-- v5.91 批次加入追蹤清單 -->
           <div id="crossValidBatchRow" style="display:none;margin-bottom:6px;">
@@ -52468,24 +52468,24 @@ function renderBottomDetect(instMap, instDays, fSeries, tSeries, closes, K, D, m
     if (last10Vols[i] < avgVol7 * 0.9) shrinkDays++; else break;
   }
   checks.push({
-    name: '⑤ 融資連3減（資減人走）',
+    name: '⑤ 量縮＋RSI偏低（量價代理，非真實融資）',
     hit:  marginHit,
     partial: !marginHit && (marginReduce3 || (rsiLow && shrinkDays >= 2)),
     important: false,
     resultText: marginStrong
-      ? `✅✅ 資減人走＋法人承接 (連${shrinkDays}日量縮，RSI ${rsi?.toFixed(1)}, 法人同買)`
+      ? `✅✅ 量縮且法人同買 (連${shrinkDays}日量縮，RSI ${rsi?.toFixed(1)})`
       : marginHit
         ? `✅ 達成標準 (連${shrinkDays}日量縮至均量9成以下，RSI ${rsi?.toFixed(1)})`
         : marginReduce3
-          ? `⚠️ 量縮成立但RSI偏高 (${rsi?.toFixed(1)}，散戶尚未完全離場)`
+          ? `⚠️ 量縮成立但RSI偏高 (${rsi?.toFixed(1)})`
           : `❌ 量能未見持續萎縮 (連縮 ${shrinkDays} 日，基準均量 ${(avgVol7/1000).toFixed(0)}K)`,
     detail: marginStrong
-      ? '量能連續萎縮＋法人同期承接，散戶恐慌離場，籌碼由亂轉穩！此為最佳的低接時機確認。'
+      ? '量能連續萎縮，且法人近5日合計買超。只是量價與買賣超的事實，不代表散戶離場，也不代表是低接時機。'
       : marginHit
-        ? '散戶恐慌離場，量能持續萎縮低於均量，籌碼由亂轉穩，底部特徵明顯。'
+        ? '量能持續低於均量、RSI 偏低。只是量價事實，不能據此推論底部已成。'
         : marginReduce3
-          ? '量縮已達標但RSI偏高，散戶獲利了結中，需等RSI回落至55以下確認。'
-          : '融資縮減特徵尚未出現，散戶情緒未見明顯恐慌，底部建立仍需時間。',
+          ? '量縮已達標，但RSI偏高（高於55）。'
+          : '量縮條件尚未出現。',
     icon: marginStrong ? '💎' : marginHit ? '✅' : marginReduce3 ? '⚠️' : '📊',
     cls:  marginHit ? 'hit' : (marginReduce3 || shrinkDays >= 2) ? 'warn' : 'miss',
   });
@@ -60212,7 +60212,7 @@ function calcBottomScore(stockId, instRaw, priceRaw) {
       { label:'KD低檔金叉',  hit:c2hit, warn:c2warn, val: lK!=null?`K${lK.toFixed(0)}D${lD?.toFixed(0)}`:'—' },
       { label:`法人連買${Math.max(fCons,tCons)}日`, hit:c3hit, warn:c3warn, val: `外${fCons}投${tCons}`, star: c3both },
       { label:'窒息量',      hit:c4hit, warn:c4warn, val: `${volRatio4.toFixed(2)}x` },
-      { label:'資減人走',    hit:c5hit, warn:c5warn, val: marginReduce3?'量縮3日':c5warn?'部分符合':'未符合' },
+      { label:'量縮+RSI偏低', hit:c5hit, warn:c5warn, val: marginReduce3?'量縮3日':c5warn?'部分符合':'未符合' },
       { label:'窒息後回升',  hit:c6hit, warn:c6warn, val: c6hit?'量縮→回升✓':hadChoke?'待回升':'未窒息' },
     ],
     lMA20, lK, lD, lRSI,
