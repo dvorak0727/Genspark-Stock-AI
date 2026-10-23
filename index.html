@@ -64303,12 +64303,13 @@ function _updateScreenerLegend() {
   const mode     = document.getElementById('screenerMode')?.value || 'bottom';
   const isMacd   = mode === 'macdmatrix';
   const isBroker = mode === 'broker';
+  const isNeutral = ['chippure', 'obi', 'etfFlow'].includes(mode);   // 回測無優勢的模式，圖例用中性字眼
   const l4 = document.getElementById('legendL4');
   const l3 = document.getElementById('legendL3');
   const l2 = document.getElementById('legendL2');
-  if (l4) l4.textContent = isMacd ? '4/6 強烈' : isBroker ? '4/5 強囤貨' : '4分 強烈';
-  if (l3) l3.textContent = isMacd ? '3/6 明確' : isBroker ? '3/5 明確'   : '3分 明確';
-  if (l2) l2.textContent = isMacd ? '2/6 部分' : isBroker ? '2/5 初現'   : '2分 部分';
+  if (l4) l4.textContent = isMacd ? '4/6 強烈' : isBroker ? '4/5 強囤貨' : isNeutral ? '4分以上' : '4分 強烈';
+  if (l3) l3.textContent = isMacd ? '3/6 明確' : isBroker ? '3/5 明確'   : isNeutral ? '3分' : '3分 明確';
+  if (l2) l2.textContent = isMacd ? '2/6 部分' : isBroker ? '2/5 初現'   : isNeutral ? '2分' : '2分 部分';
 }
 
 function onScreenerModeChange() {
@@ -66123,6 +66124,11 @@ function renderScreenerCards(showStats=false) {
       <div class="screener-stat-item">🔥 極強結構(≥5/6)：<b>${cntMacd5}</b> 檔</div>
       <div class="screener-stat-item">🔴 強烈${modeLabel}(${_lbl4})：<b>${cnt4}</b> 檔</div>
       <div class="screener-stat-item">🟡 明確訊號(${_lbl3})：<b>${cnt3}</b> 檔</div>
+      <div class="screener-stat-item">⭐ 法人連買3日：<b>${cntInst}</b> 檔</div>
+    ` : ['chippure', 'obi', 'etfFlow'].includes(modeKey3) ? `
+      <div class="screener-stat-item" title="此模式回測沒有優勢，僅描述條件成立的檔數，不是進場訊號">🔴 條件成立 4 分以上：<b>${cnt4}</b> 檔</div>
+      <div class="screener-stat-item">🟡 3～4 分：<b>${cnt3}</b> 檔</div>
+      <div class="screener-stat-item">🔵 2～3 分：<b>${cnt2}</b> 檔</div>
       <div class="screener-stat-item">⭐ 法人連買3日：<b>${cntInst}</b> 檔</div>
     ` : `
       <div class="screener-stat-item">🔴 強烈${modeLabel}(${_lbl4})：<b>${cnt4}</b> 檔</div>
