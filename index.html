@@ -77651,6 +77651,51 @@ function _loadMarketRegime(force) {
 }
 try { setTimeout(() => _loadMarketRegime(), 1500); } catch (e) {}
 
+/* ────────────────────────────────────────────────────────────────
+   🌐 第 1 層：美股前一夜（費半 50% ＋ 標普 500 50%）→ 預告台股「今天開盤」強弱
+   回測（2021-03~2026-10，台股前 50 檔等權）：前一夜綜合強弱與台股開盤跳空相關約 0.67（兩個時期都成立）；
+   但開盤進場之後 1～20 日沒有預測力。所以只當「今日開盤預告」，不計分、不當趨勢判斷。
+   🗂️ 第 2 層：所屬板塊近 20 日相對強弱排名（data/sector_strength.json，每日排程更新）。
+   回測：板塊強者續強的優勢很小，且主要在 2025-03 之後；名單為手選，有倖存者偏差，只當「資金現在輪到誰」的參考。
+──────────────────────────────────────────────────────────────── */
+window._usOvernight = window._usOvernight || null;
+let _usOvernightPromise = null;
+function _loadUSOvernight(force) {
+  if (_usOvernightPromise && !force) return _usOvernightPromise;
+  _usOvernightPromise = (async () => {
+    try {
+      if (typeof _oppFetchOne !== 'function' || typeof OPP_STOCKS === 'undefined') return null;
+      const sox = OPP_STOCKS.find(x => x.label === '費半'), spx = OPP_STOCKS.find(x => x.label === '美大盤');
+      if (!sox || !spx) return null;
+      const [a, b] = await Promise.all([_oppFetchOne(sox), _oppFetchOne(spx)]);
+      if (!a || !b || a.sim || b.sim) { window._usOvernight = { unavailable: true }; return window._usOvernight; }
+      window._usOvernight = { sox: a.chg, spx: b.chg, comp: 0.5 * a.chg + 0.5 * b.chg, asOf: new Date().toISOString().slice(0, 10) };
+      return window._usOvernight;
+    } catch (e) { return null; }
+  })();
+  return _usOvernightPromise;
+}
+window._sectorStrength = window._sectorStrength || null;
+let _sectorStrengthPromise = null;
+function _loadSectorStrength() {
+  if (!_sectorStrengthPromise) {
+    _sectorStrengthPromise = fetch('data/sector_strength.json', { cache: 'no-cache' })
+      .then(r => r.ok ? r.json() : null).catch(() => null)
+      .then(j => { window._sectorStrength = j || false; return j; });
+  }
+  return _sectorStrengthPromise;
+}
+try { setTimeout(() => { _loadUSOvernight(); _loadSectorStrength(); }, 2500); } catch (e) {}
+
+// 前一夜綜合強弱 → 歷史上台股平均開盤跳空（回測五等分；台股整體平均，個股差異很大）
+function _usGapHint(comp) {
+  if (comp <= -1.5) return { tone: 'bear', band: '明顯偏弱', gap: '約 -0.8%（為最弱兩成的平均，極端時可能更大）' };
+  if (comp <= -0.4) return { tone: 'warn', band: '偏弱', gap: '約 0%' };
+  if (comp < 0.6)   return { tone: 'warn', band: '持平', gap: '約 +0.2%' };
+  if (comp < 1.8)   return { tone: 'bull', band: '偏強', gap: '約 +0.5%' };
+  return { tone: 'bull', band: '明顯偏強', gap: '約 +1.0%（為最強兩成的平均）' };
+}
+
 function _rfCompute(d) {
   d = d || {};
   const close  = d.closes?.at(-1) ?? null;
@@ -77784,6 +77829,16 @@ function _rfCompute(d) {
 function _engineContentRF(d, stockName, theme) {
   const { trees, voters, refCount, passCount, totalKnown, unverified, confScore, verdict, donutColor, regime } = _rfCompute(d);
   if (!regime) { try { _loadMarketRegime().then(r => { if (r && document.getElementById('engineModalOverlay')?.classList.contains('open') && typeof _showEngineModal === 'function' && window._engineCurrentState?.type === 'rf') _showEngineModal('rf'); }); } catch (e) {} }
+  const us = window._usOvernight, sec = window._sectorStrength;
+  if (us == null || sec == null) { try { Promise.all([_loadUSOvernight(), _loadSectorStrength()]).then(() => { if (document.getElementById('engineModalOverlay')?.classList.contains('open') && window._engineCurrentState?.type === 'rf') _showEngineModal('rf'); }); } catch (e) {} }
+  const _fm = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  const usHtml = (us && !us.unavailable) ? (() => { const h = _usGapHint(us.comp); return `<div class="em-section"><div class="em-alert-banner ${h.tone}"><span style="font-size:1rem;">🌐</span><div><b>第 1 層・美股前一夜：${h.band}</b>（費半 ${_fm(us.sox)}、標普 500 ${_fm(us.spx)}，綜合 ${_fm(us.comp)}）<br>歷史上這種強度之後，台股平均開盤跳空${h.gap}（整體平均，個股差異大）。<br><span style="opacity:.75">只預告今天開盤；開盤之後到未來幾天沒有預測力。前一夜大漲後盤中追價平均略負，大跌後逢低歷史上不差（多頭期結果），僅供參考。</span></div></div></div>`; })()
+    : (us && us.unavailable ? `<div class="em-section"><div class="em-alert-banner warn"><span style="font-size:1rem;">🌐</span><div>第 1 層・美股前一夜：目前取不到即時美股資料（可能為模擬備援），不顯示預告。</div></div></div>` : '');
+  const sid = String(window._currentStockId || '');
+  const secKeys = (sec && sec.stock_sectors && sec.stock_sectors[sid]) || [];
+  const secHtml = (sec && sec.sectors) ? (secKeys.length
+    ? `<div class="em-section"><div class="em-alert-banner warn"><span style="font-size:1rem;">🗂️</span><div><b>第 2 層・所屬板塊近 20 日強弱</b>（資料至 ${sec.as_of}）<br>${secKeys.map(k => { const v = sec.sectors[k]; return `${v.label}：${v.rank}/${sec.total_sectors} 名，近 20 日 ${_fm(v.ret20)}（全部平均 ${_fm(sec.market_ret20)}）`; }).join('<br>')}<br><span style="opacity:.75">只顯示「資金現在輪到誰」，不計分。回測：板塊強者續強的優勢很小，且主要在 2025-03 之後；板塊名單為手選，僅供參考。</span></div></div></div>`
+    : `<div class="em-section"><div class="em-alert-banner warn"><span style="font-size:1rem;">🗂️</span><div>第 2 層・這檔股票不在追蹤的 10 個小板塊名單內，沒有板塊排名。</div></div></div>`) : '';
   const regimeHtml = regime ? `<div class="em-section"><div class="em-alert-banner ${regime.label === '下降' ? 'bear' : regime.label === '上升' ? 'bull' : 'warn'}"><span style="font-size:1rem;">🧭</span><div><b>大盤盤態：${regime.label}盤</b>（加權指數 ${Math.round(regime.close).toLocaleString()}，${regime.close > regime.ma60 ? '高於' : '低於'}季線，月線 10 日斜率 ${(regime.slope*100).toFixed(1)}%，資料至 ${regime.asOf}）<br>${regime.label === '上升' ? '回測：上升盤中順勢訊號（站上均線、創新高）相對偏正；KD 低檔、RSI&lt;30 這類抄底訊號偏負。' : regime.label === '下降' ? '回測：下降盤中順勢訊號相對偏負，T1 暫不計入；抄底訊號略偏正，但樣本少、不穩定。' : '回測：盤整盤中多數指標優勢不明顯，抄底訊號偏負。'}<br><span style="opacity:.75">盤態判斷有落後，門檻為暫定值，僅供參考。</span></div></div></div>` : '';
   const donutPct = Math.min(confScore, 100);
   const circumference = 2 * Math.PI * 26;
@@ -77815,6 +77870,8 @@ function _engineContentRF(d, stockName, theme) {
         ${stockName} · 多棵決策樹 → 布林投票（部分僅供參考）→ 條件成立比例
       </div>
 
+      ${usHtml}
+      ${secHtml}
       ${regimeHtml}
 
       <!-- 信心分數 Donut -->
