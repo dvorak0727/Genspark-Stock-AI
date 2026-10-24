@@ -59965,6 +59965,14 @@ async function startScreener() {
   document.getElementById('screenerProgress').classList.remove('show');
 
   renderScreenerCards(true); // 最終渲染（顯示統計）
+  // 沒有任何結果時 renderScreenerCards 會直接 return，灰色骨架卡會一直留在畫面上，
+  // 看起來像「卡住了」。這裡改成明確的空結果說明（並保留完成訊息，不再 1 秒後消失）。
+  if (!_screenerResults.length) {
+    const _emptyBox = document.getElementById('screenerCards');
+    if (_emptyBox) _emptyBox.innerHTML = `<div style="grid-column:1/-1;padding:18px 16px;border:1px dashed var(--border);border-radius:12px;background:var(--surface2);color:var(--fg2);font-size:0.8rem;line-height:1.8;">
+      <b>這一輪沒有符合條件的股票（掃描已經跑完，不是卡住）</b><br>${_finishMsgFull}</div>`;
+    document.getElementById('screenerProgress').classList.add('show');
+  }
 
   // ── v7.41 背景靜默抓持股分級（不阻塞主流程，完成後刷新卡片）──
   _screenerFetchHoldings();
