@@ -1,42 +1,42 @@
 {
-  "generated_at": "2026-10-23T12:26:48Z",
+  "generated_at": "2026-10-26T13:56:24Z",
   "dram": {
-    "last_update": "2026-10-23 18:10 (GMT+8)",
+    "last_update": "2026-10-26 18:10 (GMT+8)",
     "items": [
       {
         "name": "DDR5 16Gb (2Gx8) 4800/5600",
         "vendors": "SK Hynix、Samsung",
-        "session_avg": 61.267,
-        "change_pct": 0.27,
+        "session_avg": 61.333,
+        "change_pct": 0.11,
         "trend": "rise"
       },
       {
         "name": "DDR5 16Gb (2Gx8) eTT",
         "vendors": "Samsung",
-        "session_avg": 29.0,
+        "session_avg": 29.2,
         "change_pct": 0.69,
         "trend": "rise"
       },
       {
         "name": "DDR4 16Gb (2Gx8) 3200",
         "vendors": "Samsung、SK Hynix、Micron",
-        "session_avg": 82.87,
+        "session_avg": 82.623,
         "change_pct": -0.3,
         "trend": "fall"
       },
       {
         "name": "DDR4 16Gb (2Gx8) eTT",
         "vendors": "SK Hynix、Samsung、Spectek",
-        "session_avg": 13.925,
-        "change_pct": 0.0,
-        "trend": "flat"
+        "session_avg": 13.825,
+        "change_pct": -0.72,
+        "trend": "fall"
       },
       {
         "name": "DDR4 8Gb (1Gx8) 3200",
         "vendors": "Samsung、SK Hynix、Micron",
-        "session_avg": 47.107,
-        "change_pct": 0.23,
-        "trend": "rise"
+        "session_avg": 47.0,
+        "change_pct": -0.23,
+        "trend": "fall"
       },
       {
         "name": "DDR4 8Gb (1Gx8) eTT",
@@ -55,34 +55,34 @@
     ]
   },
   "nand": {
-    "last_update": "2026-10-12 14:40 (GMT+8)",
+    "last_update": "2026-10-19 14:40 (GMT+8)",
     "items": [
       {
         "name": "SLC 2Gb 256MBx8",
         "vendors": "Samsung,SK Hynix, Micron ,Kioxia",
-        "session_avg": 4.413,
-        "change_pct": 1.38,
-        "trend": "rise"
+        "session_avg": 4.383,
+        "change_pct": -0.68,
+        "trend": "fall"
       },
       {
         "name": "SLC 1Gb 128MBx8",
         "vendors": "Samsung,SK Hynix, Micron ,Kioxia",
-        "session_avg": 3.363,
-        "change_pct": -0.15,
+        "session_avg": 3.32,
+        "change_pct": -1.28,
         "trend": "fall"
       },
       {
         "name": "MLC 64Gb 8GBx8",
         "vendors": "Micron ,Kioxia",
-        "session_avg": 42.337,
-        "change_pct": 0.59,
+        "session_avg": 42.726,
+        "change_pct": 0.92,
         "trend": "rise"
       },
       {
         "name": "MLC 32Gb 4GBx8",
         "vendors": "Micron",
-        "session_avg": 19.833,
-        "change_pct": 0.84,
+        "session_avg": 19.933,
+        "change_pct": 0.5,
         "trend": "rise"
       }
     ]
