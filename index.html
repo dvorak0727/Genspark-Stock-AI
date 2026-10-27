@@ -15915,6 +15915,7 @@ a.module-nav-item.acc-active {
           <option value="bandwalk">🏇 騎帶上行掃描</option>
           <option value="absorb">🧲 籌碼週期階段 — 吸籌期</option>
           <option value="washout">🌀 籌碼週期階段 — 洗盤期</option>
+          <option value="prelaunch">🔍 籌碼週期階段 — 秘密佈局</option>
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
@@ -16177,6 +16178,7 @@ a.module-nav-item.acc-active {
           <option value="bandwalk">🏇 騎帶上行掃描</option>
           <option value="absorb">🧲 籌碼週期階段 — 吸籌期</option>
           <option value="washout">🌀 籌碼週期階段 — 洗盤期</option>
+          <option value="prelaunch">🔍 籌碼週期階段 — 秘密佈局</option>
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
@@ -60752,10 +60754,28 @@ async function runBacktest() {
   const period    = parseInt(document.getElementById('btPeriod').value);
   const threshold = parseFloat(document.getElementById('btThreshold').value);
   const pool      = SCREENER_POOLS[poolKey];
-  const ids       = pool.ids;
+  let ids         = pool.ids;
 
   _btRunning = true;
   _btStop    = false;
+
+  // 動態池（市值前50大）ids 是空的，要先即時算出清單；算不出來就改用固定50檔，不能拿空清單跑出「共分析 0 檔」
+  if (poolKey === 'dynamic50') {
+    document.getElementById('btProgressWrap').style.display = '';
+    document.getElementById('btProgressText').textContent = '取得市值前50大清單中…';
+    try {
+      ids = await fetchDynamicTop50Ids();
+    } catch (e) {
+      console.error('[回測] 動態市值清單計算失敗', e);
+      if (typeof showEpicToast === 'function') showEpicToast('⚠️ 市值排名計算失敗，改用精選50檔固定清單', '#dc2626');
+      ids = SCREENER_POOLS.all50.ids;
+    }
+  }
+  if (!ids || !ids.length) {
+    document.getElementById('btProgressText').textContent = '⚠️ 股票清單是空的，無法回測';
+    _btRunning = false;
+    return;
+  }
 
   // UI：顯示進度條，隱藏結果
   document.getElementById('btRunBtn').disabled       = true;
