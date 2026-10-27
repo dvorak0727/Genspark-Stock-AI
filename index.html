@@ -17336,7 +17336,7 @@ a.module-nav-item.acc-active {
 
       <!-- v6.43 OBI 展開面板（原 obiWrap 內容搬移至此） -->
       <div class="cs-expand-panel" id="csObiPanel">
-        <div class="cs-expand-title">⚡ 外盤強度指標（OBI） · 逐筆撮合分類（FinMind MoneyFlow 真實資料）· 內外盤背離偵測</div>
+        <div class="cs-expand-title">⚡ 外盤強度指標（OBI） · 逐筆成交（FinMind 真實資料）· 內外盤背離偵測</div>
 
         <!-- ★ v7.19 手動輸入真實內外盤（Lee-Ready fallback 時顯示） ★ -->
         <div id="obiManualRow" style="display:none;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.35);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
@@ -17365,7 +17365,7 @@ a.module-nav-item.acc-active {
           <div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.53rem;color:var(--fg3);line-height:1.6;">
             📌 <strong style="color:var(--fg2);">如何取得真實數字？</strong><br>
             ① <strong>券商即時系統</strong>：元大/富邦下單軟體個股成交明細頁，查「外盤成交量」與「內盤成交量」（單位：張）<br>
-            ② <strong>FinMind API</strong>：<code style="background:rgba(99,102,241,0.15);padding:1px 4px;border-radius:3px;">TaiwanStockMoneyFlow</code> endpoint（需免費 token）→ <code style="background:rgba(99,102,241,0.15);padding:1px 4px;border-radius:3px;">buy_vol / sell_vol</code> 欄位<br>
+            ② <strong>FinMind API</strong>：<code style="background:rgba(99,102,241,0.15);padding:1px 4px;border-radius:3px;">TaiwanStockPriceTick</code> 逐筆成交（需 token）→ 依 <code style="background:rgba(99,102,241,0.15);padding:1px 4px;border-radius:3px;">TickType</code> 自行加總內外盤，同時顯示「Yahoo式（不含開盤集合競價、盤後定價）」與「元大式（全部成交）」兩種算法，並列出開盤、收盤、盤後各幾張。按「自動抓取」即可，畫面會標示資料到幾點。<br>
             ③ <strong>台灣證交所 TWSE OpenAPI</strong>：各股逐筆成交統計（盤後 T+0 約 17:00 更新）
           </div>
         </div>
@@ -44483,6 +44483,66 @@ function _getOBICorrection(stockId) {
 }
 
 // ── OBI 自動抓取（v7.44）──────────────────────────────────────
+// 內外盤：由逐筆成交（TaiwanStockPriceTick）自行加總（v7.63；舊的 TaiwanStockMoneyFlow 資料集 FinMind 已下架）
+// 2026-10-27 用 16 檔股票對照元大 APP 與 Yahoo 股市驗證：
+//   TickType "1" = 外盤、"2" = 內盤。
+//   元大式 = 全部成交都算（內＋外 = 總量）：與元大 APP 4 檔全部吻合。
+//   Yahoo式 = 不含「開盤集合競價」「盤後定價」，其餘（含 13:30 收盤集合競價，依 FinMind 方向）照算：
+//     ① 當天最早一筆若在 09:00:30 以前＝開盤集合競價，不計；若很晚才出現（例如 09:41）＝一般成交，要計；
+//     ② 14:00 之後＝盤後定價，不計；
+//     ③ 收盤集合競價（13:30:00.000）：Yahoo 對這一筆的內外歸類有時與 FinMind 不同（例：鴻海 17,488 張），
+//        所以收盤有大量成交的股票，可能與 Yahoo 差那一筆。
+function _obiFromTicks(rows) {
+  const dates = rows.map(r => r.date).filter(Boolean).sort();
+  const day = dates.length ? dates[dates.length - 1] : '';
+  const r = rows.filter(x => x.date === day).sort((a, b) => a.Time > b.Time ? 1 : -1);
+  let aOut = 0, aIn = 0, yOut = 0, yIn = 0;
+  const open = { out: 0, in: 0 }, closing = { out: 0, in: 0 }, after = { out: 0, in: 0 };
+  const add = (o, ty, v) => { if (ty === '1') o.out += v; else if (ty === '2') o.in += v; };
+  r.forEach((x, idx) => {
+    const v = parseFloat(x.volume) || 0;
+    const t = String(x.Time || '');
+    const ty = String(x.TickType);
+    if (ty === '1') aOut += v; else if (ty === '2') aIn += v;      // 元大式：全部
+    if (idx === 0 && t < '09:00:30') { add(open, ty, v); return; }  // 開盤集合競價
+    if (t >= '14:00:00') { add(after, ty, v); return; }             // 盤後定價
+    if (t.startsWith('13:30:00')) add(closing, ty, v);              // 收盤集合競價（仍計入 Yahoo 式）
+    if (ty === '1') yOut += v; else if (ty === '2') yIn += v;
+  });
+  const R = Math.round;
+  const last = r.length ? String(r[r.length - 1].Time).slice(0, 8) : '';
+  return { day, n: r.length, lastTime: last,
+    yahoo: { out: R(yOut), inn: R(yIn) }, all: { out: R(aOut), inn: R(aIn) },
+    open: { out: R(open.out), inn: R(open.in) }, closing: { out: R(closing.out), inn: R(closing.in) },
+    after: { out: R(after.out), inn: R(after.in) } };
+}
+
+function _obiBreakdown(o) {
+  const f = (b) => {
+    const parts = [];
+    if (b.out) parts.push(`${b.out.toLocaleString()}張(外)`);
+    if (b.inn) parts.push(`${b.inn.toLocaleString()}張(內)`);
+    return parts.length ? parts.join(' + ') : '無';
+  };
+  return `開盤集合競價 ${f(o.open)}｜收盤集合競價 ${f(o.closing)}｜盤後 ${f(o.after)}`;
+}
+
+function _obiMsg(o, today) {
+  return `✅ FinMind 逐筆（${o.day} 至 ${o.lastTime}${o.day !== today ? '，非今日資料' : ''}）` +
+    `　Yahoo式（不含開盤、盤後）外 ${o.yahoo.out.toLocaleString()} / 內 ${o.yahoo.inn.toLocaleString()}` +
+    `　元大式（全部成交）外 ${o.all.out.toLocaleString()} / 內 ${o.all.inn.toLocaleString()}` +
+    `　〔${_obiBreakdown(o)}；各看盤軟體對收盤那一筆的內外歸類不同，可能與 Yahoo 差那一筆〕`;
+}
+
+// 填入欄位（用 Yahoo式）並顯示兩種算法
+function _obiShow(outer, inner, msg) {
+  _fillObiInputs(outer, inner, '');
+  const rowEl = document.getElementById('obiManualRow');
+  const d = rowEl && rowEl.querySelector('div');
+  if (d) d.textContent = msg;
+}
+
+// ── OBI 自動抓取（v7.63：改用逐筆成交）──────────────────────────
 async function autoFetchOBI() {
   const stockId = window._currentStockId;
   if (!stockId) { alert('請先查詢一支股票'); return; }
@@ -44492,35 +44552,46 @@ async function autoFetchOBI() {
   const btn = document.getElementById('obiFetchBtn');
   if (btn) { btn.textContent = '⏳ 抓取中…'; btn.disabled = true; }
 
-  // 當日快取（省 API 額度）
-  const today = new Date().toISOString().slice(0,10);
-  const cacheKey = `obi_snap_${stockId}_${today}`;
-  const cached = localStorage.getItem(cacheKey);
-  if (cached) {
-    const { buyVol, sellVol } = JSON.parse(cached);
-    _fillObiInputs(buyVol, sellVol, '快取');
-    if (btn) { btn.textContent = '✅ 已載入（快取）'; btn.disabled = false; }
-    return;
-  }
+  // 以台北時間的「今天」為準（避免用 UTC 在清晨跨日）
+  const fmt = (ms) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
+  const today = fmt(Date.now());
+  const cacheKey = `obi_tick2_${stockId}_${today}`;
 
+  // 快取只留 3 分鐘（盤中要能重新整理）
   try {
-    const start = new Date(Date.now() - 5*86400000).toISOString().slice(0,10);
-    const url = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockMoneyFlow&data_id=${stockId}&start_date=${start}&end_date=${today}&token=${token}`;
-    const resp = await fetch(url);
+    const c = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+    if (c && Date.now() - c.ts < 180000) {
+      _obiShow(c.outer, c.inner, c.msg);
+      if (btn) { btn.textContent = '✅ 已載入（快取）'; btn.disabled = false; }
+      return;
+    }
+  } catch (e) {}
+
+  const base = `https://license-worker.dvorak0727.workers.dev/finmind?dataset=TaiwanStockPriceTick&data_id=${stockId}&token=${token}`;
+  try {
+    let resp = await fetch(`${base}&start_date=${today}&end_date=${today}`);
     if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
-    const json = await resp.json();
-    const rows = (json.data || []).sort((a,b) => a.date > b.date ? 1 : -1);
-    if (!rows.length) throw new Error('無資料（可能非交易日或 token 過期）');
+    let json = await resp.json();
+    if (json.msg && json.status && json.status !== 200) throw new Error(json.msg);
+    let rows = json.data || [];
+    if (!rows.length) {
+      // 今天沒有資料（非交易日或尚未開盤）：往前找最近的交易日
+      const from = fmt(Date.now() - 6 * 86400000);
+      resp = await fetch(`${base}&start_date=${from}&end_date=${today}`);
+      if (!resp.ok) throw new Error('API 回應錯誤 ' + resp.status);
+      json = await resp.json();
+      if (json.msg && json.status && json.status !== 200) throw new Error(json.msg);
+      rows = json.data || [];
+    }
+    if (!rows.length) throw new Error('無資料（可能非交易日、此股票沒有逐筆資料，或 token 權限不足）');
 
-    const last = rows.at(-1);
-    const buyVol  = Math.round(parseFloat(last.buy_vol  ?? last.buy  ?? 0));
-    const sellVol = Math.round(parseFloat(last.sell_vol ?? last.sell ?? 0));
-    const src = last.date === today ? '今日' : last.date;
-
-    localStorage.setItem(cacheKey, JSON.stringify({ buyVol, sellVol }));
-    _fillObiInputs(buyVol, sellVol, src);
-    if (btn) { btn.textContent = `✅ ${src} 已載入`; btn.disabled = false; }
-  } catch(e) {
+    const o = _obiFromTicks(rows);
+    if (o.yahoo.out + o.yahoo.inn === 0) throw new Error('逐筆資料加總為 0（資料可能還沒更新）');
+    const msg = _obiMsg(o, today);
+    try { localStorage.setItem(cacheKey, JSON.stringify({ outer: o.yahoo.out, inner: o.yahoo.inn, msg, ts: Date.now() })); } catch (e) {}
+    _obiShow(o.yahoo.out, o.yahoo.inn, msg);
+    if (btn) { btn.textContent = `✅ ${o.lastTime} 已載入`; btn.disabled = false; }
+  } catch (e) {
     if (btn) { btn.textContent = '⚡ 自動抓取'; btn.disabled = false; }
     alert('抓取失敗：' + e.message);
   }
