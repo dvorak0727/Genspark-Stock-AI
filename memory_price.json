@@ -1,56 +1,56 @@
 {
-  "generated_at": "2026-10-26T13:56:24Z",
+  "generated_at": "2026-10-27T13:00:07Z",
   "dram": {
-    "last_update": "2026-10-26 18:10 (GMT+8)",
+    "last_update": "2026-10-27 18:10 (GMT+8)",
     "items": [
       {
         "name": "DDR5 16Gb (2Gx8) 4800/5600",
         "vendors": "SK Hynix、Samsung",
         "session_avg": 61.333,
-        "change_pct": 0.11,
-        "trend": "rise"
+        "change_pct": 0.0,
+        "trend": "flat"
       },
       {
         "name": "DDR5 16Gb (2Gx8) eTT",
         "vendors": "Samsung",
-        "session_avg": 29.2,
-        "change_pct": 0.69,
+        "session_avg": 29.3,
+        "change_pct": 0.34,
         "trend": "rise"
       },
       {
         "name": "DDR4 16Gb (2Gx8) 3200",
         "vendors": "Samsung、SK Hynix、Micron",
         "session_avg": 82.623,
-        "change_pct": -0.3,
-        "trend": "fall"
+        "change_pct": 0.0,
+        "trend": "flat"
       },
       {
         "name": "DDR4 16Gb (2Gx8) eTT",
         "vendors": "SK Hynix、Samsung、Spectek",
         "session_avg": 13.825,
-        "change_pct": -0.72,
-        "trend": "fall"
+        "change_pct": 0.0,
+        "trend": "flat"
       },
       {
         "name": "DDR4 8Gb (1Gx8) 3200",
         "vendors": "Samsung、SK Hynix、Micron",
-        "session_avg": 47.0,
-        "change_pct": -0.23,
-        "trend": "fall"
+        "session_avg": 47.043,
+        "change_pct": 0.09,
+        "trend": "rise"
       },
       {
         "name": "DDR4 8Gb (1Gx8) eTT",
         "vendors": "SK Hynix、Spectek、Samsung、CXMT",
-        "session_avg": 5.97,
-        "change_pct": 0.0,
-        "trend": "flat"
+        "session_avg": 5.968,
+        "change_pct": -0.03,
+        "trend": "fall"
       },
       {
         "name": "DDR3 4Gb 512Mx8 1600/1866",
         "vendors": "SK Hynix, Micron, Samsung, Nanya",
-        "session_avg": 13.842,
-        "change_pct": 0.0,
-        "trend": "flat"
+        "session_avg": 13.889,
+        "change_pct": 0.34,
+        "trend": "rise"
       }
     ]
   },
