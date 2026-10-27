@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-10-26T01:18:07Z",
+  "generated_at": "2026-10-27T02:08:52Z",
   "sox": {
-    "price": 10779.464,
-    "prev_close": 10731.98046875,
-    "change_pct": 0.4424,
-    "date": "2026-10-23"
+    "price": 11083.47,
+    "prev_close": 10779.4599609375,
+    "change_pct": 2.8203,
+    "date": "2026-10-26"
   },
   "nvda": {
-    "price": 210.96,
-    "prev_close": 212.2100067138672,
-    "change_pct": -0.589,
-    "date": "2026-10-23"
+    "price": 216.0,
+    "prev_close": 210.9600067138672,
+    "change_pct": 2.3891,
+    "date": "2026-10-26"
   },
   "smci": {
-    "price": 32.94,
-    "prev_close": 33.720001220703125,
-    "change_pct": -2.3132,
-    "date": "2026-10-23"
+    "price": 32.69,
+    "prev_close": 32.939998626708984,
+    "change_pct": -0.759,
+    "date": "2026-10-26"
   }
 }
