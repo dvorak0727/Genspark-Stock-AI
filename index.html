@@ -7208,6 +7208,7 @@
       font-size: 0.72rem; font-weight: 700; color: var(--fg1); white-space: nowrap;
     }
     .cs-broker-updated { font-size: 0.58rem; color: var(--fg3); white-space: nowrap; }
+    .cs-broker-stockname { flex: 1; text-align: center; font-size: 0.8rem; font-weight: 800; color: var(--fg1); white-space: nowrap; }
     .cs-broker-refresh-btn {
       font-size: 0.6rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
       background: var(--surface2); border: 1px solid var(--border); color: var(--fg2);
@@ -17581,6 +17582,7 @@ a.module-nav-item.acc-active {
         <div class="cs-broker-head">
           <div class="cs-broker-title">🏦 分點券商買賣明細</div>
           <span class="cs-broker-updated" id="csBrokerUpdated"></span>
+          <span class="cs-broker-stockname" id="csBrokerStockName"></span>
           <button class="cs-broker-refresh-btn" id="csBrokerRefreshBtn" onclick="refreshBrokerPanel()" title="重新抓取最新分點資料">🔄 更新</button>
           <div class="cs-broker-tabs">
             <button class="cs-broker-tab active" id="csBrokerTab1"  onclick="switchBrokerTab(1)">今日</button>
@@ -39366,6 +39368,13 @@ function _updateBrokerTimestamp(ts) {
   const mm = String(t.getMinutes()).padStart(2, '0');
   const ss = String(t.getSeconds()).padStart(2, '0');
   el.textContent = `更新於 ${hh}:${mm}:${ss}`;
+  // 截圖用：在標題列中間空白處顯示「代號 股名」
+  const nmEl = document.getElementById('csBrokerStockName');
+  if (nmEl) {
+    const sid = window._currentStockId || (typeof _brokerStockId !== 'undefined' ? _brokerStockId : '') || '';
+    const nm = window._currentStockName || (typeof STOCK_DB !== 'undefined' && STOCK_DB[sid]?.name) || '';
+    nmEl.textContent = sid ? `${sid} ${nm}`.trim() : nm;
+  }
 }
 
 // v8.x：「🔄 更新」按鈕——繞過10分鐘快取，強制重新打FinMind抓最新分點資料
