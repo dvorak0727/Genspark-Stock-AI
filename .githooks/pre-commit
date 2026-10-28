@@ -1,0 +1,18 @@
+#!/bin/sh
+# 提交 index.html 時，自動更新「新版本提示」用的版本戳：
+#   1) index.html 裡的  const APP_BUILD = '時間戳';
+#   2) version.json     {"build":"時間戳"}
+# 兩者必須同一個值、同一次 commit 一起上線，頁面才能比對出「線上比我新」。
+# 新 clone 的電腦要先執行一次：git config core.hooksPath .githooks
+
+if git diff --cached --name-only | grep -qx "index.html"; then
+  BUILD=$(date -u +%Y%m%d%H%M%S)
+  if grep -q "const APP_BUILD = '" index.html; then
+    sed -i "s/const APP_BUILD = '[^']*'/const APP_BUILD = '$BUILD'/" index.html
+    printf '{"build":"%s"}\n' "$BUILD" > version.json
+    git add index.html version.json
+    echo "[pre-commit] 新版本提示版本戳 → $BUILD"
+  else
+    echo "[pre-commit] 警告：index.html 找不到 const APP_BUILD，新版本提示不會更新" >&2
+  fi
+fi

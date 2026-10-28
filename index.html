@@ -84098,5 +84098,74 @@ document.getElementById('bcTone').addEventListener('change', bcMake);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { cbClose(); bcClose(); } });
 </script>
 
+
+<!-- 🔄 新版本提示（v9.x）：手機瀏覽器常把舊版頁面留在分頁/快取裡，改了程式也看不到。
+     頁面載入後、回到前景時、每30分鐘，悄悄抓一次很小的 version.json 比對版本戳，
+     線上比較新就在畫面下方提示「有新版本，點此重新整理」。
+     APP_BUILD 由 .githooks/pre-commit 在每次提交 index.html 時自動改寫（同時寫入 version.json），
+     不要手動改；hook 靠下面那一行「APP_BUILD 常數宣告」的固定寫法來找位置，改動或刪掉它會讓提示失效。 -->
+<script>
+(function () {
+  const APP_BUILD = '20261028121012';
+  try { if (new URLSearchParams(location.search).get('phoneframe') === '1') return; } catch (e) {} // 手機預覽框裡的內層頁面不再重複提示
+  const CHECK_EVERY = 30 * 60 * 1000, MIN_GAP = 2 * 60 * 1000;
+  let lastCheck = 0;
+
+  function ss(k, v) { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) {} return null; }
+
+  function hardReload(build) {
+    ss('appReloadTried', build);
+    // 網址加 ?v=新版戳 讓瀏覽器視為不同網址、重新下載，其餘參數(demo/stock…)原樣保留
+    const u = new URL(location.href); u.searchParams.set('v', build);
+    location.replace(u.toString());
+  }
+
+  function show(build, stillOld) {
+    if (document.getElementById('appUpdateBar')) return;
+    const bar = document.createElement('div');
+    bar.id = 'appUpdateBar';
+    bar.setAttribute('role', 'status');
+    bar.style.cssText = 'position:fixed;left:12px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:2147483000;' +
+      'max-width:min(420px,calc(100vw - 96px));display:flex;align-items:center;gap:8px;padding:8px 10px 8px 12px;border-radius:12px;' +
+      'background:#4c1d95;color:#fff;font-size:13px;line-height:1.4;box-shadow:0 6px 22px rgba(0,0,0,.35);font-family:inherit;';
+    const msg = document.createElement(stillOld ? 'span' : 'button');
+    if (stillOld) {
+      msg.textContent = '已重新整理但仍是舊版：請到瀏覽器設定清除這個網站的快取，再重新開啟。';
+    } else {
+      msg.type = 'button';
+      msg.innerHTML = '🔄 有新版本，<u>點此重新整理</u>';
+      msg.style.cssText = 'all:unset;cursor:pointer;font-weight:700;';
+      msg.onclick = () => hardReload(build);
+    }
+    const x = document.createElement('button');
+    x.type = 'button'; x.setAttribute('aria-label', '稍後再說'); x.textContent = '✕';
+    x.style.cssText = 'all:unset;cursor:pointer;padding:2px 6px;opacity:.75;font-size:14px;';
+    x.onclick = () => { ss('appUpdateDismissed', build); bar.remove(); };
+    bar.append(msg, x);
+    document.body.appendChild(bar);
+  }
+
+  async function check(force) {
+    const now = Date.now();
+    if (!force && now - lastCheck < MIN_GAP) return;
+    lastCheck = now;
+    try {
+      // cache:'no-store' + 亂數參數：確保抓到的是線上最新的，不是快取裡的舊檔
+      const r = await fetch('version.json?cb=' + now, { cache: 'no-store' });
+      if (!r.ok) return;
+      const latest = (await r.json())?.build;
+      // 版本戳是固定長度的時間字串，字串比大小即可；只在「線上比目前更新」才提示（本機開發版比線上新時不吵）
+      if (!latest || !(latest > APP_BUILD)) return;
+      if (ss('appUpdateDismissed') === latest) return;
+      show(latest, ss('appReloadTried') === latest);
+    } catch (e) { /* 離線、或沒有 version.json：靜默略過，不影響網站使用 */ }
+  }
+
+  setTimeout(() => check(true), 6000);                 // 開啟後稍等一下再查，不跟初始載入搶頻寬
+  setInterval(check, CHECK_EVERY);                      // 分頁長期開著也會定期查
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); }); // 切回這個分頁時查
+  window.addEventListener('pageshow', e => { if (e.persisted) check(true); });             // 從瀏覽器「上一頁/分頁快照」還原時查
+})();
+</script>
 </body>
 </html>

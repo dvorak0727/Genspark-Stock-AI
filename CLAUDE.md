@@ -24,6 +24,15 @@
 
 **後端**：`cd license-worker && npx wrangler deploy`。這是獨立於前端 git push 的部署管道，改完 `license-worker/src/index.js` 記得要跑這個才會生效，光 git commit 不會部署。
 
+## 新版本提示（手機瀏覽器常卡在舊版）
+
+手機/長期開著的分頁會一直顯示舊版頁面（GitHub Pages 瀏覽器快取最多 10 分鐘，LINE/FB 內建瀏覽器更久，還有被還原的舊分頁）。為此網站有「新版本提示」：頁面開啟後 6 秒、切回分頁時、每 30 分鐘，抓 `version.json`（很小）比對，線上比較新就在畫面左下角顯示「🔄 有新版本，點此重新整理」。
+
+- 版本戳在兩個地方，**必須一致**：`index.html` 最底部 `<script>` 裡的 `const APP_BUILD = '時間戳'`、根目錄 `version.json` 的 `{"build":"時間戳"}`。
+- **不要手動改**：`.githooks/pre-commit` 會在每次 commit 到 `index.html` 時自動改寫兩者並一起加入 commit。新 clone 的電腦要先執行一次 `git config core.hooksPath .githooks`，否則不會自動更新（提示就不會出現）。
+- 不要改掉 `const APP_BUILD = '...'` 這一行的格式（hook 用 sed 找它）；也不要把這個 `<script>` 搬進其他 script 區塊（獨立區塊才不會被別處的錯誤連累）。
+- 使用者按提示後會用 `?v=新版戳` 重新載入（保留 demo/stock 等原有網址參數）；若載入後仍是舊版，會改顯示「請清除快取」說明，不會無限重整。
+
 ## 驗證流程（照著這個做，不要跳過）
 
 1. 改完 JS，先跑語法檢查（整份檔案太大，抓所有 `<script>` 內容丟給 `new Function()`）：
