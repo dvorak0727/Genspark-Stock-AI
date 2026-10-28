@@ -16187,7 +16187,7 @@ a.module-nav-item.acc-active {
           <option value="broker" disabled title="券商分點資料只存最近幾天，歷史長度不夠回測">🏦 券商囤貨掃描（目前無法回測）</option>
           <option value="whale" disabled title="千張大戶是每週公布一次的持股比例，跟回測逐日滾動的窗口對不上，目前未支援">🐋 千張大戶籌碼集中掃描（目前無法回測）</option>
           <option value="etfFlow" disabled title="主動式ETF買賣超只有最新一份快照，沒有歷史每日資料">📡 主動式ETF買賣超掃描（目前無法回測）</option>
-          <option value="squeeze" disabled title="融資融券要另外取歷史資料，目前未支援">⚡ 軋空體質掃描（目前無法回測）</option>
+          <option value="squeeze">⚡ 軋空體質掃描（需付費Token）</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -57757,7 +57757,8 @@ async function _twseCorsFetch(path, ms = 15000) {
 }
 
 async function fetchDynamicTop50Ids() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // 台灣時間的今天（toISOString是UTC，台灣凌晨0~8點會變成「昨天」）
+  const todayStr = _twTodayStr();
   try {
     const cached = JSON.parse(localStorage.getItem(DYNAMIC50_CACHE_KEY) || 'null');
     if (cached && cached.date === todayStr && Array.isArray(cached.ids) && cached.ids.length >= 40) {
@@ -57773,6 +57774,10 @@ async function fetchDynamicTop50Ids() {
     _twseCorsFetch('/v1/exchangeReport/STOCK_DAY_ALL'),
   ]);
 
+  // 注意：STOCK_DAY_ALL 是夜間才更新的收盤檔，這裡的市值＝發行股數×「最近一個已公布交易日」的收盤價
+  // （盤中/盤後可能是前一天）。市值排名一兩天內變動極小，且只拿來當「前50大名單」，不顯示漲跌，
+  // 所以不另外校正，只把資料日期記進 log 方便對照。
+  const _top50PriceDate = _twseRocToIso(priceRaw.find(r => r.Date)?.Date);
   const priceMap = {};
   priceRaw.forEach(r => {
     const p = parseFloat(r.ClosingPrice);
@@ -57800,7 +57805,7 @@ async function fetchDynamicTop50Ids() {
     date: todayStr, ids, computedAt: new Date().toISOString(),
     top: top50.slice(0, 5).map(x => `${x.name}(${x.id})`),
   }));
-  console.log('[動態市值前50] 計算完成，前5大：', top50.slice(0, 5));
+  console.log(`[動態市值前50] 計算完成（收盤價基準日 ${_top50PriceDate || '不明'}），前5大：`, top50.slice(0, 5));
   return ids;
 }
 
@@ -58115,17 +58120,29 @@ function _setIdxBorderChgBasis(txt, warn) {
 // 「前一個交易日」的漲跌，行情劇烈（例如黑天鵝全面下殺）時會整個相反。這裡借用走勢縮圖
 // 本來就要抓的近30日價格（FinMind，已快取、不多打API），只要它有比證交所檔更新的收盤，
 // 就用「最新收盤 vs 前一交易日收盤」重算。沒有更新就維持證交所數字（它的漲跌已扣除權息參考價）。
+// 共用判斷（入指出指面板、熱力圖共用）：rows 是 FinMind 日K，baseDate 是證交所收盤檔的日期。
+// 只有「rows 最新一筆比證交所檔更新」才回傳重算結果；否則回傳 fresh:false，沿用證交所數字。
+function _latestChangeFromRows(rows, baseDate) {
+  const bars = (rows || []).filter(r => r.close > 0 && r.date);
+  if (bars.length < 2) return null;
+  const last = bars[bars.length - 1], prev = bars[bars.length - 2];
+  if (baseDate && last.date <= baseDate) return { fresh: false, date: baseDate };
+  return {
+    fresh: true, date: last.date,
+    changePct: (last.close - prev.close) / prev.close * 100,
+    note: `漲跌＝${last.date} 收盤 ${last.close} 對 ${prev.date} 收盤 ${prev.close}（FinMind）`,
+  };
+}
+
 function _applyLatestChange(x, rows) {
   const st = _idxBorderData;
   if (!st || !st.isLive) return;
-  const bars = (rows || []).filter(r => r.close > 0 && r.date);
-  if (bars.length < 2) return;
-  const last = bars[bars.length - 1], prev = bars[bars.length - 2];
-  let basis = st.priceDate;
-  if (!st.priceDate || last.date > st.priceDate) {
-    x.changePct = (last.close - prev.close) / prev.close * 100;
-    x.changeNote = `漲跌＝${last.date} 收盤 ${last.close} 對 ${prev.date} 收盤 ${prev.close}（FinMind）`;
-    basis = last.date;
+  const r = _latestChangeFromRows(rows, st.priceDate);
+  if (!r) return;
+  let basis = r.date;
+  if (r.fresh) {
+    x.changePct = r.changePct;
+    x.changeNote = r.note;
     const el = document.getElementById(`chg-${x.id}`);
     if (el) {
       el.textContent = `${x.changePct >= 0 ? '+' : ''}${x.changePct.toFixed(1)}%`;
@@ -59143,11 +59160,15 @@ const HEATMAP_CACHE_KEY = 'tsai_heatmap_v1';
 let _hmData = null;      // 快取住的股票資料（含市值/成交額/漲跌%/產業）
 let _hmSortKey = 'cap';  // 'cap'=市值 或 'val'=成交額
 
+let _hmPriceDate = null; // 證交所收盤檔的真實日期（STOCK_DAY_ALL 每天夜裡才更新，盤中/盤後拿到的是前一交易日）
+
 async function fetchHeatmapData() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = _twTodayStr();
   try {
     const cached = JSON.parse(localStorage.getItem(HEATMAP_CACHE_KEY) || 'null');
-    if (cached && cached.date === todayStr && Array.isArray(cached.list) && cached.list.length >= 40) {
+    // priceDate 是後來新增的欄位；舊快取沒有（不知道漲跌是哪天的）→ 略過重算
+    if (cached && cached.date === todayStr && cached.priceDate && Array.isArray(cached.list) && cached.list.length >= 40) {
+      _hmPriceDate = cached.priceDate;
       return cached.list;
     }
   } catch (e) {}
@@ -59156,6 +59177,7 @@ async function fetchHeatmapData() {
     _twseCorsFetch('/v1/opendata/t187ap03_L'),
     _twseCorsFetch('/v1/exchangeReport/STOCK_DAY_ALL'),
   ]);
+  _hmPriceDate = _twseRocToIso(priceRaw.find(r => r.Date)?.Date) || null;
 
   const priceMap = {};
   priceRaw.forEach(r => {
@@ -59188,8 +59210,37 @@ async function fetchHeatmapData() {
   list.sort((a, b) => b.marketCap - a.marketCap);
   const top = list.slice(0, 50); // 市值前50大，跟系統其他地方口徑一致
 
-  localStorage.setItem(HEATMAP_CACHE_KEY, JSON.stringify({ date: todayStr, list: top, computedAt: new Date().toISOString() }));
+  // 抓不到資料日期就不寫快取（下次重算），避免把「不知道是哪天」的漲跌鎖一整天
+  if (_hmPriceDate) {
+    localStorage.setItem(HEATMAP_CACHE_KEY, JSON.stringify({ date: todayStr, priceDate: _hmPriceDate, list: top, computedAt: new Date().toISOString() }));
+  }
   return top;
+}
+
+// 熱力圖顏色（漲跌幅）校正：證交所收盤檔可能落後一個交易日，黑天鵝日整張圖顏色會是反的。
+// 用各股近30日價格（FinMind，跟入指出指面板共用 _miniChartCache，不重複打API）取最新收盤重算；
+// 沒有更新的收盤就維持證交所數字。回傳實際採用最多檔的「漲跌基準日」。
+async function _hmApplyLatestChange(list) {
+  const CONCURRENCY = 4;
+  let i = 0;
+  const basis = {};
+  async function worker() {
+    while (i < list.length) {
+      const it = list[i++];
+      try {
+        const end = new Date();
+        const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const rows = _miniChartCache[it.id] || await fetchFM('TaiwanStockPrice', it.id, start, end);
+        _miniChartCache[it.id] = rows;
+        const r = _latestChangeFromRows(rows, _hmPriceDate);
+        if (!r) continue;
+        if (r.fresh) { it.changePct = r.changePct; it.changeNote = r.note; }
+        basis[r.date] = (basis[r.date] || 0) + 1;
+      } catch (e) { /* 單檔失敗就沿用證交所數字，不影響其他格子 */ }
+    }
+  }
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+  return Object.entries(basis).sort((a, b) => b[1] - a[1])[0]?.[0] || _hmPriceDate;
 }
 
 // ── v7.60 修正：改用正規的squarified treemap演算法（Bruls/Huizing/van Wijk）──
@@ -59331,7 +59382,7 @@ function renderHeatmapTiles(list, targetId, forcedWidth) {
         // 資料本身有股名（證交所API的公司簡稱），不是抓不到，純粹是顯示規則的選擇。
         inner = `<div style="font-size:${Math.max(6, Math.min(9, r.w/4))}px;font-weight:700;color:var(--fg);line-height:1.1;white-space:nowrap;overflow:hidden;">${r.name}</div>`;
       }
-      html += `<div onclick="quickSearch && quickSearch('${r.id}')" title="${r.name}(${r.id}) ${changeStr}"
+      html += `<div onclick="quickSearch && quickSearch('${r.id}')" title="${r.name}(${r.id}) ${changeStr}${r.changeNote ? '｜' + r.changeNote : ''}"
         style="position:absolute;left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px;
         background:${_hmColor(r.changePct)};border:1px solid var(--bg2);box-sizing:border-box;cursor:pointer;
         display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transition:filter .15s;"
@@ -59389,8 +59440,16 @@ async function loadHeatmap() {
   body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">⏳ 抓取市值前50大即時資料中…</div>';
   try {
     _hmData = await fetchHeatmapData();
+    body.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem;">⏳ 校正各股最新收盤漲跌中…</div>';
+    const basisDate = await _hmApplyLatestChange(_hmData);
     renderHeatmapTiles(_hmData);
-    if (updatedEl) updatedEl.textContent = `資料日期：${new Date().toISOString().slice(0,10)}（市值前50大）`;
+    if (updatedEl) {
+      const isToday = basisDate === _twTodayStr();
+      updatedEl.textContent = `資料日期：${_twTodayStr()}（市值前50大）　📅 ` + (!basisDate ? '漲跌基準日不明'
+        : isToday ? `顏色＝今日（${basisDate.slice(5)}）收盤漲跌`
+        : `顏色＝${basisDate.slice(5)} 收盤漲跌（最新已公布的交易日，今日收盤資料尚未公布）`);
+      updatedEl.style.color = (basisDate && !isToday) ? '#d97706' : '';
+    }
   } catch (e) {
     body.innerHTML = `<div style="text-align:center;padding:20px;color:#DC2626;font-size:0.8rem;">抓取失敗：${e.message}</div>`;
     console.warn('[熱力圖]', e);
@@ -60744,7 +60803,19 @@ const BT_CALC_MAP = {
   launch:       calcLaunchScore,
   markup:       calcMarkupScore,
   distribution: calcDistributionScore,
+  squeeze:      calcSqueezeScoreBT,
 };
+
+// 軋空體質的回測包裝：它吃的是融資融券資料(不是法人/價格)，由引擎額外抓好放進 extra.margin，
+// 這裡切出「訊號日當天往前20個日曆天」那一段（跟即時掃描的視窗一致）再餵給計分函式。
+function calcSqueezeScoreBT(stockId, instSlice, priceSlice, extra) {
+  const sigDate = priceSlice.at(-1)?.date;
+  if (!sigDate) return { score: 0 };
+  const from = new Date(sigDate); from.setDate(from.getDate() - 20);
+  const fromStr = from.toISOString().slice(0, 10);
+  const rows = (extra?.margin || []).filter(r => r.date <= sigDate && r.date >= fromStr);
+  return _calcSqueezeFromRows(stockId, rows);
+}
 
 // 結果表用的模式名稱（短版）；每個能回測的模式都要有，否則表格會直接露出英文代碼
 const BT_MODE_NAMES = {
@@ -60758,6 +60829,7 @@ const BT_MODE_NAMES = {
   launch:       '🚀 啟動期',
   markup:       '📈 拉升期',
   distribution: '⚠️ 出貨期（看跌）',
+  squeeze:      '⚡ 軋空體質',
 };
 
 // 看跌（預警下跌）的模式：命中＝後續「下跌」≥1.5%，上漲≥1.5%算失敗。
@@ -60771,7 +60843,6 @@ const BT_UNSUPPORTED_MODES = {
   broker:  '券商分點資料只存最近幾天，歷史長度不夠回測',
   whale:   '千張大戶是每週公布一次的持股比例，跟回測逐日滾動的窗口對不上，目前未支援',
   etfFlow: '主動式ETF買賣超只有「最新一份」快照，沒有歷史每日資料',
-  squeeze: '融資融券要另外取歷史資料，目前未支援',
 };
 
 
@@ -60859,13 +60930,16 @@ async function runBacktest() {
 
     try {
       // v6.20f：籌碼改用 fetchInstFM（固定90天），與主分析共用cache；價格維持原動態天數
-      const [r1, r2] = await Promise.allSettled([
+      const _needMargin = modesToRun.includes('squeeze'); // 只有軋空體質需要融資融券歷史
+      const [r1, r2, r3] = await Promise.allSettled([
         fetchInstFM(sid),                                            // ← 固定90天，命中cache
-        fetchFM('TaiwanStockPrice', sid, startDate, endDate)
+        fetchFM('TaiwanStockPrice', sid, startDate, endDate),
+        _needMargin ? fetchFM('TaiwanStockMarginPurchaseShortSale', sid, startDate, endDate) : Promise.resolve([]),
       ]);
 
       let instRaw  = r1.status === 'fulfilled' ? r1.value : [];
       let priceRaw = r2.status === 'fulfilled' ? r2.value : [];
+      const extra  = { margin: r3.status === 'fulfilled' ? (r3.value || []) : [] }; // 給需要額外資料的計分函式（第4個參數）
 
       // ── 資料不足時，嘗試用 genSim 補足（含真實比例縮放的65根K線）──
       if (priceRaw.length < 26) {
@@ -60903,7 +60977,7 @@ async function runBacktest() {
           const iSlice = instRaw.filter(d => d.date <= signalDate);
 
           // 計算評分
-          const res = calcFn(sid, iSlice, pSlice);
+          const res = calcFn(sid, iSlice, pSlice, extra);
           if (res.score < threshold) continue;
 
           // 計算持有 holdDays 日後的報酬率
@@ -61433,12 +61507,12 @@ async function calcWhaleIncreaseScore(stockId) {
 //  的確認訊號——那個要等接下來幾天的分點/三大法人資料才能確認，
 //  screener 一次性掃描抓不到「連續發生」這件事。
 // ═══════════════════════════════════════════════════════════════
-async function calcSqueezeScore(stockId) {
+// v9.x：把「取資料」跟「計分」拆開——計分只看融資融券逐日資料(raw)，是純函式，
+// 回測引擎(BT_CALC_MAP.squeeze)可以對每個訊號日切一段歷史資料餵進來重算；
+// 即時海選(calcSqueezeScore)行為不變，仍是抓近20天再呼叫同一個計分函式。
+function _calcSqueezeFromRows(stockId, raw) {
   const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _skip:true };
   try {
-    const end = new Date();
-    const start = new Date(); start.setDate(end.getDate() - 20);
-    const raw = await fetchFM('TaiwanStockMarginPurchaseShortSale', stockId, start, end);
     if (!raw || raw.length < 4) return EMPTY;
 
     const rows = [...raw].sort((a,b) => a.date.localeCompare(b.date));
@@ -61484,6 +61558,19 @@ async function calcSqueezeScore(stockId) {
       lc:0, chgPct:0, fCons:0, tCons:0,
       _squeezeRatio: latest.ratio, _marginNet3: marginNet3, _shortNet3: shortNet3,
     };
+  } catch(e) {
+    console.warn('[軋空體質 screener]', stockId, e.message);
+    return EMPTY;
+  }
+}
+
+async function calcSqueezeScore(stockId) {
+  const EMPTY = { stockId, score:0, checks:[], lc:0, chgPct:0, fCons:0, tCons:0, _skip:true };
+  try {
+    const end = new Date();
+    const start = new Date(); start.setDate(end.getDate() - 20);
+    const raw = await fetchFM('TaiwanStockMarginPurchaseShortSale', stockId, start, end);
+    return _calcSqueezeFromRows(stockId, raw);
   } catch(e) {
     console.warn('[軋空體質 screener]', stockId, e.message);
     return EMPTY;
