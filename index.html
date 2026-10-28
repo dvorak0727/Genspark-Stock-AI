@@ -16182,11 +16182,12 @@ a.module-nav-item.acc-active {
           <option value="launch">🚀 籌碼週期階段 — 啟動期</option>
           <option value="markup">📈 籌碼週期階段 — 拉升期</option>
           <option value="distribution">⚠️ 籌碼週期階段 — 出貨期</option>
-          <option value="obi">📡 外盤強勢掃描</option>
-          <option value="broker">🏦 券商囤貨掃描（需付費Token）</option>
-          <option value="whale">🐋 千張大戶籌碼集中掃描（需付費Token）</option>
-          <option value="etfFlow">📡 主動式ETF買賣超掃描（需付費Token）</option>
-          <option value="squeeze">⚡ 軋空體質掃描（需付費Token）</option>
+          <!-- 以下5種海選有、但目前無法歷史回測（原因見 BT_UNSUPPORTED_MODES）：先停用，避免選了卻跑出空表 -->
+          <option value="obi" disabled title="外盤強勢靠盤中即時內外盤資料，沒有可回放的歷史資料">📡 外盤強勢掃描（目前無法回測）</option>
+          <option value="broker" disabled title="券商分點資料只存最近幾天，歷史長度不夠回測">🏦 券商囤貨掃描（目前無法回測）</option>
+          <option value="whale" disabled title="千張大戶是每週公布一次的持股比例，跟回測逐日滾動的窗口對不上，目前未支援">🐋 千張大戶籌碼集中掃描（目前無法回測）</option>
+          <option value="etfFlow" disabled title="主動式ETF買賣超只有最新一份快照，沒有歷史每日資料">📡 主動式ETF買賣超掃描（目前無法回測）</option>
+          <option value="squeeze" disabled title="融資融券要另外取歷史資料，目前未支援">⚡ 軋空體質掃描（目前無法回測）</option>
         </select>
       </div>
       <div class="bt-config-group">
@@ -60728,14 +60729,49 @@ function btPreset(type) {
 }
 
 // ── 計分函數路由表（單一模式） ──
+// 順序＝「偵測模式」下拉選單的順序（全模式比較的結果表也照這個順序列），
+// 這裡的 key 必須跟 #btMode 的 option value 一一對應；新增模式要同時改下拉選單、
+// BT_MODE_NAMES，若該模式不能回測則改放 BT_UNSUPPORTED_MODES（不可兩邊都漏掉）。
+// 這些計分函式都是 (股票, 法人資料切片, 價格資料切片) 的純函式，才能放進滾動視窗回測。
 const BT_CALC_MAP = {
-  bottom:    calcBottomScore,
-  absorb:    calcAbsorbScore,
-  washout:   calcWashoutScore,
-  prelaunch: calcSecretAccumScore,
-  launch:    calcLaunchScore,
-  markup:    calcMarkupScore,
-  chippure:  calcChipPurifyScore,
+  bottom:       calcBottomScore,
+  chippure:     calcChipPurifyScore,
+  macdmatrix:   calcMacdMatrixScore,
+  bandwalk:     calcBandWalkScore,
+  absorb:       calcAbsorbScore,
+  washout:      calcWashoutScore,
+  prelaunch:    calcSecretAccumScore,
+  launch:       calcLaunchScore,
+  markup:       calcMarkupScore,
+  distribution: calcDistributionScore,
+};
+
+// 結果表用的模式名稱（短版）；每個能回測的模式都要有，否則表格會直接露出英文代碼
+const BT_MODE_NAMES = {
+  bottom:       '🔻 底部探測',
+  chippure:     '📉 資減人走',
+  macdmatrix:   '📊 MACD多方結構',
+  bandwalk:     '🏇 騎帶上行',
+  absorb:       '🧲 吸籌期',
+  washout:      '🌀 洗盤期',
+  prelaunch:    '🔍 秘密佈局',
+  launch:       '🚀 啟動期',
+  markup:       '📈 拉升期',
+  distribution: '⚠️ 出貨期（看跌）',
+};
+
+// 看跌（預警下跌）的模式：命中＝後續「下跌」≥1.5%，上漲≥1.5%算失敗。
+// 其他模式都是看漲，沿用「上漲≥1.5%算勝」。若不反過來，出貨期這種預警越準勝率反而越低（會顯示成接近0%）。
+const BT_BEARISH_MODES = { distribution: true };
+
+// 海選有、但目前無法做歷史回測的模式（下拉選單裡會標「目前無法回測」並停用），
+// 原因寫清楚，不再靜默跳過、讓使用者以為跑了卻全是「—」。
+const BT_UNSUPPORTED_MODES = {
+  obi:     '外盤強勢靠盤中即時內外盤資料，沒有可回放的歷史資料',
+  broker:  '券商分點資料只存最近幾天，歷史長度不夠回測',
+  whale:   '千張大戶是每週公布一次的持股比例，跟回測逐日滾動的窗口對不上，目前未支援',
+  etfFlow: '主動式ETF買賣超只有「最新一份」快照，沒有歷史每日資料',
+  squeeze: '融資融券要另外取歷史資料，目前未支援',
 };
 
 
@@ -60755,6 +60791,15 @@ async function runBacktest() {
   const threshold = parseFloat(document.getElementById('btThreshold').value);
   const pool      = SCREENER_POOLS[poolKey];
   let ids         = pool.ids;
+
+  // 選到無法回測的模式（或引擎沒有對應計分函式）時要明說，不能靜默跑出全是「—」的空表
+  if (modeKey !== 'all' && !BT_CALC_MAP[modeKey]) {
+    const why = BT_UNSUPPORTED_MODES[modeKey] || '回測引擎沒有這個模式的計分函式';
+    document.getElementById('btProgressWrap').style.display = '';
+    document.getElementById('btProgressFill').style.width   = '0%';
+    document.getElementById('btProgressText').textContent   = `⚠️ 這個模式目前無法回測：${why}`;
+    return;
+  }
 
   _btRunning = true;
   _btStop    = false;
@@ -60867,8 +60912,10 @@ async function runBacktest() {
           if (!entryClose || entryClose == 0) continue;
 
           const ret = (+exitClose - +entryClose) / +entryClose * 100;
-          const isWin  = ret >= 1.5;
-          const isLoss = ret < -1.5;
+          // 看跌模式（出貨期）反過來算：下跌≥1.5%＝命中；其餘模式上漲≥1.5%＝勝
+          const bearish = !!BT_BEARISH_MODES[mKey];
+          const isWin  = bearish ? ret <= -1.5 : ret >= 1.5;
+          const isLoss = bearish ? ret > 1.5   : ret < -1.5;
 
           const signal = {
             sid,
@@ -60918,12 +60965,8 @@ function renderBacktestResult(btResults, selectedMode, holdDays, threshold) {
   const summaryEl = document.getElementById('btSummarySection');
   const detailEl  = document.getElementById('btDetailSection');
 
-  const modeNames = {
-    bottom:    '🔻 底部探測',
-    absorb:    '🧲 吸籌期',   washout:   '🌀 洗盤期',
-    prelaunch: '🔍 秘密佈局',
-    chippure:  '📉 資減人走',
-  };
+  // 名稱統一用 BT_MODE_NAMES（原本這裡只有5個，launch/markup 會直接露出英文代碼）
+  const modeNames = BT_MODE_NAMES;
 
   // ── 全模式概覽表 ──
   const modes = Object.keys(btResults);
@@ -60989,7 +61032,11 @@ function renderBacktestResult(btResults, selectedMode, holdDays, threshold) {
         </tr>
       </thead>
       <tbody>${summaryRows}</tbody>
-    </table>`;
+    </table>
+    ${modes.some(m => BT_BEARISH_MODES[m]) ? `
+    <div style="margin-top:6px;font-size:0.62rem;color:rgba(255,255,255,0.45);line-height:1.6;">
+      ※「看跌」模式（出貨期）是預警下跌：後續下跌≥1.5%算命中（勝）、上漲≥1.5%算失敗；平均報酬仍是實際漲跌，負值代表預警有效。
+    </div>` : ''}`;
 
   // ── 詳細訊號列表（只顯示選中模式，或全模式時顯示所有） ──
   const detailModes = selectedMode === 'all' ? modes : [selectedMode];
@@ -60999,11 +61046,13 @@ function renderBacktestResult(btResults, selectedMode, holdDays, threshold) {
     const sigs = btResults[m].signals;
     if (sigs.length === 0) continue;
 
-    // 依報酬率降序
-    const sorted = [...sigs].sort((a,b) => b.ret - a.ret);
+    // 依報酬率降序；看跌模式（出貨期）「跌最多」才是最準，所以改升序
+    const _bearM = !!BT_BEARISH_MODES[m];
+    const sorted = [...sigs].sort((a,b) => _bearM ? a.ret - b.ret : b.ret - a.ret);
     const cards  = sorted.slice(0, 30).map(s => {
       const cls = s.win ? 'win' : s.loss ? 'loss' : 'flat';
-      const badgeText = s.win ? `+${s.ret}% ✅` : s.loss ? `${s.ret}% ❌` : `${s.ret}% ⏳`;
+      const _sgn = s.ret > 0 ? '+' : '';  // 看跌命中時報酬是負的，不能再硬加「+」
+      const badgeText = s.win ? `${_sgn}${s.ret}% ✅` : s.loss ? `${_sgn}${s.ret}% ❌` : `${_sgn}${s.ret}% ⏳`;
       return `
         <div class="bt-signal-card ${cls}">
           <div class="bt-sc-top">
@@ -61024,7 +61073,7 @@ function renderBacktestResult(btResults, selectedMode, holdDays, threshold) {
       <div class="bt-detail-title">
         ${modeNames[m] || m} 訊號明細
         <span style="font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:400;">
-          共${sigs.length}筆，顯示前30筆（依報酬降序）
+          共${sigs.length}筆，顯示前30筆（${_bearM ? '依報酬升序，跌最多在前' : '依報酬降序'}）
         </span>
       </div>
       <div class="bt-signal-grid">${cards || '<div class="bt-no-signal">無符合訊號</div>'}</div>`;
