@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-10-30T02:30:47Z",
+  "generated_at": "2026-11-02T02:19:10Z",
   "copper": {
-    "price": 6.5625,
-    "prev_close": 6.580999851226807,
-    "change_pct": -0.2811,
-    "date": "2026-10-30"
+    "price": 6.501,
+    "prev_close": 6.458499908447266,
+    "change_pct": 0.658,
+    "date": "2026-11-02"
   }
 }
