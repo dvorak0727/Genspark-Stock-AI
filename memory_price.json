@@ -1,47 +1,47 @@
 {
-  "generated_at": "2026-10-30T13:52:18Z",
+  "generated_at": "2026-11-02T16:51:04Z",
   "dram": {
-    "last_update": "2026-10-30 18:10 (GMT+8)",
+    "last_update": "2026-11-02 18:10 (GMT+8)",
     "items": [
       {
         "name": "DDR5 16Gb (2Gx8) 4800/5600",
         "vendors": "SK Hynix、Samsung",
         "session_avg": 61.5,
-        "change_pct": 0.27,
-        "trend": "rise"
+        "change_pct": 0.0,
+        "trend": "flat"
       },
       {
         "name": "DDR5 16Gb (2Gx8) eTT",
         "vendors": "Samsung",
-        "session_avg": 29.8,
-        "change_pct": 0.34,
+        "session_avg": 30.0,
+        "change_pct": 0.67,
         "trend": "rise"
       },
       {
         "name": "DDR4 16Gb (2Gx8) 3200",
         "vendors": "Samsung、SK Hynix、Micron",
-        "session_avg": 82.796,
-        "change_pct": -0.15,
+        "session_avg": 82.719,
+        "change_pct": -0.09,
         "trend": "fall"
       },
       {
         "name": "DDR4 16Gb (2Gx8) eTT",
         "vendors": "SK Hynix、Samsung、Spectek",
-        "session_avg": 13.7,
-        "change_pct": -0.36,
+        "session_avg": 13.675,
+        "change_pct": -0.18,
         "trend": "fall"
       },
       {
         "name": "DDR4 8Gb (1Gx8) 3200",
         "vendors": "Samsung、SK Hynix、Micron",
-        "session_avg": 46.864,
-        "change_pct": 0.0,
-        "trend": "flat"
+        "session_avg": 46.821,
+        "change_pct": -0.09,
+        "trend": "fall"
       },
       {
         "name": "DDR4 8Gb (1Gx8) eTT",
         "vendors": "SK Hynix、Spectek、Samsung、CXMT",
-        "session_avg": 5.96,
+        "session_avg": 5.95,
         "change_pct": -0.17,
         "trend": "fall"
       },
@@ -49,40 +49,40 @@
         "name": "DDR3 4Gb 512Mx8 1600/1866",
         "vendors": "SK Hynix, Micron, Samsung, Nanya",
         "session_avg": 14.078,
-        "change_pct": 0.51,
-        "trend": "rise"
+        "change_pct": 0.0,
+        "trend": "flat"
       }
     ]
   },
   "nand": {
-    "last_update": "2026-10-19 14:40 (GMT+8)",
+    "last_update": "2026-10-26 14:40 (GMT+8)",
     "items": [
       {
         "name": "SLC 2Gb 256MBx8",
         "vendors": "Samsung,SK Hynix, Micron ,Kioxia",
-        "session_avg": 4.383,
-        "change_pct": -0.68,
-        "trend": "fall"
+        "session_avg": 4.408,
+        "change_pct": 0.57,
+        "trend": "rise"
       },
       {
         "name": "SLC 1Gb 128MBx8",
         "vendors": "Samsung,SK Hynix, Micron ,Kioxia",
-        "session_avg": 3.32,
-        "change_pct": -1.28,
+        "session_avg": 3.303,
+        "change_pct": -0.51,
         "trend": "fall"
       },
       {
         "name": "MLC 64Gb 8GBx8",
         "vendors": "Micron ,Kioxia",
-        "session_avg": 42.726,
-        "change_pct": 0.92,
+        "session_avg": 43.413,
+        "change_pct": 1.61,
         "trend": "rise"
       },
       {
         "name": "MLC 32Gb 4GBx8",
         "vendors": "Micron",
-        "session_avg": 19.933,
-        "change_pct": 0.5,
+        "session_avg": 20.267,
+        "change_pct": 1.68,
         "trend": "rise"
       }
     ]
