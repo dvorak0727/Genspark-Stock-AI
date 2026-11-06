@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-05T03:28:06Z",
+  "generated_at": "2026-11-06T03:23:55Z",
   "iron_ore": {
-    "price": 91.95,
-    "prev_close": 91.03,
-    "change_pct": 1.0107,
-    "date": "2026-11-04"
+    "price": 93.12,
+    "prev_close": 91.95,
+    "change_pct": 1.2724,
+    "date": "2026-11-05"
   }
 }
