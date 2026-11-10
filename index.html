@@ -35867,6 +35867,13 @@ function srSwitchView(mode) {
 
 // v7.98：全板塊法人持股變化率與資金配置總表——重用srFetchSectorData()已經算好
 // 的真實資料（基期漲幅/外資投信買賣超/成交金額），不用再另外抓一次。
+// 點「指標吸金個股」→ 載入該股完整分析，完成後自動捲到個股標題區（quickSearch 只會載入、不會捲動，
+// 使用者還停在板塊表格上會以為沒反應）
+function srOpenStock(code) {
+  if (!code) return;
+  quickSearchScroll(code, 'stockHero');
+}
+
 function renderSectorSummaryTable(sectorData) {
   const tbody = document.getElementById('srTableBody');
   if (!tbody) return;
@@ -35923,7 +35930,7 @@ function renderSectorSummaryTable(sectorData) {
       <td style="padding:6px 8px;text-align:right;color:#7C3AED;">${trustYi>=0?'+':''}${trustYi.toFixed(1)} 億</td>
       <td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669;">${d.instTotalYi!=null ? ((d.instTotalYi>=0?'+':'')+d.instTotalYi.toFixed(1)+' 億') : '—'}</td>
       <td style="padding:6px 8px;text-align:center;"><span style="padding:2px 8px;border-radius:99px;font-size:.6rem;font-weight:700;background:${badge.bg};color:${badge.fg};">${badge.txt}</span></td>
-      <td style="padding:6px 8px;">${top ? (top.name + '（' + top.code + '）') : '—'}</td>
+      <td style="padding:6px 8px;">${top ? `<span class="sr-top-stock" role="link" tabindex="0" onclick="srOpenStock('${top.code}')" onkeydown="if(event.key==='Enter')srOpenStock('${top.code}')" title="點擊查看 ${top.name}（${top.code}）完整分析" style="cursor:pointer;color:var(--accent);font-weight:700;text-decoration:underline;white-space:nowrap;">${top.name}（${top.code}）</span>` : '—'}</td>
       <td style="padding:6px 8px;text-align:center;"><button type="button" onclick="srOpenPopup('${sec.id}')" style="font-size:.6rem;padding:3px 10px;border-radius:8px;border:none;background:#6366F1;color:#fff;font-weight:700;cursor:pointer;">聚焦細節</button></td>
     </tr>`;
   }).join('');
@@ -84106,7 +84113,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { cbClose();
      不要手動改；hook 靠下面那一行「APP_BUILD 常數宣告」的固定寫法來找位置，改動或刪掉它會讓提示失效。 -->
 <script>
 (function () {
-  const APP_BUILD = '20261028121012';
+  const APP_BUILD = '20261110131911';
   try { if (new URLSearchParams(location.search).get('phoneframe') === '1') return; } catch (e) {} // 手機預覽框裡的內層頁面不再重複提示
   const CHECK_EVERY = 30 * 60 * 1000, MIN_GAP = 2 * 60 * 1000;
   let lastCheck = 0;
