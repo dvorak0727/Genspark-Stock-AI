@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-11-09T02:19:39Z",
+  "generated_at": "2026-11-10T04:28:15Z",
   "wti": {
-    "price": 90.77,
-    "prev_close": 90.83000183105469,
-    "change_pct": -0.0661,
-    "date": "2026-11-09"
+    "price": 85.92,
+    "prev_close": 86.8499984741211,
+    "change_pct": -1.0708,
+    "date": "2026-11-10"
   },
   "brent": {
-    "price": 97.74,
-    "prev_close": 98.31999969482422,
-    "change_pct": -0.5899,
-    "date": "2026-11-09"
+    "price": 91.74,
+    "prev_close": 92.56999969482422,
+    "change_pct": -0.8966,
+    "date": "2026-11-10"
   }
 }
