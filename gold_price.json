@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-11-09T02:36:56Z",
+  "generated_at": "2026-11-10T04:35:44Z",
   "gold": {
-    "price": 4136.5,
-    "prev_close": 4074.89990234375,
-    "change_pct": 1.5117,
-    "date": "2026-11-09"
+    "price": 4123.0,
+    "prev_close": 4114.5,
+    "change_pct": 0.2066,
+    "date": "2026-11-10"
   },
   "us10y": {
-    "rate": 4.859,
-    "prev_rate": 4.836999893188477,
-    "change_pct": 0.4548,
-    "date": "2026-11-06"
+    "rate": 4.864,
+    "prev_rate": 4.859000205993652,
+    "change_pct": 0.1029,
+    "date": "2026-11-09"
   }
 }
