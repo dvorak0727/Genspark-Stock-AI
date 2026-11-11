@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-10T04:38:50Z",
+  "generated_at": "2026-11-11T02:50:05Z",
   "robo_etf": {
-    "price": 73.2,
-    "prev_close": 70.06999969482422,
-    "change_pct": 4.467,
-    "date": "2026-11-09"
+    "price": 72.59,
+    "prev_close": 73.19999694824219,
+    "change_pct": -0.8333,
+    "date": "2026-11-10"
   }
 }
