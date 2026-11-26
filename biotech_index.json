@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-25T05:11:32Z",
+  "generated_at": "2026-11-26T04:38:19Z",
   "nbi": {
-    "price": 7439.26,
-    "prev_close": 7062.5,
-    "change_pct": 5.3347,
-    "date": "2026-11-24"
+    "price": 7400.303,
+    "prev_close": 7439.259765625,
+    "change_pct": -0.5237,
+    "date": "2026-11-25"
   }
 }
